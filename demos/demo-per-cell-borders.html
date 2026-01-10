@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CellAnimator - Per-Cell Border Control</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: Arial, sans-serif;
+            background: #1a1a1a;
+            color: #fff;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+        }
+
+        h1 {
+            text-align: center;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            font-size: 2em;
+        }
+
+        #grid-container {
+            flex: 1;
+            position: relative;
+        }
+
+        .controls {
+            background: #2a2a2a;
+            padding: 20px;
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+
+        button {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+            transition: all 0.3s;
+        }
+
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 12px rgba(102, 126, 234, 0.4);
+        }
+
+        button.active {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+        }
+
+        .info {
+            background: #2a2a2a;
+            padding: 15px;
+            text-align: center;
+            font-size: 14px;
+            color: #aaa;
+        }
+
+        .info strong {
+            color: #00ffff;
+        }
+    </style>
+</head>
+<body>
+    <h1>🎨 Per-Cell Border Control</h1>
+    
+    <div id="grid-container"></div>
+
+    <div class="controls">
+        <button onclick="highlightDiagonal()">🔶 Highlight Diagonal (Orange Borders)</button>
+        <button onclick="highlightBorder()">🟦 Highlight Border (Blue Borders)</button>
+        <button onclick="checkerboardBorders()">♟️ Checkerboard Borders</button>
+        <button onclick="randomBorders()">🎲 Random Border Colors</button>
+        <button onclick="noBordersCenter()">⬜ No Borders (Center Square)</button>
+        <button onclick="thickBordersCorners()">🔲 Thick Borders (Corners)</button>
+        <button onclick="resetBorders()">↩️ Reset All Borders</button>
+    </div>
+
+    <div class="info">
+        <strong>Click any cell</strong> to toggle its border on/off • 
+        <strong>Grid default:</strong> 1px transparent borders (gutters) • 
+        <strong>Per-cell overrides</strong> demonstrate cascade behavior
+    </div>
+
+    <!-- Load Renderer Classes -->
+    <script src="src/renderers/BaseRenderer.js"></script>
+    <script src="src/renderers/HTMLRenderer.js"></script>
+    <script src="src/renderers/CanvasRenderer.js"></script>
+    <script src="src/CellAnimator.js"></script>
+
+    <script>
+        let animator;
+        const cellBorderState = new Map(); // Track which cells have custom borders
+
+        async function init() {
+            animator = new CellAnimator({
+                width: '100%',
+                height: '100%',
+                cellWidth: 25,
+                cellHeight: 25,
+                container: document.getElementById('grid-container'),
+                renderMode: 'canvas',
+                cellBorders: true,      // Global default: borders enabled
+                borderColor: 'transparent', // Global default: transparent (gutters)
+                borderWidth: 1          // Global default: 1px
+            });
+
+            await animator.init();
+
+            // Add click handler for interactive border toggling
+            animator.on('cellClick', (data) => {
+                const key = `${data.x}-${data.y}`;
+                const currentState = cellBorderState.get(key);
+                
+                if (currentState === false) {
+                    // Turn borders back on with random color
+                    const colors = ['#ff0000', '#00ff00', '#0000ff', '#ffff00', '#ff00ff', '#00ffff'];
+                    const color = colors[Math.floor(Math.random() * colors.length)];
+                    animator.updateCell(data.x, data.y, {
+                        cellBorders: true,
+                        borderColor: color,
+                        borderWidth: 2
+                    });
+                    cellBorderState.set(key, true);
+                } else {
+                    // Turn borders off
+                    animator.updateCell(data.x, data.y, {
+                        cellBorders: false
+                    });
+                    cellBorderState.set(key, false);
+                }
+            });
+
+            console.log('Grid initialized! Click cells to toggle borders.');
+        }
+
+        function highlightDiagonal() {
+            const info = animator.getGridInfo();
+            const maxDiagonal = Math.min(info.columns, info.rows);
+
+            for (let i = 0; i < maxDiagonal; i++) {
+                animator.updateCell(i, i, {
+                    cellBorders: true,
+                    borderColor: '#ff6b35',
+                    borderWidth: 3
+                });
+            }
+        }
+
+        function highlightBorder() {
+            const info = animator.getGridInfo();
+
+            // Top and bottom
+            for (let x = 0; x < info.columns; x++) {
+                animator.updateCell(x, 0, {
+                    cellBorders: true,
+                    borderColor: '#4a90e2',
+                    borderWidth: 2
+                });
+                animator.updateCell(x, info.rows - 1, {
+                    cellBorders: true,
+                    borderColor: '#4a90e2',
+                    borderWidth: 2
+                });
+            }
+
+            // Left and right
+            for (let y = 1; y < info.rows - 1; y++) {
+                animator.updateCell(0, y, {
+                    cellBorders: true,
+                    borderColor: '#4a90e2',
+                    borderWidth: 2
+                });
+                animator.updateCell(info.columns - 1, y, {
+                    cellBorders: true,
+                    borderColor: '#4a90e2',
+                    borderWidth: 2
+                });
+            }
+        }
+
+        function checkerboardBorders() {
+            const info = animator.getGridInfo();
+
+            for (let y = 0; y < info.rows; y++) {
+                for (let x = 0; x < info.columns; x++) {
+                    const isEven = (x + y) % 2 === 0;
+                    animator.updateCell(x, y, {
+                        cellBorders: true,
+                        borderColor: isEven ? '#ff00ff' : '#00ffff',
+                        borderWidth: 1
+                    });
+                }
+            }
+        }
+
+        function randomBorders() {
+            const info = animator.getGridInfo();
+            const colors = ['#ff0000', '#00ff00', '#0000ff', '#ffff00', '#ff00ff', '#00ffff', '#ff6b35', '#4a90e2'];
+            const widths = [1, 2, 3];
+
+            for (let y = 0; y < info.rows; y++) {
+                for (let x = 0; x < info.columns; x++) {
+                    if (Math.random() > 0.7) { // 30% of cells get custom borders
+                        animator.updateCell(x, y, {
+                            cellBorders: true,
+                            borderColor: colors[Math.floor(Math.random() * colors.length)],
+                            borderWidth: widths[Math.floor(Math.random() * widths.length)]
+                        });
+                    }
+                }
+            }
+        }
+
+        function noBordersCenter() {
+            const info = animator.getGridInfo();
+            const centerX = Math.floor(info.columns / 2);
+            const centerY = Math.floor(info.rows / 2);
+            const size = 10; // 10x10 square
+
+            for (let y = centerY - size/2; y < centerY + size/2; y++) {
+                for (let x = centerX - size/2; x < centerX + size/2; x++) {
+                    if (x >= 0 && x < info.columns && y >= 0 && y < info.rows) {
+                        animator.updateCell(x, y, {
+                            cellBorders: false, // Override: no borders
+                            background: '#667eea' // Color the cells so we can see them
+                        });
+                    }
+                }
+            }
+        }
+
+        function thickBordersCorners() {
+            const info = animator.getGridInfo();
+            const size = 5;
+
+            // Top-left corner
+            for (let y = 0; y < size; y++) {
+                for (let x = 0; x < size; x++) {
+                    animator.updateCell(x, y, {
+                        cellBorders: true,
+                        borderColor: '#ff0000',
+                        borderWidth: 4
+                    });
+                }
+            }
+
+            // Top-right corner
+            for (let y = 0; y < size; y++) {
+                for (let x = info.columns - size; x < info.columns; x++) {
+                    animator.updateCell(x, y, {
+                        cellBorders: true,
+                        borderColor: '#00ff00',
+                        borderWidth: 4
+                    });
+                }
+            }
+
+            // Bottom-left corner
+            for (let y = info.rows - size; y < info.rows; y++) {
+                for (let x = 0; x < size; x++) {
+                    animator.updateCell(x, y, {
+                        cellBorders: true,
+                        borderColor: '#0000ff',
+                        borderWidth: 4
+                    });
+                }
+            }
+
+            // Bottom-right corner
+            for (let y = info.rows - size; y < info.rows; y++) {
+                for (let x = info.columns - size; x < info.columns; x++) {
+                    animator.updateCell(x, y, {
+                        cellBorders: true,
+                        borderColor: '#ffff00',
+                        borderWidth: 4
+                    });
+                }
+            }
+        }
+
+        function resetBorders() {
+            const info = animator.getGridInfo();
+            cellBorderState.clear();
+
+            // Reset to global defaults (transparent 1px gutters)
+            for (let y = 0; y < info.rows; y++) {
+                for (let x = 0; x < info.columns; x++) {
+                    animator.updateCell(x, y, {
+                        cellBorders: true,
+                        borderColor: 'transparent',
+                        borderWidth: 1,
+                        background: '#2a2a2a' // Reset color too
+                    });
+                }
+            }
+        }
+
+        init();
+    </script>
+</body>
+</html>

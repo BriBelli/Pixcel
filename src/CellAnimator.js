@@ -29,7 +29,11 @@ class CellAnimator {
             cellWidth: config.cellWidth || 25,
             cellHeight: config.cellHeight || 25,
             container: config.container,
-            renderMode: config.renderMode || 'html'
+            renderMode: config.renderMode || 'html',
+            cellBorders: config.cellBorders !== undefined ? config.cellBorders : true,
+            borderColor: config.borderColor || 'transparent',
+            borderWidth: config.borderWidth || 1,
+            borderStyle: config.borderStyle || 'solid'
         };
 
         // Initialize state
@@ -85,8 +89,7 @@ class CellAnimator {
             case 'html':
                 return new HTMLRenderer(this);
             case 'canvas':
-                // Will be implemented in Phase 2B
-                throw new Error('Canvas renderer not yet implemented. Coming in Phase 2B!');
+                return new CanvasRenderer(this);
             case 'webgl':
                 // Will be implemented in Phase 7
                 throw new Error('WebGL renderer not yet implemented. Coming in Phase 7!');
@@ -154,13 +157,11 @@ class CellAnimator {
         if (totalCells < 10000) {
             return 'html';  // Perfect for small grids
         } else if (totalCells < 1000000) {
-            // Canvas would be better, but not implemented yet
-            console.warn(`CellAnimator: ${totalCells} cells detected. Canvas mode recommended but not yet available. Using HTML.`);
-            return 'html';
+            return 'canvas';  // Optimal for medium-large grids (1080p, 4K)
         } else {
             // WebGL would be needed, but not implemented yet
-            console.warn(`CellAnimator: ${totalCells} cells detected. WebGL mode recommended but not yet available. Using HTML (may be slow).`);
-            return 'html';
+            console.warn(`CellAnimator: ${totalCells} cells detected. WebGL mode recommended but not yet available. Using Canvas (may be slow).`);
+            return 'canvas';
         }
     }
 

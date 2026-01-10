@@ -1,6 +1,6 @@
 # AGENTS.md - AI Agent Guide for CellAnimator
 
-**Version**: 2.1  
+**Version**: 2.2  
 **Last Updated**: December 29, 2025  
 **Maintained By**: Brian Bellissimo (@BriBelli)
 
@@ -35,18 +35,29 @@ This document provides AI agents and IDE assistants with comprehensive context a
 ```
 CellAnimator/
 ├── src/
-│   ├── CellAnimator.js    # Main class (refactored - Phase 2A)
-│   ├── renderers/         # Rendering implementations (NEW - Phase 2A)
-│   │   ├── BaseRenderer.js     # Abstract renderer interface
-│   │   └── HTMLRenderer.js     # DOM-based renderer
+│   ├── CellAnimator.js    # Main class (refactored - Phase 2A/2B)
+│   ├── renderers/         # Rendering implementations (Phase 2A/2B)
+│   │   ├── BaseRenderer.js      # Abstract renderer interface
+│   │   ├── HTMLRenderer.js      # DOM-based renderer
+│   │   └── CanvasRenderer.js    # Canvas 2D renderer (NEW - Phase 2B)
+│   ├── helpers/           # Utility helpers (NEW - Phase 2B)
+│   │   └── PatternHelpers.js    # Gradient generators (pure pixel approach)
 │   ├── pxs.js             # Original functions (legacy)
 │   └── index.js           # Entry point (currently minimal)
+├── demos/                 # All demo files (NEW - Phase 2B organized)
+│   ├── demo.html                  # Original demo (legacy)
+│   ├── demo-new.html              # HTML renderer demo
+│   ├── demo-canvas.html           # Canvas renderer demo (11,655 cells)
+│   ├── demo-borders.html          # Border toggle demo
+│   ├── demo-per-cell-borders.html # Per-cell border control
+│   ├── demo-border-styles.html    # CSS border styles (original)
+│   ├── demo-border-styles2.html   # CSS border styles showcase
+│   ├── demo-gradient-helpers.html # Smart gradient helpers
+│   └── benchmark.html             # Performance comparison tool
 ├── docs/
 │   ├── Phase-1-Foundation.md  # Phase 1 documentation
-│   ├── Phase-2-Performance.md # Phase 2 documentation
+│   ├── Phase-2-Performance.md # Phase 2 documentation (2A & 2B complete)
 │   └── Phase-1-Summary.md     # Phase 1 summary
-├── demo.html              # Original demo (legacy)
-├── demo-new.html          # New architecture demo
 ├── package.json
 ├── webpack.config.js
 ├── README.md
@@ -222,13 +233,50 @@ HTMLRenderer, CanvasRenderer, WebGLRenderer (Strategies)
 
 **Documentation**: `docs/Phase-2-Performance.md` (Section: Phase 2A)
 
-#### 🚧 Phase 2B: Canvas Renderer (Next)
-- Implement CanvasRenderer.js
-- Canvas 2D rendering mode
-- Support for 10,000+ cells (1080p+)
-- RequestAnimationFrame animations
-- Click detection (mouse → cell coords)
-- Performance benchmarks (HTML vs Canvas)
+#### ✅ Phase 2B: Canvas Renderer (Completed - Dec 29, 2025)
+**Features Implemented**:
+- Canvas 2D renderer (~500 lines)
+- High-DPI/Retina display support (devicePixelRatio scaling)
+- Support for 11,655 cells (tested 105×111 grid)
+- RequestAnimationFrame animation loop with smooth 60fps
+- 4 animation effects with color interpolation:
+  - Pulse → Cyan (#00ffff)
+  - Glow → Yellow (#ffff00)
+  - Wave → Magenta (#ff00ff)
+  - Bounce (scale effect)
+- Click detection (mouse coords → cell coords)
+- **Border System**: Global + per-cell border control
+  - `cellBorders` boolean toggle
+  - `borderColor`, `borderWidth`, `borderStyle` config
+  - Per-cell border overrides
+  - All 9 CSS border-style values (solid, dashed, dotted, double, groove, ridge, inset, outset, mixed)
+- **Smart Gradient Helpers** (PatternHelpers.js):
+  - `generateLinearGradient()` - diagonal/directional gradients
+  - `generateRadialGradient()` - center-radiating gradients
+  - `generateDiagonalGradient()` - corner-to-corner gradients
+  - `interpolateColor()` - public hex color interpolation
+  - "Stay Pure" philosophy: solid-color cells, gradients via arrangement
+- Performance: 2-6x faster init, 2-12x faster updates vs HTML
+- 5 new demo files showcasing features
+
+**Key Files**:
+- `src/renderers/CanvasRenderer.js` - Canvas 2D renderer
+- `src/helpers/PatternHelpers.js` - Gradient utility helpers
+- `demos/demo-canvas.html` - Interactive Canvas demo (11,655 cells)
+- `demos/demo-borders.html` - Border toggle comparison
+- `demos/demo-per-cell-borders.html` - Per-cell border control
+- `demos/demo-border-styles2.html` - 9 CSS border styles showcase
+- `demos/demo-gradient-helpers.html` - Smart gradient helpers demo
+- `demos/benchmark.html` - HTML vs Canvas performance comparison
+
+**Critical Fixes**:
+- Animation loop initialization (started on first animation)
+- Animation colors matched HTML keyframes exactly
+- Delay timing fixed with loopStartTime tracking
+- Cell colors properly animate with styles.background
+- Horizontal gradient fills all rows
+
+**Documentation**: `docs/Phase-2-Performance.md` (Section: Phase 2B)
 
 #### 📋 Phase 2C: Advanced Performance (Planned)
 - Virtual scrolling for massive grids
@@ -719,7 +767,7 @@ cells.forEach(cell => {
 2. Read current phase doc (docs/Phase-X-*.md)
 3. Check current branch name for phase context
 4. Review src/CellAnimator.js for implementation
-5. Check demo-new.html for usage examples
+5. Check demos/demo-new.html for usage examples
 
 ### When User Asks to Add Feature
 1. Determine which phase it belongs to
@@ -760,6 +808,7 @@ cells.forEach(cell => {
 - **v1.0** (Original): Basic grid generation, legacy functions
 - **v2.0** (Phase 1): Class-based architecture, state management, events
 - **v2.1** (Phase 2A): Pluggable renderer architecture, multi-mode support
+- **v2.2** (Phase 2B): Canvas 2D renderer, 11k+ cell support, border system, gradient helpers, 2-12x faster updates
 
 ---
 
@@ -782,4 +831,4 @@ cells.forEach(cell => {
 ---
 
 **Last Updated**: December 29, 2025  
-**Next Review**: After Phase 2B completion
+**Next Review**: After Phase 2C completion

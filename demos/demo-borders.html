@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CellAnimator - Border Toggle Demo</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: Arial, sans-serif;
+            background: #1a1a1a;
+            color: #fff;
+            display: flex;
+            height: 100vh;
+        }
+
+        .container {
+            flex: 1;
+            position: relative;
+        }
+
+        h2 {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            background: rgba(0, 0, 0, 0.7);
+            padding: 10px 20px;
+            border-radius: 8px;
+            z-index: 10;
+        }
+
+        #grid-with-borders,
+        #grid-without-borders {
+            width: 100%;
+            height: 100%;
+        }
+
+        .controls {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            z-index: 10;
+        }
+
+        button {
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+            transition: all 0.3s;
+            margin: 5px;
+        }
+
+        button:hover {
+            background: #5568d3;
+            transform: translateY(-2px);
+        }
+    </style>
+</head>
+<body>
+    <!-- Grid with borders -->
+    <div class="container">
+        <h2>✅ With Borders (cellBorders: true)</h2>
+        <div id="grid-with-borders"></div>
+        <div class="controls">
+            <button onclick="animateBoth()">🎨 Animate Both</button>
+        </div>
+    </div>
+
+    <!-- Grid without borders -->
+    <div class="container">
+        <h2>❌ Without Borders (cellBorders: false)</h2>
+        <div id="grid-without-borders"></div>
+    </div>
+
+    <!-- Load Renderer Classes -->
+    <script src="src/renderers/BaseRenderer.js"></script>
+    <script src="src/renderers/HTMLRenderer.js"></script>
+    <script src="src/renderers/CanvasRenderer.js"></script>
+    <script src="src/CellAnimator.js"></script>
+
+    <script>
+        let animator1, animator2;
+
+        async function init() {
+            // Create grid WITH borders
+            animator1 = new CellAnimator({
+                width: '100%',
+                height: '100%',
+                cellWidth: 20,
+                cellHeight: 20,
+                container: document.getElementById('grid-with-borders'),
+                renderMode: 'canvas',
+                cellBorders: true  // Borders enabled
+            });
+
+            // Create grid WITHOUT borders
+            animator2 = new CellAnimator({
+                width: '100%',
+                height: '100%',
+                cellWidth: 20,
+                cellHeight: 20,
+                container: document.getElementById('grid-without-borders'),
+                renderMode: 'canvas',
+                cellBorders: false  // Borders disabled
+            });
+
+            await Promise.all([animator1.init(), animator2.init()]);
+
+            console.log('Both grids initialized!');
+            console.log('Grid 1 (with borders):', animator1.getGridInfo());
+            console.log('Grid 2 (without borders):', animator2.getGridInfo());
+        }
+
+        function animateBoth() {
+            const info1 = animator1.getGridInfo();
+            const info2 = animator2.getGridInfo();
+
+            // Animate diagonal on both grids
+            const animations1 = [];
+            const animations2 = [];
+
+            const maxDiagonal = Math.min(info1.columns, info1.rows);
+
+            for (let i = 0; i < maxDiagonal; i++) {
+                animations1.push({
+                    x: i,
+                    y: i,
+                    animation: {
+                        name: 'pulse',
+                        duration: '1s',
+                        timing: 'ease-in-out',
+                        delay: `${i * 0.05}s`,
+                        iteration: 'infinite'
+                    }
+                });
+
+                animations2.push({
+                    x: i,
+                    y: i,
+                    animation: {
+                        name: 'pulse',
+                        duration: '1s',
+                        timing: 'ease-in-out',
+                        delay: `${i * 0.05}s`,
+                        iteration: 'infinite'
+                    }
+                });
+            }
+
+            animator1.animateCells(animations1);
+            animator2.animateCells(animations2);
+        }
+
+        init();
+    </script>
+</body>
+</html>

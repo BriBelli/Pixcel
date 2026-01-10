@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CellAnimator - Border Styles Demo</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: Arial, sans-serif;
+            background: #1a1a1a;
+            color: #fff;
+            padding: 20px;
+        }
+
+        h1 {
+            text-align: center;
+            margin-bottom: 30px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            font-size: 2.5em;
+        }
+
+        .grid-container {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 20px;
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        .grid-box {
+            background: #2a2a2a;
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+        }
+
+        .grid-title {
+            text-align: center;
+            margin-bottom: 15px;
+            font-size: 1.2em;
+            color: #00ffff;
+        }
+
+        .grid-wrapper {
+            width: 100%;
+            height: 300px;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+
+        .controls {
+            margin-top: 30px;
+            text-align: center;
+        }
+
+        button {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: 600;
+            margin: 5px;
+            transition: all 0.3s;
+        }
+
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 12px rgba(102, 126, 234, 0.4);
+        }
+
+        .info {
+            background: #2a2a2a;
+            border-radius: 12px;
+            padding: 20px;
+            margin-top: 30px;
+            max-width: 1400px;
+            margin: 30px auto 0;
+        }
+
+        .info h2 {
+            color: #00ffff;
+            margin-bottom: 15px;
+        }
+
+        .info code {
+            background: #1a1a1a;
+            padding: 2px 8px;
+            border-radius: 4px;
+            color: #ff00ff;
+        }
+
+        .info pre {
+            background: #1a1a1a;
+            padding: 15px;
+            border-radius: 8px;
+            overflow-x: auto;
+            margin: 10px 0;
+        }
+    </style>
+</head>
+<body>
+    <h1>🎨 Cell Border Customization</h1>
+
+    <div class="grid-container">
+        <!-- No Borders -->
+        <div class="grid-box">
+            <div class="grid-title">❌ No Borders</div>
+            <div class="grid-wrapper" id="grid1"></div>
+        </div>
+
+        <!-- Default Borders -->
+        <div class="grid-box">
+            <div class="grid-title">📏 Default (1px #333333)</div>
+            <div class="grid-wrapper" id="grid2"></div>
+        </div>
+
+        <!-- Thick Black Borders -->
+        <div class="grid-box">
+            <div class="grid-title">🖤 Thick Black (2px #000000)</div>
+            <div class="grid-wrapper" id="grid3"></div>
+        </div>
+
+        <!-- Neon Cyan Borders -->
+        <div class="grid-box">
+            <div class="grid-title">💎 Neon Cyan (1px #00ffff)</div>
+            <div class="grid-wrapper" id="grid4"></div>
+        </div>
+
+        <!-- Purple Borders -->
+        <div class="grid-box">
+            <div class="grid-title">💜 Purple (2px #764ba2)</div>
+            <div class="grid-wrapper" id="grid5"></div>
+        </div>
+
+        <!-- Subtle Gray -->
+        <div class="grid-box">
+            <div class="grid-title">🌫️ Subtle Gray (1px #444444)</div>
+            <div class="grid-wrapper" id="grid6"></div>
+        </div>
+    </div>
+
+    <div class="controls">
+        <button onclick="animateAll()">🎨 Animate All Grids</button>
+        <button onclick="stopAll()">⏹️ Stop All</button>
+    </div>
+
+    <div class="info">
+        <h2>📖 Configuration API</h2>
+        <p>Customize cell borders with these new options:</p>
+        <pre><code>const animator = new CellAnimator({
+    width: '100%',
+    height: '100%',
+    cellWidth: 20,
+    cellHeight: 20,
+    container: document.getElementById('container'),
+    renderMode: 'canvas',  // or 'html'
+    
+    // Border configuration
+    cellBorders: true,           // Enable/disable borders (default: true)
+    borderColor: '#00ffff',      // Border color (default: '#333333')
+    borderWidth: 2               // Border width in pixels (default: 1)
+});</code></pre>
+
+        <p><strong>Examples:</strong></p>
+        <ul>
+            <li><code>cellBorders: false</code> - No borders at all</li>
+            <li><code>borderColor: '#ff00ff'</code> - Magenta borders</li>
+            <li><code>borderWidth: 3</code> - Thicker 3px borders</li>
+            <li><code>borderColor: 'rgba(255, 255, 255, 0.1)'</code> - Semi-transparent white (Canvas only)</li>
+        </ul>
+    </div>
+
+    <!-- Load Renderer Classes -->
+    <script src="src/renderers/BaseRenderer.js"></script>
+    <script src="src/renderers/HTMLRenderer.js"></script>
+    <script src="src/renderers/CanvasRenderer.js"></script>
+    <script src="src/CellAnimator.js"></script>
+
+    <script>
+        const animators = [];
+
+        async function init() {
+            // Grid 1: No borders
+            animators.push(new CellAnimator({
+                width: '100%',
+                height: '100%',
+                cellWidth: 15,
+                cellHeight: 15,
+                container: document.getElementById('grid1'),
+                renderMode: 'canvas',
+                cellBorders: false
+            }));
+
+            // Grid 2: Default borders
+            animators.push(new CellAnimator({
+                width: '100%',
+                height: '100%',
+                cellWidth: 15,
+                cellHeight: 15,
+                container: document.getElementById('grid2'),
+                renderMode: 'canvas',
+                cellBorders: true
+            }));
+
+            // Grid 3: Thick black
+            animators.push(new CellAnimator({
+                width: '100%',
+                height: '100%',
+                cellWidth: 15,
+                cellHeight: 15,
+                container: document.getElementById('grid3'),
+                renderMode: 'canvas',
+                cellBorders: true,
+                borderColor: '#000000',
+                borderWidth: 2
+            }));
+
+            // Grid 4: Neon cyan
+            animators.push(new CellAnimator({
+                width: '100%',
+                height: '100%',
+                cellWidth: 15,
+                cellHeight: 15,
+                container: document.getElementById('grid4'),
+                renderMode: 'canvas',
+                cellBorders: true,
+                borderColor: '#00ffff',
+                borderWidth: 1
+            }));
+
+            // Grid 5: Purple
+            animators.push(new CellAnimator({
+                width: '100%',
+                height: '100%',
+                cellWidth: 15,
+                cellHeight: 15,
+                container: document.getElementById('grid5'),
+                renderMode: 'canvas',
+                cellBorders: true,
+                borderColor: '#764ba2',
+                borderWidth: 2
+            }));
+
+            // Grid 6: Subtle gray
+            animators.push(new CellAnimator({
+                width: '100%',
+                height: '100%',
+                cellWidth: 15,
+                cellHeight: 15,
+                container: document.getElementById('grid6'),
+                renderMode: 'canvas',
+                cellBorders: true,
+                borderColor: '#444444',
+                borderWidth: 1
+            }));
+
+            // Initialize all grids
+            await Promise.all(animators.map(a => a.init()));
+            console.log('All grids initialized!');
+        }
+
+        function animateAll() {
+            animators.forEach((animator, index) => {
+                const info = animator.getGridInfo();
+                const animations = [];
+
+                // Create wave pattern
+                for (let x = 0; x < info.columns; x++) {
+                    for (let y = 0; y < info.rows; y++) {
+                        animations.push({
+                            x: x,
+                            y: y,
+                            animation: {
+                                name: 'wave',
+                                duration: '2s',
+                                timing: 'ease-in-out',
+                                delay: `${(x + y) * 0.02}s`,
+                                iteration: 'infinite'
+                            }
+                        });
+                    }
+                }
+
+                animator.animateCells(animations);
+            });
+        }
+
+        function stopAll() {
+            animators.forEach(animator => {
+                animator.stopAllAnimations();
+            });
+        }
+
+        init();
+    </script>
+</body>
+</html>

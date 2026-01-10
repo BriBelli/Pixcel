@@ -1,0 +1,377 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CellAnimator Performance Benchmark - HTML vs Canvas</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #1a1a1a;
+            color: #ffffff;
+            padding: 20px;
+        }
+
+        h1 {
+            text-align: center;
+            margin-bottom: 30px;
+            color: #4CAF50;
+        }
+
+        .controls {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        button {
+            padding: 15px 30px;
+            margin: 0 10px;
+            background: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        button:hover {
+            background: #45a049;
+        }
+
+        button:disabled {
+            background: #666;
+            cursor: not-allowed;
+        }
+
+        .status {
+            text-align: center;
+            margin: 20px 0;
+            font-size: 18px;
+            color: #ffd700;
+        }
+
+        .results {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            background: #2a2a2a;
+            border-radius: 10px;
+            overflow: hidden;
+        }
+
+        thead {
+            background: #333;
+        }
+
+        th, td {
+            padding: 15px;
+            text-align: left;
+            border-bottom: 1px solid #444;
+        }
+
+        th {
+            font-weight: bold;
+            color: #4CAF50;
+        }
+
+        .winner {
+            background: rgba(76, 175, 80, 0.2);
+            font-weight: bold;
+        }
+
+        .metric {
+            display: inline-block;
+            padding: 5px 10px;
+            background: #444;
+            border-radius: 3px;
+            margin: 2px;
+        }
+
+        .grid-size {
+            font-weight: bold;
+            color: #ffd700;
+        }
+
+        .hidden-container {
+            position: fixed;
+            top: -9999px;
+            left: -9999px;
+            width: 800px;
+            height: 600px;
+        }
+
+        .summary {
+            background: #2a2a2a;
+            padding: 20px;
+            border-radius: 10px;
+            margin-top: 30px;
+        }
+
+        .summary h2 {
+            color: #4CAF50;
+            margin-bottom: 15px;
+        }
+
+        .summary p {
+            margin: 10px 0;
+            line-height: 1.6;
+        }
+    </style>
+</head>
+<body>
+    <h1>⚡ CellAnimator Performance Benchmark</h1>
+    <p style="text-align: center; margin-bottom: 30px; opacity: 0.8;">
+        Comparing HTML vs Canvas rendering modes across different grid sizes
+    </p>
+
+    <div class="controls">
+        <button id="start-btn" onclick="runBenchmarks()">Start Benchmarks</button>
+        <button id="clear-btn" onclick="clearResults()" disabled>Clear Results</button>
+    </div>
+
+    <div class="status" id="status">Ready to run benchmarks...</div>
+
+    <div class="results">
+        <table id="results-table">
+            <thead>
+                <tr>
+                    <th>Grid Size</th>
+                    <th>Total Cells</th>
+                    <th>HTML Init (ms)</th>
+                    <th>Canvas Init (ms)</th>
+                    <th>HTML Update 100 (ms)</th>
+                    <th>Canvas Update 100 (ms)</th>
+                    <th>Winner</th>
+                </tr>
+            </thead>
+            <tbody id="results-body">
+                <tr>
+                    <td colspan="7" style="text-align: center; opacity: 0.5;">
+                        No benchmarks run yet. Click "Start Benchmarks" to begin.
+                    </td>
+                </tr>
+            </tbody>
+        </table>
+
+        <div class="summary" id="summary" style="display: none;">
+            <h2>📊 Benchmark Summary</h2>
+            <div id="summary-content"></div>
+        </div>
+    </div>
+
+    <!-- Hidden containers for testing -->
+    <div id="html-container" class="hidden-container"></div>
+    <div id="canvas-container" class="hidden-container"></div>
+
+    <!-- Load Renderer Classes -->
+    <script src="src/renderers/BaseRenderer.js"></script>
+    <script src="src/renderers/HTMLRenderer.js"></script>
+    <script src="src/renderers/CanvasRenderer.js"></script>
+    <script src="src/CellAnimator.js"></script>
+
+    <script>
+        const testSizes = [
+            { width: 20, height: 20, name: '20×20' },
+            { width: 40, height: 40, name: '40×40' },
+            { width: 60, height: 60, name: '60×60' },
+            { width: 80, height: 80, name: '80×80' },
+            { width: 100, height: 100, name: '100×100' },
+            { width: 150, height: 150, name: '150×150' }
+        ];
+
+        const results = [];
+
+        async function runBenchmarks() {
+            const startBtn = document.getElementById('start-btn');
+            const clearBtn = document.getElementById('clear-btn');
+            const status = document.getElementById('status');
+            const resultsBody = document.getElementById('results-body');
+
+            startBtn.disabled = true;
+            clearBtn.disabled = true;
+            resultsBody.innerHTML = '';
+            results.length = 0;
+
+            for (let i = 0; i < testSizes.length; i++) {
+                const size = testSizes[i];
+                const totalCells = size.width * size.height;
+
+                status.textContent = `Testing ${size.name} (${totalCells.toLocaleString()} cells)...`;
+
+                // Test HTML mode
+                status.textContent = `Testing ${size.name} - HTML Mode...`;
+                const htmlResult = await benchmarkMode('html', size);
+
+                // Test Canvas mode
+                status.textContent = `Testing ${size.name} - Canvas Mode...`;
+                const canvasResult = await benchmarkMode('canvas', size);
+
+                // Store results
+                const result = {
+                    size: size.name,
+                    totalCells,
+                    htmlInit: htmlResult.initTime,
+                    canvasInit: canvasResult.initTime,
+                    htmlUpdate: htmlResult.updateTime,
+                    canvasUpdate: canvasResult.updateTime
+                };
+
+                results.push(result);
+
+                // Add to table
+                addResultRow(result);
+
+                // Small delay between tests
+                await sleep(500);
+            }
+
+            status.textContent = '✅ All benchmarks complete!';
+            startBtn.disabled = false;
+            clearBtn.disabled = false;
+
+            // Show summary
+            showSummary();
+        }
+
+        async function benchmarkMode(mode, size) {
+            const cellSize = 10;
+            const containerWidth = size.width * cellSize;
+            const containerHeight = size.height * cellSize;
+            const containerId = `${mode}-container`;
+            const container = document.getElementById(containerId);
+
+            // Clear container
+            container.innerHTML = '';
+            container.style.width = `${containerWidth}px`;
+            container.style.height = `${containerHeight}px`;
+
+            // Test initialization
+            const initStart = performance.now();
+            
+            const animator = new CellAnimator({
+                width: containerWidth,
+                height: containerHeight,
+                cellWidth: cellSize,
+                cellHeight: cellSize,
+                container: container,
+                renderMode: mode
+            });
+
+            await animator.init();
+            
+            const initEnd = performance.now();
+            const initTime = Math.round(initEnd - initStart);
+
+            // Test batch updates (100 random cells)
+            const updates = [];
+            for (let i = 0; i < 100; i++) {
+                updates.push({
+                    x: Math.floor(Math.random() * size.width),
+                    y: Math.floor(Math.random() * size.height),
+                    styles: { background: '#ff0000' }
+                });
+            }
+
+            const updateStart = performance.now();
+            animator.updateCells(updates);
+            const updateEnd = performance.now();
+            const updateTime = Math.round(updateEnd - updateStart);
+
+            // Cleanup
+            animator.destroy();
+            container.innerHTML = '';
+
+            return {
+                initTime,
+                updateTime
+            };
+        }
+
+        function addResultRow(result) {
+            const tbody = document.getElementById('results-body');
+            const row = document.createElement('tr');
+
+            // Determine winners
+            const initWinner = result.htmlInit <= result.canvasInit ? 'html' : 'canvas';
+            const updateWinner = result.htmlUpdate <= result.canvasUpdate ? 'html' : 'canvas';
+            const overallWinner = (result.htmlInit + result.htmlUpdate) <= 
+                                 (result.canvasInit + result.canvasUpdate) ? 'HTML' : 'Canvas';
+
+            row.innerHTML = `
+                <td class="grid-size">${result.size}</td>
+                <td>${result.totalCells.toLocaleString()}</td>
+                <td class="${initWinner === 'html' ? 'winner' : ''}">${result.htmlInit}ms</td>
+                <td class="${initWinner === 'canvas' ? 'winner' : ''}">${result.canvasInit}ms</td>
+                <td class="${updateWinner === 'html' ? 'winner' : ''}">${result.htmlUpdate}ms</td>
+                <td class="${updateWinner === 'canvas' ? 'winner' : ''}">${result.canvasUpdate}ms</td>
+                <td><strong>${overallWinner}</strong></td>
+            `;
+
+            tbody.appendChild(row);
+        }
+
+        function showSummary() {
+            const summary = document.getElementById('summary');
+            const content = document.getElementById('summary-content');
+            summary.style.display = 'block';
+
+            // Calculate averages and statistics
+            let htmlFasterInit = 0;
+            let canvasFasterInit = 0;
+            let htmlFasterUpdate = 0;
+            let canvasFasterUpdate = 0;
+
+            results.forEach(r => {
+                if (r.htmlInit < r.canvasInit) htmlFasterInit++;
+                else canvasFasterInit++;
+
+                if (r.htmlUpdate < r.canvasUpdate) htmlFasterUpdate++;
+                else canvasFasterUpdate++;
+            });
+
+            content.innerHTML = `
+                <p><strong>Initialization Performance:</strong></p>
+                <p>• HTML faster: ${htmlFasterInit}/${results.length} tests</p>
+                <p>• Canvas faster: ${canvasFasterInit}/${results.length} tests</p>
+                <br>
+                <p><strong>Update Performance:</strong></p>
+                <p>• HTML faster: ${htmlFasterUpdate}/${results.length} tests</p>
+                <p>• Canvas faster: ${canvasFasterUpdate}/${results.length} tests</p>
+                <br>
+                <p><strong>Recommendations:</strong></p>
+                <p>• <strong>Small grids (&lt;10k cells):</strong> ${htmlFasterInit > canvasFasterInit ? 'HTML' : 'Canvas'} mode recommended</p>
+                <p>• <strong>Large grids (≥10k cells):</strong> ${results[results.length-1].canvasInit < results[results.length-1].htmlInit ? 'Canvas' : 'HTML'} mode recommended</p>
+                <p>• <strong>Auto mode</strong> intelligently selects the best renderer based on cell count</p>
+            `;
+        }
+
+        function clearResults() {
+            document.getElementById('results-body').innerHTML = `
+                <tr>
+                    <td colspan="7" style="text-align: center; opacity: 0.5;">
+                        No benchmarks run yet. Click "Start Benchmarks" to begin.
+                    </td>
+                </tr>
+            `;
+            document.getElementById('summary').style.display = 'none';
+            document.getElementById('status').textContent = 'Ready to run benchmarks...';
+            results.length = 0;
+        }
+
+        function sleep(ms) {
+            return new Promise(resolve => setTimeout(resolve, ms));
+        }
+    </script>
+</body>
+</html>

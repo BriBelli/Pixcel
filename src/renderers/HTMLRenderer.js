@@ -77,12 +77,21 @@ class HTMLRenderer extends BaseRenderer {
     _createCellElement(x, y) {
         const cell = document.createElement('div');
         cell.className = `cell x-${x} y-${y}`;
-        cell.style.cssText = `
+        
+        // Build CSS string
+        let cssText = `
             display: block;
             width: ${this.config.cellWidth}px;
             height: ${this.config.cellHeight}px;
             box-sizing: border-box;
         `;
+        
+        // Add border if enabled
+        if (this.config.cellBorders) {
+            cssText += `border: ${this.config.borderWidth}px ${this.config.borderStyle} ${this.config.borderColor};`;
+        }
+        
+        cell.style.cssText = cssText;
         cell.dataset.x = x;
         cell.dataset.y = y;
 
@@ -122,7 +131,27 @@ class HTMLRenderer extends BaseRenderer {
             return;
         }
 
-        Object.assign(cell.element.style, styles);
+        // Handle border properties specially
+        const cellStyles = { ...styles };
+        
+        // If cellBorders is set (true/false), apply border style
+        if (cellStyles.cellBorders !== undefined) {
+            if (cellStyles.cellBorders === false) {
+                cellStyles.border = 'none';
+            } else {
+                const borderColor = cellStyles.borderColor || this.config.borderColor;
+                const borderWidth = cellStyles.borderWidth || this.config.borderWidth;
+                const borderStyle = cellStyles.borderStyle || this.config.borderStyle;
+                cellStyles.border = `${borderWidth}px ${borderStyle} ${borderColor}`;
+            }
+            // Remove custom properties so they don't get applied as CSS
+            delete cellStyles.cellBorders;
+            delete cellStyles.borderColor;
+            delete cellStyles.borderWidth;
+            delete cellStyles.borderStyle;
+        }
+
+        Object.assign(cell.element.style, cellStyles);
         Object.assign(cell.styles, styles);
     }
 

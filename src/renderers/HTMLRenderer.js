@@ -23,14 +23,15 @@ class HTMLRenderer extends BaseRenderer {
             const fragment = document.createDocumentFragment();
             const gridContainer = document.createElement('div');
             
-            // Set grid container styles
+            // Set grid container styles - inline-block with zero font-size (NO GAPS)
             gridContainer.className = 'cell-animator-grid';
-            gridContainer.style.cssText = `
-                display: flex;
-                flex-wrap: wrap;
-                max-width: ${this.state.columns * this.config.cellWidth}px;
-                max-height: ${this.state.rows * this.config.cellHeight}px;
-            `;
+            gridContainer.style.fontSize = '0';
+            gridContainer.style.lineHeight = '0';
+            gridContainer.style.width = `${this.state.columns * this.config.cellWidth}px`;
+            gridContainer.style.height = `${this.state.rows * this.config.cellHeight}px`;
+            gridContainer.style.margin = '0';
+            gridContainer.style.padding = '0';
+            gridContainer.style.overflow = 'hidden';
 
             let xPos = 0;
             let yPos = 0;
@@ -78,20 +79,20 @@ class HTMLRenderer extends BaseRenderer {
         const cell = document.createElement('div');
         cell.className = `cell x-${x} y-${y}`;
         
-        // Build CSS string
-        let cssText = `
-            display: block;
-            width: ${this.config.cellWidth}px;
-            height: ${this.config.cellHeight}px;
-            box-sizing: border-box;
-        `;
+        // Inline-block with exact dimensions - NO GAPS
+        cell.style.display = 'inline-block';
+        cell.style.width = `${this.config.cellWidth}px`;
+        cell.style.height = `${this.config.cellHeight}px`;
+        cell.style.boxSizing = 'border-box';
+        cell.style.margin = '0';
+        cell.style.padding = '0';
+        cell.style.verticalAlign = 'top';
+        cell.style.fontSize = '0';
         
         // Add border if enabled
         if (this.config.cellBorders) {
-            cssText += `border: ${this.config.borderWidth}px ${this.config.borderStyle} ${this.config.borderColor};`;
+            cell.style.border = `${this.config.borderWidth}px ${this.config.borderStyle} ${this.config.borderColor}`;
         }
-        
-        cell.style.cssText = cssText;
         cell.dataset.x = x;
         cell.dataset.y = y;
 
@@ -225,11 +226,21 @@ class HTMLRenderer extends BaseRenderer {
 
         this.stopAnimation(x, y);
         cell.element.style.cssText = `
-            display: block;
+            display: inline-block;
+            vertical-align: top;
+            font-size: 0;
             width: ${this.config.cellWidth}px;
             height: ${this.config.cellHeight}px;
             box-sizing: border-box;
+            margin: 0;
+            padding: 0;
         `;
+        
+        // Re-apply border if enabled
+        if (this.config.cellBorders) {
+            cell.element.style.border = `${this.config.borderWidth}px ${this.config.borderStyle} ${this.config.borderColor}`;
+        }
+        
         cell.styles = {};
     }
 

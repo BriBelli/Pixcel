@@ -2,6 +2,7 @@
  * CanvasRenderer - Canvas 2D rendering implementation
  * Optimized for large grids (10,000 - 1,000,000 cells)
  * Uses Canvas 2D API with requestAnimationFrame for animations
+ * Phase 2C: Added viewport culling and transform matrix support
  */
 class CanvasRenderer extends BaseRenderer {
     constructor(animator) {
@@ -20,6 +21,11 @@ class CanvasRenderer extends BaseRenderer {
         // Cell drawing cache
         this.cellColors = new Map(); // "x-y" -> color
         this.cellStyles = new Map(); // "x-y" -> style object
+        
+        // Phase 2C: Viewport rendering state
+        this.viewportEnabled = false;
+        this.dirtyRegions = new Set(); // Track cells that need redrawing
+        this.fullRedrawNeeded = true;
         
         // Click handler binding
         this._boundHandleClick = this.handleClick.bind(this);
@@ -96,21 +102,46 @@ class CanvasRenderer extends BaseRenderer {
     }
 
     /**
-     * Draw the entire grid
+     * Draw the entire grid (or just visible portion if viewport enabled)
      * @private
      */
     _drawGrid() {
         const { cellWidth, cellHeight } = this.config;
         const { columns, rows } = this.state;
         
+        // Phase 2C: Check if we should use viewport rendering
+        const viewportManager = this.animator.viewportManager;
+        this.viewportEnabled = viewportManager && viewportManager.cullingEnabled;
+        
         // Clear canvas
         this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
         
-        // Draw all cells
-        for (let y = 0; y < rows; y++) {
-            for (let x = 0; x < columns; x++) {
-                this._drawCell(x, y);
+        if (this.viewportEnabled && !this.fullRedrawNeeded) {
+            // Partial redraw - only dirty regions
+            for (const key of this.dirtyRegions) {
+                const [x, y] = key.split('-').map(Number);
+                if (viewportManager.isCellVisible(x, y)) {
+                    this._drawCell(x, y);
+                }
             }
+            this.dirtyRegions.clear();
+        } else {
+            // Full redraw
+            if (this.viewportEnabled) {
+                // Only draw visible cells
+                const visibleCells = viewportManager.getVisibleCells();
+                for (const coord of visibleCells) {
+                    this._drawCell(coord.x, coord.y);
+                }
+            } else {
+                // Draw all cells
+                for (let y = 0; y < rows; y++) {
+                    for (let x = 0; x < columns; x++) {
+                        this._drawCell(x, y);
+                    }
+                }
+            }
+            this.fullRedrawNeeded = false;
         }
     }
 
@@ -138,16 +169,31 @@ class CanvasRenderer extends BaseRenderer {
         // Apply transform if exists
         this.ctx.save();
         
-        // Handle scale transform
-        if (styles.transform && styles.transform.includes('scale')) {
-            const scaleMatch = styles.transform.match(/scale\(([\d.]+)\)/);
-            if (scaleMatch) {
-                const scale = parseFloat(scaleMatch[1]);
-                const centerX = pixelX + cellWidth / 2;
-                const centerY = pixelY + cellHeight / 2;
-                this.ctx.translate(centerX, centerY);
-                this.ctx.scale(scale, scale);
-                this.ctx.translate(-centerX, -centerY);
+        // Phase 2C: Handle TransformMatrix (matrix()) transforms
+        if (styles.transform) {
+            if (styles.transform.includes('matrix(')) {
+                // Parse CSS matrix: matrix(a, b, c, d, tx, ty)
+                const matrixMatch = styles.transform.match(/matrix\(([-\d.]+),\s*([-\d.]+),\s*([-\d.]+),\s*([-\d.]+),\s*([-\d.]+),\s*([-\d.]+)\)/);
+                if (matrixMatch) {
+                    const [, a, b, c, d, tx, ty] = matrixMatch.map(Number);
+                    // Apply matrix transform relative to cell center
+                    const centerX = pixelX + cellWidth / 2;
+                    const centerY = pixelY + cellHeight / 2;
+                    this.ctx.translate(centerX, centerY);
+                    this.ctx.transform(a, b, c, d, tx, ty);
+                    this.ctx.translate(-centerX, -centerY);
+                }
+            } else if (styles.transform.includes('scale')) {
+                // Handle simple scale transform (for animations)
+                const scaleMatch = styles.transform.match(/scale\(([\d.]+)\)/);
+                if (scaleMatch) {
+                    const scale = parseFloat(scaleMatch[1]);
+                    const centerX = pixelX + cellWidth / 2;
+                    const centerY = pixelY + cellHeight / 2;
+                    this.ctx.translate(centerX, centerY);
+                    this.ctx.scale(scale, scale);
+                    this.ctx.translate(-centerX, -centerY);
+                }
             }
         }
         
@@ -213,8 +259,17 @@ class CanvasRenderer extends BaseRenderer {
         const existingStyles = this.cellStyles.get(key) || {};
         this.cellStyles.set(key, { ...existingStyles, ...styles });
         
-        // Redraw the cell
-        this._drawCell(x, y);
+        // Phase 2C: Mark cell as dirty for partial redraw
+        if (this.viewportEnabled && !this.fullRedrawNeeded) {
+            this.dirtyRegions.add(key);
+            // Redraw only if not in animation loop (which redraws automatically)
+            if (this.animationFrameId === null) {
+                this._drawGrid();
+            }
+        } else {
+            // Immediate redraw for single cell
+            this._drawCell(x, y);
+        }
     }
 
     /**
@@ -536,6 +591,98 @@ class CanvasRenderer extends BaseRenderer {
         this.cellColors.clear();
         this.cellStyles.clear();
         this.activeAnimations.clear();
+        this.dirtyRegions.clear();
+        this.fullRedrawNeeded = true;
+    }
+
+    // ========================================
+    // Phase 2C: Viewport & Transform Methods
+    // ========================================
+
+    /**
+     * Enable viewport-based rendering
+     * Only draws cells visible in the viewport
+     */
+    enableViewportRendering() {
+        if (!this.animator.viewportManager) {
+            console.warn('CanvasRenderer: ViewportManager not available');
+            return;
+        }
+
+        this.viewportEnabled = true;
+        this.fullRedrawNeeded = true;
+        this._drawGrid();
+    }
+
+    /**
+     * Disable viewport-based rendering
+     * Draws all cells regardless of viewport
+     */
+    disableViewportRendering() {
+        this.viewportEnabled = false;
+        this.fullRedrawNeeded = true;
+        this._drawGrid();
+    }
+
+    /**
+     * Request a full redraw on next frame
+     * Useful after viewport changes
+     */
+    requestFullRedraw() {
+        this.fullRedrawNeeded = true;
+        if (this.animationFrameId === null) {
+            this._drawGrid();
+        }
+    }
+
+    /**
+     * Mark specific cells as dirty for redraw
+     * @param {Array<{x: number, y: number}>} cells - Cells to mark dirty
+     */
+    markCellsDirty(cells) {
+        for (const cell of cells) {
+            this.dirtyRegions.add(`${cell.x}-${cell.y}`);
+        }
+    }
+
+    /**
+     * Apply transform matrix to a cell
+     * @param {number} x - Cell X coordinate
+     * @param {number} y - Cell Y coordinate
+     * @param {string} cssMatrix - CSS matrix() transform string
+     */
+    applyTransform(x, y, cssMatrix) {
+        const key = `${x}-${y}`;
+        const existingStyles = this.cellStyles.get(key) || {};
+        this.cellStyles.set(key, { ...existingStyles, transform: cssMatrix });
+        
+        // Mark as dirty for redraw
+        if (this.viewportEnabled) {
+            this.dirtyRegions.add(key);
+        } else {
+            this._drawCell(x, y);
+        }
+    }
+
+    /**
+     * Get viewport rendering statistics
+     * @returns {Object} Viewport stats
+     */
+    getViewportStats() {
+        if (!this.animator.viewportManager) {
+            return {
+                enabled: false,
+                totalCells: this.state.totalCells,
+                visibleCells: this.state.totalCells,
+                culledCells: 0,
+                cullRatio: 0
+            };
+        }
+
+        return {
+            enabled: this.viewportEnabled,
+            ...this.animator.viewportManager.getStats()
+        };
     }
 
     /**
@@ -579,7 +726,11 @@ class CanvasRenderer extends BaseRenderer {
             'click-detection',
             'high-cell-count',
             'requestAnimationFrame',
-            'hardware-acceleration'
+            'hardware-acceleration',
+            'viewport-culling',        // Phase 2C
+            'transform-matrices',      // Phase 2C
+            'partial-redraws',         // Phase 2C
+            'dirty-region-tracking'    // Phase 2C
         ];
     }
 }

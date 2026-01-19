@@ -151,18 +151,25 @@ class CellAnimator {
             // Phase 2C: Initialize ViewportManager
             if (this.config.enableViewport || this.state.totalCells >= 10000) {
                 if (typeof ViewportManager !== 'undefined') {
-                    this.viewportManager = new ViewportManager(
-                        this.state.columns,
-                        this.state.rows,
-                        this.config.cellWidth,
-                        this.config.cellHeight
-                    );
-                    // Set initial viewport to full grid
+                    this.viewportManager = new ViewportManager(this);
+                    
+                    // Set initial viewport to container size (visible area), not grid size
+                    const viewportWidth = this.config.container.clientWidth;
+                    const viewportHeight = this.config.container.clientHeight;
+                    
                     this.viewportManager.setViewport(
                         0, 0,
-                        this.state.canvasWidth,
-                        this.state.canvasHeight
+                        viewportWidth,
+                        viewportHeight
                     );
+                    // Enable viewport culling
+                    this.viewportManager.enableCulling();
+                    
+                    console.log('[CellAnimator] Viewport initialized:', {
+                        viewport: `${viewportWidth}x${viewportHeight}`,
+                        grid: `${this.state.canvasWidth}x${this.state.canvasHeight}`,
+                        cells: this.state.totalCells
+                    });
                 }
             }
 

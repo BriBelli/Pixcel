@@ -14,6 +14,16 @@ class PerformanceProfiler {
     constructor(animator) {
         this.animator = animator;
         
+        // Validate animator has required methods
+        if (!animator || typeof animator._emit !== 'function') {
+            console.error('[PerformanceProfiler] Invalid animator passed to constructor!', {
+                animator: animator,
+                hasEmit: animator && typeof animator._emit,
+                animatorKeys: animator && Object.keys(animator)
+            });
+            throw new Error('PerformanceProfiler requires a valid CellAnimator instance with _emit method');
+        }
+        
         // Current metrics
         this.metrics = {
             fps: 0,
@@ -152,7 +162,16 @@ class PerformanceProfiler {
         this.addToHistory(timestamp);
         
         // Emit performance update event
-        this.animator._emit('performanceUpdate', this.getMetrics());
+        if (this.animator && typeof this.animator._emit === 'function') {
+            this.animator._emit('performanceUpdate', this.getMetrics());
+        } else {
+            console.error('[PerformanceProfiler] Cannot emit event: animator._emit is not available', {
+                hasAnimator: !!this.animator,
+                animatorType: typeof this.animator,
+                hasEmit: this.animator && typeof this.animator._emit,
+                emitType: this.animator && typeof this.animator._emit
+            });
+        }
     }
     
     /**

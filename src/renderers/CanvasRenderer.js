@@ -52,6 +52,10 @@ class CanvasRenderer extends BaseRenderer {
             this.canvas.style.width = `${containerWidth}px`;
             this.canvas.style.height = `${containerHeight}px`;
             
+            // Store logical dimensions for clearing
+            this.logicalWidth = containerWidth;
+            this.logicalHeight = containerHeight;
+            
             // Get context and scale for DPI
             this.ctx = this.canvas.getContext('2d');
             this.ctx.scale(dpr, dpr);
@@ -67,6 +71,34 @@ class CanvasRenderer extends BaseRenderer {
             
             // Draw initial grid
             this._drawGrid();
+            
+            // Listen to viewport events for redraws
+            if (this.animator.viewportManager) {
+                this.viewportEnabled = true;
+                
+                // Redraw when viewport changes
+                this.animator.on('viewportPanned', () => {
+                    this.fullRedrawNeeded = true;
+                    // Restart animation loop if stopped
+                    if (!this.animationFrameId) {
+                        this._startAnimationLoop();
+                    }
+                });
+                
+                this.animator.on('viewportChanged', () => {
+                    this.fullRedrawNeeded = true;
+                    if (!this.animationFrameId) {
+                        this._startAnimationLoop();
+                    }
+                });
+                
+                this.animator.on('viewportCentered', () => {
+                    this.fullRedrawNeeded = true;
+                    if (!this.animationFrameId) {
+                        this._startAnimationLoop();
+                    }
+                });
+            }
             
             // Start animation loop
             this._startAnimationLoop();
@@ -95,8 +127,8 @@ class CanvasRenderer extends BaseRenderer {
                     styles: {}
                 });
                 
-                // Initialize default color
-                this.cellColors.set(key, '#333333');
+                // Initialize default color (visible gray for debugging)
+                this.cellColors.set(key, '#666666');
             }
         }
     }
@@ -113,8 +145,12 @@ class CanvasRenderer extends BaseRenderer {
         const viewportManager = this.animator.viewportManager;
         this.viewportEnabled = viewportManager && viewportManager.cullingEnabled;
         
-        // Clear canvas
-        this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+        // Clear canvas (use logical dimensions since context is scaled by DPR)
+        this.ctx.clearRect(0, 0, this.logicalWidth, this.logicalHeight);
+        
+        // DEBUG: Draw a visible test rectangle to confirm canvas is working
+        this.ctx.fillStyle = '#ff0000';
+        this.ctx.fillRect(10, 10, 100, 100);
         
         if (this.viewportEnabled && !this.fullRedrawNeeded) {
             // Partial redraw - only dirty regions
@@ -130,7 +166,22 @@ class CanvasRenderer extends BaseRenderer {
             if (this.viewportEnabled) {
                 // Only draw visible cells
                 const visibleCells = viewportManager.getVisibleCells();
+                console.log('[CanvasRenderer] Drawing visible cells:', visibleCells.length, {
+                    viewport: viewportManager.viewport,
+                    visibleBounds: viewportManager.visibleBounds
+                });
+                
+                // DEBUG: Draw first 5 cells with bright colors to see if they appear
+                let debugCount = 0;
                 for (const coord of visibleCells) {
+                    if (debugCount < 5) {
+                        console.log(`[DEBUG] Drawing cell (${coord.x}, ${coord.y}) at pixel position:`, {
+                            gridX: coord.x * this.config.cellWidth,
+                            gridY: coord.y * this.config.cellHeight,
+                            viewportOffset: viewportManager.viewport
+                        });
+                        debugCount++;
+                    }
                     this._drawCell(coord.x, coord.y);
                 }
             } else {
@@ -162,9 +213,16 @@ class CanvasRenderer extends BaseRenderer {
         // Use animated background if available, otherwise use base color
         const color = styles.background || baseColor;
         
-        // Calculate pixel position
-        const pixelX = x * cellWidth;
-        const pixelY = y * cellHeight;
+        // Calculate pixel position in grid space
+        let pixelX = x * cellWidth;
+        let pixelY = y * cellHeight;
+        
+        // Phase 2C: Apply viewport offset for panning
+        if (this.viewportEnabled && this.animator.viewportManager) {
+            const viewport = this.animator.viewportManager.viewport;
+            pixelX -= viewport.x;
+            pixelY -= viewport.y;
+        }
         
         // Apply transform if exists
         this.ctx.save();
@@ -322,8 +380,8 @@ class CanvasRenderer extends BaseRenderer {
         const loopStartTime = performance.now();
         
         const animate = (timestamp) => {
-            // Only animate if we have active animations
-            if (this.activeAnimations.size === 0) {
+            // Continue loop if we have animations OR need a redraw (viewport pan, etc)
+            if (this.activeAnimations.size === 0 && !this.fullRedrawNeeded) {
                 this.animationFrameId = null;
                 return;
             }

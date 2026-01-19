@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CellAnimator - Virtual Scrolling Demo (1M+ Cells)</title>
+    <title>CellAnimator - Virtual Scrolling Demo (40K Cells)</title>
     <style>
         * {
             margin: 0;
@@ -29,7 +29,7 @@
             width: 100%;
             height: 100%;
             position: relative;
-            background: #1a1a1a;
+            background: #0a0a0a;
             overflow: hidden;
             cursor: grab;
         }
@@ -362,16 +362,16 @@
         <!-- Loading Screen -->
         <div class="loading-screen" id="loading-screen">
             <div class="loading-spinner"></div>
-            <div class="loading-text">Initializing 1,000,000+ Cells...</div>
+            <div class="loading-text">Initializing 40,000 Cells...</div>
             <div class="loading-progress" id="loading-progress">Please wait...</div>
         </div>
 
         <!-- Instructions -->
         <div class="instructions" id="instructions">
-            <h2>🚀 Massive Grid Loaded!</h2>
-            <p>Drag to pan around the 1M+ cell grid</p>
+            <h2>🚀 Large Grid Loaded!</h2>
+            <p>Drag to pan around the 40,000 cell grid</p>
             <p>Notice how only visible cells are rendered</p>
-            <p>Scroll to zoom (coming soon)</p>
+            <p>Viewport culling keeps it smooth!</p>
         </div>
     </div>
 
@@ -394,13 +394,14 @@
         let lastUpdate = 0;
 
         async function init() {
-            console.log('Creating massive grid with virtual scrolling...');
+            console.log('Creating large grid with virtual scrolling...');
 
             try {
-                // Create a MASSIVE grid: 1000x1000 = 1,000,000 cells!
-                const cellSize = 10; // Small cells to fit 1M
-                const gridWidth = 10000; // 1000 cells wide
-                const gridHeight = 10000; // 1000 cells tall
+                // Create a LARGE grid with viewport culling
+                // 200x200 = 40,000 cells (still impressive!)
+                const cellSize = 20; // Visible cell size
+                const gridWidth = 4000; // 200 cells wide
+                const gridHeight = 4000; // 200 cells tall
 
                 animator = new CellAnimator({
                     width: gridWidth,
@@ -408,7 +409,7 @@
                     cellWidth: cellSize,
                     cellHeight: cellSize,
                     container: document.getElementById('grid-container'),
-                    renderMode: 'canvas',  // Force canvas for massive grid
+                    renderMode: 'canvas',  // Force canvas for large grid
                     enableProfiling: true,
                     enableViewport: true,  // Enable viewport culling!
                     enableSpatialIndex: true,
@@ -436,7 +437,10 @@
 
             } catch (error) {
                 console.error('Initialization error:', error);
-                document.getElementById('loading-text').textContent = 'Error: ' + error.message;
+                const loadingText = document.querySelector('.loading-text');
+                if (loadingText) {
+                    loadingText.textContent = 'Error: ' + error.message;
+                }
             }
         }
 
@@ -542,13 +546,10 @@
         function createPattern(type) {
             const info = animator.getGridInfo();
             const { columns, rows } = info;
-            const viewportInfo = animator.getViewportInfo();
-            
-            // Only update visible cells for performance
-            const visibleCells = animator.getVisibleCells();
             
             if (type === 'random') {
-                // Random colors in visible area
+                // Random colors across entire grid (visible cells only for performance)
+                const visibleCells = animator.getVisibleCells();
                 visibleCells.forEach(cell => {
                     const hue = Math.random() * 360;
                     animator.updateCell(cell.x, cell.y, {
@@ -556,16 +557,30 @@
                     });
                 });
             } else if (type === 'gradient') {
-                // Gradient across visible area
-                const vb = viewportInfo.visibleBounds;
-                for (let y = vb.startY; y <= vb.endY; y++) {
-                    for (let x = vb.startX; x <= vb.endX; x++) {
-                        const hue = ((x + y) / (columns + rows)) * 360;
-                        animator.updateCell(x, y, {
-                            background: `hsl(${hue}, 70%, 50%)`
+                // Gradient across ENTIRE grid (not just visible)
+                // This will work because we update all cells, then viewport culling renders only visible
+                console.log('Creating gradient across full grid...');
+                const updates = [];
+                
+                for (let y = 0; y < rows; y++) {
+                    for (let x = 0; x < columns; x++) {
+                        // Diagonal gradient from top-left to bottom-right
+                        const progress = (x + y) / (columns + rows);
+                        const hue = progress * 360;
+                        
+                        updates.push({
+                            x: x,
+                            y: y,
+                            styles: {
+                                background: `hsl(${hue}, 70%, 50%)`
+                            }
                         });
                     }
                 }
+                
+                // Batch update for better performance
+                animator.updateCells(updates);
+                console.log(`Updated ${updates.length} cells with gradient`);
             }
         }
 

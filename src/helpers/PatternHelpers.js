@@ -11,35 +11,107 @@
 
 class PatternHelpers {
     /**
-     * Generate a linear gradient effect across cells
-     * Each cell gets a solid color interpolated along the gradient
+     * Generate a horizontal gradient effect across the entire grid
      * 
      * @param {Object} options - Gradient configuration
-     * @param {number} options.startX - Start X coordinate
-     * @param {number} options.startY - Start Y coordinate
-     * @param {number} options.endX - End X coordinate
-     * @param {number} options.endY - End Y coordinate
+     * @param {number} options.gridWidth - Grid width (columns)
+     * @param {number} options.gridHeight - Grid height (rows)
+     * @param {string} options.colorStart - Starting color (hex) - left side
+     * @param {string} options.colorEnd - Ending color (hex) - right side
+     * @returns {Array<{x, y, styles}>} Array of cell updates
+     */
+    static generateHorizontalGradient(options) {
+        const { gridWidth, gridHeight, colorStart, colorEnd } = options;
+        const cells = [];
+        
+        for (let y = 0; y < gridHeight; y++) {
+            for (let x = 0; x < gridWidth; x++) {
+                // Horizontal progress (0 at left, 1 at right)
+                const progress = gridWidth > 1 ? x / (gridWidth - 1) : 0;
+                const color = this.interpolateColor(colorStart, colorEnd, progress);
+                
+                cells.push({
+                    x,
+                    y,
+                    styles: { background: color }
+                });
+            }
+        }
+        
+        return cells;
+    }
+    
+    /**
+     * Generate a vertical gradient effect across the entire grid
+     * 
+     * @param {Object} options - Gradient configuration
+     * @param {number} options.gridWidth - Grid width (columns)
+     * @param {number} options.gridHeight - Grid height (rows)
+     * @param {string} options.colorStart - Starting color (hex) - top side
+     * @param {string} options.colorEnd - Ending color (hex) - bottom side
+     * @returns {Array<{x, y, styles}>} Array of cell updates
+     */
+    static generateVerticalGradient(options) {
+        const { gridWidth, gridHeight, colorStart, colorEnd } = options;
+        const cells = [];
+        
+        for (let y = 0; y < gridHeight; y++) {
+            // Vertical progress (0 at top, 1 at bottom)
+            const progress = gridHeight > 1 ? y / (gridHeight - 1) : 0;
+            const color = this.interpolateColor(colorStart, colorEnd, progress);
+            
+            for (let x = 0; x < gridWidth; x++) {
+                cells.push({
+                    x,
+                    y,
+                    styles: { background: color }
+                });
+            }
+        }
+        
+        return cells;
+    }
+    
+    /**
+     * Generate a linear gradient effect across cells (legacy - line only)
+     * Use generateHorizontalGradient or generateVerticalGradient for full grid
+     * 
+     * @param {Object} options - Gradient configuration
+     * @param {number} options.gridWidth - Grid width (columns) - REQUIRED for full grid
+     * @param {number} options.gridHeight - Grid height (rows) - REQUIRED for full grid
      * @param {string} options.colorStart - Starting color (hex)
      * @param {string} options.colorEnd - Ending color (hex)
+     * @param {string} [options.direction='horizontal'] - 'horizontal' or 'vertical'
      * @returns {Array<{x, y, styles}>} Array of cell updates
      */
     static generateLinearGradient(options) {
-        const { startX, startY, endX, endY, colorStart, colorEnd } = options;
+        const { gridWidth, gridHeight, colorStart, colorEnd, direction = 'horizontal' } = options;
+        
+        // If gridWidth/gridHeight provided, use new full-grid method
+        if (gridWidth && gridHeight) {
+            if (direction === 'vertical') {
+                return this.generateVerticalGradient(options);
+            }
+            return this.generateHorizontalGradient(options);
+        }
+        
+        // Legacy support for old API
+        const { startX = 0, startY = 0, endX = 0, endY = 0 } = options;
         const cells = [];
         
-        // Calculate gradient vector
         const dx = endX - startX;
         const dy = endY - startY;
-        const length = Math.sqrt(dx * dx + dy * dy);
+        const length = Math.sqrt(dx * dx + dy * dy) || 1;
         
-        // Generate cells along gradient
-        for (let x = startX; x <= endX; x++) {
-            for (let y = startY; y <= endY; y++) {
-                // Calculate position along gradient (0 to 1)
+        const minX = Math.min(startX, endX);
+        const maxX = Math.max(startX, endX);
+        const minY = Math.min(startY, endY);
+        const maxY = Math.max(startY, endY);
+        
+        for (let x = minX; x <= maxX; x++) {
+            for (let y = minY; y <= maxY; y++) {
                 const dotProduct = (x - startX) * dx + (y - startY) * dy;
                 const progress = Math.max(0, Math.min(1, dotProduct / (length * length)));
-                
-                // Interpolate color
                 const color = this.interpolateColor(colorStart, colorEnd, progress);
                 
                 cells.push({
@@ -156,4 +228,14 @@ class PatternHelpers {
         // Convert back to hex
         return `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`;
     }
+}
+
+// Export for use in modules
+if (typeof module !== 'undefined' && module.exports) {
+    module.exports = PatternHelpers;
+}
+
+// Export for browser
+if (typeof window !== 'undefined') {
+    window.PatternHelpers = PatternHelpers;
 }

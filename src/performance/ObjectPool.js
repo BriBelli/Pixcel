@@ -308,7 +308,7 @@ class CoordinateObjectPool extends ObjectPool {
     }
 }
 
-// Export classes
+// Export for use in modules
 if (typeof module !== 'undefined' && module.exports) {
     module.exports = {
         ObjectPool,
@@ -316,4 +316,12 @@ if (typeof module !== 'undefined' && module.exports) {
         AnimationObjectPool,
         CoordinateObjectPool
     };
+}
+
+// Export for browser
+if (typeof window !== 'undefined') {
+    window.ObjectPool = ObjectPool;
+    window.CellObjectPool = CellObjectPool;
+    window.AnimationObjectPool = AnimationObjectPool;
+    window.CoordinateObjectPool = CoordinateObjectPool;
 }

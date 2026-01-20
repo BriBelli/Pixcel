@@ -545,10 +545,16 @@ class TransformMatrix3D {
     }
 }
 
-// Export classes
+// Export for use in modules
 if (typeof module !== 'undefined' && module.exports) {
     module.exports = {
         TransformMatrix,
         TransformMatrix3D
     };
+}
+
+// Export for browser
+if (typeof window !== 'undefined') {
+    window.TransformMatrix = TransformMatrix;
+    window.TransformMatrix3D = TransformMatrix3D;
 }

@@ -23,15 +23,19 @@ class HTMLRenderer extends BaseRenderer {
             const fragment = document.createDocumentFragment();
             const gridContainer = document.createElement('div');
             
-            // Set grid container styles - inline-block with zero font-size (NO GAPS)
+            // Use CSS Grid for pixel-perfect cell placement (NO GAPS)
             gridContainer.className = 'cell-animator-grid';
-            gridContainer.style.fontSize = '0';
-            gridContainer.style.lineHeight = '0';
+            gridContainer.style.display = 'grid';
+            gridContainer.style.gridTemplateColumns = `repeat(${this.state.columns}, ${this.config.cellWidth}px)`;
+            gridContainer.style.gridTemplateRows = `repeat(${this.state.rows}, ${this.config.cellHeight}px)`;
+            gridContainer.style.gap = '0';
             gridContainer.style.width = `${this.state.columns * this.config.cellWidth}px`;
             gridContainer.style.height = `${this.state.rows * this.config.cellHeight}px`;
             gridContainer.style.margin = '0';
             gridContainer.style.padding = '0';
             gridContainer.style.overflow = 'hidden';
+            gridContainer.style.lineHeight = '0';
+            gridContainer.style.fontSize = '0';
 
             let xPos = 0;
             let yPos = 0;
@@ -79,17 +83,16 @@ class HTMLRenderer extends BaseRenderer {
         const cell = document.createElement('div');
         cell.className = `cell x-${x} y-${y}`;
         
-        // Inline-block with exact dimensions - NO GAPS
-        cell.style.display = 'inline-block';
+        // Grid cell - no inline-block needed, CSS Grid handles layout
         cell.style.width = `${this.config.cellWidth}px`;
         cell.style.height = `${this.config.cellHeight}px`;
         cell.style.boxSizing = 'border-box';
         cell.style.margin = '0';
         cell.style.padding = '0';
-        cell.style.verticalAlign = 'top';
-        cell.style.fontSize = '0';
+        cell.style.overflow = 'hidden';
         
-        // Add border if enabled
+        // Add border if enabled - use outline to avoid affecting cell size
+        // Or use box-sizing: border-box which includes border in dimensions
         if (this.config.cellBorders) {
             cell.style.border = `${this.config.borderWidth}px ${this.config.borderStyle} ${this.config.borderColor}`;
         }
@@ -225,15 +228,15 @@ class HTMLRenderer extends BaseRenderer {
         if (!cell || !cell.element) return;
 
         this.stopAnimation(x, y);
+        
+        // Reset to grid cell defaults (CSS Grid handles layout)
         cell.element.style.cssText = `
-            display: inline-block;
-            vertical-align: top;
-            font-size: 0;
             width: ${this.config.cellWidth}px;
             height: ${this.config.cellHeight}px;
             box-sizing: border-box;
             margin: 0;
             padding: 0;
+            overflow: hidden;
         `;
         
         // Re-apply border if enabled

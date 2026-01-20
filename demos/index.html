@@ -1,0 +1,692 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PXS Studio - Pixel Cell Animation Platform</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Space+Grotesk:wght@400;500;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="shared/pxs-theme.css">
+  <link rel="stylesheet" href="shared/pxs-components.css">
+  <link rel="stylesheet" href="shared/pxs-ide-layout.css">
+  <style>
+    /* PXS Animation Keyframes */
+    @keyframes pulse {
+      0%, 100% { 
+        transform: scale(1);
+        filter: brightness(1);
+      }
+      50% { 
+        transform: scale(1.15);
+        filter: brightness(1.5);
+        background: #00ffff !important;
+      }
+    }
+    
+    @keyframes wave {
+      0%, 100% { 
+        filter: hue-rotate(0deg) brightness(1);
+      }
+      50% { 
+        filter: hue-rotate(180deg) brightness(1.3);
+        background: #ff00ff !important;
+      }
+    }
+    
+    @keyframes glow {
+      0%, 100% { 
+        filter: brightness(1);
+        box-shadow: none;
+      }
+      50% { 
+        filter: brightness(1.5);
+        background: #ffff00 !important;
+        box-shadow: 0 0 8px 2px #ffff00;
+      }
+    }
+    
+    @keyframes fade {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.2; }
+    }
+    
+    @keyframes bounce {
+      0%, 100% { transform: scale(1); }
+      25% { transform: scale(1.4); }
+      50% { transform: scale(0.9); }
+      75% { transform: scale(1.2); }
+    }
+    
+    @keyframes rainbow {
+      0% { filter: hue-rotate(0deg); }
+      100% { filter: hue-rotate(360deg); }
+    }
+    
+    @keyframes blink {
+      0%, 49% { opacity: 1; }
+      50%, 100% { opacity: 0; }
+    }
+    
+    /* Apply animation styles to cells */
+    .cell-animator-cell {
+      will-change: transform, background, opacity, filter;
+      transition: background 0.1s ease;
+    }
+  </style>
+</head>
+<body>
+  <div class="pxs-ide">
+    <!-- Header -->
+    <header class="pxs-ide__header">
+      <div class="pxs-ide__logo">
+        <div class="pxs-ide__logo-icon">⬢</div>
+        <span class="pxs-ide__logo-text">PXS Studio</span>
+        <span class="pxs-badge pxs-badge--info">Phase 2C</span>
+      </div>
+      
+      <nav class="pxs-ide__nav">
+        <button class="pxs-ide__nav-item pxs-ide__nav-item--active" data-demo="playground">Playground</button>
+        <button class="pxs-ide__nav-item" data-demo="patterns">Patterns</button>
+        <button class="pxs-ide__nav-item" data-demo="benchmark">Benchmark</button>
+        <button class="pxs-ide__nav-item" data-demo="virtual-scroll">40K Grid</button>
+      </nav>
+    </header>
+    
+    <!-- Left Sidebar - Controls -->
+    <aside class="pxs-ide__sidebar pxs-ide__sidebar--left">
+      <!-- Grid Config -->
+      <div class="pxs-ide__sidebar-section">
+        <div class="pxs-ide__sidebar-title">
+          <span>⚙️ Grid Config</span>
+        </div>
+        <div class="pxs-ide__sidebar-content">
+          <div class="pxs-stat-grid" style="grid-template-columns: 1fr 1fr;">
+            <div class="pxs-stat">
+              <div class="pxs-stat__value" id="stat-cols">-</div>
+              <div class="pxs-stat__label">Columns</div>
+            </div>
+            <div class="pxs-stat">
+              <div class="pxs-stat__value" id="stat-rows">-</div>
+              <div class="pxs-stat__label">Rows</div>
+            </div>
+            <div class="pxs-stat">
+              <div class="pxs-stat__value" id="stat-cells">-</div>
+              <div class="pxs-stat__label">Total Cells</div>
+            </div>
+            <div class="pxs-stat">
+              <div class="pxs-stat__value" id="stat-mode">-</div>
+              <div class="pxs-stat__label">Renderer</div>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      <!-- Animation Controls -->
+      <div class="pxs-ide__sidebar-section">
+        <div class="pxs-ide__sidebar-title">
+          <span>🎬 Animations</span>
+        </div>
+        <div class="pxs-ide__sidebar-content">
+          <button class="pxs-btn" onclick="Demo.animate('diagonal')">Diagonal Pulse</button>
+          <button class="pxs-btn" onclick="Demo.animate('wave')">Wave Effect</button>
+          <button class="pxs-btn" onclick="Demo.animate('spiral')">Spiral Glow</button>
+          <button class="pxs-btn" onclick="Demo.animate('random')">Random Burst</button>
+          <button class="pxs-btn" onclick="Demo.animate('border')">Border Chase</button>
+        </div>
+      </div>
+      
+      <!-- Pattern Controls -->
+      <div class="pxs-ide__sidebar-section">
+        <div class="pxs-ide__sidebar-title">
+          <span>🎨 Patterns</span>
+        </div>
+        <div class="pxs-ide__sidebar-content">
+          <button class="pxs-btn" onclick="Demo.pattern('gradient-linear')">Linear Gradient</button>
+          <button class="pxs-btn" onclick="Demo.pattern('gradient-radial')">Radial Gradient</button>
+          <button class="pxs-btn" onclick="Demo.pattern('gradient-diagonal')">Diagonal Gradient</button>
+          <button class="pxs-btn" onclick="Demo.pattern('checkerboard')">Checkerboard</button>
+        </div>
+      </div>
+      
+      <!-- Actions -->
+      <div class="pxs-ide__sidebar-section">
+        <div class="pxs-ide__sidebar-title">
+          <span>🔧 Actions</span>
+        </div>
+        <div class="pxs-ide__sidebar-content">
+          <button class="pxs-btn pxs-btn--danger" onclick="Demo.stopAll()">Stop Animations</button>
+          <button class="pxs-btn" onclick="Demo.reset()">Reset Grid</button>
+        </div>
+      </div>
+    </aside>
+    
+    <!-- Main Canvas Area -->
+    <main class="pxs-ide__main">
+      <div class="pxs-ide__tabs">
+        <button class="pxs-ide__tab pxs-ide__tab--active">
+          <span>output.pxs</span>
+        </button>
+      </div>
+      
+      <div class="pxs-ide__canvas-wrap">
+        <div id="pxs-canvas" class="pxs-ide__canvas"></div>
+        
+        <!-- Loading -->
+        <div class="pxs-ide__loading" id="loading">
+          <div class="pxs-spinner"></div>
+          <div class="pxs-ide__loading-text">Initializing PXS...</div>
+        </div>
+        
+        <!-- Instructions -->
+        <div class="pxs-ide__instructions" id="instructions">
+          <h2>Welcome to PXS Studio</h2>
+          <p>Click any cell to interact</p>
+          <p>Use the sidebar controls to create patterns and animations</p>
+        </div>
+      </div>
+    </main>
+    
+    <!-- Right Sidebar - Performance -->
+    <aside class="pxs-ide__sidebar pxs-ide__sidebar--right">
+      <!-- Performance -->
+      <div class="pxs-ide__sidebar-section">
+        <div class="pxs-ide__sidebar-title">
+          <span>⚡ Performance</span>
+          <span class="pxs-badge" id="perf-status">-</span>
+        </div>
+        <div class="pxs-ide__sidebar-content">
+          <div class="pxs-stat-grid" style="grid-template-columns: 1fr 1fr;">
+            <div class="pxs-stat">
+              <div class="pxs-stat__value" id="stat-fps">-</div>
+              <div class="pxs-stat__label">FPS</div>
+            </div>
+            <div class="pxs-stat">
+              <div class="pxs-stat__value" id="stat-frame">-</div>
+              <div class="pxs-stat__label">Frame (ms)</div>
+            </div>
+            <div class="pxs-stat">
+              <div class="pxs-stat__value" id="stat-memory">-</div>
+              <div class="pxs-stat__label">Memory (MB)</div>
+            </div>
+            <div class="pxs-stat">
+              <div class="pxs-stat__value" id="stat-anims">0</div>
+              <div class="pxs-stat__label">Animations</div>
+            </div>
+          </div>
+          
+          <div style="margin-top: 12px;">
+            <div class="pxs-stat__label" style="margin-bottom: 4px;">FPS History</div>
+            <div class="pxs-progress">
+              <div class="pxs-progress__fill" id="fps-bar" style="width: 100%"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      <!-- Features -->
+      <div class="pxs-ide__sidebar-section">
+        <div class="pxs-ide__sidebar-title">
+          <span>🚀 Active Features</span>
+        </div>
+        <div class="pxs-ide__sidebar-content">
+          <div id="feature-list" style="display: flex; flex-direction: column; gap: 6px;">
+            <!-- Populated by JS -->
+          </div>
+        </div>
+      </div>
+      
+      <!-- Event Log -->
+      <div class="pxs-ide__sidebar-section" style="flex: 1; display: flex; flex-direction: column;">
+        <div class="pxs-ide__sidebar-title">
+          <span>📝 Event Log</span>
+        </div>
+        <div class="pxs-log" id="event-log" style="flex: 1; max-height: none;">
+          <div class="pxs-log__item">
+            <span class="pxs-log__time">--:--:--</span>
+            <span class="pxs-log__type">System</span>
+            <span class="pxs-log__message">Ready to initialize</span>
+          </div>
+        </div>
+      </div>
+    </aside>
+    
+    <!-- Status Bar -->
+    <footer class="pxs-ide__statusbar">
+      <div class="pxs-ide__statusbar-left">
+        <span class="pxs-ide__statusbar-item">
+          <span id="status-renderer">HTML</span> Renderer
+        </span>
+        <span class="pxs-ide__statusbar-item">
+          <span id="status-cells">0</span> cells
+        </span>
+      </div>
+      <div class="pxs-ide__statusbar-right">
+        <span class="pxs-ide__statusbar-item">
+          Phase 2C • 3D Ready
+        </span>
+        <span class="pxs-ide__statusbar-item">
+          PXS v2.0.0
+        </span>
+      </div>
+    </footer>
+  </div>
+
+  <!-- Load PXS -->
+  <script src="shared/pxs-loader.js?v=20260120"></script>
+  <script>
+    // Demo Application
+    const Demo = {
+      animator: null,
+      
+      async init() {
+        try {
+          this.log('System', 'Loading PXS modules...');
+          
+          // Load all modules
+          await PXS.load();
+          
+          this.log('System', `PXS loaded (${PXS.getVersion().phase})`);
+          
+          // Get canvas container
+          const container = document.getElementById('pxs-canvas');
+          const rect = container.parentElement.getBoundingClientRect();
+          
+          // Set container size
+          container.style.width = '800px';
+          container.style.height = '600px';
+          
+          // Create animator
+          this.animator = new CellAnimator({
+            width: 800,
+            height: 600,
+            cellWidth: 20,
+            cellHeight: 20,
+            container: container,
+            renderMode: 'auto',
+            enableProfiling: true,
+            enableSpatialIndex: true,
+            cellBorders: true,
+            borderColor: 'rgba(88, 166, 255, 0.2)',
+            borderWidth: 1
+          });
+          
+          // Set up event listeners
+          this.setupEvents();
+          
+          // Initialize
+          await this.animator.init();
+          
+          // Update UI
+          this.updateGridInfo();
+          this.updateFeatures();
+          this.hideLoading();
+          this.showInstructions();
+          
+          this.log('Grid', `Initialized ${this.animator.state.totalCells} cells`);
+          
+        } catch (error) {
+          console.error('Init error:', error);
+          this.log('Error', error.message);
+        }
+      },
+      
+      setupEvents() {
+        // Performance updates
+        this.animator.on('performanceUpdate', (metrics) => this.updatePerformance(metrics));
+        
+        // Cell click
+        this.animator.on('cellClick', (data) => {
+          this.log('Click', `Cell (${data.x}, ${data.y})`);
+          
+          // Pulse clicked cell
+          this.animator.animateCell(data.x, data.y, {
+            name: 'pulse',
+            duration: '0.5s',
+            timing: 'ease-out',
+            iteration: '1'
+          });
+        });
+        
+        // Grid ready
+        this.animator.on('gridReady', (info) => {
+          this.log('Grid', 'Ready');
+        });
+      },
+      
+      updateGridInfo() {
+        const info = this.animator.getGridInfo();
+        
+        document.getElementById('stat-cols').textContent = info.columns;
+        document.getElementById('stat-rows').textContent = info.rows;
+        document.getElementById('stat-cells').textContent = info.totalCells.toLocaleString();
+        document.getElementById('stat-mode').textContent = info.renderMode.toUpperCase();
+        
+        document.getElementById('status-renderer').textContent = info.renderMode.toUpperCase();
+        document.getElementById('status-cells').textContent = info.totalCells.toLocaleString();
+      },
+      
+      updatePerformance(metrics) {
+        const fps = Math.round(metrics.fps);
+        const frameTime = metrics.frameTime.toFixed(1);
+        const memoryMB = (metrics.memoryUsage / (1024 * 1024)).toFixed(1);
+        
+        document.getElementById('stat-fps').textContent = fps;
+        document.getElementById('stat-frame').textContent = frameTime;
+        document.getElementById('stat-memory').textContent = memoryMB;
+        document.getElementById('stat-anims').textContent = metrics.animationCount;
+        
+        // FPS bar
+        const fpsPercent = Math.min((fps / 60) * 100, 100);
+        document.getElementById('fps-bar').style.width = `${fpsPercent}%`;
+        
+        // Status badge
+        const status = document.getElementById('perf-status');
+        if (fps >= 55) {
+          status.textContent = 'Good';
+          status.className = 'pxs-badge pxs-badge--success';
+        } else if (fps >= 30) {
+          status.textContent = 'Fair';
+          status.className = 'pxs-badge pxs-badge--warning';
+        } else {
+          status.textContent = 'Poor';
+          status.className = 'pxs-badge pxs-badge--error';
+        }
+        
+        // Update stat value classes
+        const fpsEl = document.getElementById('stat-fps');
+        fpsEl.className = 'pxs-stat__value' + (fps >= 55 ? ' pxs-stat__value--good' : fps >= 30 ? ' pxs-stat__value--warning' : ' pxs-stat__value--bad');
+      },
+      
+      updateFeatures() {
+        const features = [
+          { name: 'Profiling', enabled: !!this.animator.profiler },
+          { name: 'Viewport Culling', enabled: !!this.animator.viewportManager },
+          { name: 'Spatial Index', enabled: !!this.animator.spatialIndex },
+          { name: 'Cell Groups', enabled: !!this.animator.groupManager },
+          { name: 'Transforms', enabled: true }
+        ];
+        
+        const list = document.getElementById('feature-list');
+        list.innerHTML = features.map(f => `
+          <div style="display: flex; align-items: center; gap: 8px; font-size: 12px;">
+            <span style="color: ${f.enabled ? 'var(--pxs-success)' : 'var(--pxs-text-muted)'}">
+              ${f.enabled ? '●' : '○'}
+            </span>
+            <span style="color: ${f.enabled ? 'var(--pxs-text-primary)' : 'var(--pxs-text-muted)'}">
+              ${f.name}
+            </span>
+          </div>
+        `).join('');
+      },
+      
+      hideLoading() {
+        const loading = document.getElementById('loading');
+        loading.style.opacity = '0';
+        setTimeout(() => loading.style.display = 'none', 300);
+      },
+      
+      showInstructions() {
+        const instructions = document.getElementById('instructions');
+        setTimeout(() => instructions.classList.add('pxs-ide__instructions--hidden'), 4000);
+      },
+      
+      log(type, message) {
+        const log = document.getElementById('event-log');
+        const time = new Date().toLocaleTimeString();
+        
+        const item = document.createElement('div');
+        item.className = 'pxs-log__item';
+        item.innerHTML = `
+          <span class="pxs-log__time">${time}</span>
+          <span class="pxs-log__type">${type}</span>
+          <span class="pxs-log__message">${message}</span>
+        `;
+        
+        log.insertBefore(item, log.firstChild);
+        
+        // Keep only last 50 items
+        while (log.children.length > 50) {
+          log.removeChild(log.lastChild);
+        }
+      },
+      
+      // Animation methods
+      animate(type) {
+        const info = this.animator.getGridInfo();
+        const { columns, rows } = info;
+        
+        this.log('Animation', `Starting ${type}`);
+        
+        // Stop existing animations first
+        this.animator.stopAllAnimations();
+        
+        switch (type) {
+          case 'diagonal':
+            // Set base colors first for diagonal cells
+            for (let i = 0; i < Math.min(columns, rows); i++) {
+              this.animator.updateCell(i, i, {
+                background: '#58a6ff'
+              });
+              this.animator.animateCell(i, i, {
+                name: 'pulse',
+                duration: '1s',
+                timing: 'ease-in-out',
+                delay: `${i * 0.05}s`,
+                iteration: 'infinite'
+              });
+            }
+            break;
+            
+          case 'wave':
+            // Set a gradient base first, then animate
+            const waveGradient = PatternHelpers.generateDiagonalGradient({
+              gridWidth: columns,
+              gridHeight: rows,
+              colorStart: '#6c5ce7',
+              colorEnd: '#00cec9'
+            });
+            this.animator.updateCells(waveGradient);
+            
+            // Apply wave animation with stagger
+            for (let x = 0; x < columns; x++) {
+              for (let y = 0; y < rows; y++) {
+                this.animator.animateCell(x, y, {
+                  name: 'wave',
+                  duration: '2s',
+                  timing: 'ease-in-out',
+                  delay: `${(x + y) * 0.02}s`,
+                  iteration: 'infinite'
+                });
+              }
+            }
+            break;
+            
+          case 'spiral':
+            const centerX = (columns - 1) / 2;
+            const centerY = (rows - 1) / 2;
+            
+            // Set radial gradient base
+            const spiralGradient = PatternHelpers.generateRadialGradient({
+              centerX: centerX,
+              centerY: centerY,
+              radius: Math.max(columns, rows) * 0.6,
+              colorCenter: '#fd79a8',
+              colorEdge: '#0984e3',
+              gridWidth: columns,
+              gridHeight: rows
+            });
+            this.animator.updateCells(spiralGradient);
+            
+            // Apply glow animation radiating from center
+            for (let x = 0; x < columns; x++) {
+              for (let y = 0; y < rows; y++) {
+                const dx = x - centerX;
+                const dy = y - centerY;
+                const distance = Math.sqrt(dx * dx + dy * dy);
+                
+                this.animator.animateCell(x, y, {
+                  name: 'glow',
+                  duration: '2s',
+                  timing: 'ease-in-out',
+                  delay: `${distance * 0.04}s`,
+                  iteration: 'infinite'
+                });
+              }
+            }
+            break;
+            
+          case 'random':
+            // Reset grid first
+            this.animator.resetAllCells();
+            
+            // Create random colored cells with pulse
+            for (let i = 0; i < 150; i++) {
+              const x = Math.floor(Math.random() * columns);
+              const y = Math.floor(Math.random() * rows);
+              const hue = Math.floor(Math.random() * 360);
+              
+              this.animator.updateCell(x, y, {
+                background: `hsl(${hue}, 80%, 50%)`
+              });
+              
+              this.animator.animateCell(x, y, {
+                name: 'bounce',
+                duration: `${0.5 + Math.random() * 1}s`,
+                timing: 'ease-out',
+                delay: `${Math.random() * 0.5}s`,
+                iteration: 'infinite'
+              });
+            }
+            break;
+            
+          case 'border':
+            // Set border cells to a bright color
+            const borderColor = '#e17055';
+            
+            // Top edge
+            for (let x = 0; x < columns; x++) {
+              this.animator.updateCell(x, 0, { background: borderColor });
+              this.animator.animateCell(x, 0, {
+                name: 'pulse',
+                duration: '1s',
+                delay: `${x * 0.03}s`,
+                iteration: 'infinite'
+              });
+            }
+            // Bottom edge
+            for (let x = 0; x < columns; x++) {
+              this.animator.updateCell(x, rows - 1, { background: borderColor });
+              this.animator.animateCell(x, rows - 1, {
+                name: 'pulse',
+                duration: '1s',
+                delay: `${(columns - 1 - x) * 0.03}s`,
+                iteration: 'infinite'
+              });
+            }
+            // Left edge
+            for (let y = 1; y < rows - 1; y++) {
+              this.animator.updateCell(0, y, { background: borderColor });
+              this.animator.animateCell(0, y, {
+                name: 'pulse',
+                duration: '1s',
+                delay: `${(rows - 1 - y) * 0.03}s`,
+                iteration: 'infinite'
+              });
+            }
+            // Right edge
+            for (let y = 1; y < rows - 1; y++) {
+              this.animator.updateCell(columns - 1, y, { background: borderColor });
+              this.animator.animateCell(columns - 1, y, {
+                name: 'pulse',
+                duration: '1s',
+                delay: `${y * 0.03}s`,
+                iteration: 'infinite'
+              });
+            }
+            break;
+        }
+      },
+      
+      // Pattern methods using PatternHelpers
+      pattern(type) {
+        const info = this.animator.getGridInfo();
+        const { columns, rows } = info;
+        
+        this.log('Pattern', `Applying ${type}`);
+        
+        // Stop any running animations first
+        this.animator.stopAllAnimations();
+        
+        switch (type) {
+          case 'gradient-linear':
+            // Horizontal gradient using new API
+            const linear = PatternHelpers.generateHorizontalGradient({
+              gridWidth: columns,
+              gridHeight: rows,
+              colorStart: '#ff6b6b',
+              colorEnd: '#4ecdc4'
+            });
+            this.animator.updateCells(linear);
+            break;
+            
+          case 'gradient-radial':
+            // Radial gradient from center - use floating point for smoother center
+            const centerX = (columns - 1) / 2;
+            const centerY = (rows - 1) / 2;
+            const radial = PatternHelpers.generateRadialGradient({
+              centerX: centerX,
+              centerY: centerY,
+              radius: Math.max(columns, rows) * 0.6,
+              colorCenter: '#ffd93d',
+              colorEdge: '#6c5ce7',
+              gridWidth: columns,
+              gridHeight: rows
+            });
+            this.animator.updateCells(radial);
+            break;
+            
+          case 'gradient-diagonal':
+            const diagonal = PatternHelpers.generateDiagonalGradient({
+              gridWidth: columns,
+              gridHeight: rows,
+              colorStart: '#a29bfe',
+              colorEnd: '#00b894'
+            });
+            this.animator.updateCells(diagonal);
+            break;
+            
+          case 'checkerboard':
+            const updates = [];
+            for (let y = 0; y < rows; y++) {
+              for (let x = 0; x < columns; x++) {
+                const isEven = (x + y) % 2 === 0;
+                updates.push({
+                  x, y,
+                  styles: {
+                    background: isEven ? '#2d3436' : '#636e72'
+                  }
+                });
+              }
+            }
+            this.animator.updateCells(updates);
+            break;
+        }
+      },
+      
+      stopAll() {
+        this.animator.stopAllAnimations();
+        this.log('Animation', 'All stopped');
+      },
+      
+      reset() {
+        this.animator.resetAllCells();
+        this.log('Grid', 'Reset');
+      }
+    };
+    
+    // Initialize on load
+    window.addEventListener('DOMContentLoaded', () => Demo.init());
+  </script>
+</body>
+</html>

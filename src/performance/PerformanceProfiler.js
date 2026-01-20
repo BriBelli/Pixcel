@@ -459,7 +459,12 @@ class PerformanceProfiler {
     }
 }
 
-// Export for use in other modules
+// Export for use in modules
 if (typeof module !== 'undefined' && module.exports) {
     module.exports = PerformanceProfiler;
+}
+
+// Export for browser
+if (typeof window !== 'undefined') {
+    window.PerformanceProfiler = PerformanceProfiler;
 }

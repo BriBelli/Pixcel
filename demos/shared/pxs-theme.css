@@ -1,0 +1,108 @@
+/**
+ * PXS Theme - Shared Design System
+ * A cohesive dark theme inspired by code editors and creative tools
+ */
+
+:root {
+  /* Core Colors - Deep Midnight */
+  --pxs-bg-primary: #0d1117;
+  --pxs-bg-secondary: #161b22;
+  --pxs-bg-tertiary: #21262d;
+  --pxs-bg-elevated: #30363d;
+  
+  /* Accent Colors - Electric Cyan + Neon */
+  --pxs-accent-primary: #58a6ff;
+  --pxs-accent-secondary: #79c0ff;
+  --pxs-accent-highlight: #00d9ff;
+  --pxs-accent-glow: rgba(88, 166, 255, 0.4);
+  
+  /* Status Colors */
+  --pxs-success: #3fb950;
+  --pxs-success-glow: rgba(63, 185, 80, 0.4);
+  --pxs-warning: #d29922;
+  --pxs-warning-glow: rgba(210, 153, 34, 0.4);
+  --pxs-error: #f85149;
+  --pxs-error-glow: rgba(248, 81, 73, 0.4);
+  --pxs-info: #a371f7;
+  --pxs-info-glow: rgba(163, 113, 247, 0.4);
+  
+  /* Text Colors */
+  --pxs-text-primary: #e6edf3;
+  --pxs-text-secondary: #8b949e;
+  --pxs-text-muted: #6e7681;
+  --pxs-text-link: #58a6ff;
+  
+  /* Border Colors */
+  --pxs-border: #30363d;
+  --pxs-border-hover: #484f58;
+  --pxs-border-focus: #58a6ff;
+  
+  /* Grid/Cell Defaults */
+  --pxs-cell-bg: #21262d;
+  --pxs-cell-border: #30363d;
+  --pxs-cell-hover: #388bfd;
+  
+  /* Shadows */
+  --pxs-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
+  --pxs-shadow-md: 0 4px 12px rgba(0, 0, 0, 0.4);
+  --pxs-shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.5);
+  --pxs-shadow-glow: 0 0 20px var(--pxs-accent-glow);
+  
+  /* Typography - Distinctive Font Stack */
+  --pxs-font-sans: 'JetBrains Mono', 'Fira Code', 'SF Mono', 'Cascadia Code', monospace;
+  --pxs-font-display: 'Space Grotesk', 'Inter', system-ui, sans-serif;
+  
+  /* Sizing */
+  --pxs-radius-sm: 4px;
+  --pxs-radius-md: 8px;
+  --pxs-radius-lg: 12px;
+  
+  /* Transitions */
+  --pxs-transition-fast: 150ms ease;
+  --pxs-transition-normal: 250ms ease;
+  --pxs-transition-slow: 400ms ease;
+}
+
+/* Base Reset */
+*, *::before, *::after {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html, body {
+  height: 100%;
+  font-family: var(--pxs-font-sans);
+  background: var(--pxs-bg-primary);
+  color: var(--pxs-text-primary);
+  font-size: 14px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Custom Scrollbars */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--pxs-bg-secondary);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--pxs-bg-elevated);
+  border-radius: 5px;
+  border: 2px solid var(--pxs-bg-secondary);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--pxs-border-hover);
+}
+
+/* Selection */
+::selection {
+  background: var(--pxs-accent-primary);
+  color: var(--pxs-bg-primary);
+}

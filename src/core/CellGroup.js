@@ -543,10 +543,16 @@ class CellGroupManager {
     }
 }
 
-// Export classes
+// Export for use in modules
 if (typeof module !== 'undefined' && module.exports) {
     module.exports = {
         CellGroup,
         CellGroupManager
     };
+}
+
+// Export for browser
+if (typeof window !== 'undefined') {
+    window.CellGroup = CellGroup;
+    window.CellGroupManager = CellGroupManager;
 }

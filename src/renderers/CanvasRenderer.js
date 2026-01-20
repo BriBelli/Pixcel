@@ -26,6 +26,7 @@ class CanvasRenderer extends BaseRenderer {
         this.viewportEnabled = false;
         this.dirtyRegions = new Set(); // Track cells that need redrawing
         this.fullRedrawNeeded = true;
+        this._batchRedrawScheduled = false; // For batch update efficiency
         
         // Click handler binding
         this._boundHandleClick = this.handleClick.bind(this);
@@ -127,8 +128,8 @@ class CanvasRenderer extends BaseRenderer {
                     styles: {}
                 });
                 
-                // Initialize default color (visible gray for debugging)
-                this.cellColors.set(key, '#666666');
+                // Initialize default color
+                this.cellColors.set(key, '#2a2a2a');
             }
         }
     }
@@ -148,10 +149,6 @@ class CanvasRenderer extends BaseRenderer {
         // Clear canvas (use logical dimensions since context is scaled by DPR)
         this.ctx.clearRect(0, 0, this.logicalWidth, this.logicalHeight);
         
-        // DEBUG: Draw a visible test rectangle to confirm canvas is working
-        this.ctx.fillStyle = '#ff0000';
-        this.ctx.fillRect(10, 10, 100, 100);
-        
         if (this.viewportEnabled && !this.fullRedrawNeeded) {
             // Partial redraw - only dirty regions
             for (const key of this.dirtyRegions) {
@@ -166,22 +163,8 @@ class CanvasRenderer extends BaseRenderer {
             if (this.viewportEnabled) {
                 // Only draw visible cells
                 const visibleCells = viewportManager.getVisibleCells();
-                console.log('[CanvasRenderer] Drawing visible cells:', visibleCells.length, {
-                    viewport: viewportManager.viewport,
-                    visibleBounds: viewportManager.visibleBounds
-                });
                 
-                // DEBUG: Draw first 5 cells with bright colors to see if they appear
-                let debugCount = 0;
                 for (const coord of visibleCells) {
-                    if (debugCount < 5) {
-                        console.log(`[DEBUG] Drawing cell (${coord.x}, ${coord.y}) at pixel position:`, {
-                            gridX: coord.x * this.config.cellWidth,
-                            gridY: coord.y * this.config.cellHeight,
-                            viewportOffset: viewportManager.viewport
-                        });
-                        debugCount++;
-                    }
                     this._drawCell(coord.x, coord.y);
                 }
             } else {
@@ -317,16 +300,21 @@ class CanvasRenderer extends BaseRenderer {
         const existingStyles = this.cellStyles.get(key) || {};
         this.cellStyles.set(key, { ...existingStyles, ...styles });
         
-        // Phase 2C: Mark cell as dirty for partial redraw
-        if (this.viewportEnabled && !this.fullRedrawNeeded) {
-            this.dirtyRegions.add(key);
-            // Redraw only if not in animation loop (which redraws automatically)
-            if (this.animationFrameId === null) {
-                this._drawGrid();
+        // Phase 2C: Mark cell as dirty for partial/batched redraw
+        this.dirtyRegions.add(key);
+        
+        // Use debounced redraw for batch efficiency
+        // If we're in animation loop, it will handle the redraw
+        if (this.animationFrameId === null) {
+            // Schedule a batched redraw
+            if (!this._batchRedrawScheduled) {
+                this._batchRedrawScheduled = true;
+                requestAnimationFrame(() => {
+                    this._batchRedrawScheduled = false;
+                    this.fullRedrawNeeded = true;
+                    this._drawGrid();
+                });
             }
-        } else {
-            // Immediate redraw for single cell
-            this._drawCell(x, y);
         }
     }
 
@@ -595,7 +583,7 @@ class CanvasRenderer extends BaseRenderer {
         this.stopAnimation(x, y);
         
         // Reset to default color
-        this.cellColors.set(key, '#333333');
+        this.cellColors.set(key, '#2a2a2a');
         this.cellStyles.delete(key);
         
         // Redraw
@@ -626,8 +614,15 @@ class CanvasRenderer extends BaseRenderer {
         const rect = this.canvas.getBoundingClientRect();
         
         // Get mouse position relative to canvas
-        const mouseX = event.clientX - rect.left;
-        const mouseY = event.clientY - rect.top;
+        let mouseX = event.clientX - rect.left;
+        let mouseY = event.clientY - rect.top;
+        
+        // Account for viewport offset if viewport is enabled
+        if (this.viewportEnabled && this.animator.viewportManager) {
+            const viewport = this.animator.viewportManager.viewport;
+            mouseX += viewport.x;
+            mouseY += viewport.y;
+        }
         
         // Convert to cell coordinates
         const x = Math.floor(mouseX / this.config.cellWidth);
@@ -635,6 +630,9 @@ class CanvasRenderer extends BaseRenderer {
         
         // Validate bounds
         if (x >= 0 && x < this.state.columns && y >= 0 && y < this.state.rows) {
+            // Emit cellClick event like HTMLRenderer does
+            const cell = this.animator.getCell(x, y);
+            this.animator._emit('cellClick', { x, y, element: null, event, cell });
             return { x, y };
         }
         
@@ -791,4 +789,14 @@ class CanvasRenderer extends BaseRenderer {
             'dirty-region-tracking'    // Phase 2C
         ];
     }
+}
+
+// Export for use in modules
+if (typeof module !== 'undefined' && module.exports) {
+    module.exports = CanvasRenderer;
+}
+
+// Export for browser
+if (typeof window !== 'undefined') {
+    window.CanvasRenderer = CanvasRenderer;
 }

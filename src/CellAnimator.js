@@ -104,8 +104,11 @@ class CellAnimator {
             case 'canvas':
                 return new CanvasRenderer(this);
             case 'webgl':
-                // Will be implemented in Phase 7
-                throw new Error('WebGL renderer not yet implemented. Coming in Phase 7!');
+                if (typeof WebGLRenderer === 'undefined') {
+                    console.warn('WebGLRenderer not loaded, falling back to Canvas');
+                    return new CanvasRenderer(this);
+                }
+                return new WebGLRenderer(this);
             default:
                 console.warn(`Unknown render mode: ${this.renderMode}, falling back to HTML`);
                 return new HTMLRenderer(this);

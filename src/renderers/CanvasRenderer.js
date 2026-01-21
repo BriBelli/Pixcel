@@ -37,101 +37,146 @@ class CanvasRenderer extends BaseRenderer {
      * @returns {Promise<void>}
      */
     async init() {
-        return new Promise((resolve) => {
-            // Create canvas element
-            this.canvas = document.createElement('canvas');
-            this.canvas.className = 'cell-animator-canvas';
+        // Create canvas element
+        this.canvas = document.createElement('canvas');
+        this.canvas.className = 'cell-animator-canvas';
+        
+        // Set canvas size
+        const containerWidth = this.config.container.clientWidth;
+        const containerHeight = this.config.container.clientHeight;
+        
+        // Handle high DPI displays
+        const dpr = window.devicePixelRatio || 1;
+        this.canvas.width = containerWidth * dpr;
+        this.canvas.height = containerHeight * dpr;
+        this.canvas.style.width = `${containerWidth}px`;
+        this.canvas.style.height = `${containerHeight}px`;
+        
+        // Store logical dimensions for clearing
+        this.logicalWidth = containerWidth;
+        this.logicalHeight = containerHeight;
+        
+        // Get context and scale for DPI
+        this.ctx = this.canvas.getContext('2d');
+        this.ctx.scale(dpr, dpr);
+        
+        // Append to container
+        this.config.container.appendChild(this.canvas);
+        
+        // Add click listener
+        this.canvas.addEventListener('click', this._boundHandleClick);
+        
+        // Create cell data in animator's cells Map (chunked for large grids)
+        await this._createCells();
+        
+        // Draw initial grid
+        this._drawGrid();
+        
+        // Listen to viewport events for redraws
+        if (this.animator.viewportManager) {
+            this.viewportEnabled = true;
             
-            // Set canvas size
-            const containerWidth = this.config.container.clientWidth;
-            const containerHeight = this.config.container.clientHeight;
+            // Redraw when viewport changes
+            this.animator.on('viewportPanned', () => {
+                this.fullRedrawNeeded = true;
+                // Restart animation loop if stopped
+                if (!this.animationFrameId) {
+                    this._startAnimationLoop();
+                }
+            });
             
-            // Handle high DPI displays
-            const dpr = window.devicePixelRatio || 1;
-            this.canvas.width = containerWidth * dpr;
-            this.canvas.height = containerHeight * dpr;
-            this.canvas.style.width = `${containerWidth}px`;
-            this.canvas.style.height = `${containerHeight}px`;
+            this.animator.on('viewportChanged', () => {
+                this.fullRedrawNeeded = true;
+                if (!this.animationFrameId) {
+                    this._startAnimationLoop();
+                }
+            });
             
-            // Store logical dimensions for clearing
-            this.logicalWidth = containerWidth;
-            this.logicalHeight = containerHeight;
-            
-            // Get context and scale for DPI
-            this.ctx = this.canvas.getContext('2d');
-            this.ctx.scale(dpr, dpr);
-            
-            // Append to container
-            this.config.container.appendChild(this.canvas);
-            
-            // Add click listener
-            this.canvas.addEventListener('click', this._boundHandleClick);
-            
-            // Create cell data in animator's cells Map
-            this._createCells();
-            
-            // Draw initial grid
-            this._drawGrid();
-            
-            // Listen to viewport events for redraws
-            if (this.animator.viewportManager) {
-                this.viewportEnabled = true;
-                
-                // Redraw when viewport changes
-                this.animator.on('viewportPanned', () => {
-                    this.fullRedrawNeeded = true;
-                    // Restart animation loop if stopped
-                    if (!this.animationFrameId) {
-                        this._startAnimationLoop();
-                    }
-                });
-                
-                this.animator.on('viewportChanged', () => {
-                    this.fullRedrawNeeded = true;
-                    if (!this.animationFrameId) {
-                        this._startAnimationLoop();
-                    }
-                });
-                
-                this.animator.on('viewportCentered', () => {
-                    this.fullRedrawNeeded = true;
-                    if (!this.animationFrameId) {
-                        this._startAnimationLoop();
-                    }
-                });
-            }
-            
-            // Start animation loop
-            this._startAnimationLoop();
-            
-            resolve();
-        });
+            this.animator.on('viewportCentered', () => {
+                this.fullRedrawNeeded = true;
+                if (!this.animationFrameId) {
+                    this._startAnimationLoop();
+                }
+            });
+        }
+        
+        // Start animation loop
+        this._startAnimationLoop();
     }
 
     /**
-     * Create cell data objects for all cells
+     * Create cell data objects for all cells (chunked for performance)
      * @private
+     * @returns {Promise<void>}
      */
-    _createCells() {
+    async _createCells() {
         const { columns, rows } = this.state;
+        const totalCells = columns * rows;
+        const CHUNK_SIZE = 20000; // Create 20k cells per chunk
+        const CHUNK_THRESHOLD = 100000; // Only chunk for VGA+ (100K+ cells)
         let index = 0;
+        
+        // For grids under threshold, create synchronously (QVGA is ~76K - fast enough)
+        if (totalCells <= CHUNK_THRESHOLD) {
+            for (let y = 0; y < rows; y++) {
+                for (let x = 0; x < columns; x++) {
+                    const key = `${x}-${y}`;
+                    this.animator.cells.set(key, {
+                        element: null,
+                        x,
+                        y,
+                        index: index++,
+                        animated: false,
+                        styles: {}
+                    });
+                    this.cellColors.set(key, '#2a2a2a');
+                }
+            }
+            return;
+        }
+        
+        // For large grids, use chunked async creation
+        let cellsCreated = 0;
         
         for (let y = 0; y < rows; y++) {
             for (let x = 0; x < columns; x++) {
                 const key = `${x}-${y}`;
                 this.animator.cells.set(key, {
-                    element: null,  // Canvas doesn't use DOM elements
+                    element: null,
                     x,
                     y,
                     index: index++,
                     animated: false,
                     styles: {}
                 });
-                
-                // Initialize default color
                 this.cellColors.set(key, '#2a2a2a');
+                
+                cellsCreated++;
+                
+                // Yield to browser every CHUNK_SIZE cells
+                if (cellsCreated % CHUNK_SIZE === 0) {
+                    // Emit progress event
+                    const progress = Math.round((cellsCreated / totalCells) * 100);
+                    this.animator._emit('gridProgress', { 
+                        cellsCreated, 
+                        totalCells, 
+                        progress,
+                        phase: 'creating'
+                    });
+                    
+                    // Yield to browser - keeps UI responsive
+                    await new Promise(resolve => setTimeout(resolve, 0));
+                }
             }
         }
+        
+        // Final progress update
+        this.animator._emit('gridProgress', { 
+            cellsCreated: totalCells, 
+            totalCells, 
+            progress: 100,
+            phase: 'complete'
+        });
     }
 
     /**

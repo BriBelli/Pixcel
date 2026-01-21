@@ -15,37 +15,39 @@ class HTMLRenderer extends BaseRenderer {
     }
 
     /**
-     * Initialize the HTML renderer and generate grid
+     * Initialize the HTML renderer and generate grid (chunked for large grids)
      * @returns {Promise<void>}
      */
     async init() {
-        return new Promise((resolve) => {
-            const fragment = document.createDocumentFragment();
-            const gridContainer = document.createElement('div');
-            
-            // Use CSS Grid for pixel-perfect cell placement (NO GAPS)
-            gridContainer.className = 'cell-animator-grid';
-            gridContainer.style.display = 'grid';
-            gridContainer.style.gridTemplateColumns = `repeat(${this.state.columns}, ${this.config.cellWidth}px)`;
-            gridContainer.style.gridTemplateRows = `repeat(${this.state.rows}, ${this.config.cellHeight}px)`;
-            gridContainer.style.gap = '0';
-            gridContainer.style.width = `${this.state.columns * this.config.cellWidth}px`;
-            gridContainer.style.height = `${this.state.rows * this.config.cellHeight}px`;
-            gridContainer.style.margin = '0';
-            gridContainer.style.padding = '0';
-            gridContainer.style.overflow = 'hidden';
-            gridContainer.style.lineHeight = '0';
-            gridContainer.style.fontSize = '0';
+        const gridContainer = document.createElement('div');
+        
+        // Use CSS Grid for pixel-perfect cell placement (NO GAPS)
+        gridContainer.className = 'cell-animator-grid';
+        gridContainer.style.display = 'grid';
+        gridContainer.style.gridTemplateColumns = `repeat(${this.state.columns}, ${this.config.cellWidth}px)`;
+        gridContainer.style.gridTemplateRows = `repeat(${this.state.rows}, ${this.config.cellHeight}px)`;
+        gridContainer.style.gap = '0';
+        gridContainer.style.width = `${this.state.columns * this.config.cellWidth}px`;
+        gridContainer.style.height = `${this.state.rows * this.config.cellHeight}px`;
+        gridContainer.style.margin = '0';
+        gridContainer.style.padding = '0';
+        gridContainer.style.overflow = 'hidden';
+        gridContainer.style.lineHeight = '0';
+        gridContainer.style.fontSize = '0';
 
+        const totalCells = this.state.totalCells;
+        const CHUNK_SIZE = 2000; // DOM elements are heavier, use smaller chunks
+        
+        // For small grids, create synchronously (faster)
+        if (totalCells <= CHUNK_SIZE) {
+            const fragment = document.createDocumentFragment();
             let xPos = 0;
             let yPos = 0;
-
-            // Generate cells
-            for (let i = 0; i < this.state.totalCells; i++) {
+            
+            for (let i = 0; i < totalCells; i++) {
                 const cellElement = this._createCellElement(xPos, yPos);
-                gridContainer.appendChild(cellElement);
+                fragment.appendChild(cellElement);
 
-                // Store cell data in animator's cell map
                 const key = `${xPos}-${yPos}`;
                 this.animator.cells.set(key, {
                     element: cellElement,
@@ -62,14 +64,73 @@ class HTMLRenderer extends BaseRenderer {
                     yPos++;
                 }
             }
+            
+            gridContainer.appendChild(fragment);
+        } else {
+            // For large grids, use chunked async creation
+            let xPos = 0;
+            let yPos = 0;
+            let cellsCreated = 0;
+            let fragment = document.createDocumentFragment();
+            
+            for (let i = 0; i < totalCells; i++) {
+                const cellElement = this._createCellElement(xPos, yPos);
+                fragment.appendChild(cellElement);
 
-            fragment.appendChild(gridContainer);
-            this.config.container.innerHTML = '';
-            this.config.container.appendChild(fragment);
-            this.gridElement = gridContainer;
+                const key = `${xPos}-${yPos}`;
+                this.animator.cells.set(key, {
+                    element: cellElement,
+                    x: xPos,
+                    y: yPos,
+                    index: i,
+                    animated: false,
+                    styles: {}
+                });
 
-            resolve();
-        });
+                xPos++;
+                if (xPos === this.state.columns) {
+                    xPos = 0;
+                    yPos++;
+                }
+                
+                cellsCreated++;
+                
+                // Every CHUNK_SIZE cells, append fragment and yield to browser
+                if (cellsCreated % CHUNK_SIZE === 0) {
+                    gridContainer.appendChild(fragment);
+                    fragment = document.createDocumentFragment();
+                    
+                    // Emit progress event
+                    const progress = Math.round((cellsCreated / totalCells) * 100);
+                    this.animator._emit('gridProgress', { 
+                        cellsCreated, 
+                        totalCells, 
+                        progress,
+                        phase: 'creating'
+                    });
+                    
+                    // Yield to browser
+                    await new Promise(resolve => setTimeout(resolve, 0));
+                }
+            }
+            
+            // Append remaining cells
+            if (fragment.childNodes.length > 0) {
+                gridContainer.appendChild(fragment);
+            }
+            
+            // Final progress update
+            this.animator._emit('gridProgress', { 
+                cellsCreated: totalCells, 
+                totalCells, 
+                progress: 100,
+                phase: 'complete'
+            });
+        }
+
+        this.config.container.innerHTML = '';
+        this.config.container.appendChild(gridContainer);
+        this.gridElement = gridContainer;
     }
 
     /**

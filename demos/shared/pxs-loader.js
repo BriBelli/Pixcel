@@ -11,6 +11,7 @@ const PXSLoader = {
     'renderers/BaseRenderer.js',
     'renderers/HTMLRenderer.js',
     'renderers/CanvasRenderer.js',
+    'renderers/WebGLRenderer.js',
     'spatial/ViewportManager.js',
     'spatial/SpatialIndex.js',
     'performance/PerformanceProfiler.js',
@@ -112,19 +113,21 @@ const PXSLoader = {
   getVersion() {
     return {
       name: 'PXS',
-      version: '2.0.0',
-      phase: '2C - Advanced Performance & 3D Readiness',
-      renderers: ['HTML', 'Canvas'],
+      version: '3.0.0',
+      phase: '3 - WebGL & High Performance',
+      renderers: ['HTML', 'Canvas', 'WebGL'],
       features: [
         'CSS Grid Layout',
         'Canvas 2D Rendering',
+        'WebGL GPU Rendering',
         'Viewport Culling',
         'Spatial Indexing (Quadtree)',
         'Transform Matrices (2D/3D)',
         'Object Pooling',
         'Performance Profiling',
         'Cell Groups',
-        'Pattern Helpers'
+        'Pattern Helpers',
+        'Chunked Grid Creation'
       ]
     };
   }

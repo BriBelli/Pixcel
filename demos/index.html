@@ -244,6 +244,12 @@
                 <span class="res-preset__name">QVGA</span>
                 <span class="res-preset__size">320×240</span>
               </button>
+              <!-- VGA/SVGA disabled - requires Rust/WASM for performance
+              <button class="res-preset" data-cols="640" data-rows="480" disabled title="Requires WASM (coming soon)">
+                <span class="res-preset__name">VGA</span>
+                <span class="res-preset__size">640×480</span>
+              </button>
+              -->
             </div>
             
             <!-- Custom Resolution -->
@@ -417,7 +423,13 @@
         <!-- Loading -->
         <div class="pxs-ide__loading" id="loading">
           <div class="pxs-spinner"></div>
-          <div class="pxs-ide__loading-text">Initializing PXS...</div>
+          <div class="pxs-ide__loading-text" id="loading-text">Initializing PXS...</div>
+          <div id="loading-progress" style="display: none; margin-top: 12px; width: 200px;">
+            <div style="background: var(--pxs-bg-tertiary); border-radius: 4px; height: 8px; overflow: hidden;">
+              <div id="loading-progress-bar" style="background: var(--pxs-accent-primary); height: 100%; width: 0%; transition: width 0.1s ease;"></div>
+            </div>
+            <div id="loading-progress-text" style="text-align: center; margin-top: 6px; font-size: 11px; color: var(--pxs-text-muted);">0%</div>
+          </div>
         </div>
         
         <!-- Instructions -->
@@ -508,7 +520,7 @@
   <canvas id="image-processor" style="display: none;"></canvas>
 
   <!-- Load PXS -->
-  <script src="shared/pxs-loader.js?v=20260121"></script>
+  <script src="shared/pxs-loader.js?v=20260121f"></script>
   <script>
     // Demo Application
     const Demo = {
@@ -517,6 +529,10 @@
       currentCols: 40,
       currentRows: 30,
       bordersEnabled: true,
+      
+      // Track current effect state for re-application after resolution change
+      currentEffect: null,  // { type: 'animation'|'pattern', name: string }
+      _customAnimationId: null,  // For custom RAF-based animations
       
       async init() {
         try {
@@ -543,9 +559,20 @@
       
       async createGrid(cols, rows) {
         const container = document.getElementById('pxs-canvas');
+        const totalCells = cols * rows;
+        const isLargeGrid = totalCells > 100000; // Only show progress for VGA+ (Canvas handles QVGA fast)
+        
+        // Show loading for large grids
+        if (isLargeGrid) {
+          this.showGridProgress(0, totalCells);
+        }
+        
+        // Stop any custom animations before clearing
+        this._stopCustomAnimation();
         
         // Clear existing
         if (this.animator) {
+          this.animator.stopAllAnimations();
           container.innerHTML = '';
         }
         
@@ -566,8 +593,15 @@
         container.style.height = height + 'px';
         
         // Determine renderer based on cell count
-        const totalCells = cols * rows;
-        const renderMode = totalCells > 5000 ? 'canvas' : 'html';
+        // HTML: <5K cells (best interactivity, full CSS support)
+        // Canvas: 5K+ cells (good performance, handles up to QVGA)
+        // WebGL: Disabled until Rust/WASM is integrated (VGA+ crashes browser)
+        let renderMode = 'html';
+        if (totalCells > 5000) {
+          renderMode = 'canvas'; // Canvas handles up to QVGA (76K) well
+        }
+        // WebGL disabled - causes browser crashes at VGA resolution
+        // Will be re-enabled when Rust/WASM compute is integrated
         
         // Create animator
         this.animator = new CellAnimator({
@@ -584,14 +618,31 @@
           borderWidth: 1
         });
         
+        // Setup progress listener for large grids
+        if (isLargeGrid) {
+          this.animator.on('gridProgress', (data) => {
+            this.showGridProgress(data.cellsCreated, data.totalCells);
+          });
+        }
+        
         this.setupEvents();
         await this.animator.init();
+        
+        // Hide loading
+        if (isLargeGrid) {
+          this.hideGridProgress();
+        }
         
         this.currentCols = cols;
         this.currentRows = rows;
         this.updateGridInfo();
         
         this.log('Grid', `Created ${cols}×${rows} = ${totalCells.toLocaleString()} cells (${renderMode})`);
+        
+        // Re-apply current effect after grid recreation (unless we're changing for image render)
+        if (this.currentEffect && !this.loadedImage) {
+          this._reapplyCurrentEffect();
+        }
       },
       
       setupSectionTabs() {
@@ -860,6 +911,36 @@
         setTimeout(() => loading.style.display = 'none', 300);
       },
       
+      showGridProgress(cellsCreated, totalCells) {
+        const loading = document.getElementById('loading');
+        const loadingText = document.getElementById('loading-text');
+        const progressContainer = document.getElementById('loading-progress');
+        const progressBar = document.getElementById('loading-progress-bar');
+        const progressText = document.getElementById('loading-progress-text');
+        
+        const percent = Math.round((cellsCreated / totalCells) * 100);
+        
+        loading.style.display = 'flex';
+        loading.style.opacity = '1';
+        loadingText.textContent = `Creating ${totalCells.toLocaleString()} cells...`;
+        progressContainer.style.display = 'block';
+        progressBar.style.width = `${percent}%`;
+        progressText.textContent = `${percent}% (${cellsCreated.toLocaleString()} / ${totalCells.toLocaleString()})`;
+      },
+      
+      hideGridProgress() {
+        const loading = document.getElementById('loading');
+        const progressContainer = document.getElementById('loading-progress');
+        
+        loading.style.opacity = '0';
+        setTimeout(() => {
+          loading.style.display = 'none';
+          progressContainer.style.display = 'none';
+          document.getElementById('loading-text').textContent = 'Initializing PXS...';
+          document.getElementById('loading-progress-bar').style.width = '0%';
+        }, 300);
+      },
+      
       showInstructions() {
         setTimeout(() => document.getElementById('instructions').classList.add('pxs-ide__instructions--hidden'), 4000);
       },
@@ -877,71 +958,294 @@
         while (log.children.length > 50) log.removeChild(log.lastChild);
       },
       
-      // Animation methods (same as before)
-      animate(type) {
+      // Re-apply current effect after resolution change
+      _reapplyCurrentEffect() {
+        if (!this.currentEffect) return;
+        
+        // Small delay to ensure grid is fully initialized
+        setTimeout(() => {
+          if (this.currentEffect.type === 'animation') {
+            this.animate(this.currentEffect.name, true);
+          } else if (this.currentEffect.type === 'pattern') {
+            this.pattern(this.currentEffect.name, true);
+          }
+          this.log('Effect', `Re-applied ${this.currentEffect.name} after resolution change`);
+        }, 50);
+      },
+      
+      // Stop any custom RAF-based animations
+      _stopCustomAnimation() {
+        if (this._customAnimationId) {
+          cancelAnimationFrame(this._customAnimationId);
+          this._customAnimationId = null;
+        }
+      },
+      
+      // Check if we should use optimized canvas animations
+      _isLargeGrid() {
+        return this.currentCols * this.currentRows > 5000;
+      },
+      
+      // Animation methods - optimized for high resolution
+      animate(type, isReapply = false) {
         const info = this.animator.getGridInfo();
         const { columns, rows } = info;
-        this.log('Animation', `Starting ${type}`);
+        const totalCells = columns * rows;
+        const isLarge = totalCells > 5000;
+        
+        this.log('Animation', `Starting ${type}${isLarge ? ' (optimized)' : ''}`);
+        
+        // Stop any existing animations
+        this._stopCustomAnimation();
         this.animator.stopAllAnimations();
+        
+        // Track current effect (unless this is a re-apply)
+        if (!isReapply) {
+          this.currentEffect = { type: 'animation', name: type };
+        }
         
         switch (type) {
           case 'diagonal':
-            for (let i = 0; i < Math.min(columns, rows); i++) {
-              this.animator.updateCell(i, i, { background: '#58a6ff' });
-              this.animator.animateCell(i, i, { name: 'pulse', duration: '1s', delay: `${i * 0.05}s`, iteration: 'infinite' });
-            }
+            this._animateDiagonal(columns, rows, isLarge);
             break;
           case 'wave':
-            const waveGradient = PatternHelpers.generateDiagonalGradient({ gridWidth: columns, gridHeight: rows, colorStart: '#6c5ce7', colorEnd: '#00cec9' });
-            this.animator.updateCells(waveGradient);
-            for (let x = 0; x < columns; x++) {
-              for (let y = 0; y < rows; y++) {
-                this.animator.animateCell(x, y, { name: 'wave', duration: '2s', delay: `${(x + y) * 0.02}s`, iteration: 'infinite' });
-              }
-            }
+            this._animateWave(columns, rows, isLarge);
             break;
           case 'spiral':
-            const centerX = (columns - 1) / 2, centerY = (rows - 1) / 2;
-            const spiralGradient = PatternHelpers.generateRadialGradient({ centerX, centerY, radius: Math.max(columns, rows) * 0.6, colorCenter: '#fd79a8', colorEdge: '#0984e3', gridWidth: columns, gridHeight: rows });
-            this.animator.updateCells(spiralGradient);
-            for (let x = 0; x < columns; x++) {
-              for (let y = 0; y < rows; y++) {
-                const distance = Math.sqrt((x - centerX) ** 2 + (y - centerY) ** 2);
-                this.animator.animateCell(x, y, { name: 'glow', duration: '2s', delay: `${distance * 0.04}s`, iteration: 'infinite' });
-              }
-            }
+            this._animateSpiral(columns, rows, isLarge);
             break;
           case 'random':
-            this.animator.resetAllCells();
-            for (let i = 0; i < Math.min(150, columns * rows * 0.15); i++) {
-              const x = Math.floor(Math.random() * columns);
-              const y = Math.floor(Math.random() * rows);
-              this.animator.updateCell(x, y, { background: `hsl(${Math.random() * 360}, 80%, 50%)` });
-              this.animator.animateCell(x, y, { name: 'bounce', duration: `${0.5 + Math.random()}s`, delay: `${Math.random() * 0.5}s`, iteration: 'infinite' });
-            }
+            this._animateRandom(columns, rows, isLarge);
             break;
           case 'border':
-            const borderColor = '#e17055';
-            for (let x = 0; x < columns; x++) {
-              this.animator.updateCell(x, 0, { background: borderColor });
-              this.animator.animateCell(x, 0, { name: 'pulse', duration: '1s', delay: `${x * 0.03}s`, iteration: 'infinite' });
-              this.animator.updateCell(x, rows - 1, { background: borderColor });
-              this.animator.animateCell(x, rows - 1, { name: 'pulse', duration: '1s', delay: `${(columns - 1 - x) * 0.03}s`, iteration: 'infinite' });
-            }
-            for (let y = 1; y < rows - 1; y++) {
-              this.animator.updateCell(0, y, { background: borderColor });
-              this.animator.animateCell(0, y, { name: 'pulse', duration: '1s', delay: `${(rows - 1 - y) * 0.03}s`, iteration: 'infinite' });
-              this.animator.updateCell(columns - 1, y, { background: borderColor });
-              this.animator.animateCell(columns - 1, y, { name: 'pulse', duration: '1s', delay: `${y * 0.03}s`, iteration: 'infinite' });
-            }
+            this._animateBorder(columns, rows, isLarge);
             break;
         }
       },
       
-      pattern(type) {
+      // Optimized diagonal animation
+      _animateDiagonal(columns, rows, isLarge) {
+        const diagonalLength = Math.min(columns, rows);
+        
+        // Set base colors
+        for (let i = 0; i < diagonalLength; i++) {
+          this.animator.updateCell(i, i, { background: '#58a6ff' });
+        }
+        
+        if (isLarge) {
+          // Canvas-optimized: Custom RAF animation
+          const startTime = performance.now();
+          const animateFrame = () => {
+            const elapsed = performance.now() - startTime;
+            const updates = [];
+            
+            for (let i = 0; i < diagonalLength; i++) {
+              const phase = ((elapsed / 1000) + i * 0.1) % 2;
+              const brightness = phase < 1 ? 1 + phase * 0.5 : 1.5 - (phase - 1) * 0.5;
+              const hue = 210 + Math.sin(phase * Math.PI) * 30;
+              updates.push({ x: i, y: i, styles: { background: `hsl(${hue}, 80%, ${brightness * 50}%)` } });
+            }
+            
+            this.animator.updateCells(updates);
+            this._customAnimationId = requestAnimationFrame(animateFrame);
+          };
+          this._customAnimationId = requestAnimationFrame(animateFrame);
+        } else {
+          // HTML renderer: CSS animations
+          for (let i = 0; i < diagonalLength; i++) {
+            this.animator.animateCell(i, i, { name: 'pulse', duration: '1s', delay: `${i * 0.05}s`, iteration: 'infinite' });
+          }
+        }
+      },
+      
+      // Optimized wave animation
+      _animateWave(columns, rows, isLarge) {
+        // Set base gradient
+        const waveGradient = PatternHelpers.generateDiagonalGradient({ gridWidth: columns, gridHeight: rows, colorStart: '#6c5ce7', colorEnd: '#00cec9' });
+        this.animator.updateCells(waveGradient);
+        
+        if (isLarge) {
+          // Canvas-optimized: Wave pattern via RAF
+          const startTime = performance.now();
+          const animateFrame = () => {
+            const elapsed = performance.now() - startTime;
+            const updates = [];
+            
+            for (let y = 0; y < rows; y++) {
+              for (let x = 0; x < columns; x++) {
+                const phase = (elapsed / 1000 + (x + y) * 0.05) % 2;
+                const hue = 260 + Math.sin(phase * Math.PI) * 60;
+                const lightness = 50 + Math.sin(phase * Math.PI) * 20;
+                updates.push({ x, y, styles: { background: `hsl(${hue}, 70%, ${lightness}%)` } });
+              }
+            }
+            
+            this.animator.updateCells(updates);
+            this._customAnimationId = requestAnimationFrame(animateFrame);
+          };
+          this._customAnimationId = requestAnimationFrame(animateFrame);
+        } else {
+          // HTML renderer: CSS animations
+          for (let x = 0; x < columns; x++) {
+            for (let y = 0; y < rows; y++) {
+              this.animator.animateCell(x, y, { name: 'wave', duration: '2s', delay: `${(x + y) * 0.02}s`, iteration: 'infinite' });
+            }
+          }
+        }
+      },
+      
+      // Optimized spiral animation
+      _animateSpiral(columns, rows, isLarge) {
+        const centerX = (columns - 1) / 2;
+        const centerY = (rows - 1) / 2;
+        const maxRadius = Math.max(columns, rows) * 0.6;
+        
+        // Set base gradient
+        const spiralGradient = PatternHelpers.generateRadialGradient({ centerX, centerY, radius: maxRadius, colorCenter: '#fd79a8', colorEdge: '#0984e3', gridWidth: columns, gridHeight: rows });
+        this.animator.updateCells(spiralGradient);
+        
+        if (isLarge) {
+          // Canvas-optimized: Radial pulse via RAF
+          const startTime = performance.now();
+          const animateFrame = () => {
+            const elapsed = performance.now() - startTime;
+            const updates = [];
+            
+            for (let y = 0; y < rows; y++) {
+              for (let x = 0; x < columns; x++) {
+                const distance = Math.sqrt((x - centerX) ** 2 + (y - centerY) ** 2);
+                const phase = (elapsed / 1500 + distance * 0.08) % 2;
+                const hue = 330 - distance * 3;
+                const lightness = 50 + Math.sin(phase * Math.PI) * 25;
+                const saturation = 70 + Math.sin(phase * Math.PI) * 20;
+                updates.push({ x, y, styles: { background: `hsl(${hue}, ${saturation}%, ${lightness}%)` } });
+              }
+            }
+            
+            this.animator.updateCells(updates);
+            this._customAnimationId = requestAnimationFrame(animateFrame);
+          };
+          this._customAnimationId = requestAnimationFrame(animateFrame);
+        } else {
+          // HTML renderer: CSS animations
+          for (let x = 0; x < columns; x++) {
+            for (let y = 0; y < rows; y++) {
+              const distance = Math.sqrt((x - centerX) ** 2 + (y - centerY) ** 2);
+              this.animator.animateCell(x, y, { name: 'glow', duration: '2s', delay: `${distance * 0.04}s`, iteration: 'infinite' });
+            }
+          }
+        }
+      },
+      
+      // Optimized random burst animation
+      _animateRandom(columns, rows, isLarge) {
+        this.animator.resetAllCells();
+        const numCells = Math.min(150, columns * rows * 0.15);
+        const randomCells = [];
+        
+        // Generate random cell positions
+        for (let i = 0; i < numCells; i++) {
+          randomCells.push({
+            x: Math.floor(Math.random() * columns),
+            y: Math.floor(Math.random() * rows),
+            hue: Math.random() * 360,
+            speed: 0.5 + Math.random()
+          });
+        }
+        
+        // Set initial colors
+        randomCells.forEach(cell => {
+          this.animator.updateCell(cell.x, cell.y, { background: `hsl(${cell.hue}, 80%, 50%)` });
+        });
+        
+        if (isLarge) {
+          // Canvas-optimized: Bounce effect via RAF
+          const startTime = performance.now();
+          const animateFrame = () => {
+            const elapsed = performance.now() - startTime;
+            const updates = [];
+            
+            randomCells.forEach(cell => {
+              const phase = (elapsed / 1000 / cell.speed) % 1;
+              const scale = phase < 0.25 ? 1 + phase * 1.6 : 
+                           phase < 0.5 ? 1.4 - (phase - 0.25) * 2 :
+                           phase < 0.75 ? 0.9 + (phase - 0.5) * 1.2 : 1.2 - (phase - 0.75) * 0.8;
+              const lightness = 40 + scale * 20;
+              updates.push({ x: cell.x, y: cell.y, styles: { background: `hsl(${cell.hue}, 80%, ${lightness}%)` } });
+            });
+            
+            this.animator.updateCells(updates);
+            this._customAnimationId = requestAnimationFrame(animateFrame);
+          };
+          this._customAnimationId = requestAnimationFrame(animateFrame);
+        } else {
+          // HTML renderer: CSS animations
+          randomCells.forEach(cell => {
+            this.animator.animateCell(cell.x, cell.y, { name: 'bounce', duration: `${cell.speed}s`, delay: `${Math.random() * 0.5}s`, iteration: 'infinite' });
+          });
+        }
+      },
+      
+      // Optimized border chase animation
+      _animateBorder(columns, rows, isLarge) {
+        const borderColor = '#e17055';
+        const borderCells = [];
+        
+        // Collect border cells
+        for (let x = 0; x < columns; x++) {
+          borderCells.push({ x, y: 0, order: x });
+          borderCells.push({ x, y: rows - 1, order: columns - 1 + rows - 1 + (columns - 1 - x) });
+        }
+        for (let y = 1; y < rows - 1; y++) {
+          borderCells.push({ x: columns - 1, y, order: columns - 1 + y });
+          borderCells.push({ x: 0, y, order: 2 * (columns - 1) + 2 * (rows - 1) - y });
+        }
+        
+        // Set initial color
+        borderCells.forEach(cell => {
+          this.animator.updateCell(cell.x, cell.y, { background: borderColor });
+        });
+        
+        if (isLarge) {
+          // Canvas-optimized: Chase animation via RAF
+          const startTime = performance.now();
+          const totalBorder = 2 * (columns + rows - 2);
+          const animateFrame = () => {
+            const elapsed = performance.now() - startTime;
+            const updates = [];
+            
+            borderCells.forEach(cell => {
+              const phase = ((elapsed / 2000) + cell.order / totalBorder) % 1;
+              const pulse = Math.sin(phase * Math.PI * 2);
+              const lightness = 50 + pulse * 25;
+              const hue = 15 + pulse * 10;
+              updates.push({ x: cell.x, y: cell.y, styles: { background: `hsl(${hue}, 80%, ${lightness}%)` } });
+            });
+            
+            this.animator.updateCells(updates);
+            this._customAnimationId = requestAnimationFrame(animateFrame);
+          };
+          this._customAnimationId = requestAnimationFrame(animateFrame);
+        } else {
+          // HTML renderer: CSS animations
+          borderCells.forEach(cell => {
+            this.animator.animateCell(cell.x, cell.y, { name: 'pulse', duration: '1s', delay: `${cell.order * 0.03}s`, iteration: 'infinite' });
+          });
+        }
+      },
+      
+      pattern(type, isReapply = false) {
         const { columns, rows } = this.animator.getGridInfo();
         this.log('Pattern', `Applying ${type}`);
+        
+        // Stop any running animations
+        this._stopCustomAnimation();
         this.animator.stopAllAnimations();
+        
+        // Track current effect (unless this is a re-apply)
+        if (!isReapply) {
+          this.currentEffect = { type: 'pattern', name: type };
+        }
         
         switch (type) {
           case 'gradient-linear':
@@ -967,12 +1271,17 @@
       },
       
       stopAll() {
+        this._stopCustomAnimation();
         this.animator.stopAllAnimations();
+        this.currentEffect = null;  // Clear effect state
         this.log('Animation', 'All stopped');
       },
       
       reset() {
+        this._stopCustomAnimation();
+        this.animator.stopAllAnimations();
         this.animator.resetAllCells();
+        this.currentEffect = null;  // Clear effect state
         this.log('Grid', 'Reset');
       },
       

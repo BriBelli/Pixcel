@@ -13,66 +13,166 @@
   <style>
     /* PXS Animation Keyframes */
     @keyframes pulse {
-      0%, 100% { 
-        transform: scale(1);
-        filter: brightness(1);
-      }
-      50% { 
-        transform: scale(1.15);
-        filter: brightness(1.5);
-        background: #00ffff !important;
-      }
+      0%, 100% { transform: scale(1); filter: brightness(1); }
+      50% { transform: scale(1.15); filter: brightness(1.5); background: #00ffff !important; }
     }
-    
     @keyframes wave {
-      0%, 100% { 
-        filter: hue-rotate(0deg) brightness(1);
-      }
-      50% { 
-        filter: hue-rotate(180deg) brightness(1.3);
-        background: #ff00ff !important;
-      }
+      0%, 100% { filter: hue-rotate(0deg) brightness(1); }
+      50% { filter: hue-rotate(180deg) brightness(1.3); background: #ff00ff !important; }
     }
-    
     @keyframes glow {
-      0%, 100% { 
-        filter: brightness(1);
-        box-shadow: none;
-      }
-      50% { 
-        filter: brightness(1.5);
-        background: #ffff00 !important;
-        box-shadow: 0 0 8px 2px #ffff00;
-      }
+      0%, 100% { filter: brightness(1); box-shadow: none; }
+      50% { filter: brightness(1.5); background: #ffff00 !important; box-shadow: 0 0 8px 2px #ffff00; }
     }
-    
-    @keyframes fade {
-      0%, 100% { opacity: 1; }
-      50% { opacity: 0.2; }
-    }
-    
     @keyframes bounce {
       0%, 100% { transform: scale(1); }
       25% { transform: scale(1.4); }
       50% { transform: scale(0.9); }
       75% { transform: scale(1.2); }
     }
-    
-    @keyframes rainbow {
-      0% { filter: hue-rotate(0deg); }
-      100% { filter: hue-rotate(360deg); }
-    }
-    
-    @keyframes blink {
-      0%, 49% { opacity: 1; }
-      50%, 100% { opacity: 0; }
-    }
-    
-    /* Apply animation styles to cells */
     .cell-animator-cell {
       will-change: transform, background, opacity, filter;
       transition: background 0.1s ease;
     }
+    
+    /* Resolution Presets */
+    .res-presets {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 6px;
+      margin-bottom: 12px;
+    }
+    .res-preset {
+      padding: 8px 4px;
+      font-size: 11px;
+      text-align: center;
+      background: var(--pxs-bg-tertiary);
+      border: 1px solid var(--pxs-border);
+      border-radius: var(--pxs-radius-sm);
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+    .res-preset:hover {
+      background: var(--pxs-bg-elevated);
+      border-color: var(--pxs-accent-primary);
+    }
+    .res-preset--active {
+      background: var(--pxs-accent-primary) !important;
+      border-color: var(--pxs-accent-primary) !important;
+      color: white;
+    }
+    .res-preset__name { font-weight: 600; display: block; }
+    .res-preset__size { opacity: 0.7; font-size: 10px; }
+    
+    /* Image Upload */
+    .image-upload {
+      border: 2px dashed var(--pxs-border);
+      border-radius: var(--pxs-radius-md);
+      padding: 16px;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      margin-bottom: 12px;
+    }
+    .image-upload:hover {
+      border-color: var(--pxs-accent-primary);
+      background: rgba(88, 166, 255, 0.1);
+    }
+    .image-upload__icon { font-size: 24px; margin-bottom: 8px; }
+    .image-upload__text { font-size: 12px; color: var(--pxs-text-secondary); }
+    .image-upload input { display: none; }
+    
+    /* Image Preview */
+    .image-preview {
+      position: relative;
+      margin-bottom: 12px;
+      border-radius: var(--pxs-radius-md);
+      overflow: hidden;
+      display: none;
+    }
+    .image-preview img {
+      width: 100%;
+      height: auto;
+      display: block;
+    }
+    .image-preview__remove {
+      position: absolute;
+      top: 4px;
+      right: 4px;
+      width: 24px;
+      height: 24px;
+      background: rgba(0,0,0,0.7);
+      border: none;
+      border-radius: 50%;
+      color: white;
+      cursor: pointer;
+      font-size: 14px;
+    }
+    
+    /* Custom slider */
+    .pxs-slider {
+      width: 100%;
+      height: 6px;
+      -webkit-appearance: none;
+      background: var(--pxs-bg-tertiary);
+      border-radius: 3px;
+      outline: none;
+    }
+    .pxs-slider::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 16px;
+      height: 16px;
+      background: var(--pxs-accent-primary);
+      border-radius: 50%;
+      cursor: pointer;
+    }
+    
+    /* Section tabs */
+    .section-tabs {
+      display: flex;
+      gap: 4px;
+      margin-bottom: 12px;
+      padding: 4px;
+      background: var(--pxs-bg-primary);
+      border-radius: var(--pxs-radius-md);
+    }
+    .section-tab {
+      flex: 1;
+      padding: 8px;
+      font-size: 11px;
+      text-align: center;
+      background: transparent;
+      border: none;
+      border-radius: var(--pxs-radius-sm);
+      color: var(--pxs-text-secondary);
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+    .section-tab:hover { color: var(--pxs-text-primary); }
+    .section-tab--active {
+      background: var(--pxs-bg-tertiary);
+      color: var(--pxs-accent-primary);
+    }
+    .section-content { display: none; }
+    .section-content--active { display: block; }
+    
+    /* Benchmark Results */
+    .benchmark-results {
+      display: grid;
+      gap: 8px;
+      margin-top: 12px;
+    }
+    .benchmark-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 8px 12px;
+      background: var(--pxs-bg-tertiary);
+      border-radius: var(--pxs-radius-sm);
+      font-size: 12px;
+    }
+    .benchmark-item__res { font-weight: 600; }
+    .benchmark-item__time { color: var(--pxs-accent-primary); }
   </style>
 </head>
 <body>
@@ -84,79 +184,221 @@
         <span class="pxs-ide__logo-text">PXS Studio</span>
         <span class="pxs-badge pxs-badge--info">Phase 2C</span>
       </div>
-      
-      <nav class="pxs-ide__nav">
-        <button class="pxs-ide__nav-item pxs-ide__nav-item--active" data-demo="playground">Playground</button>
-        <button class="pxs-ide__nav-item" data-demo="patterns">Patterns</button>
-        <button class="pxs-ide__nav-item" data-demo="benchmark">Benchmark</button>
-        <button class="pxs-ide__nav-item" data-demo="virtual-scroll">40K Grid</button>
-      </nav>
+      <div style="display: flex; align-items: center; gap: 12px;">
+        <span style="font-size: 12px; color: var(--pxs-text-secondary);">Resolution:</span>
+        <span id="header-res" style="font-size: 14px; font-weight: 600; color: var(--pxs-accent-primary);">40×30</span>
+        <span style="font-size: 12px; color: var(--pxs-text-muted);">|</span>
+        <span id="header-cells" style="font-size: 12px; color: var(--pxs-text-secondary);">1,200 cells</span>
+      </div>
     </header>
     
     <!-- Left Sidebar - Controls -->
     <aside class="pxs-ide__sidebar pxs-ide__sidebar--left">
-      <!-- Grid Config -->
-      <div class="pxs-ide__sidebar-section">
-        <div class="pxs-ide__sidebar-title">
-          <span>⚙️ Grid Config</span>
+      <!-- Section Tabs -->
+      <div class="section-tabs">
+        <button class="section-tab section-tab--active" data-section="resolution">📐 Resolution</button>
+        <button class="section-tab" data-section="effects">✨ Effects</button>
+        <button class="section-tab" data-section="image">🖼️ Image</button>
+      </div>
+      
+      <!-- Resolution Section -->
+      <div id="section-resolution" class="section-content section-content--active">
+        <!-- Resolution Presets -->
+        <div class="pxs-ide__sidebar-section">
+          <div class="pxs-ide__sidebar-title"><span>📏 Resolution Presets</span></div>
+          <div class="pxs-ide__sidebar-content">
+            <div class="res-presets" id="res-presets">
+              <button class="res-preset" data-cols="8" data-rows="8">
+                <span class="res-preset__name">8-bit</span>
+                <span class="res-preset__size">8×8</span>
+              </button>
+              <button class="res-preset" data-cols="16" data-rows="16">
+                <span class="res-preset__name">16-bit</span>
+                <span class="res-preset__size">16×16</span>
+              </button>
+              <button class="res-preset" data-cols="32" data-rows="32">
+                <span class="res-preset__name">32-bit</span>
+                <span class="res-preset__size">32×32</span>
+              </button>
+              <button class="res-preset res-preset--active" data-cols="40" data-rows="30">
+                <span class="res-preset__name">Default</span>
+                <span class="res-preset__size">40×30</span>
+              </button>
+              <button class="res-preset" data-cols="64" data-rows="48">
+                <span class="res-preset__name">64-bit</span>
+                <span class="res-preset__size">64×48</span>
+              </button>
+              <button class="res-preset" data-cols="128" data-rows="96">
+                <span class="res-preset__name">128-bit</span>
+                <span class="res-preset__size">128×96</span>
+              </button>
+              <button class="res-preset" data-cols="160" data-rows="120">
+                <span class="res-preset__name">QQVGA</span>
+                <span class="res-preset__size">160×120</span>
+              </button>
+              <button class="res-preset" data-cols="256" data-rows="192">
+                <span class="res-preset__name">256-bit</span>
+                <span class="res-preset__size">256×192</span>
+              </button>
+              <button class="res-preset" data-cols="320" data-rows="240">
+                <span class="res-preset__name">QVGA</span>
+                <span class="res-preset__size">320×240</span>
+              </button>
+            </div>
+            
+            <!-- Custom Resolution -->
+            <div style="margin-top: 16px;">
+              <div class="pxs-stat__label" style="margin-bottom: 8px;">Custom Resolution</div>
+              <div style="display: flex; gap: 8px; align-items: center;">
+                <input type="number" id="custom-cols" value="40" min="4" max="500" 
+                  style="width: 60px; padding: 6px 8px; background: var(--pxs-bg-tertiary); border: 1px solid var(--pxs-border); border-radius: 4px; color: var(--pxs-text-primary); font-size: 12px;">
+                <span style="color: var(--pxs-text-muted);">×</span>
+                <input type="number" id="custom-rows" value="30" min="4" max="500"
+                  style="width: 60px; padding: 6px 8px; background: var(--pxs-bg-tertiary); border: 1px solid var(--pxs-border); border-radius: 4px; color: var(--pxs-text-primary); font-size: 12px;">
+                <button class="pxs-btn pxs-btn--primary" onclick="Demo.setResolution()" style="padding: 6px 12px; font-size: 11px;">Apply</button>
+              </div>
+            </div>
+          </div>
         </div>
-        <div class="pxs-ide__sidebar-content">
-          <div class="pxs-stat-grid" style="grid-template-columns: 1fr 1fr;">
-            <div class="pxs-stat">
-              <div class="pxs-stat__value" id="stat-cols">-</div>
-              <div class="pxs-stat__label">Columns</div>
+        
+        <!-- Grid Stats -->
+        <div class="pxs-ide__sidebar-section">
+          <div class="pxs-ide__sidebar-title"><span>📊 Grid Stats</span></div>
+          <div class="pxs-ide__sidebar-content">
+            <div class="pxs-stat-grid" style="grid-template-columns: 1fr 1fr;">
+              <div class="pxs-stat">
+                <div class="pxs-stat__value" id="stat-cols">40</div>
+                <div class="pxs-stat__label">Columns</div>
+              </div>
+              <div class="pxs-stat">
+                <div class="pxs-stat__value" id="stat-rows">30</div>
+                <div class="pxs-stat__label">Rows</div>
+              </div>
+              <div class="pxs-stat">
+                <div class="pxs-stat__value" id="stat-cells">1,200</div>
+                <div class="pxs-stat__label">Total Cells</div>
+              </div>
+              <div class="pxs-stat">
+                <div class="pxs-stat__value" id="stat-mode">HTML</div>
+                <div class="pxs-stat__label">Renderer</div>
+              </div>
             </div>
-            <div class="pxs-stat">
-              <div class="pxs-stat__value" id="stat-rows">-</div>
-              <div class="pxs-stat__label">Rows</div>
-            </div>
-            <div class="pxs-stat">
-              <div class="pxs-stat__value" id="stat-cells">-</div>
-              <div class="pxs-stat__label">Total Cells</div>
-            </div>
-            <div class="pxs-stat">
-              <div class="pxs-stat__value" id="stat-mode">-</div>
-              <div class="pxs-stat__label">Renderer</div>
-            </div>
+          </div>
+        </div>
+        
+        <!-- Grid Options -->
+        <div class="pxs-ide__sidebar-section">
+          <div class="pxs-ide__sidebar-title"><span>⚙️ Grid Options</span></div>
+          <div class="pxs-ide__sidebar-content">
+            <button class="pxs-btn" id="toggle-borders" onclick="Demo.toggleBorders()">
+              <span id="borders-icon">🔲</span> Hide Borders
+            </button>
           </div>
         </div>
       </div>
       
-      <!-- Animation Controls -->
-      <div class="pxs-ide__sidebar-section">
-        <div class="pxs-ide__sidebar-title">
-          <span>🎬 Animations</span>
+      <!-- Effects Section -->
+      <div id="section-effects" class="section-content">
+        <!-- Animation Controls -->
+        <div class="pxs-ide__sidebar-section">
+          <div class="pxs-ide__sidebar-title"><span>🎬 Animations</span></div>
+          <div class="pxs-ide__sidebar-content">
+            <button class="pxs-btn" onclick="Demo.animate('diagonal')">Diagonal Pulse</button>
+            <button class="pxs-btn" onclick="Demo.animate('wave')">Wave Effect</button>
+            <button class="pxs-btn" onclick="Demo.animate('spiral')">Spiral Glow</button>
+            <button class="pxs-btn" onclick="Demo.animate('random')">Random Burst</button>
+            <button class="pxs-btn" onclick="Demo.animate('border')">Border Chase</button>
+          </div>
         </div>
-        <div class="pxs-ide__sidebar-content">
-          <button class="pxs-btn" onclick="Demo.animate('diagonal')">Diagonal Pulse</button>
-          <button class="pxs-btn" onclick="Demo.animate('wave')">Wave Effect</button>
-          <button class="pxs-btn" onclick="Demo.animate('spiral')">Spiral Glow</button>
-          <button class="pxs-btn" onclick="Demo.animate('random')">Random Burst</button>
-          <button class="pxs-btn" onclick="Demo.animate('border')">Border Chase</button>
+        
+        <!-- Pattern Controls -->
+        <div class="pxs-ide__sidebar-section">
+          <div class="pxs-ide__sidebar-title"><span>🎨 Patterns</span></div>
+          <div class="pxs-ide__sidebar-content">
+            <button class="pxs-btn" onclick="Demo.pattern('gradient-linear')">Linear Gradient</button>
+            <button class="pxs-btn" onclick="Demo.pattern('gradient-radial')">Radial Gradient</button>
+            <button class="pxs-btn" onclick="Demo.pattern('gradient-diagonal')">Diagonal Gradient</button>
+            <button class="pxs-btn" onclick="Demo.pattern('checkerboard')">Checkerboard</button>
+          </div>
+        </div>
+        
+        <!-- Actions -->
+        <div class="pxs-ide__sidebar-section">
+          <div class="pxs-ide__sidebar-title"><span>🔧 Actions</span></div>
+          <div class="pxs-ide__sidebar-content">
+            <button class="pxs-btn pxs-btn--danger" onclick="Demo.stopAll()">Stop Animations</button>
+            <button class="pxs-btn" onclick="Demo.reset()">Reset Grid</button>
+          </div>
         </div>
       </div>
       
-      <!-- Pattern Controls -->
-      <div class="pxs-ide__sidebar-section">
-        <div class="pxs-ide__sidebar-title">
-          <span>🎨 Patterns</span>
+      <!-- Image Section -->
+      <div id="section-image" class="section-content">
+        <!-- Image Upload -->
+        <div class="pxs-ide__sidebar-section">
+          <div class="pxs-ide__sidebar-title"><span>📤 Load Image</span></div>
+          <div class="pxs-ide__sidebar-content">
+            <label class="image-upload" id="image-upload">
+              <div class="image-upload__icon">📷</div>
+              <div class="image-upload__text">Click to upload or drag & drop</div>
+              <input type="file" accept="image/*" id="image-input">
+            </label>
+            
+            <div class="image-preview" id="image-preview">
+              <img id="preview-img" src="" alt="Preview">
+              <button class="image-preview__remove" onclick="Demo.clearImage()">×</button>
+            </div>
+            
+            <div id="image-controls" style="display: none;">
+              <button class="pxs-btn pxs-btn--primary" onclick="Demo.renderImage()" style="width: 100%; margin-bottom: 8px;">
+                🎨 Render to Grid
+              </button>
+              
+              <div style="margin-top: 12px;">
+                <div class="pxs-stat__label" style="margin-bottom: 8px;">Render Quality</div>
+                <div class="res-presets">
+                  <button class="res-preset" onclick="Demo.renderImageAtRes(16, 16)">
+                    <span class="res-preset__name">Retro</span>
+                    <span class="res-preset__size">16×16</span>
+                  </button>
+                  <button class="res-preset" onclick="Demo.renderImageAtRes(32, 32)">
+                    <span class="res-preset__name">Low</span>
+                    <span class="res-preset__size">32×32</span>
+                  </button>
+                  <button class="res-preset" onclick="Demo.renderImageAtRes(64, 64)">
+                    <span class="res-preset__name">Medium</span>
+                    <span class="res-preset__size">64×64</span>
+                  </button>
+                  <button class="res-preset" onclick="Demo.renderImageAtRes(128, 128)">
+                    <span class="res-preset__name">High</span>
+                    <span class="res-preset__size">128×128</span>
+                  </button>
+                  <button class="res-preset" onclick="Demo.renderImageAtRes(200, 200)">
+                    <span class="res-preset__name">HD</span>
+                    <span class="res-preset__size">200×200</span>
+                  </button>
+                  <button class="res-preset" onclick="Demo.renderImageAtRes(300, 300)">
+                    <span class="res-preset__name">Ultra</span>
+                    <span class="res-preset__size">300×300</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
-        <div class="pxs-ide__sidebar-content">
-          <button class="pxs-btn" onclick="Demo.pattern('gradient-linear')">Linear Gradient</button>
-          <button class="pxs-btn" onclick="Demo.pattern('gradient-radial')">Radial Gradient</button>
-          <button class="pxs-btn" onclick="Demo.pattern('gradient-diagonal')">Diagonal Gradient</button>
-          <button class="pxs-btn" onclick="Demo.pattern('checkerboard')">Checkerboard</button>
-        </div>
-      </div>
-      
-      <!-- Actions -->
-      <div class="pxs-ide__sidebar-section">
-        <div class="pxs-ide__sidebar-title">
-          <span>🔧 Actions</span>
-        </div>
-        <div class="pxs-ide__sidebar-content">
-          <button class="pxs-btn pxs-btn--danger" onclick="Demo.stopAll()">Stop Animations</button>
-          <button class="pxs-btn" onclick="Demo.reset()">Reset Grid</button>
+        
+        <!-- Multi-Resolution Benchmark -->
+        <div class="pxs-ide__sidebar-section">
+          <div class="pxs-ide__sidebar-title"><span>📊 Resolution Comparison</span></div>
+          <div class="pxs-ide__sidebar-content">
+            <button class="pxs-btn" onclick="Demo.runBenchmark()" id="benchmark-btn" disabled style="width: 100%;">
+              🔬 Run Multi-Res Benchmark
+            </button>
+            <div class="pxs-stat__label" style="margin-top: 8px; font-size: 11px; color: var(--pxs-text-muted);">
+              Load an image first to benchmark at multiple resolutions
+            </div>
+            <div class="benchmark-results" id="benchmark-results"></div>
+          </div>
         </div>
       </div>
     </aside>
@@ -182,7 +424,7 @@
         <div class="pxs-ide__instructions" id="instructions">
           <h2>Welcome to PXS Studio</h2>
           <p>Click any cell to interact</p>
-          <p>Use the sidebar controls to create patterns and animations</p>
+          <p>Use resolution presets or upload an image to pixelate</p>
         </div>
       </div>
     </main>
@@ -226,21 +468,15 @@
       
       <!-- Features -->
       <div class="pxs-ide__sidebar-section">
-        <div class="pxs-ide__sidebar-title">
-          <span>🚀 Active Features</span>
-        </div>
+        <div class="pxs-ide__sidebar-title"><span>🚀 Active Features</span></div>
         <div class="pxs-ide__sidebar-content">
-          <div id="feature-list" style="display: flex; flex-direction: column; gap: 6px;">
-            <!-- Populated by JS -->
-          </div>
+          <div id="feature-list" style="display: flex; flex-direction: column; gap: 6px;"></div>
         </div>
       </div>
       
       <!-- Event Log -->
       <div class="pxs-ide__sidebar-section" style="flex: 1; display: flex; flex-direction: column;">
-        <div class="pxs-ide__sidebar-title">
-          <span>📝 Event Log</span>
-        </div>
+        <div class="pxs-ide__sidebar-title"><span>📝 Event Log</span></div>
         <div class="pxs-log" id="event-log" style="flex: 1; max-height: none;">
           <div class="pxs-log__item">
             <span class="pxs-log__time">--:--:--</span>
@@ -262,68 +498,42 @@
         </span>
       </div>
       <div class="pxs-ide__statusbar-right">
-        <span class="pxs-ide__statusbar-item">
-          Phase 2C • 3D Ready
-        </span>
-        <span class="pxs-ide__statusbar-item">
-          PXS v2.0.0
-        </span>
+        <span class="pxs-ide__statusbar-item">Phase 2C • 3D Ready</span>
+        <span class="pxs-ide__statusbar-item">PXS v2.0.0</span>
       </div>
     </footer>
   </div>
+  
+  <!-- Hidden canvas for image processing -->
+  <canvas id="image-processor" style="display: none;"></canvas>
 
   <!-- Load PXS -->
-  <script src="shared/pxs-loader.js?v=20260120"></script>
+  <script src="shared/pxs-loader.js?v=20260121"></script>
   <script>
     // Demo Application
     const Demo = {
       animator: null,
+      loadedImage: null,
+      currentCols: 40,
+      currentRows: 30,
+      bordersEnabled: true,
       
       async init() {
         try {
           this.log('System', 'Loading PXS modules...');
-          
-          // Load all modules
           await PXS.load();
-          
           this.log('System', `PXS loaded (${PXS.getVersion().phase})`);
           
-          // Get canvas container
-          const container = document.getElementById('pxs-canvas');
-          const rect = container.parentElement.getBoundingClientRect();
+          // Initialize with default resolution
+          await this.createGrid(40, 30);
           
-          // Set container size
-          container.style.width = '800px';
-          container.style.height = '600px';
-          
-          // Create animator
-          this.animator = new CellAnimator({
-            width: 800,
-            height: 600,
-            cellWidth: 20,
-            cellHeight: 20,
-            container: container,
-            renderMode: 'auto',
-            enableProfiling: true,
-            enableSpatialIndex: true,
-            cellBorders: true,
-            borderColor: 'rgba(88, 166, 255, 0.2)',
-            borderWidth: 1
-          });
-          
-          // Set up event listeners
-          this.setupEvents();
-          
-          // Initialize
-          await this.animator.init();
-          
-          // Update UI
-          this.updateGridInfo();
+          // Setup UI
+          this.setupSectionTabs();
+          this.setupResolutionPresets();
+          this.setupImageUpload();
           this.updateFeatures();
           this.hideLoading();
           this.showInstructions();
-          
-          this.log('Grid', `Initialized ${this.animator.state.totalCells} cells`);
           
         } catch (error) {
           console.error('Init error:', error);
@@ -331,26 +541,271 @@
         }
       },
       
-      setupEvents() {
-        // Performance updates
-        this.animator.on('performanceUpdate', (metrics) => this.updatePerformance(metrics));
+      async createGrid(cols, rows) {
+        const container = document.getElementById('pxs-canvas');
         
-        // Cell click
-        this.animator.on('cellClick', (data) => {
-          this.log('Click', `Cell (${data.x}, ${data.y})`);
-          
-          // Pulse clicked cell
-          this.animator.animateCell(data.x, data.y, {
-            name: 'pulse',
-            duration: '0.5s',
-            timing: 'ease-out',
-            iteration: '1'
-          });
+        // Clear existing
+        if (this.animator) {
+          container.innerHTML = '';
+        }
+        
+        // Calculate cell size based on container
+        const maxWidth = 900;
+        const maxHeight = 700;
+        const cellSize = Math.min(
+          Math.floor(maxWidth / cols),
+          Math.floor(maxHeight / rows),
+          20 // Max cell size
+        );
+        const actualCellSize = Math.max(cellSize, 2); // Min 2px
+        
+        const width = cols * actualCellSize;
+        const height = rows * actualCellSize;
+        
+        container.style.width = width + 'px';
+        container.style.height = height + 'px';
+        
+        // Determine renderer based on cell count
+        const totalCells = cols * rows;
+        const renderMode = totalCells > 5000 ? 'canvas' : 'html';
+        
+        // Create animator
+        this.animator = new CellAnimator({
+          width: width,
+          height: height,
+          cellWidth: actualCellSize,
+          cellHeight: actualCellSize,
+          container: container,
+          renderMode: renderMode,
+          enableProfiling: true,
+          enableSpatialIndex: totalCells > 1000,
+          cellBorders: this.bordersEnabled && actualCellSize > 4,
+          borderColor: 'rgba(88, 166, 255, 0.15)',
+          borderWidth: 1
         });
         
-        // Grid ready
-        this.animator.on('gridReady', (info) => {
-          this.log('Grid', 'Ready');
+        this.setupEvents();
+        await this.animator.init();
+        
+        this.currentCols = cols;
+        this.currentRows = rows;
+        this.updateGridInfo();
+        
+        this.log('Grid', `Created ${cols}×${rows} = ${totalCells.toLocaleString()} cells (${renderMode})`);
+      },
+      
+      setupSectionTabs() {
+        document.querySelectorAll('.section-tab').forEach(tab => {
+          tab.addEventListener('click', () => {
+            document.querySelectorAll('.section-tab').forEach(t => t.classList.remove('section-tab--active'));
+            document.querySelectorAll('.section-content').forEach(s => s.classList.remove('section-content--active'));
+            tab.classList.add('section-tab--active');
+            document.getElementById('section-' + tab.dataset.section).classList.add('section-content--active');
+          });
+        });
+      },
+      
+      setupResolutionPresets() {
+        document.querySelectorAll('.res-preset[data-cols]').forEach(btn => {
+          btn.addEventListener('click', async () => {
+            const cols = parseInt(btn.dataset.cols);
+            const rows = parseInt(btn.dataset.rows);
+            
+            // Update active state
+            document.querySelectorAll('#res-presets .res-preset').forEach(b => b.classList.remove('res-preset--active'));
+            btn.classList.add('res-preset--active');
+            
+            // Update custom inputs
+            document.getElementById('custom-cols').value = cols;
+            document.getElementById('custom-rows').value = rows;
+            
+            // Create new grid
+            await this.createGrid(cols, rows);
+            
+            // If image is loaded, re-render it
+            if (this.loadedImage) {
+              this.renderImage();
+            }
+          });
+        });
+      },
+      
+      setupImageUpload() {
+        const input = document.getElementById('image-input');
+        const upload = document.getElementById('image-upload');
+        
+        input.addEventListener('change', (e) => this.handleImageSelect(e));
+        
+        // Drag & drop
+        upload.addEventListener('dragover', (e) => {
+          e.preventDefault();
+          upload.style.borderColor = 'var(--pxs-accent-primary)';
+        });
+        upload.addEventListener('dragleave', () => {
+          upload.style.borderColor = 'var(--pxs-border)';
+        });
+        upload.addEventListener('drop', (e) => {
+          e.preventDefault();
+          upload.style.borderColor = 'var(--pxs-border)';
+          if (e.dataTransfer.files.length) {
+            input.files = e.dataTransfer.files;
+            this.handleImageSelect({ target: input });
+          }
+        });
+      },
+      
+      handleImageSelect(e) {
+        const file = e.target.files[0];
+        if (!file) return;
+        
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          const img = new Image();
+          img.onload = () => {
+            this.loadedImage = img;
+            
+            // Show preview
+            document.getElementById('preview-img').src = e.target.result;
+            document.getElementById('image-preview').style.display = 'block';
+            document.getElementById('image-upload').style.display = 'none';
+            document.getElementById('image-controls').style.display = 'block';
+            document.getElementById('benchmark-btn').disabled = false;
+            
+            this.log('Image', `Loaded ${img.width}×${img.height} image`);
+          };
+          img.src = e.target.result;
+        };
+        reader.readAsDataURL(file);
+      },
+      
+      clearImage() {
+        this.loadedImage = null;
+        document.getElementById('image-preview').style.display = 'none';
+        document.getElementById('image-upload').style.display = 'block';
+        document.getElementById('image-controls').style.display = 'none';
+        document.getElementById('image-input').value = '';
+        document.getElementById('benchmark-btn').disabled = true;
+        document.getElementById('benchmark-results').innerHTML = '';
+        this.log('Image', 'Cleared');
+      },
+      
+      async renderImage() {
+        if (!this.loadedImage) return;
+        await this.renderImageAtRes(this.currentCols, this.currentRows);
+      },
+      
+      async renderImageAtRes(cols, rows) {
+        if (!this.loadedImage) return;
+        
+        const startTime = performance.now();
+        
+        // Create grid if different size
+        if (cols !== this.currentCols || rows !== this.currentRows) {
+          await this.createGrid(cols, rows);
+        }
+        
+        // Get pixel data from image
+        const canvas = document.getElementById('image-processor');
+        const ctx = canvas.getContext('2d');
+        canvas.width = cols;
+        canvas.height = rows;
+        
+        // Draw image scaled to grid size
+        ctx.drawImage(this.loadedImage, 0, 0, cols, rows);
+        const imageData = ctx.getImageData(0, 0, cols, rows);
+        
+        // Convert to cell updates
+        const updates = [];
+        for (let y = 0; y < rows; y++) {
+          for (let x = 0; x < cols; x++) {
+            const i = (y * cols + x) * 4;
+            const r = imageData.data[i];
+            const g = imageData.data[i + 1];
+            const b = imageData.data[i + 2];
+            
+            updates.push({
+              x, y,
+              styles: {
+                background: `rgb(${r}, ${g}, ${b})`
+              }
+            });
+          }
+        }
+        
+        // Apply to grid
+        this.animator.updateCells(updates);
+        
+        const elapsed = (performance.now() - startTime).toFixed(1);
+        this.log('Render', `${cols}×${rows} in ${elapsed}ms`);
+        
+        return elapsed;
+      },
+      
+      async runBenchmark() {
+        if (!this.loadedImage) return;
+        
+        const resolutions = [
+          { name: '8-bit', cols: 8, rows: 8 },
+          { name: '16-bit', cols: 16, rows: 16 },
+          { name: '32-bit', cols: 32, rows: 32 },
+          { name: '64-bit', cols: 64, rows: 64 },
+          { name: '128-bit', cols: 128, rows: 128 },
+          { name: 'QVGA', cols: 160, rows: 120 },
+          { name: '256-bit', cols: 256, rows: 192 },
+        ];
+        
+        const results = document.getElementById('benchmark-results');
+        results.innerHTML = '<div style="text-align: center; padding: 12px; color: var(--pxs-text-muted);">Running benchmark...</div>';
+        
+        this.log('Benchmark', 'Starting multi-resolution comparison');
+        
+        const benchmarkResults = [];
+        
+        for (const res of resolutions) {
+          await new Promise(r => setTimeout(r, 100)); // Brief pause between renders
+          const time = await this.renderImageAtRes(res.cols, res.rows);
+          benchmarkResults.push({ ...res, time });
+        }
+        
+        // Display results
+        results.innerHTML = benchmarkResults.map(r => `
+          <div class="benchmark-item">
+            <span class="benchmark-item__res">${r.name} (${r.cols}×${r.rows})</span>
+            <span class="benchmark-item__time">${r.time}ms</span>
+          </div>
+        `).join('');
+        
+        this.log('Benchmark', 'Complete! See results in sidebar');
+      },
+      
+      setResolution() {
+        const cols = parseInt(document.getElementById('custom-cols').value) || 40;
+        const rows = parseInt(document.getElementById('custom-rows').value) || 30;
+        
+        // Clamp values
+        const clampedCols = Math.max(4, Math.min(500, cols));
+        const clampedRows = Math.max(4, Math.min(500, rows));
+        
+        document.getElementById('custom-cols').value = clampedCols;
+        document.getElementById('custom-rows').value = clampedRows;
+        
+        // Clear active preset
+        document.querySelectorAll('#res-presets .res-preset').forEach(b => b.classList.remove('res-preset--active'));
+        
+        this.createGrid(clampedCols, clampedRows).then(() => {
+          if (this.loadedImage) {
+            this.renderImage();
+          }
+        });
+      },
+      
+      setupEvents() {
+        this.animator.on('performanceUpdate', (metrics) => this.updatePerformance(metrics));
+        this.animator.on('cellClick', (data) => {
+          this.log('Click', `Cell (${data.x}, ${data.y})`);
+          this.animator.animateCell(data.x, data.y, {
+            name: 'pulse', duration: '0.5s', timing: 'ease-out', iteration: '1'
+          });
         });
       },
       
@@ -364,58 +819,37 @@
         
         document.getElementById('status-renderer').textContent = info.renderMode.toUpperCase();
         document.getElementById('status-cells').textContent = info.totalCells.toLocaleString();
+        document.getElementById('header-res').textContent = `${info.columns}×${info.rows}`;
+        document.getElementById('header-cells').textContent = `${info.totalCells.toLocaleString()} cells`;
       },
       
       updatePerformance(metrics) {
         const fps = Math.round(metrics.fps);
-        const frameTime = metrics.frameTime.toFixed(1);
-        const memoryMB = (metrics.memoryUsage / (1024 * 1024)).toFixed(1);
-        
         document.getElementById('stat-fps').textContent = fps;
-        document.getElementById('stat-frame').textContent = frameTime;
-        document.getElementById('stat-memory').textContent = memoryMB;
+        document.getElementById('stat-frame').textContent = metrics.frameTime.toFixed(1);
+        document.getElementById('stat-memory').textContent = (metrics.memoryUsage / (1024 * 1024)).toFixed(1);
         document.getElementById('stat-anims').textContent = metrics.animationCount;
+        document.getElementById('fps-bar').style.width = `${Math.min((fps / 60) * 100, 100)}%`;
         
-        // FPS bar
-        const fpsPercent = Math.min((fps / 60) * 100, 100);
-        document.getElementById('fps-bar').style.width = `${fpsPercent}%`;
-        
-        // Status badge
         const status = document.getElementById('perf-status');
-        if (fps >= 55) {
-          status.textContent = 'Good';
-          status.className = 'pxs-badge pxs-badge--success';
-        } else if (fps >= 30) {
-          status.textContent = 'Fair';
-          status.className = 'pxs-badge pxs-badge--warning';
-        } else {
-          status.textContent = 'Poor';
-          status.className = 'pxs-badge pxs-badge--error';
-        }
-        
-        // Update stat value classes
-        const fpsEl = document.getElementById('stat-fps');
-        fpsEl.className = 'pxs-stat__value' + (fps >= 55 ? ' pxs-stat__value--good' : fps >= 30 ? ' pxs-stat__value--warning' : ' pxs-stat__value--bad');
+        if (fps >= 55) { status.textContent = 'Good'; status.className = 'pxs-badge pxs-badge--success'; }
+        else if (fps >= 30) { status.textContent = 'Fair'; status.className = 'pxs-badge pxs-badge--warning'; }
+        else { status.textContent = 'Poor'; status.className = 'pxs-badge pxs-badge--error'; }
       },
       
       updateFeatures() {
         const features = [
-          { name: 'Profiling', enabled: !!this.animator.profiler },
-          { name: 'Viewport Culling', enabled: !!this.animator.viewportManager },
-          { name: 'Spatial Index', enabled: !!this.animator.spatialIndex },
-          { name: 'Cell Groups', enabled: !!this.animator.groupManager },
-          { name: 'Transforms', enabled: true }
+          { name: 'Profiling', enabled: true },
+          { name: 'Viewport Culling', enabled: true },
+          { name: 'Spatial Index', enabled: true },
+          { name: 'Image → Pixel', enabled: true },
+          { name: 'Multi-Resolution', enabled: true }
         ];
         
-        const list = document.getElementById('feature-list');
-        list.innerHTML = features.map(f => `
+        document.getElementById('feature-list').innerHTML = features.map(f => `
           <div style="display: flex; align-items: center; gap: 8px; font-size: 12px;">
-            <span style="color: ${f.enabled ? 'var(--pxs-success)' : 'var(--pxs-text-muted)'}">
-              ${f.enabled ? '●' : '○'}
-            </span>
-            <span style="color: ${f.enabled ? 'var(--pxs-text-primary)' : 'var(--pxs-text-muted)'}">
-              ${f.name}
-            </span>
+            <span style="color: var(--pxs-success)">●</span>
+            <span style="color: var(--pxs-text-primary)">${f.name}</span>
           </div>
         `).join('');
       },
@@ -427,246 +861,104 @@
       },
       
       showInstructions() {
-        const instructions = document.getElementById('instructions');
-        setTimeout(() => instructions.classList.add('pxs-ide__instructions--hidden'), 4000);
+        setTimeout(() => document.getElementById('instructions').classList.add('pxs-ide__instructions--hidden'), 4000);
       },
       
       log(type, message) {
         const log = document.getElementById('event-log');
-        const time = new Date().toLocaleTimeString();
-        
         const item = document.createElement('div');
         item.className = 'pxs-log__item';
         item.innerHTML = `
-          <span class="pxs-log__time">${time}</span>
+          <span class="pxs-log__time">${new Date().toLocaleTimeString()}</span>
           <span class="pxs-log__type">${type}</span>
           <span class="pxs-log__message">${message}</span>
         `;
-        
         log.insertBefore(item, log.firstChild);
-        
-        // Keep only last 50 items
-        while (log.children.length > 50) {
-          log.removeChild(log.lastChild);
-        }
+        while (log.children.length > 50) log.removeChild(log.lastChild);
       },
       
-      // Animation methods
+      // Animation methods (same as before)
       animate(type) {
         const info = this.animator.getGridInfo();
         const { columns, rows } = info;
-        
         this.log('Animation', `Starting ${type}`);
-        
-        // Stop existing animations first
         this.animator.stopAllAnimations();
         
         switch (type) {
           case 'diagonal':
-            // Set base colors first for diagonal cells
             for (let i = 0; i < Math.min(columns, rows); i++) {
-              this.animator.updateCell(i, i, {
-                background: '#58a6ff'
-              });
-              this.animator.animateCell(i, i, {
-                name: 'pulse',
-                duration: '1s',
-                timing: 'ease-in-out',
-                delay: `${i * 0.05}s`,
-                iteration: 'infinite'
-              });
+              this.animator.updateCell(i, i, { background: '#58a6ff' });
+              this.animator.animateCell(i, i, { name: 'pulse', duration: '1s', delay: `${i * 0.05}s`, iteration: 'infinite' });
             }
             break;
-            
           case 'wave':
-            // Set a gradient base first, then animate
-            const waveGradient = PatternHelpers.generateDiagonalGradient({
-              gridWidth: columns,
-              gridHeight: rows,
-              colorStart: '#6c5ce7',
-              colorEnd: '#00cec9'
-            });
+            const waveGradient = PatternHelpers.generateDiagonalGradient({ gridWidth: columns, gridHeight: rows, colorStart: '#6c5ce7', colorEnd: '#00cec9' });
             this.animator.updateCells(waveGradient);
-            
-            // Apply wave animation with stagger
             for (let x = 0; x < columns; x++) {
               for (let y = 0; y < rows; y++) {
-                this.animator.animateCell(x, y, {
-                  name: 'wave',
-                  duration: '2s',
-                  timing: 'ease-in-out',
-                  delay: `${(x + y) * 0.02}s`,
-                  iteration: 'infinite'
-                });
+                this.animator.animateCell(x, y, { name: 'wave', duration: '2s', delay: `${(x + y) * 0.02}s`, iteration: 'infinite' });
               }
             }
             break;
-            
           case 'spiral':
-            const centerX = (columns - 1) / 2;
-            const centerY = (rows - 1) / 2;
-            
-            // Set radial gradient base
-            const spiralGradient = PatternHelpers.generateRadialGradient({
-              centerX: centerX,
-              centerY: centerY,
-              radius: Math.max(columns, rows) * 0.6,
-              colorCenter: '#fd79a8',
-              colorEdge: '#0984e3',
-              gridWidth: columns,
-              gridHeight: rows
-            });
+            const centerX = (columns - 1) / 2, centerY = (rows - 1) / 2;
+            const spiralGradient = PatternHelpers.generateRadialGradient({ centerX, centerY, radius: Math.max(columns, rows) * 0.6, colorCenter: '#fd79a8', colorEdge: '#0984e3', gridWidth: columns, gridHeight: rows });
             this.animator.updateCells(spiralGradient);
-            
-            // Apply glow animation radiating from center
             for (let x = 0; x < columns; x++) {
               for (let y = 0; y < rows; y++) {
-                const dx = x - centerX;
-                const dy = y - centerY;
-                const distance = Math.sqrt(dx * dx + dy * dy);
-                
-                this.animator.animateCell(x, y, {
-                  name: 'glow',
-                  duration: '2s',
-                  timing: 'ease-in-out',
-                  delay: `${distance * 0.04}s`,
-                  iteration: 'infinite'
-                });
+                const distance = Math.sqrt((x - centerX) ** 2 + (y - centerY) ** 2);
+                this.animator.animateCell(x, y, { name: 'glow', duration: '2s', delay: `${distance * 0.04}s`, iteration: 'infinite' });
               }
             }
             break;
-            
           case 'random':
-            // Reset grid first
             this.animator.resetAllCells();
-            
-            // Create random colored cells with pulse
-            for (let i = 0; i < 150; i++) {
+            for (let i = 0; i < Math.min(150, columns * rows * 0.15); i++) {
               const x = Math.floor(Math.random() * columns);
               const y = Math.floor(Math.random() * rows);
-              const hue = Math.floor(Math.random() * 360);
-              
-              this.animator.updateCell(x, y, {
-                background: `hsl(${hue}, 80%, 50%)`
-              });
-              
-              this.animator.animateCell(x, y, {
-                name: 'bounce',
-                duration: `${0.5 + Math.random() * 1}s`,
-                timing: 'ease-out',
-                delay: `${Math.random() * 0.5}s`,
-                iteration: 'infinite'
-              });
+              this.animator.updateCell(x, y, { background: `hsl(${Math.random() * 360}, 80%, 50%)` });
+              this.animator.animateCell(x, y, { name: 'bounce', duration: `${0.5 + Math.random()}s`, delay: `${Math.random() * 0.5}s`, iteration: 'infinite' });
             }
             break;
-            
           case 'border':
-            // Set border cells to a bright color
             const borderColor = '#e17055';
-            
-            // Top edge
             for (let x = 0; x < columns; x++) {
               this.animator.updateCell(x, 0, { background: borderColor });
-              this.animator.animateCell(x, 0, {
-                name: 'pulse',
-                duration: '1s',
-                delay: `${x * 0.03}s`,
-                iteration: 'infinite'
-              });
-            }
-            // Bottom edge
-            for (let x = 0; x < columns; x++) {
+              this.animator.animateCell(x, 0, { name: 'pulse', duration: '1s', delay: `${x * 0.03}s`, iteration: 'infinite' });
               this.animator.updateCell(x, rows - 1, { background: borderColor });
-              this.animator.animateCell(x, rows - 1, {
-                name: 'pulse',
-                duration: '1s',
-                delay: `${(columns - 1 - x) * 0.03}s`,
-                iteration: 'infinite'
-              });
+              this.animator.animateCell(x, rows - 1, { name: 'pulse', duration: '1s', delay: `${(columns - 1 - x) * 0.03}s`, iteration: 'infinite' });
             }
-            // Left edge
             for (let y = 1; y < rows - 1; y++) {
               this.animator.updateCell(0, y, { background: borderColor });
-              this.animator.animateCell(0, y, {
-                name: 'pulse',
-                duration: '1s',
-                delay: `${(rows - 1 - y) * 0.03}s`,
-                iteration: 'infinite'
-              });
-            }
-            // Right edge
-            for (let y = 1; y < rows - 1; y++) {
+              this.animator.animateCell(0, y, { name: 'pulse', duration: '1s', delay: `${(rows - 1 - y) * 0.03}s`, iteration: 'infinite' });
               this.animator.updateCell(columns - 1, y, { background: borderColor });
-              this.animator.animateCell(columns - 1, y, {
-                name: 'pulse',
-                duration: '1s',
-                delay: `${y * 0.03}s`,
-                iteration: 'infinite'
-              });
+              this.animator.animateCell(columns - 1, y, { name: 'pulse', duration: '1s', delay: `${y * 0.03}s`, iteration: 'infinite' });
             }
             break;
         }
       },
       
-      // Pattern methods using PatternHelpers
       pattern(type) {
-        const info = this.animator.getGridInfo();
-        const { columns, rows } = info;
-        
+        const { columns, rows } = this.animator.getGridInfo();
         this.log('Pattern', `Applying ${type}`);
-        
-        // Stop any running animations first
         this.animator.stopAllAnimations();
         
         switch (type) {
           case 'gradient-linear':
-            // Horizontal gradient using new API
-            const linear = PatternHelpers.generateHorizontalGradient({
-              gridWidth: columns,
-              gridHeight: rows,
-              colorStart: '#ff6b6b',
-              colorEnd: '#4ecdc4'
-            });
-            this.animator.updateCells(linear);
+            this.animator.updateCells(PatternHelpers.generateHorizontalGradient({ gridWidth: columns, gridHeight: rows, colorStart: '#ff6b6b', colorEnd: '#4ecdc4' }));
             break;
-            
           case 'gradient-radial':
-            // Radial gradient from center - use floating point for smoother center
-            const centerX = (columns - 1) / 2;
-            const centerY = (rows - 1) / 2;
-            const radial = PatternHelpers.generateRadialGradient({
-              centerX: centerX,
-              centerY: centerY,
-              radius: Math.max(columns, rows) * 0.6,
-              colorCenter: '#ffd93d',
-              colorEdge: '#6c5ce7',
-              gridWidth: columns,
-              gridHeight: rows
-            });
-            this.animator.updateCells(radial);
+            const cx = (columns - 1) / 2, cy = (rows - 1) / 2;
+            this.animator.updateCells(PatternHelpers.generateRadialGradient({ centerX: cx, centerY: cy, radius: Math.max(columns, rows) * 0.6, colorCenter: '#ffd93d', colorEdge: '#6c5ce7', gridWidth: columns, gridHeight: rows }));
             break;
-            
           case 'gradient-diagonal':
-            const diagonal = PatternHelpers.generateDiagonalGradient({
-              gridWidth: columns,
-              gridHeight: rows,
-              colorStart: '#a29bfe',
-              colorEnd: '#00b894'
-            });
-            this.animator.updateCells(diagonal);
+            this.animator.updateCells(PatternHelpers.generateDiagonalGradient({ gridWidth: columns, gridHeight: rows, colorStart: '#a29bfe', colorEnd: '#00b894' }));
             break;
-            
           case 'checkerboard':
             const updates = [];
             for (let y = 0; y < rows; y++) {
               for (let x = 0; x < columns; x++) {
-                const isEven = (x + y) % 2 === 0;
-                updates.push({
-                  x, y,
-                  styles: {
-                    background: isEven ? '#2d3436' : '#636e72'
-                  }
-                });
+                updates.push({ x, y, styles: { background: (x + y) % 2 === 0 ? '#2d3436' : '#636e72' } });
               }
             }
             this.animator.updateCells(updates);
@@ -682,6 +974,44 @@
       reset() {
         this.animator.resetAllCells();
         this.log('Grid', 'Reset');
+      },
+      
+      toggleBorders() {
+        this.bordersEnabled = !this.bordersEnabled;
+        
+        // Update button text
+        const btn = document.getElementById('toggle-borders');
+        if (this.bordersEnabled) {
+          btn.innerHTML = '<span id="borders-icon">🔲</span> Hide Borders';
+        } else {
+          btn.innerHTML = '<span id="borders-icon">⬜</span> Show Borders';
+        }
+        
+        // Update renderer config
+        if (this.animator && this.animator.renderer) {
+          this.animator.config.cellBorders = this.bordersEnabled;
+          this.animator.renderer.config.cellBorders = this.bordersEnabled;
+          
+          // Check renderer type
+          if (this.animator.renderer.mode === 'canvas') {
+            // Canvas renderer - force full redraw
+            this.animator.renderer.fullRedrawNeeded = true;
+            this.animator.renderer._drawGrid();
+          } else {
+            // HTML renderer - update all cell styles via the container
+            const container = this.animator.config.container;
+            const cells = container.querySelectorAll('.cell');
+            cells.forEach(cell => {
+              if (this.bordersEnabled) {
+                cell.style.border = `${this.animator.config.borderWidth}px ${this.animator.config.borderStyle} ${this.animator.config.borderColor}`;
+              } else {
+                cell.style.border = 'none';
+              }
+            });
+          }
+        }
+        
+        this.log('Grid', `Borders ${this.bordersEnabled ? 'shown' : 'hidden'}`);
       }
     };
     

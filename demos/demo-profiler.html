@@ -1,0 +1,708 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CellAnimator - Performance Profiler Demo</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #1e1e1e 0%, #2d2d2d 100%);
+            color: #e0e0e0;
+            overflow: hidden;
+        }
+
+        .container {
+            display: flex;
+            height: 100vh;
+        }
+
+        /* Grid Container */
+        #grid-container {
+            flex: 1;
+            position: relative;
+            background: #1a1a1a;
+        }
+
+        /* Performance Dashboard */
+        .dashboard {
+            width: 400px;
+            background: rgba(30, 30, 30, 0.95);
+            border-left: 2px solid #444;
+            padding: 20px;
+            overflow-y: auto;
+            backdrop-filter: blur(10px);
+        }
+
+        .dashboard h1 {
+            color: #00ffff;
+            font-size: 24px;
+            margin-bottom: 10px;
+            text-shadow: 0 0 10px rgba(0, 255, 255, 0.5);
+        }
+
+        .dashboard h2 {
+            color: #ffff00;
+            font-size: 18px;
+            margin: 20px 0 10px 0;
+            padding-bottom: 5px;
+            border-bottom: 1px solid #444;
+        }
+
+        /* Metric Cards */
+        .metric-card {
+            background: rgba(40, 40, 40, 0.8);
+            border: 1px solid #555;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 15px;
+            transition: all 0.3s ease;
+        }
+
+        .metric-card:hover {
+            background: rgba(50, 50, 50, 0.9);
+            border-color: #00ffff;
+            box-shadow: 0 0 15px rgba(0, 255, 255, 0.3);
+        }
+
+        .metric-label {
+            font-size: 12px;
+            color: #999;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 5px;
+        }
+
+        .metric-value {
+            font-size: 28px;
+            font-weight: bold;
+            color: #00ffff;
+            text-shadow: 0 0 5px rgba(0, 255, 255, 0.5);
+        }
+
+        .metric-value.good {
+            color: #00ff00;
+            text-shadow: 0 0 5px rgba(0, 255, 0, 0.5);
+        }
+
+        .metric-value.warning {
+            color: #ffaa00;
+            text-shadow: 0 0 5px rgba(255, 170, 0, 0.5);
+        }
+
+        .metric-value.bad {
+            color: #ff0000;
+            text-shadow: 0 0 5px rgba(255, 0, 0, 0.5);
+        }
+
+        .metric-unit {
+            font-size: 14px;
+            color: #666;
+            margin-left: 5px;
+        }
+
+        /* Status Badge */
+        .status-badge {
+            display: inline-block;
+            padding: 5px 12px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: bold;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .status-badge.good {
+            background: rgba(0, 255, 0, 0.2);
+            color: #00ff00;
+            border: 1px solid #00ff00;
+        }
+
+        .status-badge.fair {
+            background: rgba(255, 255, 0, 0.2);
+            color: #ffff00;
+            border: 1px solid #ffff00;
+        }
+
+        .status-badge.poor {
+            background: rgba(255, 0, 0, 0.2);
+            color: #ff0000;
+            border: 1px solid #ff0000;
+        }
+
+        /* Progress Bars */
+        .progress-bar {
+            width: 100%;
+            height: 8px;
+            background: #2a2a2a;
+            border-radius: 4px;
+            overflow: hidden;
+            margin-top: 8px;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #00ffff, #00ff00);
+            transition: width 0.3s ease;
+            box-shadow: 0 0 10px rgba(0, 255, 255, 0.5);
+        }
+
+        /* Control Buttons */
+        .controls {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+
+        button {
+            flex: 1;
+            min-width: 100px;
+            padding: 12px;
+            background: linear-gradient(135deg, #444, #333);
+            color: #00ffff;
+            border: 1px solid #555;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 13px;
+            font-weight: bold;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            transition: all 0.3s ease;
+        }
+
+        button:hover {
+            background: linear-gradient(135deg, #555, #444);
+            border-color: #00ffff;
+            box-shadow: 0 0 15px rgba(0, 255, 255, 0.3);
+            transform: translateY(-2px);
+        }
+
+        button:active {
+            transform: translateY(0);
+        }
+
+        button.danger {
+            color: #ff0000;
+        }
+
+        button.success {
+            color: #00ff00;
+        }
+
+        /* Grid Info */
+        .grid-info {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+
+        .info-item {
+            background: rgba(40, 40, 40, 0.6);
+            padding: 10px;
+            border-radius: 4px;
+            border-left: 3px solid #00ffff;
+        }
+
+        .info-item .label {
+            font-size: 10px;
+            color: #999;
+            text-transform: uppercase;
+        }
+
+        .info-item .value {
+            font-size: 16px;
+            color: #fff;
+            font-weight: bold;
+            margin-top: 3px;
+        }
+
+        /* Event Log */
+        .event-log {
+            background: rgba(20, 20, 20, 0.8);
+            border: 1px solid #333;
+            border-radius: 6px;
+            padding: 10px;
+            max-height: 150px;
+            overflow-y: auto;
+            font-family: 'Courier New', monospace;
+            font-size: 11px;
+        }
+
+        .event-log-item {
+            padding: 5px;
+            border-bottom: 1px solid #2a2a2a;
+            color: #aaa;
+        }
+
+        .event-log-item:last-child {
+            border-bottom: none;
+        }
+
+        .event-log-item .timestamp {
+            color: #666;
+            margin-right: 10px;
+        }
+
+        .event-log-item .event-type {
+            color: #00ffff;
+            font-weight: bold;
+        }
+
+        /* Mini Charts */
+        .mini-chart {
+            width: 100%;
+            height: 60px;
+            background: rgba(20, 20, 20, 0.8);
+            border: 1px solid #333;
+            border-radius: 4px;
+            margin-top: 10px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .chart-bar {
+            position: absolute;
+            bottom: 0;
+            width: 2px;
+            background: linear-gradient(to top, #00ffff, #00ff00);
+            transition: height 0.1s ease;
+        }
+
+        /* Scrollbar Styling */
+        .dashboard::-webkit-scrollbar,
+        .event-log::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        .dashboard::-webkit-scrollbar-track,
+        .event-log::-webkit-scrollbar-track {
+            background: #1a1a1a;
+        }
+
+        .dashboard::-webkit-scrollbar-thumb,
+        .event-log::-webkit-scrollbar-thumb {
+            background: #444;
+            border-radius: 4px;
+        }
+
+        .dashboard::-webkit-scrollbar-thumb:hover,
+        .event-log::-webkit-scrollbar-thumb:hover {
+            background: #555;
+        }
+
+        /* Cell Styles - CRITICAL FOR NO GAPS */
+        .cell {
+            background: #2a2a2a;
+            transition: all 0.3s ease;
+        }
+
+        .cell:hover {
+            background: #3a3a3a;
+            transform: scale(1.05);
+            z-index: 10;
+        }
+
+        /* Animation Keyframes */
+        @keyframes pulse {
+            0%, 100% { background: #2a2a2a; }
+            50% { background: #00ffff; }
+        }
+
+        @keyframes glow {
+            0%, 100% { background: #2a2a2a; }
+            50% { background: #ffff00; }
+        }
+
+        @keyframes wave {
+            0%, 100% { background: #2a2a2a; }
+            50% { background: #ff00ff; }
+        }
+
+        /* Loading Overlay */
+        .loading {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+            z-index: 1000;
+        }
+
+        .loading-spinner {
+            width: 50px;
+            height: 50px;
+            border: 4px solid rgba(0, 255, 255, 0.2);
+            border-top-color: #00ffff;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .loading-text {
+            color: #00ffff;
+            margin-top: 15px;
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Grid Container -->
+        <div id="grid-container">
+            <div class="loading" id="loading">
+                <div class="loading-spinner"></div>
+                <div class="loading-text">Initializing CellAnimator...</div>
+            </div>
+        </div>
+
+        <!-- Performance Dashboard -->
+        <div class="dashboard">
+            <h1>⚡ Performance Profiler</h1>
+            <p style="color: #999; font-size: 12px; margin-bottom: 20px;">
+                Real-time performance monitoring for CellAnimator Phase 2C
+            </p>
+
+            <!-- Controls -->
+            <div class="controls">
+                <button onclick="startAnimations()" class="success">Start Animations</button>
+                <button onclick="stopAnimations()" class="danger">Stop All</button>
+                <button onclick="randomPattern()">Random Pattern</button>
+                <button onclick="clearGrid()">Clear Grid</button>
+            </div>
+
+            <!-- Grid Information -->
+            <h2>📊 Grid Information</h2>
+            <div class="grid-info">
+                <div class="info-item">
+                    <div class="label">Render Mode</div>
+                    <div class="value" id="render-mode">-</div>
+                </div>
+                <div class="info-item">
+                    <div class="label">Total Cells</div>
+                    <div class="value" id="total-cells">-</div>
+                </div>
+                <div class="info-item">
+                    <div class="label">Grid Size</div>
+                    <div class="value" id="grid-size">-</div>
+                </div>
+                <div class="info-item">
+                    <div class="label">Cell Size</div>
+                    <div class="value" id="cell-size">-</div>
+                </div>
+            </div>
+
+            <!-- Real-time Metrics -->
+            <h2>🎯 Real-time Metrics</h2>
+            
+            <div class="metric-card">
+                <div class="metric-label">Frames Per Second</div>
+                <div class="metric-value" id="fps-value">0<span class="metric-unit">fps</span></div>
+                <div class="progress-bar">
+                    <div class="progress-fill" id="fps-bar" style="width: 0%"></div>
+                </div>
+                <div class="mini-chart" id="fps-chart"></div>
+            </div>
+
+            <div class="metric-card">
+                <div class="metric-label">Frame Time</div>
+                <div class="metric-value" id="frame-time-value">0<span class="metric-unit">ms</span></div>
+                <div class="progress-bar">
+                    <div class="progress-fill" id="frame-time-bar" style="width: 0%"></div>
+                </div>
+            </div>
+
+            <div class="metric-card">
+                <div class="metric-label">Memory Usage</div>
+                <div class="metric-value" id="memory-value">0<span class="metric-unit">MB</span></div>
+                <div class="progress-bar">
+                    <div class="progress-fill" id="memory-bar" style="width: 0%"></div>
+                </div>
+                <div style="margin-top: 5px; font-size: 11px; color: #666;">
+                    <span id="memory-percent">0%</span> of <span id="memory-limit">0</span> MB
+                </div>
+            </div>
+
+            <!-- Performance Assessment -->
+            <h2>🏆 Performance Status</h2>
+            <div class="metric-card">
+                <div class="metric-label">Overall Assessment</div>
+                <div style="margin-top: 10px;">
+                    <span class="status-badge" id="performance-status">Unknown</span>
+                </div>
+                <div style="margin-top: 10px; font-size: 12px; color: #999;" id="performance-message">
+                    Waiting for metrics...
+                </div>
+            </div>
+
+            <!-- Animation Info -->
+            <h2>🎬 Animation Info</h2>
+            <div class="metric-card">
+                <div class="grid-info">
+                    <div class="info-item">
+                        <div class="label">Active Animations</div>
+                        <div class="value" id="animation-count">0</div>
+                    </div>
+                    <div class="info-item">
+                        <div class="label">Update Time</div>
+                        <div class="value" id="update-time">0 ms</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Event Log -->
+            <h2>📝 Event Log</h2>
+            <div class="event-log" id="event-log">
+                <div class="event-log-item">
+                    <span class="timestamp">00:00:00</span>
+                    <span class="event-type">System</span>
+                    <span>Profiler initialized</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Load CellAnimator and dependencies -->
+    <script src="../src/renderers/BaseRenderer.js"></script>
+    <script src="../src/renderers/HTMLRenderer.js"></script>
+    <script src="../src/renderers/CanvasRenderer.js"></script>
+    <script src="../src/spatial/ViewportManager.js"></script>
+    <script src="../src/spatial/SpatialIndex.js"></script>
+    <script src="../src/performance/PerformanceProfiler.js"></script>
+    <script src="../src/performance/ObjectPool.js"></script>
+    <script src="../src/transforms/TransformMatrix.js"></script>
+    <script src="../src/core/CellGroup.js"></script>
+    <script src="../src/CellAnimator.js"></script>
+
+    <script>
+        let animator;
+        let fpsHistory = [];
+        const maxHistoryLength = 60; // 60 data points
+
+        async function init() {
+            console.log('Initializing CellAnimator with profiling...');
+
+            // Create animator with profiling enabled
+            animator = new CellAnimator({
+                width: '100%',
+                height: '100%',
+                cellWidth: 25,
+                cellHeight: 25,
+                container: document.getElementById('grid-container'),
+                renderMode: 'auto',
+                enableProfiling: true,  // Enable performance profiling!
+                enableViewport: false,  // Disabled for this demo (smaller grid)
+                enableSpatialIndex: true
+            });
+
+            // Listen to performance updates
+            animator.on('performanceUpdate', updateDashboard);
+
+            // Listen to grid events
+            animator.on('gridReady', (info) => {
+                logEvent('Grid Ready', `${info.columns}x${info.rows} cells initialized`);
+                updateGridInfo(info);
+                const loadingEl = document.getElementById('loading');
+                if (loadingEl) {
+                    loadingEl.style.display = 'none';
+                }
+            });
+
+            animator.on('cellClick', (data) => {
+                logEvent('Cell Click', `(${data.x}, ${data.y})`);
+                // Animate clicked cell
+                animator.animateCell(data.x, data.y, {
+                    name: 'pulse',
+                    duration: '1s',
+                    timing: 'ease-out',
+                    iteration: '1'
+                });
+            });
+
+            // Initialize grid
+            await animator.init();
+
+            // Start update loop
+            setInterval(updateCharts, 100);
+        }
+
+        function updateDashboard(metrics) {
+            // FPS
+            const fps = Math.round(metrics.fps);
+            document.getElementById('fps-value').textContent = fps;
+            document.getElementById('fps-value').className = 'metric-value ' + getFpsClass(fps);
+            document.getElementById('fps-bar').style.width = `${Math.min((fps / 60) * 100, 100)}%`;
+            
+            // Track FPS history
+            fpsHistory.push(fps);
+            if (fpsHistory.length > maxHistoryLength) {
+                fpsHistory.shift();
+            }
+
+            // Frame Time
+            const frameTime = metrics.frameTime.toFixed(2);
+            document.getElementById('frame-time-value').textContent = frameTime;
+            document.getElementById('frame-time-value').className = 'metric-value ' + getFrameTimeClass(frameTime);
+            document.getElementById('frame-time-bar').style.width = `${Math.min((frameTime / 16.67) * 100, 100)}%`;
+
+            // Memory (convert bytes to MB)
+            const memoryMB = (metrics.memoryUsage / (1024 * 1024)).toFixed(1);
+            const limitMB = (metrics.memoryLimit / (1024 * 1024)).toFixed(0);
+            const memoryPercent = ((metrics.memoryUsage / metrics.memoryLimit) * 100).toFixed(1);
+            
+            document.getElementById('memory-value').textContent = memoryMB;
+            document.getElementById('memory-percent').textContent = memoryPercent + '%';
+            document.getElementById('memory-limit').textContent = limitMB;
+            document.getElementById('memory-bar').style.width = `${Math.min(memoryPercent, 100)}%`;
+            document.getElementById('memory-value').className = 'metric-value ' + getMemoryClass(memoryPercent);
+
+            // Animation count
+            document.getElementById('animation-count').textContent = metrics.animationCount;
+            document.getElementById('update-time').textContent = (metrics.updateTime || 0).toFixed(2) + ' ms';
+
+            // Performance assessment
+            if (animator.profiler) {
+                const assessment = animator.profiler.assessPerformance();
+                const statusEl = document.getElementById('performance-status');
+                statusEl.textContent = assessment.overall.toUpperCase();
+                statusEl.className = 'status-badge ' + assessment.overall.toLowerCase();
+                
+                // Combine messages from all assessments
+                const messages = [
+                    assessment.fps.message,
+                    assessment.frameTime.message,
+                    assessment.memory.message
+                ].filter(m => m).join(' • ');
+                
+                document.getElementById('performance-message').textContent = messages;
+            }
+        }
+
+        function updateGridInfo(info) {
+            document.getElementById('render-mode').textContent = info.renderMode.toUpperCase();
+            document.getElementById('total-cells').textContent = info.totalCells.toLocaleString();
+            document.getElementById('grid-size').textContent = `${info.columns}×${info.rows}`;
+            document.getElementById('cell-size').textContent = `${info.cellWidth}×${info.cellHeight}`;
+        }
+
+        function updateCharts() {
+            // Update FPS chart
+            const fpsChart = document.getElementById('fps-chart');
+            fpsChart.innerHTML = '';
+            
+            const barWidth = 100 / maxHistoryLength;
+            fpsHistory.forEach((fps, index) => {
+                const bar = document.createElement('div');
+                bar.className = 'chart-bar';
+                bar.style.left = `${index * barWidth}%`;
+                bar.style.height = `${(fps / 60) * 100}%`;
+                bar.style.width = `${barWidth}%`;
+                fpsChart.appendChild(bar);
+            });
+        }
+
+        function getFpsClass(fps) {
+            if (fps >= 55) return 'good';
+            if (fps >= 30) return 'warning';
+            return 'bad';
+        }
+
+        function getFrameTimeClass(frameTime) {
+            if (frameTime <= 16.67) return 'good';
+            if (frameTime <= 33.33) return 'warning';
+            return 'bad';
+        }
+
+        function getMemoryClass(percent) {
+            if (percent < 60) return 'good';
+            if (percent < 80) return 'warning';
+            return 'bad';
+        }
+
+        function logEvent(type, message) {
+            const log = document.getElementById('event-log');
+            const time = new Date().toLocaleTimeString();
+            
+            const item = document.createElement('div');
+            item.className = 'event-log-item';
+            item.innerHTML = `
+                <span class="timestamp">${time}</span>
+                <span class="event-type">${type}</span>
+                <span>${message}</span>
+            `;
+            
+            log.insertBefore(item, log.firstChild);
+            
+            // Keep only last 20 events
+            while (log.children.length > 20) {
+                log.removeChild(log.lastChild);
+            }
+        }
+
+        // Animation patterns
+        function startAnimations() {
+            logEvent('Animation', 'Starting wave pattern');
+            
+            const info = animator.getGridInfo();
+            const { columns, rows } = info;
+            
+            // Wave pattern from left to right
+            for (let x = 0; x < columns; x++) {
+                for (let y = 0; y < rows; y++) {
+                    const delay = (x * 0.02).toFixed(2) + 's';
+                    setTimeout(() => {
+                        animator.animateCell(x, y, {
+                            name: 'pulse',
+                            duration: '1s',
+                            timing: 'ease-in-out',
+                            delay: '0s',
+                            iteration: 'infinite'
+                        });
+                    }, x * 20);
+                }
+            }
+        }
+
+        function stopAnimations() {
+            animator.stopAllAnimations();
+            logEvent('Animation', 'All animations stopped');
+        }
+
+        function randomPattern() {
+            logEvent('Pattern', 'Generating random pattern');
+            
+            const info = animator.getGridInfo();
+            const { columns, rows } = info;
+            
+            // Random cells with random colors
+            for (let i = 0; i < 200; i++) {
+                const x = Math.floor(Math.random() * columns);
+                const y = Math.floor(Math.random() * rows);
+                const hue = Math.floor(Math.random() * 360);
+                
+                animator.updateCell(x, y, {
+                    background: `hsl(${hue}, 80%, 50%)`
+                });
+            }
+        }
+
+        function clearGrid() {
+            animator.resetAllCells();
+            logEvent('System', 'Grid cleared');
+        }
+
+        // Initialize on page load
+        init();
+    </script>
+</body>
+</html>

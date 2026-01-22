@@ -1,0 +1,602 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CellAnimator - Virtual Scrolling Demo (40K Cells)</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #0a0a0a;
+            color: #e0e0e0;
+            overflow: hidden;
+        }
+
+        .container {
+            position: relative;
+            width: 100vw;
+            height: 100vh;
+        }
+
+        /* Grid Container */
+        #grid-container {
+            width: 100%;
+            height: 100%;
+            position: relative;
+            background: #0a0a0a;
+            overflow: hidden;
+            cursor: grab;
+        }
+
+        #grid-container:active {
+            cursor: grabbing;
+        }
+
+        /* HUD Overlay */
+        .hud {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            right: 20px;
+            pointer-events: none;
+            z-index: 1000;
+        }
+
+        .hud-top {
+            display: flex;
+            justify-content: space-between;
+            gap: 20px;
+        }
+
+        .hud-panel {
+            background: rgba(10, 10, 10, 0.9);
+            border: 2px solid #00ffff;
+            border-radius: 10px;
+            padding: 20px;
+            backdrop-filter: blur(10px);
+            box-shadow: 0 0 30px rgba(0, 255, 255, 0.3);
+        }
+
+        .hud-title {
+            font-size: 24px;
+            font-weight: bold;
+            color: #00ffff;
+            text-shadow: 0 0 10px rgba(0, 255, 255, 0.8);
+            margin-bottom: 10px;
+        }
+
+        .hud-subtitle {
+            font-size: 12px;
+            color: #999;
+            margin-bottom: 15px;
+        }
+
+        /* Stats Grid */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 15px;
+            margin-top: 15px;
+        }
+
+        .stat {
+            background: rgba(20, 20, 20, 0.8);
+            padding: 10px;
+            border-radius: 6px;
+            border-left: 3px solid #00ffff;
+        }
+
+        .stat-label {
+            font-size: 10px;
+            color: #999;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 5px;
+        }
+
+        .stat-value {
+            font-size: 20px;
+            font-weight: bold;
+            color: #00ffff;
+            text-shadow: 0 0 5px rgba(0, 255, 255, 0.5);
+        }
+
+        .stat-value.highlight {
+            color: #00ff00;
+            text-shadow: 0 0 5px rgba(0, 255, 0, 0.5);
+        }
+
+        /* Performance Indicator */
+        .perf-indicator {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-top: 15px;
+            padding: 10px;
+            background: rgba(20, 20, 20, 0.8);
+            border-radius: 6px;
+        }
+
+        .perf-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            animation: pulse 2s ease-in-out infinite;
+        }
+
+        .perf-dot.good {
+            background: #00ff00;
+            box-shadow: 0 0 10px #00ff00;
+        }
+
+        .perf-dot.warning {
+            background: #ffaa00;
+            box-shadow: 0 0 10px #ffaa00;
+        }
+
+        .perf-dot.bad {
+            background: #ff0000;
+            box-shadow: 0 0 10px #ff0000;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        /* Controls Panel */
+        .controls-panel {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 15px;
+            pointer-events: all;
+        }
+
+        .control-btn {
+            padding: 15px 30px;
+            background: linear-gradient(135deg, rgba(0, 255, 255, 0.2), rgba(0, 255, 255, 0.1));
+            border: 2px solid #00ffff;
+            border-radius: 8px;
+            color: #00ffff;
+            font-size: 14px;
+            font-weight: bold;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            backdrop-filter: blur(10px);
+            pointer-events: all;
+        }
+
+        .control-btn:hover {
+            background: linear-gradient(135deg, rgba(0, 255, 255, 0.3), rgba(0, 255, 255, 0.2));
+            box-shadow: 0 0 20px rgba(0, 255, 255, 0.5);
+            transform: translateY(-2px);
+        }
+
+        .control-btn:active {
+            transform: translateY(0);
+        }
+
+        .control-btn.danger {
+            border-color: #ff0000;
+            color: #ff0000;
+            background: linear-gradient(135deg, rgba(255, 0, 0, 0.2), rgba(255, 0, 0, 0.1));
+        }
+
+        .control-btn.danger:hover {
+            background: linear-gradient(135deg, rgba(255, 0, 0, 0.3), rgba(255, 0, 0, 0.2));
+            box-shadow: 0 0 20px rgba(255, 0, 0, 0.5);
+        }
+
+        /* Loading Screen */
+        .loading-screen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(10, 10, 10, 0.95);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 2000;
+        }
+
+        .loading-spinner {
+            width: 80px;
+            height: 80px;
+            border: 5px solid rgba(0, 255, 255, 0.2);
+            border-top-color: #00ffff;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .loading-text {
+            margin-top: 30px;
+            font-size: 18px;
+            color: #00ffff;
+            text-shadow: 0 0 10px rgba(0, 255, 255, 0.5);
+        }
+
+        .loading-progress {
+            margin-top: 15px;
+            font-size: 14px;
+            color: #999;
+        }
+
+        /* Instructions */
+        .instructions {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+            pointer-events: none;
+            opacity: 0.7;
+            transition: opacity 1s ease;
+        }
+
+        .instructions.hidden {
+            opacity: 0;
+        }
+
+        .instructions h2 {
+            font-size: 36px;
+            color: #00ffff;
+            text-shadow: 0 0 20px rgba(0, 255, 255, 0.8);
+            margin-bottom: 20px;
+        }
+
+        .instructions p {
+            font-size: 18px;
+            color: #999;
+            margin: 10px 0;
+        }
+
+        /* Viewport Indicator */
+        .viewport-indicator {
+            position: absolute;
+            border: 2px dashed #00ffff;
+            pointer-events: none;
+            box-shadow: 0 0 10px rgba(0, 255, 255, 0.5);
+            opacity: 0.3;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Grid Container -->
+        <div id="grid-container"></div>
+
+        <!-- HUD Overlay -->
+        <div class="hud">
+            <div class="hud-top">
+                <!-- Grid Info Panel -->
+                <div class="hud-panel">
+                    <div class="hud-title">🌌 Virtual Scrolling Demo</div>
+                    <div class="hud-subtitle">Phase 2C: Viewport Culling for Massive Grids</div>
+                    
+                    <div class="stats-grid">
+                        <div class="stat">
+                            <div class="stat-label">Total Cells</div>
+                            <div class="stat-value" id="total-cells">-</div>
+                        </div>
+                        <div class="stat">
+                            <div class="stat-label">Visible Cells</div>
+                            <div class="stat-value highlight" id="visible-cells">-</div>
+                        </div>
+                        <div class="stat">
+                            <div class="stat-label">Culled Cells</div>
+                            <div class="stat-value" id="culled-cells">-</div>
+                        </div>
+                        <div class="stat">
+                            <div class="stat-label">Cull Ratio</div>
+                            <div class="stat-value highlight" id="cull-ratio">-</div>
+                        </div>
+                    </div>
+                    
+                    <div class="perf-indicator">
+                        <div class="perf-dot good" id="perf-dot"></div>
+                        <div>
+                            <div style="font-size: 12px; color: #999;">FPS</div>
+                            <div style="font-size: 18px; font-weight: bold; color: #00ff00;" id="fps-display">60</div>
+                        </div>
+                        <div style="flex: 1;"></div>
+                        <div>
+                            <div style="font-size: 12px; color: #999;">Memory</div>
+                            <div style="font-size: 18px; font-weight: bold; color: #00ffff;" id="memory-display">0 MB</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Viewport Info Panel -->
+                <div class="hud-panel">
+                    <div class="hud-title">📍 Viewport Position</div>
+                    <div class="hud-subtitle">Drag to pan • Scroll to zoom</div>
+                    
+                    <div class="stats-grid">
+                        <div class="stat">
+                            <div class="stat-label">X Position</div>
+                            <div class="stat-value" id="viewport-x">0</div>
+                        </div>
+                        <div class="stat">
+                            <div class="stat-label">Y Position</div>
+                            <div class="stat-value" id="viewport-y">0</div>
+                        </div>
+                        <div class="stat">
+                            <div class="stat-label">Grid Size</div>
+                            <div class="stat-value" id="grid-dimensions">-</div>
+                        </div>
+                        <div class="stat">
+                            <div class="stat-label">Render Mode</div>
+                            <div class="stat-value highlight" id="render-mode">-</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Control Panel -->
+        <div class="controls-panel">
+            <button class="control-btn" onclick="createPattern('random')">Random Colors</button>
+            <button class="control-btn" onclick="createPattern('gradient')">Gradient</button>
+            <button class="control-btn" onclick="centerViewport()">Center View</button>
+            <button class="control-btn danger" onclick="clearGrid()">Clear Grid</button>
+        </div>
+
+        <!-- Loading Screen -->
+        <div class="loading-screen" id="loading-screen">
+            <div class="loading-spinner"></div>
+            <div class="loading-text">Initializing 40,000 Cells...</div>
+            <div class="loading-progress" id="loading-progress">Please wait...</div>
+        </div>
+
+        <!-- Instructions -->
+        <div class="instructions" id="instructions">
+            <h2>🚀 Large Grid Loaded!</h2>
+            <p>Drag to pan around the 40,000 cell grid</p>
+            <p>Notice how only visible cells are rendered</p>
+            <p>Viewport culling keeps it smooth!</p>
+        </div>
+    </div>
+
+    <!-- Load CellAnimator and dependencies -->
+    <script src="../src/renderers/BaseRenderer.js"></script>
+    <script src="../src/renderers/HTMLRenderer.js"></script>
+    <script src="../src/renderers/CanvasRenderer.js"></script>
+    <script src="../src/spatial/ViewportManager.js"></script>
+    <script src="../src/spatial/SpatialIndex.js"></script>
+    <script src="../src/performance/PerformanceProfiler.js"></script>
+    <script src="../src/performance/ObjectPool.js"></script>
+    <script src="../src/transforms/TransformMatrix.js"></script>
+    <script src="../src/core/CellGroup.js"></script>
+    <script src="../src/CellAnimator.js"></script>
+
+    <script>
+        let animator;
+        let isDragging = false;
+        let dragStart = { x: 0, y: 0 };
+        let lastUpdate = 0;
+
+        async function init() {
+            console.log('Creating large grid with virtual scrolling...');
+
+            try {
+                // Create a LARGE grid with viewport culling
+                // 200x200 = 40,000 cells (still impressive!)
+                const cellSize = 20; // Visible cell size
+                const gridWidth = 4000; // 200 cells wide
+                const gridHeight = 4000; // 200 cells tall
+
+                animator = new CellAnimator({
+                    width: gridWidth,
+                    height: gridHeight,
+                    cellWidth: cellSize,
+                    cellHeight: cellSize,
+                    container: document.getElementById('grid-container'),
+                    renderMode: 'canvas',  // Force canvas for large grid
+                    enableProfiling: true,
+                    enableViewport: true,  // Enable viewport culling!
+                    enableSpatialIndex: true,
+                    cellBorders: false  // Disable borders for performance
+                });
+
+                // Listen to events
+                animator.on('gridReady', (info) => {
+                    console.log('Grid ready:', info);
+                    updateStats();
+                    hideLoading();
+                    showInstructions();
+                });
+
+                animator.on('performanceUpdate', (metrics) => {
+                    updatePerformance(metrics);
+                });
+
+                animator.on('viewportChanged', updateViewportDisplay);
+                animator.on('viewportPanned', updateViewportDisplay);
+
+                // Initialize
+                document.getElementById('loading-progress').textContent = 'Generating cells...';
+                await animator.init();
+
+            } catch (error) {
+                console.error('Initialization error:', error);
+                const loadingText = document.querySelector('.loading-text');
+                if (loadingText) {
+                    loadingText.textContent = 'Error: ' + error.message;
+                }
+            }
+        }
+
+        function hideLoading() {
+            const loading = document.getElementById('loading-screen');
+            loading.style.opacity = '0';
+            setTimeout(() => {
+                loading.style.display = 'none';
+            }, 500);
+        }
+
+        function showInstructions() {
+            const instructions = document.getElementById('instructions');
+            setTimeout(() => {
+                instructions.classList.add('hidden');
+            }, 4000);
+        }
+
+        function updateStats() {
+            const info = animator.getGridInfo();
+            const viewportInfo = animator.getViewportInfo();
+
+            document.getElementById('total-cells').textContent = info.totalCells.toLocaleString();
+            document.getElementById('grid-dimensions').textContent = `${info.columns}×${info.rows}`;
+            document.getElementById('render-mode').textContent = info.renderMode.toUpperCase();
+
+            if (viewportInfo) {
+                const stats = viewportInfo.stats;
+                document.getElementById('visible-cells').textContent = stats.visibleCells.toLocaleString();
+                document.getElementById('culled-cells').textContent = stats.culledCells.toLocaleString();
+                document.getElementById('cull-ratio').textContent = (stats.cullRatio * 100).toFixed(1) + '%';
+            }
+        }
+
+        function updatePerformance(metrics) {
+            const now = Date.now();
+            if (now - lastUpdate < 500) return; // Update every 500ms
+            lastUpdate = now;
+
+            const fps = Math.round(metrics.fps);
+            const memoryMB = (metrics.memoryUsage / (1024 * 1024)).toFixed(1);
+
+            document.getElementById('fps-display').textContent = fps;
+            document.getElementById('memory-display').textContent = memoryMB + ' MB';
+
+            // Update performance indicator
+            const dot = document.getElementById('perf-dot');
+            if (fps >= 55) {
+                dot.className = 'perf-dot good';
+            } else if (fps >= 30) {
+                dot.className = 'perf-dot warning';
+            } else {
+                dot.className = 'perf-dot bad';
+            }
+
+            // Update viewport stats
+            updateStats();
+        }
+
+        function updateViewportDisplay() {
+            const viewportInfo = animator.getViewportInfo();
+            if (viewportInfo) {
+                const vp = viewportInfo.viewport;
+                document.getElementById('viewport-x').textContent = Math.round(vp.x);
+                document.getElementById('viewport-y').textContent = Math.round(vp.y);
+            }
+        }
+
+        // Dragging controls
+        const container = document.getElementById('grid-container');
+
+        container.addEventListener('mousedown', (e) => {
+            isDragging = true;
+            dragStart = { x: e.clientX, y: e.clientY };
+            container.style.cursor = 'grabbing';
+        });
+
+        container.addEventListener('mousemove', (e) => {
+            if (!isDragging) return;
+
+            const deltaX = dragStart.x - e.clientX;
+            const deltaY = dragStart.y - e.clientY;
+
+            dragStart = { x: e.clientX, y: e.clientY };
+
+            // Pan viewport
+            if (animator && animator.viewportManager) {
+                animator.panViewport(deltaX, deltaY);
+            }
+        });
+
+        container.addEventListener('mouseup', () => {
+            isDragging = false;
+            container.style.cursor = 'grab';
+        });
+
+        container.addEventListener('mouseleave', () => {
+            isDragging = false;
+            container.style.cursor = 'grab';
+        });
+
+        // Patterns
+        function createPattern(type) {
+            const info = animator.getGridInfo();
+            const { columns, rows } = info;
+            
+            if (type === 'random') {
+                // Random colors across entire grid (visible cells only for performance)
+                const visibleCells = animator.getVisibleCells();
+                visibleCells.forEach(cell => {
+                    const hue = Math.random() * 360;
+                    animator.updateCell(cell.x, cell.y, {
+                        background: `hsl(${hue}, 80%, 50%)`
+                    });
+                });
+            } else if (type === 'gradient') {
+                // Gradient across ENTIRE grid (not just visible)
+                // This will work because we update all cells, then viewport culling renders only visible
+                console.log('Creating gradient across full grid...');
+                const updates = [];
+                
+                for (let y = 0; y < rows; y++) {
+                    for (let x = 0; x < columns; x++) {
+                        // Diagonal gradient from top-left to bottom-right
+                        const progress = (x + y) / (columns + rows);
+                        const hue = progress * 360;
+                        
+                        updates.push({
+                            x: x,
+                            y: y,
+                            styles: {
+                                background: `hsl(${hue}, 70%, 50%)`
+                            }
+                        });
+                    }
+                }
+                
+                // Batch update for better performance
+                animator.updateCells(updates);
+                console.log(`Updated ${updates.length} cells with gradient`);
+            }
+        }
+
+        function centerViewport() {
+            const info = animator.getGridInfo();
+            const centerX = Math.floor(info.columns / 2);
+            const centerY = Math.floor(info.rows / 2);
+            animator.centerOnCell(centerX, centerY);
+        }
+
+        function clearGrid() {
+            animator.resetAllCells();
+        }
+
+        // Initialize on page load
+        init();
+    </script>
+</body>
+</html>

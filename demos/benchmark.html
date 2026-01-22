@@ -1,0 +1,741 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PXS Benchmark - Multi-Resolution Testing</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Space+Grotesk:wght@400;500;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="shared/pxs-theme.css">
+  <link rel="stylesheet" href="shared/pxs-components.css">
+  <link rel="stylesheet" href="shared/pxs-ide-layout.css">
+  <style>
+    .benchmark-container {
+      display: flex;
+      height: 100vh;
+    }
+    
+    .benchmark-sidebar {
+      width: 400px;
+      background: var(--pxs-bg-secondary);
+      border-right: 1px solid var(--pxs-border);
+      padding: 20px;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+    
+    .benchmark-main {
+      flex: 1;
+      background: var(--pxs-bg-primary);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+    
+    .benchmark-header {
+      padding: 16px 20px;
+      background: var(--pxs-bg-tertiary);
+      border-bottom: 1px solid var(--pxs-border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    
+    .benchmark-header h1 {
+      font-family: var(--pxs-font-display);
+      font-size: 20px;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    
+    .benchmark-canvas-area {
+      flex: 1;
+      position: relative;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      overflow: auto;
+    }
+    
+    .benchmark-canvas-container {
+      border: 2px solid var(--pxs-border);
+      border-radius: var(--pxs-radius-md);
+      overflow: hidden;
+      box-shadow: var(--pxs-shadow-lg);
+    }
+    
+    .resolution-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 8px;
+    }
+    
+    .resolution-btn {
+      padding: 12px 16px;
+      font-size: 12px;
+      text-align: left;
+    }
+    
+    .resolution-btn strong {
+      display: block;
+      font-size: 14px;
+      margin-bottom: 4px;
+    }
+    
+    .resolution-btn span {
+      color: var(--pxs-text-muted);
+      font-size: 11px;
+    }
+    
+    .result-card {
+      background: var(--pxs-bg-primary);
+      border: 1px solid var(--pxs-border);
+      border-radius: var(--pxs-radius-md);
+      padding: 12px;
+      margin-bottom: 8px;
+    }
+    
+    .result-card__header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 8px;
+    }
+    
+    .result-card__title {
+      font-weight: 600;
+      font-size: 13px;
+    }
+    
+    .result-card__stats {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 8px;
+      font-size: 11px;
+    }
+    
+    .result-card__stat {
+      text-align: center;
+    }
+    
+    .result-card__stat-value {
+      font-weight: 700;
+      font-size: 14px;
+      color: var(--pxs-accent-primary);
+    }
+    
+    .result-card__stat-label {
+      color: var(--pxs-text-muted);
+    }
+    
+    .test-animation-preview {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 8px;
+      margin-top: 12px;
+    }
+    
+    .preview-btn {
+      padding: 8px;
+      font-size: 11px;
+    }
+    
+    .export-section {
+      padding: 16px;
+      background: var(--pxs-bg-tertiary);
+      border-radius: var(--pxs-radius-md);
+    }
+    
+    .export-section h3 {
+      font-size: 13px;
+      margin-bottom: 12px;
+      color: var(--pxs-text-secondary);
+    }
+    
+    /* Loading overlay */
+    .benchmark-loading {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(13, 17, 23, 0.9);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 16px;
+      z-index: 100;
+    }
+    
+    .benchmark-loading--hidden {
+      display: none;
+    }
+    
+    /* Results table */
+    .results-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 12px;
+    }
+    
+    .results-table th,
+    .results-table td {
+      padding: 8px 12px;
+      text-align: left;
+      border-bottom: 1px solid var(--pxs-border);
+    }
+    
+    .results-table th {
+      background: var(--pxs-bg-tertiary);
+      font-weight: 600;
+      color: var(--pxs-text-secondary);
+      text-transform: uppercase;
+      font-size: 10px;
+      letter-spacing: 0.05em;
+    }
+    
+    .results-table td {
+      font-family: var(--pxs-font-sans);
+    }
+    
+    .results-table tr:hover {
+      background: var(--pxs-bg-tertiary);
+    }
+  </style>
+</head>
+<body>
+  <div class="benchmark-container">
+    <!-- Sidebar -->
+    <div class="benchmark-sidebar">
+      <!-- Title -->
+      <div>
+        <h2 style="font-family: var(--pxs-font-display); font-size: 18px; margin-bottom: 8px;">
+          📊 PXS Benchmark
+        </h2>
+        <p style="font-size: 12px; color: var(--pxs-text-secondary);">
+          Test performance across resolutions from 32-bit style to HD quality
+        </p>
+      </div>
+      
+      <!-- Resolution Presets -->
+      <div class="pxs-panel">
+        <div class="pxs-panel__header">
+          <span class="pxs-panel__title">📐 Resolution Presets</span>
+        </div>
+        <div class="pxs-panel__body">
+          <div class="resolution-grid">
+            <button class="pxs-btn resolution-btn" onclick="Benchmark.runTest('retro-8')">
+              <strong>Retro 8-bit</strong>
+              <span>16×16 = 256 cells</span>
+            </button>
+            <button class="pxs-btn resolution-btn" onclick="Benchmark.runTest('retro-16')">
+              <strong>Retro 16-bit</strong>
+              <span>32×32 = 1,024 cells</span>
+            </button>
+            <button class="pxs-btn resolution-btn" onclick="Benchmark.runTest('sd')">
+              <strong>SD (480p)</strong>
+              <span>80×60 = 4,800 cells</span>
+            </button>
+            <button class="pxs-btn resolution-btn" onclick="Benchmark.runTest('hd')">
+              <strong>HD (720p)</strong>
+              <span>128×72 = 9,216 cells</span>
+            </button>
+            <button class="pxs-btn resolution-btn" onclick="Benchmark.runTest('fullhd')">
+              <strong>Full HD (1080p)</strong>
+              <span>192×108 = 20,736 cells</span>
+            </button>
+            <button class="pxs-btn resolution-btn" onclick="Benchmark.runTest('2k')">
+              <strong>2K (1440p)</strong>
+              <span>256×144 = 36,864 cells</span>
+            </button>
+            <button class="pxs-btn resolution-btn" onclick="Benchmark.runTest('4k')">
+              <strong>4K (2160p)</strong>
+              <span>384×216 = 82,944 cells</span>
+            </button>
+            <button class="pxs-btn resolution-btn pxs-btn--danger" onclick="Benchmark.runTest('8k')">
+              <strong>8K (4320p)</strong>
+              <span>768×432 = 331,776 cells</span>
+            </button>
+          </div>
+        </div>
+      </div>
+      
+      <!-- Custom Test -->
+      <div class="pxs-panel">
+        <div class="pxs-panel__header">
+          <span class="pxs-panel__title">⚙️ Custom Test</span>
+        </div>
+        <div class="pxs-panel__body">
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px;">
+            <div>
+              <label style="font-size: 11px; color: var(--pxs-text-muted); display: block; margin-bottom: 4px;">
+                Columns
+              </label>
+              <input type="number" id="custom-cols" value="64" min="4" max="1000" 
+                style="width: 100%; padding: 8px; background: var(--pxs-bg-primary); border: 1px solid var(--pxs-border); border-radius: 4px; color: var(--pxs-text-primary);">
+            </div>
+            <div>
+              <label style="font-size: 11px; color: var(--pxs-text-muted); display: block; margin-bottom: 4px;">
+                Rows
+              </label>
+              <input type="number" id="custom-rows" value="48" min="4" max="1000"
+                style="width: 100%; padding: 8px; background: var(--pxs-bg-primary); border: 1px solid var(--pxs-border); border-radius: 4px; color: var(--pxs-text-primary);">
+            </div>
+          </div>
+          <button class="pxs-btn pxs-btn--primary" onclick="Benchmark.runCustomTest()" style="width: 100%;">
+            Run Custom Test
+          </button>
+        </div>
+      </div>
+      
+      <!-- Run All Tests -->
+      <button class="pxs-btn pxs-btn--success" onclick="Benchmark.runAllTests()" style="width: 100%;">
+        🚀 Run Complete Benchmark Suite
+      </button>
+      
+      <!-- Test Results -->
+      <div class="pxs-panel" style="flex: 1; display: flex; flex-direction: column;">
+        <div class="pxs-panel__header">
+          <span class="pxs-panel__title">📈 Results</span>
+          <button class="pxs-btn pxs-btn--ghost" style="padding: 4px 8px; font-size: 11px;" onclick="Benchmark.clearResults()">
+            Clear
+          </button>
+        </div>
+        <div class="pxs-panel__body" style="flex: 1; overflow-y: auto;">
+          <div id="results-container">
+            <p style="color: var(--pxs-text-muted); font-size: 12px; text-align: center;">
+              Run a test to see results
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Main Canvas Area -->
+    <div class="benchmark-main">
+      <div class="benchmark-header">
+        <h1>
+          <span style="font-size: 24px;">⬢</span>
+          <span style="background: linear-gradient(90deg, var(--pxs-accent-primary), var(--pxs-accent-highlight)); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">
+            Benchmark Output
+          </span>
+        </h1>
+        <div style="display: flex; gap: 12px; align-items: center;">
+          <div class="pxs-stat" style="padding: 8px 16px;">
+            <div class="pxs-stat__value" id="current-fps" style="font-size: 18px;">-</div>
+            <div class="pxs-stat__label">FPS</div>
+          </div>
+          <div class="pxs-stat" style="padding: 8px 16px;">
+            <div class="pxs-stat__value" id="current-cells" style="font-size: 18px;">-</div>
+            <div class="pxs-stat__label">Cells</div>
+          </div>
+          <span class="pxs-badge" id="current-mode">-</span>
+        </div>
+      </div>
+      
+      <div class="benchmark-canvas-area">
+        <div class="benchmark-canvas-container" id="canvas-container"></div>
+        
+        <!-- Loading Overlay -->
+        <div class="benchmark-loading" id="loading">
+          <div class="pxs-spinner"></div>
+          <div style="color: var(--pxs-text-secondary);">Initializing...</div>
+        </div>
+      </div>
+      
+      <!-- Test Animation Controls -->
+      <div style="padding: 16px 20px; background: var(--pxs-bg-tertiary); border-top: 1px solid var(--pxs-border);">
+        <div style="display: flex; align-items: center; gap: 16px;">
+          <span style="font-size: 12px; color: var(--pxs-text-secondary);">Test Animation:</span>
+          <div style="display: flex; gap: 8px;">
+            <button class="pxs-btn" onclick="Benchmark.testAnimation('static')">Static</button>
+            <button class="pxs-btn" onclick="Benchmark.testAnimation('gradient')">Gradient</button>
+            <button class="pxs-btn" onclick="Benchmark.testAnimation('wave')">Wave Anim</button>
+            <button class="pxs-btn" onclick="Benchmark.testAnimation('random')">Random</button>
+          </div>
+          <div style="flex: 1;"></div>
+          <button class="pxs-btn pxs-btn--primary" onclick="Benchmark.exportImage()">📷 Export PNG</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Load PXS -->
+  <script src="shared/pxs-loader.js"></script>
+  <script>
+    // Benchmark Application
+    const Benchmark = {
+      animator: null,
+      results: [],
+      currentTest: null,
+      
+      // Resolution presets
+      resolutions: {
+        'retro-8': { cols: 16, rows: 16, name: 'Retro 8-bit', cellSize: 32 },
+        'retro-16': { cols: 32, rows: 32, name: 'Retro 16-bit', cellSize: 16 },
+        'sd': { cols: 80, rows: 60, name: 'SD 480p', cellSize: 8 },
+        'hd': { cols: 128, rows: 72, name: 'HD 720p', cellSize: 6 },
+        'fullhd': { cols: 192, rows: 108, name: 'Full HD 1080p', cellSize: 5 },
+        '2k': { cols: 256, rows: 144, name: '2K 1440p', cellSize: 4 },
+        '4k': { cols: 384, rows: 216, name: '4K 2160p', cellSize: 3 },
+        '8k': { cols: 768, rows: 432, name: '8K 4320p', cellSize: 2 }
+      },
+      
+      async init() {
+        await PXS.load();
+        console.log('[Benchmark] PXS loaded');
+        
+        // Run initial small test
+        await this.runTest('sd');
+      },
+      
+      async runTest(presetName) {
+        const preset = this.resolutions[presetName];
+        if (!preset) {
+          console.error('Unknown preset:', presetName);
+          return;
+        }
+        
+        await this.createGrid(preset.cols, preset.rows, preset.cellSize, preset.name);
+      },
+      
+      async runCustomTest() {
+        const cols = parseInt(document.getElementById('custom-cols').value) || 64;
+        const rows = parseInt(document.getElementById('custom-rows').value) || 48;
+        const totalCells = cols * rows;
+        
+        // Calculate appropriate cell size
+        const maxWidth = window.innerWidth - 450;
+        const maxHeight = window.innerHeight - 150;
+        const cellSize = Math.max(2, Math.min(
+          Math.floor(maxWidth / cols),
+          Math.floor(maxHeight / rows)
+        ));
+        
+        await this.createGrid(cols, rows, cellSize, `Custom ${cols}×${rows}`);
+      },
+      
+      async createGrid(cols, rows, cellSize, testName) {
+        this.showLoading();
+        
+        // Destroy existing animator
+        if (this.animator) {
+          this.animator.destroy();
+        }
+        
+        const container = document.getElementById('canvas-container');
+        container.innerHTML = '';
+        container.style.width = `${cols * cellSize}px`;
+        container.style.height = `${rows * cellSize}px`;
+        
+        const totalCells = cols * rows;
+        
+        // Choose renderer based on cell count
+        const renderMode = totalCells > 10000 ? 'canvas' : 'auto';
+        
+        const startTime = performance.now();
+        
+        try {
+          this.animator = new CellAnimator({
+            width: cols * cellSize,
+            height: rows * cellSize,
+            cellWidth: cellSize,
+            cellHeight: cellSize,
+            container: container,
+            renderMode: renderMode,
+            enableProfiling: true,
+            enableViewport: totalCells > 50000,
+            enableSpatialIndex: totalCells > 5000,
+            cellBorders: cellSize >= 4,
+            borderColor: 'rgba(88, 166, 255, 0.15)',
+            borderWidth: 1
+          });
+          
+          // Track performance
+          let fpsHistory = [];
+          let memoryHistory = [];
+          
+          this.animator.on('performanceUpdate', (metrics) => {
+            fpsHistory.push(metrics.fps);
+            memoryHistory.push(metrics.memoryUsage);
+            
+            // Update display
+            document.getElementById('current-fps').textContent = Math.round(metrics.fps);
+            document.getElementById('current-fps').className = 
+              'pxs-stat__value' + (metrics.fps >= 55 ? ' pxs-stat__value--good' : metrics.fps >= 30 ? ' pxs-stat__value--warning' : ' pxs-stat__value--bad');
+          });
+          
+          await this.animator.init();
+          
+          const initTime = performance.now() - startTime;
+          const info = this.animator.getGridInfo();
+          
+          // Update UI
+          document.getElementById('current-cells').textContent = info.totalCells.toLocaleString();
+          document.getElementById('current-mode').textContent = info.renderMode.toUpperCase();
+          
+          this.currentTest = {
+            name: testName,
+            cols: cols,
+            rows: rows,
+            cells: totalCells,
+            initTime: initTime,
+            renderer: info.renderMode
+          };
+          
+          // Apply initial gradient pattern
+          this.testAnimation('gradient');
+          
+          // Record result after 2 seconds of running
+          setTimeout(() => {
+            const avgFps = fpsHistory.length > 0 
+              ? fpsHistory.slice(-60).reduce((a, b) => a + b, 0) / Math.min(fpsHistory.length, 60)
+              : 60;
+            
+            const avgMemory = memoryHistory.length > 0
+              ? memoryHistory.slice(-60).reduce((a, b) => a + b, 0) / Math.min(memoryHistory.length, 60)
+              : 0;
+            
+            this.recordResult({
+              ...this.currentTest,
+              avgFps: avgFps,
+              avgMemory: avgMemory / (1024 * 1024)
+            });
+          }, 2000);
+          
+          this.hideLoading();
+          
+        } catch (error) {
+          console.error('Benchmark error:', error);
+          this.hideLoading();
+          alert('Benchmark failed: ' + error.message);
+        }
+      },
+      
+      testAnimation(type) {
+        if (!this.animator) return;
+        
+        const info = this.animator.getGridInfo();
+        const { columns, rows } = info;
+        const totalCells = columns * rows;
+        
+        // Stop existing animations
+        this.animator.stopAllAnimations();
+        
+        // Stop custom wave animation if running
+        if (this._waveAnimId) {
+          cancelAnimationFrame(this._waveAnimId);
+          this._waveAnimId = null;
+        }
+        
+        switch (type) {
+          case 'static':
+            // Simple solid fill
+            const solidUpdates = [];
+            for (let y = 0; y < rows; y++) {
+              for (let x = 0; x < columns; x++) {
+                solidUpdates.push({
+                  x, y,
+                  styles: { background: '#21262d' }
+                });
+              }
+            }
+            this.animator.updateCells(solidUpdates);
+            // Force canvas redraw
+            this._forceRedraw();
+            break;
+            
+          case 'gradient':
+            // Diagonal gradient using PatternHelpers
+            const gradient = PatternHelpers.generateDiagonalGradient({
+              gridWidth: columns,
+              gridHeight: rows,
+              colorStart: '#ff6b6b',
+              colorEnd: '#4ecdc4'
+            });
+            this.animator.updateCells(gradient);
+            // Force canvas redraw
+            this._forceRedraw();
+            break;
+            
+          case 'wave':
+            // Animated wave - limit to max 5000 cells for performance
+            // For larger grids, apply wave pattern colors instead
+            if (totalCells <= 5000) {
+              for (let x = 0; x < columns; x++) {
+                for (let y = 0; y < rows; y++) {
+                  this.animator.animateCell(x, y, {
+                    name: 'wave',
+                    duration: '2s',
+                    timing: 'ease-in-out',
+                    delay: `${(x + y) * 0.02}s`,
+                    iteration: 'infinite'
+                  });
+                }
+              }
+            } else {
+              // For large grids, create animated wave effect with color updates
+              this._runWaveAnimation(columns, rows);
+            }
+            break;
+            
+          case 'random':
+            // Random colors
+            const randomUpdates = [];
+            for (let y = 0; y < rows; y++) {
+              for (let x = 0; x < columns; x++) {
+                const hue = Math.floor(Math.random() * 360);
+                randomUpdates.push({
+                  x, y,
+                  styles: { background: `hsl(${hue}, 70%, 50%)` }
+                });
+              }
+            }
+            this.animator.updateCells(randomUpdates);
+            // Force canvas redraw
+            this._forceRedraw();
+            break;
+        }
+      },
+      
+      // Force canvas to redraw (needed for batch updates)
+      _forceRedraw() {
+        if (this.animator && this.animator.renderer && this.animator.renderer.mode === 'canvas') {
+          this.animator.renderer.fullRedrawNeeded = true;
+          this.animator.renderer._drawGrid();
+        }
+      },
+      
+      // Continuous wave animation for large grids
+      _runWaveAnimation(columns, rows) {
+        if (this._waveAnimId) {
+          cancelAnimationFrame(this._waveAnimId);
+        }
+        
+        const startTime = performance.now();
+        
+        const animateWave = () => {
+          if (!this.animator) return;
+          
+          const time = (performance.now() - startTime) / 1000;
+          const updates = [];
+          
+          for (let y = 0; y < rows; y++) {
+            for (let x = 0; x < columns; x++) {
+              // Create wave effect based on position and time
+              const wave = Math.sin((x + y) * 0.1 + time * 2) * 0.5 + 0.5;
+              const hue = 280 + wave * 40; // Purple to magenta
+              const lightness = 40 + wave * 20;
+              
+              updates.push({
+                x, y,
+                styles: { background: `hsl(${hue}, 80%, ${lightness}%)` }
+              });
+            }
+          }
+          
+          this.animator.updateCells(updates);
+          this._forceRedraw();
+          
+          this._waveAnimId = requestAnimationFrame(animateWave);
+        };
+        
+        this._waveAnimId = requestAnimationFrame(animateWave);
+      },
+      
+      recordResult(result) {
+        this.results.unshift(result);
+        this.updateResultsDisplay();
+      },
+      
+      updateResultsDisplay() {
+        const container = document.getElementById('results-container');
+        
+        if (this.results.length === 0) {
+          container.innerHTML = '<p style="color: var(--pxs-text-muted); font-size: 12px; text-align: center;">Run a test to see results</p>';
+          return;
+        }
+        
+        container.innerHTML = `
+          <table class="results-table">
+            <thead>
+              <tr>
+                <th>Test</th>
+                <th>Cells</th>
+                <th>Init</th>
+                <th>FPS</th>
+                <th>Mode</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${this.results.map(r => `
+                <tr>
+                  <td><strong>${r.name}</strong></td>
+                  <td>${r.cells.toLocaleString()}</td>
+                  <td>${r.initTime.toFixed(0)}ms</td>
+                  <td style="color: ${r.avgFps >= 55 ? 'var(--pxs-success)' : r.avgFps >= 30 ? 'var(--pxs-warning)' : 'var(--pxs-error)'}">${r.avgFps.toFixed(1)}</td>
+                  <td><span class="pxs-badge pxs-badge--info">${r.renderer}</span></td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        `;
+      },
+      
+      clearResults() {
+        this.results = [];
+        this.updateResultsDisplay();
+      },
+      
+      async runAllTests() {
+        const presets = ['retro-8', 'retro-16', 'sd', 'hd', 'fullhd', '2k', '4k'];
+        
+        for (const preset of presets) {
+          await this.runTest(preset);
+          await new Promise(resolve => setTimeout(resolve, 3000)); // Wait for metrics
+        }
+        
+        alert('Benchmark suite complete! Check results in sidebar.');
+      },
+      
+      exportImage() {
+        if (!this.animator) return;
+        
+        const info = this.animator.getGridInfo();
+        
+        if (info.renderMode === 'canvas') {
+          // Canvas mode - direct export
+          const canvas = document.querySelector('.cell-animator-canvas');
+          if (canvas) {
+            const link = document.createElement('a');
+            link.download = `pxs-${info.columns}x${info.rows}.png`;
+            link.href = canvas.toDataURL('image/png');
+            link.click();
+          }
+        } else {
+          // HTML mode - use html2canvas or alert
+          alert('PNG export is optimized for Canvas renderer. Switch to a larger resolution for Canvas mode export.');
+        }
+      },
+      
+      showLoading() {
+        document.getElementById('loading').classList.remove('benchmark-loading--hidden');
+      },
+      
+      hideLoading() {
+        document.getElementById('loading').classList.add('benchmark-loading--hidden');
+      }
+    };
+    
+    // Initialize
+    window.addEventListener('DOMContentLoaded', () => Benchmark.init());
+  </script>
+</body>
+</html>

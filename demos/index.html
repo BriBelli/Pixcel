@@ -1,0 +1,1502 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PXS Studio - Pixel Cell Animation Platform</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Space+Grotesk:wght@400;500;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="shared/pxs-theme.css">
+  <link rel="stylesheet" href="shared/pxs-components.css">
+  <link rel="stylesheet" href="shared/pxs-ide-layout.css">
+  <style>
+    /* PXS Animation Keyframes */
+    @keyframes pulse {
+      0%, 100% { transform: scale(1); filter: brightness(1); }
+      50% { transform: scale(1.15); filter: brightness(1.5); background: #00ffff !important; }
+    }
+    @keyframes wave {
+      0%, 100% { filter: hue-rotate(0deg) brightness(1); }
+      50% { filter: hue-rotate(180deg) brightness(1.3); background: #ff00ff !important; }
+    }
+    @keyframes glow {
+      0%, 100% { filter: brightness(1); box-shadow: none; }
+      50% { filter: brightness(1.5); background: #ffff00 !important; box-shadow: 0 0 8px 2px #ffff00; }
+    }
+    @keyframes bounce {
+      0%, 100% { transform: scale(1); }
+      25% { transform: scale(1.4); }
+      50% { transform: scale(0.9); }
+      75% { transform: scale(1.2); }
+    }
+    .cell-animator-cell {
+      will-change: transform, background, opacity, filter;
+      transition: background 0.1s ease;
+    }
+    
+    /* Resolution Presets */
+    .res-presets {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 6px;
+      margin-bottom: 12px;
+    }
+    .res-preset {
+      padding: 8px 4px;
+      font-size: 11px;
+      text-align: center;
+      background: var(--pxs-bg-tertiary);
+      border: 1px solid var(--pxs-border);
+      border-radius: var(--pxs-radius-sm);
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+    .res-preset:hover {
+      background: var(--pxs-bg-elevated);
+      border-color: var(--pxs-accent-primary);
+    }
+    .res-preset--active {
+      background: var(--pxs-accent-primary) !important;
+      border-color: var(--pxs-accent-primary) !important;
+      color: white;
+    }
+    .res-preset__name { font-weight: 600; display: block; }
+    .res-preset__size { opacity: 0.7; font-size: 10px; }
+    
+    /* Image Upload */
+    .image-upload {
+      border: 2px dashed var(--pxs-border);
+      border-radius: var(--pxs-radius-md);
+      padding: 16px;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      margin-bottom: 12px;
+    }
+    .image-upload:hover {
+      border-color: var(--pxs-accent-primary);
+      background: rgba(88, 166, 255, 0.1);
+    }
+    .image-upload__icon { font-size: 24px; margin-bottom: 8px; }
+    .image-upload__text { font-size: 12px; color: var(--pxs-text-secondary); }
+    .image-upload input { display: none; }
+    
+    /* Image Preview */
+    .image-preview {
+      position: relative;
+      margin-bottom: 12px;
+      border-radius: var(--pxs-radius-md);
+      overflow: hidden;
+      display: none;
+    }
+    .image-preview img {
+      width: 100%;
+      height: auto;
+      display: block;
+    }
+    .image-preview__remove {
+      position: absolute;
+      top: 4px;
+      right: 4px;
+      width: 24px;
+      height: 24px;
+      background: rgba(0,0,0,0.7);
+      border: none;
+      border-radius: 50%;
+      color: white;
+      cursor: pointer;
+      font-size: 14px;
+    }
+    
+    /* Custom slider */
+    .pxs-slider {
+      width: 100%;
+      height: 6px;
+      -webkit-appearance: none;
+      background: var(--pxs-bg-tertiary);
+      border-radius: 3px;
+      outline: none;
+    }
+    .pxs-slider::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 16px;
+      height: 16px;
+      background: var(--pxs-accent-primary);
+      border-radius: 50%;
+      cursor: pointer;
+    }
+    
+    /* Floating Border Toggle */
+    .pxs-border-toggle {
+      position: absolute;
+      bottom: 20px;
+      right: 20px;
+      width: 48px;
+      height: 48px;
+      background: var(--pxs-bg-elevated);
+      border: 2px solid var(--pxs-border);
+      border-radius: 50%;
+      cursor: pointer;
+      font-size: 20px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.2s ease;
+      z-index: 100;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    }
+    .pxs-border-toggle:hover {
+      transform: scale(1.1);
+      border-color: var(--pxs-accent-primary);
+      box-shadow: 0 6px 16px rgba(88, 166, 255, 0.4);
+    }
+    .pxs-border-toggle:active {
+      transform: scale(0.95);
+    }
+    
+    /* Section tabs */
+    .section-tabs {
+      display: flex;
+      gap: 4px;
+      margin-bottom: 12px;
+      padding: 4px;
+      background: var(--pxs-bg-primary);
+      border-radius: var(--pxs-radius-md);
+    }
+    .section-tab {
+      flex: 1;
+      padding: 8px;
+      font-size: 11px;
+      text-align: center;
+      background: transparent;
+      border: none;
+      border-radius: var(--pxs-radius-sm);
+      color: var(--pxs-text-secondary);
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+    .section-tab:hover { color: var(--pxs-text-primary); }
+    .section-tab--active {
+      background: var(--pxs-bg-tertiary);
+      color: var(--pxs-accent-primary);
+    }
+    .section-content { display: none; }
+    .section-content--active { display: block; }
+    
+    /* Benchmark Results */
+    .benchmark-results {
+      display: grid;
+      gap: 8px;
+      margin-top: 12px;
+    }
+    .benchmark-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 8px 12px;
+      background: var(--pxs-bg-tertiary);
+      border-radius: var(--pxs-radius-sm);
+      font-size: 12px;
+    }
+    .benchmark-item__res { font-weight: 600; }
+    .benchmark-item__time { color: var(--pxs-accent-primary); }
+  </style>
+</head>
+<body>
+  <div class="pxs-ide">
+    <!-- Header -->
+    <header class="pxs-ide__header">
+      <div class="pxs-ide__logo">
+        <div class="pxs-ide__logo-icon">⬢</div>
+        <span class="pxs-ide__logo-text">PXS Studio</span>
+        <span class="pxs-badge pxs-badge--info">Phase 2C</span>
+      </div>
+      <div style="display: flex; align-items: center; gap: 12px;">
+        <span style="font-size: 12px; color: var(--pxs-text-secondary);">Resolution:</span>
+        <span id="header-res" style="font-size: 14px; font-weight: 600; color: var(--pxs-accent-primary);">40×30</span>
+        <span style="font-size: 12px; color: var(--pxs-text-muted);">|</span>
+        <span id="header-cells" style="font-size: 12px; color: var(--pxs-text-secondary);">1,200 cells</span>
+      </div>
+    </header>
+    
+    <!-- Left Sidebar - Controls -->
+    <aside class="pxs-ide__sidebar pxs-ide__sidebar--left">
+      <!-- Section Tabs -->
+      <div class="section-tabs">
+        <button class="section-tab section-tab--active" data-section="resolution">📐 Resolution</button>
+        <button class="section-tab" data-section="effects">✨ Effects</button>
+        <button class="section-tab" data-section="image">🖼️ Image</button>
+      </div>
+      
+      <!-- Resolution Section -->
+      <div id="section-resolution" class="section-content section-content--active">
+        <!-- Resolution Presets -->
+        <div class="pxs-ide__sidebar-section">
+          <div class="pxs-ide__sidebar-title"><span>📏 Resolution Presets</span></div>
+          <div class="pxs-ide__sidebar-content">
+            <div class="res-presets" id="res-presets">
+              <button class="res-preset" data-cols="8" data-rows="8">
+                <span class="res-preset__name">8-bit</span>
+                <span class="res-preset__size">8×8</span>
+              </button>
+              <button class="res-preset" data-cols="16" data-rows="16">
+                <span class="res-preset__name">16-bit</span>
+                <span class="res-preset__size">16×16</span>
+              </button>
+              <button class="res-preset" data-cols="32" data-rows="32">
+                <span class="res-preset__name">32-bit</span>
+                <span class="res-preset__size">32×32</span>
+              </button>
+              <button class="res-preset res-preset--active" data-cols="40" data-rows="30">
+                <span class="res-preset__name">Default</span>
+                <span class="res-preset__size">40×30</span>
+              </button>
+              <button class="res-preset" data-cols="64" data-rows="48">
+                <span class="res-preset__name">64-bit</span>
+                <span class="res-preset__size">64×48</span>
+              </button>
+              <button class="res-preset" data-cols="128" data-rows="96">
+                <span class="res-preset__name">128-bit</span>
+                <span class="res-preset__size">128×96</span>
+              </button>
+              <button class="res-preset" data-cols="160" data-rows="120">
+                <span class="res-preset__name">QQVGA</span>
+                <span class="res-preset__size">160×120</span>
+              </button>
+              <button class="res-preset" data-cols="256" data-rows="192">
+                <span class="res-preset__name">256-bit</span>
+                <span class="res-preset__size">256×192</span>
+              </button>
+              <button class="res-preset" data-cols="320" data-rows="240">
+                <span class="res-preset__name">QVGA</span>
+                <span class="res-preset__size">320×240</span>
+              </button>
+              <!-- VGA/SVGA disabled - requires Rust/WASM for performance
+              <button class="res-preset" data-cols="640" data-rows="480" disabled title="Requires WASM (coming soon)">
+                <span class="res-preset__name">VGA</span>
+                <span class="res-preset__size">640×480</span>
+              </button>
+              -->
+            </div>
+            
+            <!-- Custom Resolution -->
+            <div style="margin-top: 16px;">
+              <div class="pxs-stat__label" style="margin-bottom: 8px;">Custom Resolution</div>
+              <div style="display: flex; gap: 8px; align-items: center;">
+                <input type="number" id="custom-cols" value="40" min="4" max="500" 
+                  style="width: 60px; padding: 6px 8px; background: var(--pxs-bg-tertiary); border: 1px solid var(--pxs-border); border-radius: 4px; color: var(--pxs-text-primary); font-size: 12px;">
+                <span style="color: var(--pxs-text-muted);">×</span>
+                <input type="number" id="custom-rows" value="30" min="4" max="500"
+                  style="width: 60px; padding: 6px 8px; background: var(--pxs-bg-tertiary); border: 1px solid var(--pxs-border); border-radius: 4px; color: var(--pxs-text-primary); font-size: 12px;">
+                <button class="pxs-btn pxs-btn--primary" onclick="Demo.setResolution()" style="padding: 6px 12px; font-size: 11px;">Apply</button>
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        <!-- Grid Stats -->
+        <div class="pxs-ide__sidebar-section">
+          <div class="pxs-ide__sidebar-title"><span>📊 Grid Stats</span></div>
+          <div class="pxs-ide__sidebar-content">
+            <div class="pxs-stat-grid" style="grid-template-columns: 1fr 1fr;">
+              <div class="pxs-stat">
+                <div class="pxs-stat__value" id="stat-cols">40</div>
+                <div class="pxs-stat__label">Columns</div>
+              </div>
+              <div class="pxs-stat">
+                <div class="pxs-stat__value" id="stat-rows">30</div>
+                <div class="pxs-stat__label">Rows</div>
+              </div>
+              <div class="pxs-stat">
+                <div class="pxs-stat__value" id="stat-cells">1,200</div>
+                <div class="pxs-stat__label">Total Cells</div>
+              </div>
+              <div class="pxs-stat">
+                <div class="pxs-stat__value" id="stat-mode">HTML</div>
+                <div class="pxs-stat__label">Renderer</div>
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        <!-- Grid Options - Removed, now using floating toggle -->
+      </div>
+      
+      <!-- Effects Section -->
+      <div id="section-effects" class="section-content">
+        <!-- Animation Controls -->
+        <div class="pxs-ide__sidebar-section">
+          <div class="pxs-ide__sidebar-title"><span>🎬 Animations</span></div>
+          <div class="pxs-ide__sidebar-content">
+            <button class="pxs-btn" onclick="Demo.animate('diagonal')">Diagonal Pulse</button>
+            <button class="pxs-btn" onclick="Demo.animate('wave')">Wave Effect</button>
+            <button class="pxs-btn" onclick="Demo.animate('spiral')">Spiral Glow</button>
+            <button class="pxs-btn" onclick="Demo.animate('random')">Random Burst</button>
+            <button class="pxs-btn" onclick="Demo.animate('border')">Border Chase</button>
+          </div>
+        </div>
+        
+        <!-- Pattern Controls -->
+        <div class="pxs-ide__sidebar-section">
+          <div class="pxs-ide__sidebar-title"><span>🎨 Patterns</span></div>
+          <div class="pxs-ide__sidebar-content">
+            <button class="pxs-btn" onclick="Demo.pattern('gradient-linear')">Linear Gradient</button>
+            <button class="pxs-btn" onclick="Demo.pattern('gradient-radial')">Radial Gradient</button>
+            <button class="pxs-btn" onclick="Demo.pattern('gradient-diagonal')">Diagonal Gradient</button>
+            <button class="pxs-btn" onclick="Demo.pattern('checkerboard')">Checkerboard</button>
+          </div>
+        </div>
+        
+        <!-- Actions -->
+        <div class="pxs-ide__sidebar-section">
+          <div class="pxs-ide__sidebar-title"><span>🔧 Actions</span></div>
+          <div class="pxs-ide__sidebar-content">
+            <button class="pxs-btn pxs-btn--danger" onclick="Demo.stopAll()">Stop Animations</button>
+            <button class="pxs-btn" onclick="Demo.reset()">Reset Grid</button>
+          </div>
+        </div>
+      </div>
+      
+      <!-- Image Section -->
+      <div id="section-image" class="section-content">
+        <!-- Image Upload -->
+        <div class="pxs-ide__sidebar-section">
+          <div class="pxs-ide__sidebar-title"><span>📤 Load Image</span></div>
+          <div class="pxs-ide__sidebar-content">
+            <label class="image-upload" id="image-upload">
+              <div class="image-upload__icon">📷</div>
+              <div class="image-upload__text">Click to upload or drag & drop</div>
+              <input type="file" accept="image/*" id="image-input">
+            </label>
+            
+            <div class="image-preview" id="image-preview">
+              <img id="preview-img" src="" alt="Preview">
+              <button class="image-preview__remove" onclick="Demo.clearImage()">×</button>
+            </div>
+            
+            <div id="image-controls" style="display: none;">
+              <button class="pxs-btn pxs-btn--primary" onclick="Demo.renderImage()" style="width: 100%; margin-bottom: 8px;">
+                🎨 Render (Preserves Aspect)
+              </button>
+              
+              <div style="margin-top: 12px;">
+                <div class="pxs-stat__label" style="margin-bottom: 8px;">Render Quality</div>
+                <div class="res-presets">
+                  <button class="res-preset" onclick="Demo.renderImageAtQuality(16)">
+                    <span class="res-preset__name">Retro</span>
+                    <span class="res-preset__size">~16px</span>
+                  </button>
+                  <button class="res-preset" onclick="Demo.renderImageAtQuality(32)">
+                    <span class="res-preset__name">Low</span>
+                    <span class="res-preset__size">~32px</span>
+                  </button>
+                  <button class="res-preset" onclick="Demo.renderImageAtQuality(64)">
+                    <span class="res-preset__name">Medium</span>
+                    <span class="res-preset__size">~64px</span>
+                  </button>
+                  <button class="res-preset" onclick="Demo.renderImageAtQuality(128)">
+                    <span class="res-preset__name">High</span>
+                    <span class="res-preset__size">~128px</span>
+                  </button>
+                  <button class="res-preset" onclick="Demo.renderImageAtQuality(200)">
+                    <span class="res-preset__name">HD</span>
+                    <span class="res-preset__size">~200px</span>
+                  </button>
+                  <button class="res-preset" onclick="Demo.renderImageAtQuality(300)">
+                    <span class="res-preset__name">Ultra</span>
+                    <span class="res-preset__size">~300px</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        <!-- Multi-Resolution Benchmark -->
+        <div class="pxs-ide__sidebar-section">
+          <div class="pxs-ide__sidebar-title"><span>📊 Resolution Comparison</span></div>
+          <div class="pxs-ide__sidebar-content">
+            <button class="pxs-btn" onclick="Demo.runBenchmark()" id="benchmark-btn" disabled style="width: 100%;">
+              🔬 Run Multi-Res Benchmark
+            </button>
+            <div class="pxs-stat__label" style="margin-top: 8px; font-size: 11px; color: var(--pxs-text-muted);">
+              Load an image first to benchmark at multiple resolutions
+            </div>
+            <div class="benchmark-results" id="benchmark-results"></div>
+          </div>
+        </div>
+      </div>
+    </aside>
+    
+    <!-- Main Canvas Area -->
+    <main class="pxs-ide__main">
+      <div class="pxs-ide__tabs">
+        <button class="pxs-ide__tab pxs-ide__tab--active">
+          <span>output.pxs</span>
+        </button>
+      </div>
+      
+      <div class="pxs-ide__canvas-wrap">
+        <div id="pxs-canvas" class="pxs-ide__canvas"></div>
+        
+        <!-- Floating Border Toggle -->
+        <button class="pxs-border-toggle" id="border-toggle" onclick="Demo.toggleBorders()" title="Toggle cell borders">
+          <span id="border-icon">🔲</span>
+        </button>
+        
+        <!-- Loading -->
+        <div class="pxs-ide__loading" id="loading">
+          <div class="pxs-spinner"></div>
+          <div class="pxs-ide__loading-text" id="loading-text">Initializing PXS...</div>
+          <div id="loading-progress" style="display: none; margin-top: 12px; width: 200px;">
+            <div style="background: var(--pxs-bg-tertiary); border-radius: 4px; height: 8px; overflow: hidden;">
+              <div id="loading-progress-bar" style="background: var(--pxs-accent-primary); height: 100%; width: 0%; transition: width 0.1s ease;"></div>
+            </div>
+            <div id="loading-progress-text" style="text-align: center; margin-top: 6px; font-size: 11px; color: var(--pxs-text-muted);">0%</div>
+          </div>
+        </div>
+        
+        <!-- Instructions -->
+        <div class="pxs-ide__instructions" id="instructions">
+          <h2>Welcome to PXS Studio</h2>
+          <p>Click any cell to interact</p>
+          <p>Use resolution presets or upload an image to pixelate</p>
+        </div>
+      </div>
+    </main>
+    
+    <!-- Right Sidebar - Performance -->
+    <aside class="pxs-ide__sidebar pxs-ide__sidebar--right">
+      <!-- Performance -->
+      <div class="pxs-ide__sidebar-section">
+        <div class="pxs-ide__sidebar-title">
+          <span>⚡ Performance</span>
+          <span class="pxs-badge" id="perf-status">-</span>
+        </div>
+        <div class="pxs-ide__sidebar-content">
+          <div class="pxs-stat-grid" style="grid-template-columns: 1fr 1fr;">
+            <div class="pxs-stat">
+              <div class="pxs-stat__value" id="stat-fps">-</div>
+              <div class="pxs-stat__label">FPS</div>
+            </div>
+            <div class="pxs-stat">
+              <div class="pxs-stat__value" id="stat-frame">-</div>
+              <div class="pxs-stat__label">Frame (ms)</div>
+            </div>
+            <div class="pxs-stat">
+              <div class="pxs-stat__value" id="stat-memory">-</div>
+              <div class="pxs-stat__label">Memory (MB)</div>
+            </div>
+            <div class="pxs-stat">
+              <div class="pxs-stat__value" id="stat-anims">0</div>
+              <div class="pxs-stat__label">Animations</div>
+            </div>
+          </div>
+          
+          <div style="margin-top: 12px;">
+            <div class="pxs-stat__label" style="margin-bottom: 4px;">FPS History</div>
+            <div class="pxs-progress">
+              <div class="pxs-progress__fill" id="fps-bar" style="width: 100%"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      <!-- Features -->
+      <div class="pxs-ide__sidebar-section">
+        <div class="pxs-ide__sidebar-title"><span>🚀 Active Features</span></div>
+        <div class="pxs-ide__sidebar-content">
+          <div id="feature-list" style="display: flex; flex-direction: column; gap: 6px;"></div>
+        </div>
+      </div>
+      
+      <!-- Event Log -->
+      <div class="pxs-ide__sidebar-section" style="flex: 1; display: flex; flex-direction: column;">
+        <div class="pxs-ide__sidebar-title"><span>📝 Event Log</span></div>
+        <div class="pxs-log" id="event-log" style="flex: 1; max-height: none;">
+          <div class="pxs-log__item">
+            <span class="pxs-log__time">--:--:--</span>
+            <span class="pxs-log__type">System</span>
+            <span class="pxs-log__message">Ready to initialize</span>
+          </div>
+        </div>
+      </div>
+    </aside>
+    
+    <!-- Status Bar -->
+    <footer class="pxs-ide__statusbar">
+      <div class="pxs-ide__statusbar-left">
+        <span class="pxs-ide__statusbar-item">
+          <span id="status-renderer">HTML</span> Renderer
+        </span>
+        <span class="pxs-ide__statusbar-item">
+          <span id="status-cells">0</span> cells
+        </span>
+      </div>
+      <div class="pxs-ide__statusbar-right">
+        <span class="pxs-ide__statusbar-item">Phase 2C • 3D Ready</span>
+        <span class="pxs-ide__statusbar-item">PXS v2.0.0</span>
+      </div>
+    </footer>
+  </div>
+  
+  <!-- Hidden canvas for image processing -->
+  <canvas id="image-processor" style="display: none;"></canvas>
+
+  <!-- Load PXS -->
+  <script src="shared/pxs-loader.js?v=20260122a"></script>
+  <script>
+    // Demo Application
+    const Demo = {
+      animator: null,
+      loadedImage: null,
+      currentCols: 40,
+      currentRows: 30,
+      bordersEnabled: true,
+      _isRenderingImage: false,  // Flag to prevent effects from interfering during image render
+      
+      // Track current effect state for re-application after resolution change
+      currentEffect: null,  // { type: 'animation'|'pattern', name: string }
+      _customAnimationId: null,  // For custom RAF-based animations
+      
+      async init() {
+        try {
+          this.log('System', 'Loading PXS modules...');
+          await PXS.load();
+          this.log('System', `PXS loaded (${PXS.getVersion().phase})`);
+          
+          // Initialize with default resolution
+          await this.createGrid(40, 30);
+          
+          // Setup UI
+          this.setupSectionTabs();
+          this.setupResolutionPresets();
+          this.setupImageUpload();
+          this.updateFeatures();
+          this.hideLoading();
+          this.showInstructions();
+          
+        } catch (error) {
+          console.error('Init error:', error);
+          this.log('Error', error.message);
+        }
+      },
+      
+      async createGrid(cols, rows) {
+        const container = document.getElementById('pxs-canvas');
+        const totalCells = cols * rows;
+        const isLargeGrid = totalCells > 100000; // Only show progress for VGA+ (Canvas handles QVGA fast)
+        
+        // Show loading for large grids
+        if (isLargeGrid) {
+          this.showGridProgress(0, totalCells);
+        }
+        
+        // Stop any custom animations before clearing
+        this._stopCustomAnimation();
+        
+        // Clear existing
+        if (this.animator) {
+          this.animator.stopAllAnimations();
+          container.innerHTML = '';
+        }
+        
+        // Calculate cell size based on container
+        const maxWidth = 900;
+        const maxHeight = 700;
+        const cellSize = Math.min(
+          Math.floor(maxWidth / cols),
+          Math.floor(maxHeight / rows),
+          20 // Max cell size
+        );
+        const actualCellSize = Math.max(cellSize, 2); // Min 2px
+        
+        const width = cols * actualCellSize;
+        const height = rows * actualCellSize;
+        
+        container.style.width = width + 'px';
+        container.style.height = height + 'px';
+        
+        // Determine renderer based on cell count
+        // HTML: <5K cells (best interactivity, full CSS support)
+        // Canvas: 5K+ cells (good performance, handles up to QVGA)
+        // WebGL: Disabled until Rust/WASM is integrated (VGA+ crashes browser)
+        let renderMode = 'html';
+        if (totalCells > 5000) {
+          renderMode = 'canvas'; // Canvas handles up to QVGA (76K) well
+        }
+        // WebGL disabled - causes browser crashes at VGA resolution
+        // Will be re-enabled when Rust/WASM compute is integrated
+        
+        // Create animator
+        this.animator = new CellAnimator({
+          width: width,
+          height: height,
+          cellWidth: actualCellSize,
+          cellHeight: actualCellSize,
+          container: container,
+          renderMode: renderMode,
+          enableProfiling: true,
+          enableSpatialIndex: totalCells > 1000,
+          cellBorders: this.bordersEnabled && actualCellSize > 4,
+          borderColor: 'rgba(88, 166, 255, 0.15)',
+          borderWidth: 1
+        });
+        
+        // Setup progress listener for large grids
+        if (isLargeGrid) {
+          this.animator.on('gridProgress', (data) => {
+            this.showGridProgress(data.cellsCreated, data.totalCells);
+          });
+        }
+        
+        this.setupEvents();
+        await this.animator.init();
+        
+        // Hide loading
+        if (isLargeGrid) {
+          this.hideGridProgress();
+        }
+        
+        this.currentCols = cols;
+        this.currentRows = rows;
+        this.updateGridInfo();
+        
+        this.log('Grid', `Created ${cols}×${rows} = ${totalCells.toLocaleString()} cells (${renderMode})`);
+        
+        // Re-apply current effect after grid recreation (unless we're rendering an image)
+        if (this.currentEffect && !this.loadedImage && !this._isRenderingImage) {
+          this._reapplyCurrentEffect();
+        } else if (this.loadedImage && !this._isRenderingImage) {
+          // Clear any active effects when image is loaded (image render will happen separately)
+          this.currentEffect = null;
+        }
+      },
+      
+      setupSectionTabs() {
+        document.querySelectorAll('.section-tab').forEach(tab => {
+          tab.addEventListener('click', () => {
+            document.querySelectorAll('.section-tab').forEach(t => t.classList.remove('section-tab--active'));
+            document.querySelectorAll('.section-content').forEach(s => s.classList.remove('section-content--active'));
+            tab.classList.add('section-tab--active');
+            document.getElementById('section-' + tab.dataset.section).classList.add('section-content--active');
+          });
+        });
+      },
+      
+      setupResolutionPresets() {
+        document.querySelectorAll('.res-preset[data-cols]').forEach(btn => {
+          btn.addEventListener('click', async () => {
+            const cols = parseInt(btn.dataset.cols);
+            const rows = parseInt(btn.dataset.rows);
+            
+            // Update active state
+            document.querySelectorAll('#res-presets .res-preset').forEach(b => b.classList.remove('res-preset--active'));
+            btn.classList.add('res-preset--active');
+            
+            // Update custom inputs
+            document.getElementById('custom-cols').value = cols;
+            document.getElementById('custom-rows').value = rows;
+            
+            // Create new grid
+            await this.createGrid(cols, rows);
+            
+            // If image is loaded, re-render it
+            if (this.loadedImage) {
+              this.renderImage();
+            }
+          });
+        });
+      },
+      
+      setupImageUpload() {
+        const input = document.getElementById('image-input');
+        const upload = document.getElementById('image-upload');
+        
+        input.addEventListener('change', (e) => this.handleImageSelect(e));
+        
+        // Drag & drop
+        upload.addEventListener('dragover', (e) => {
+          e.preventDefault();
+          upload.style.borderColor = 'var(--pxs-accent-primary)';
+        });
+        upload.addEventListener('dragleave', () => {
+          upload.style.borderColor = 'var(--pxs-border)';
+        });
+        upload.addEventListener('drop', (e) => {
+          e.preventDefault();
+          upload.style.borderColor = 'var(--pxs-border)';
+          if (e.dataTransfer.files.length) {
+            input.files = e.dataTransfer.files;
+            this.handleImageSelect({ target: input });
+          }
+        });
+      },
+      
+      handleImageSelect(e) {
+        const file = e.target.files[0];
+        if (!file) return;
+        
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          const img = new Image();
+          img.onload = () => {
+            this.loadedImage = img;
+            
+            // Show preview
+            document.getElementById('preview-img').src = e.target.result;
+            document.getElementById('image-preview').style.display = 'block';
+            document.getElementById('image-upload').style.display = 'none';
+            document.getElementById('image-controls').style.display = 'block';
+            document.getElementById('benchmark-btn').disabled = false;
+            
+            // Calculate suggested grid size based on aspect ratio
+            const maxWidth = 400;
+            const maxHeight = 300;
+            const imgAspect = img.width / img.height;
+            
+            let suggestedCols, suggestedRows;
+            if (imgAspect > 1) {
+              suggestedCols = Math.min(maxWidth, Math.floor(img.width / 4));
+              suggestedRows = Math.floor(suggestedCols / imgAspect);
+            } else {
+              suggestedRows = Math.min(maxHeight, Math.floor(img.height / 4));
+              suggestedCols = Math.floor(suggestedRows * imgAspect);
+            }
+            
+            suggestedCols = Math.max(16, suggestedCols);
+            suggestedRows = Math.max(16, suggestedRows);
+            
+            this.log('Image', `Loaded ${img.width}×${img.height} image (suggested grid: ${suggestedCols}×${suggestedRows})`);
+          };
+          img.src = e.target.result;
+        };
+        reader.readAsDataURL(file);
+      },
+      
+      clearImage() {
+        this.loadedImage = null;
+        document.getElementById('image-preview').style.display = 'none';
+        document.getElementById('image-upload').style.display = 'block';
+        document.getElementById('image-controls').style.display = 'none';
+        document.getElementById('image-input').value = '';
+        document.getElementById('benchmark-btn').disabled = true;
+        document.getElementById('benchmark-results').innerHTML = '';
+        this.log('Image', 'Cleared');
+      },
+      
+      async renderImage() {
+        if (!this.loadedImage) {
+          this.log('Image', 'No image loaded');
+          return;
+        }
+        
+        // Always adjust grid to match image aspect ratio
+        if (this.animator) {
+          // Use current grid's total cell count to determine quality level
+          const currentCellCount = this.currentCols * this.currentRows;
+          
+          // Calculate new cols/rows that match image aspect ratio
+          const imgAspect = this.loadedImage.width / this.loadedImage.height;
+          
+          // Calculate target size maintaining similar cell count
+          let cols, rows;
+          if (imgAspect >= 1) {
+            // Landscape: calculate based on aspect ratio
+            cols = Math.round(Math.sqrt(currentCellCount * imgAspect));
+            rows = Math.round(cols / imgAspect);
+          } else {
+            // Portrait: calculate based on aspect ratio
+            rows = Math.round(Math.sqrt(currentCellCount / imgAspect));
+            cols = Math.round(rows * imgAspect);
+          }
+          
+          // Ensure minimum size
+          cols = Math.max(16, cols);
+          rows = Math.max(16, rows);
+          
+          this.log('Image', `Adjusted grid to ${cols}×${rows} (aspect: ${imgAspect.toFixed(2)}, ~${cols*rows} cells)`);
+          await this.renderImageAtRes(cols, rows);
+          return;
+        }
+        
+        // Otherwise, auto-calculate based on image aspect ratio
+        const defaultQuality = 200;
+        await this.renderImageAtQuality(defaultQuality);
+      },
+      
+      async renderImageAtQuality(maxSize) {
+        if (!this.loadedImage) {
+          this.log('Image', 'No image loaded');
+          return;
+        }
+        
+        // Calculate grid size based on image aspect ratio
+        const imgAspect = this.loadedImage.width / this.loadedImage.height;
+        
+        let cols, rows;
+        if (imgAspect >= 1) {
+          // Landscape: fit to width
+          cols = maxSize;
+          rows = Math.round(maxSize / imgAspect);
+        } else {
+          // Portrait: fit to height
+          rows = maxSize;
+          cols = Math.round(maxSize * imgAspect);
+        }
+        
+        // Ensure minimum size
+        cols = Math.max(16, cols);
+        rows = Math.max(16, rows);
+        
+        this.log('Image', `Rendering at ${cols}×${rows} (quality: ${maxSize}px, aspect: ${imgAspect.toFixed(2)})`);
+        await this.renderImageAtRes(cols, rows);
+      },
+      
+      async renderImageAtRes(cols, rows) {
+        if (!this.loadedImage) {
+          this.log('Image', 'No image loaded');
+          return;
+        }
+        
+        this._isRenderingImage = true; // Prevent effects from interfering
+        
+        try {
+          const startTime = performance.now();
+          
+          // Auto-hide borders for photo-realistic rendering
+          this.setBorders(false);
+          
+          // Create grid if different size or doesn't exist
+          if (!this.animator || cols !== this.currentCols || rows !== this.currentRows) {
+            this.log('Image', `Creating ${cols}×${rows} grid...`);
+            await this.createGrid(cols, rows);
+          }
+          
+          // ✨ CLEAN API: Use ImageHelpers for image-to-data conversion
+          const frameData = await ImageHelpers.loadImage(this.loadedImage, {
+            cols,
+            rows,
+            preserveAspect: false, // Already calculated
+            gammaCorrect: true     // Better color accuracy
+          });
+          
+          // Store frame data for access/editing
+          this.currentFrameData = frameData;
+          
+          // Apply frame data to grid
+          await this.animator.setData(frameData, { resize: false });
+          
+          // Force redraw for Canvas renderer
+          if (this.animator.renderer && this.animator.renderer._drawGrid) {
+            this.animator.renderer._drawGrid();
+          }
+          
+          const elapsed = (performance.now() - startTime).toFixed(1);
+          this.log('Render', `${cols}×${rows} in ${elapsed}ms`);
+          
+          // Log that data is now accessible
+          console.log(`[PXS] Frame data available: Demo.currentFrameData (${frameData.cells.length} cells)`);
+          
+          return elapsed;
+        } finally {
+          this._isRenderingImage = false; // Clear flag
+        }
+      },
+      
+      // ✨ NEW: Get current frame data (for export/editing)
+      getFrameData() {
+        if (this.currentFrameData) {
+          return this.currentFrameData;
+        }
+        // Fall back to getting data from animator
+        if (this.animator) {
+          return this.animator.getData();
+        }
+        return null;
+      },
+      
+      // ✨ NEW: Export current frame as JSON
+      exportFrameJSON(pretty = false) {
+        const data = this.getFrameData();
+        if (!data) {
+          this.log('Export', 'No frame data to export');
+          return null;
+        }
+        return JSON.stringify(data, null, pretty ? 2 : 0);
+      },
+      
+      // ✨ NEW: Load frame from JSON data
+      async loadFrameFromData(frameData) {
+        if (!ImageHelpers.validateFrame(frameData)) {
+          this.log('Import', 'Invalid frame data');
+          return false;
+        }
+        
+        this._isRenderingImage = true;
+        this.setBorders(false);
+        
+        try {
+          // Create grid if needed
+          if (!this.animator || frameData.cols !== this.currentCols || frameData.rows !== this.currentRows) {
+            await this.createGrid(frameData.cols, frameData.rows);
+          }
+          
+          await this.animator.setData(frameData, { resize: false });
+          this.currentFrameData = frameData;
+          
+          this.log('Import', `Loaded ${frameData.cols}×${frameData.rows} frame`);
+          return true;
+        } finally {
+          this._isRenderingImage = false;
+        }
+      },
+      
+      async runBenchmark() {
+        if (!this.loadedImage) return;
+        
+        const resolutions = [
+          { name: '8-bit', cols: 8, rows: 8 },
+          { name: '16-bit', cols: 16, rows: 16 },
+          { name: '32-bit', cols: 32, rows: 32 },
+          { name: '64-bit', cols: 64, rows: 64 },
+          { name: '128-bit', cols: 128, rows: 128 },
+          { name: 'QVGA', cols: 160, rows: 120 },
+          { name: '256-bit', cols: 256, rows: 192 },
+        ];
+        
+        const results = document.getElementById('benchmark-results');
+        results.innerHTML = '<div style="text-align: center; padding: 12px; color: var(--pxs-text-muted);">Running benchmark...</div>';
+        
+        this.log('Benchmark', 'Starting multi-resolution comparison');
+        
+        const benchmarkResults = [];
+        
+        for (const res of resolutions) {
+          await new Promise(r => setTimeout(r, 100)); // Brief pause between renders
+          const time = await this.renderImageAtRes(res.cols, res.rows);
+          benchmarkResults.push({ ...res, time });
+        }
+        
+        // Display results
+        results.innerHTML = benchmarkResults.map(r => `
+          <div class="benchmark-item">
+            <span class="benchmark-item__res">${r.name} (${r.cols}×${r.rows})</span>
+            <span class="benchmark-item__time">${r.time}ms</span>
+          </div>
+        `).join('');
+        
+        this.log('Benchmark', 'Complete! See results in sidebar');
+      },
+      
+      setResolution() {
+        const cols = parseInt(document.getElementById('custom-cols').value) || 40;
+        const rows = parseInt(document.getElementById('custom-rows').value) || 30;
+        
+        // Clamp values
+        const clampedCols = Math.max(4, Math.min(500, cols));
+        const clampedRows = Math.max(4, Math.min(500, rows));
+        
+        document.getElementById('custom-cols').value = clampedCols;
+        document.getElementById('custom-rows').value = clampedRows;
+        
+        // Clear active preset
+        document.querySelectorAll('#res-presets .res-preset').forEach(b => b.classList.remove('res-preset--active'));
+        
+        this.createGrid(clampedCols, clampedRows).then(() => {
+          if (this.loadedImage) {
+            this.renderImage();
+          }
+        });
+      },
+      
+      setupEvents() {
+        this.animator.on('performanceUpdate', (metrics) => this.updatePerformance(metrics));
+        this.animator.on('cellClick', (data) => {
+          this.log('Click', `Cell (${data.x}, ${data.y})`);
+          this.animator.animateCell(data.x, data.y, {
+            name: 'pulse', duration: '0.5s', timing: 'ease-out', iteration: '1'
+          });
+        });
+      },
+      
+      updateGridInfo() {
+        const info = this.animator.getGridInfo();
+        
+        document.getElementById('stat-cols').textContent = info.columns;
+        document.getElementById('stat-rows').textContent = info.rows;
+        document.getElementById('stat-cells').textContent = info.totalCells.toLocaleString();
+        document.getElementById('stat-mode').textContent = info.renderMode.toUpperCase();
+        
+        document.getElementById('status-renderer').textContent = info.renderMode.toUpperCase();
+        document.getElementById('status-cells').textContent = info.totalCells.toLocaleString();
+        document.getElementById('header-res').textContent = `${info.columns}×${info.rows}`;
+        document.getElementById('header-cells').textContent = `${info.totalCells.toLocaleString()} cells`;
+      },
+      
+      updatePerformance(metrics) {
+        const fps = Math.round(metrics.fps);
+        document.getElementById('stat-fps').textContent = fps;
+        document.getElementById('stat-frame').textContent = metrics.frameTime.toFixed(1);
+        document.getElementById('stat-memory').textContent = (metrics.memoryUsage / (1024 * 1024)).toFixed(1);
+        document.getElementById('stat-anims').textContent = metrics.animationCount;
+        document.getElementById('fps-bar').style.width = `${Math.min((fps / 60) * 100, 100)}%`;
+        
+        const status = document.getElementById('perf-status');
+        if (fps >= 55) { status.textContent = 'Good'; status.className = 'pxs-badge pxs-badge--success'; }
+        else if (fps >= 30) { status.textContent = 'Fair'; status.className = 'pxs-badge pxs-badge--warning'; }
+        else { status.textContent = 'Poor'; status.className = 'pxs-badge pxs-badge--error'; }
+      },
+      
+      updateFeatures() {
+        const features = [
+          { name: 'Profiling', enabled: true },
+          { name: 'Viewport Culling', enabled: true },
+          { name: 'Spatial Index', enabled: true },
+          { name: 'Image → Pixel', enabled: true },
+          { name: 'Multi-Resolution', enabled: true }
+        ];
+        
+        document.getElementById('feature-list').innerHTML = features.map(f => `
+          <div style="display: flex; align-items: center; gap: 8px; font-size: 12px;">
+            <span style="color: var(--pxs-success)">●</span>
+            <span style="color: var(--pxs-text-primary)">${f.name}</span>
+          </div>
+        `).join('');
+      },
+      
+      hideLoading() {
+        const loading = document.getElementById('loading');
+        loading.style.opacity = '0';
+        setTimeout(() => loading.style.display = 'none', 300);
+      },
+      
+      showGridProgress(cellsCreated, totalCells) {
+        const loading = document.getElementById('loading');
+        const loadingText = document.getElementById('loading-text');
+        const progressContainer = document.getElementById('loading-progress');
+        const progressBar = document.getElementById('loading-progress-bar');
+        const progressText = document.getElementById('loading-progress-text');
+        
+        const percent = Math.round((cellsCreated / totalCells) * 100);
+        
+        loading.style.display = 'flex';
+        loading.style.opacity = '1';
+        loadingText.textContent = `Creating ${totalCells.toLocaleString()} cells...`;
+        progressContainer.style.display = 'block';
+        progressBar.style.width = `${percent}%`;
+        progressText.textContent = `${percent}% (${cellsCreated.toLocaleString()} / ${totalCells.toLocaleString()})`;
+      },
+      
+      hideGridProgress() {
+        const loading = document.getElementById('loading');
+        const progressContainer = document.getElementById('loading-progress');
+        
+        loading.style.opacity = '0';
+        setTimeout(() => {
+          loading.style.display = 'none';
+          progressContainer.style.display = 'none';
+          document.getElementById('loading-text').textContent = 'Initializing PXS...';
+          document.getElementById('loading-progress-bar').style.width = '0%';
+        }, 300);
+      },
+      
+      showInstructions() {
+        setTimeout(() => document.getElementById('instructions').classList.add('pxs-ide__instructions--hidden'), 4000);
+      },
+      
+      log(type, message) {
+        const log = document.getElementById('event-log');
+        const item = document.createElement('div');
+        item.className = 'pxs-log__item';
+        item.innerHTML = `
+          <span class="pxs-log__time">${new Date().toLocaleTimeString()}</span>
+          <span class="pxs-log__type">${type}</span>
+          <span class="pxs-log__message">${message}</span>
+        `;
+        log.insertBefore(item, log.firstChild);
+        while (log.children.length > 50) log.removeChild(log.lastChild);
+      },
+      
+      // Re-apply current effect after resolution change
+      _reapplyCurrentEffect() {
+        if (!this.currentEffect) return;
+        
+        // Small delay to ensure grid is fully initialized
+        setTimeout(() => {
+          if (this.currentEffect.type === 'animation') {
+            this.animate(this.currentEffect.name, true);
+          } else if (this.currentEffect.type === 'pattern') {
+            this.pattern(this.currentEffect.name, true);
+          }
+          this.log('Effect', `Re-applied ${this.currentEffect.name} after resolution change`);
+        }, 50);
+      },
+      
+      // Stop any custom RAF-based animations
+      _stopCustomAnimation() {
+        if (this._customAnimationId) {
+          cancelAnimationFrame(this._customAnimationId);
+          this._customAnimationId = null;
+        }
+      },
+      
+      // Check if we should use optimized canvas animations
+      _isLargeGrid() {
+        return this.currentCols * this.currentRows > 5000;
+      },
+      
+      // Animation methods - optimized for high resolution
+      animate(type, isReapply = false) {
+        const info = this.animator.getGridInfo();
+        const { columns, rows } = info;
+        const totalCells = columns * rows;
+        const isLarge = totalCells > 5000;
+        
+        this.log('Animation', `Starting ${type}${isLarge ? ' (optimized)' : ''}`);
+        
+        // Stop any existing animations
+        this._stopCustomAnimation();
+        this.animator.stopAllAnimations();
+        
+        // Track current effect (unless this is a re-apply)
+        if (!isReapply) {
+          this.currentEffect = { type: 'animation', name: type };
+        }
+        
+        switch (type) {
+          case 'diagonal':
+            this._animateDiagonal(columns, rows, isLarge);
+            break;
+          case 'wave':
+            this._animateWave(columns, rows, isLarge);
+            break;
+          case 'spiral':
+            this._animateSpiral(columns, rows, isLarge);
+            break;
+          case 'random':
+            this._animateRandom(columns, rows, isLarge);
+            break;
+          case 'border':
+            this._animateBorder(columns, rows, isLarge);
+            break;
+        }
+      },
+      
+      // Optimized diagonal animation
+      _animateDiagonal(columns, rows, isLarge) {
+        const diagonalLength = Math.min(columns, rows);
+        
+        // Set base colors
+        for (let i = 0; i < diagonalLength; i++) {
+          this.animator.updateCell(i, i, { background: '#58a6ff' });
+        }
+        
+        if (isLarge) {
+          // Canvas-optimized: Custom RAF animation
+          const startTime = performance.now();
+          const animateFrame = () => {
+            const elapsed = performance.now() - startTime;
+            const updates = [];
+            
+            for (let i = 0; i < diagonalLength; i++) {
+              const phase = ((elapsed / 1000) + i * 0.1) % 2;
+              const brightness = phase < 1 ? 1 + phase * 0.5 : 1.5 - (phase - 1) * 0.5;
+              const hue = 210 + Math.sin(phase * Math.PI) * 30;
+              updates.push({ x: i, y: i, styles: { background: `hsl(${hue}, 80%, ${brightness * 50}%)` } });
+            }
+            
+            this.animator.updateCells(updates);
+            this._customAnimationId = requestAnimationFrame(animateFrame);
+          };
+          this._customAnimationId = requestAnimationFrame(animateFrame);
+        } else {
+          // HTML renderer: CSS animations
+          for (let i = 0; i < diagonalLength; i++) {
+            this.animator.animateCell(i, i, { name: 'pulse', duration: '1s', delay: `${i * 0.05}s`, iteration: 'infinite' });
+          }
+        }
+      },
+      
+      // Optimized wave animation
+      _animateWave(columns, rows, isLarge) {
+        // Set base gradient
+        const waveGradient = PatternHelpers.generateDiagonalGradient({ gridWidth: columns, gridHeight: rows, colorStart: '#6c5ce7', colorEnd: '#00cec9' });
+        this.animator.updateCells(waveGradient);
+        
+        if (isLarge) {
+          // Canvas-optimized: Wave pattern via RAF
+          const startTime = performance.now();
+          const animateFrame = () => {
+            const elapsed = performance.now() - startTime;
+            const updates = [];
+            
+            for (let y = 0; y < rows; y++) {
+              for (let x = 0; x < columns; x++) {
+                const phase = (elapsed / 1000 + (x + y) * 0.05) % 2;
+                const hue = 260 + Math.sin(phase * Math.PI) * 60;
+                const lightness = 50 + Math.sin(phase * Math.PI) * 20;
+                updates.push({ x, y, styles: { background: `hsl(${hue}, 70%, ${lightness}%)` } });
+              }
+            }
+            
+            this.animator.updateCells(updates);
+            this._customAnimationId = requestAnimationFrame(animateFrame);
+          };
+          this._customAnimationId = requestAnimationFrame(animateFrame);
+        } else {
+          // HTML renderer: CSS animations
+          for (let x = 0; x < columns; x++) {
+            for (let y = 0; y < rows; y++) {
+              this.animator.animateCell(x, y, { name: 'wave', duration: '2s', delay: `${(x + y) * 0.02}s`, iteration: 'infinite' });
+            }
+          }
+        }
+      },
+      
+      // Optimized spiral animation
+      _animateSpiral(columns, rows, isLarge) {
+        const centerX = (columns - 1) / 2;
+        const centerY = (rows - 1) / 2;
+        const maxRadius = Math.max(columns, rows) * 0.6;
+        
+        // Set base gradient
+        const spiralGradient = PatternHelpers.generateRadialGradient({ centerX, centerY, radius: maxRadius, colorCenter: '#fd79a8', colorEdge: '#0984e3', gridWidth: columns, gridHeight: rows });
+        this.animator.updateCells(spiralGradient);
+        
+        if (isLarge) {
+          // Canvas-optimized: Radial pulse via RAF
+          const startTime = performance.now();
+          const animateFrame = () => {
+            const elapsed = performance.now() - startTime;
+            const updates = [];
+            
+            for (let y = 0; y < rows; y++) {
+              for (let x = 0; x < columns; x++) {
+                const distance = Math.sqrt((x - centerX) ** 2 + (y - centerY) ** 2);
+                const phase = (elapsed / 1500 + distance * 0.08) % 2;
+                const hue = 330 - distance * 3;
+                const lightness = 50 + Math.sin(phase * Math.PI) * 25;
+                const saturation = 70 + Math.sin(phase * Math.PI) * 20;
+                updates.push({ x, y, styles: { background: `hsl(${hue}, ${saturation}%, ${lightness}%)` } });
+              }
+            }
+            
+            this.animator.updateCells(updates);
+            this._customAnimationId = requestAnimationFrame(animateFrame);
+          };
+          this._customAnimationId = requestAnimationFrame(animateFrame);
+        } else {
+          // HTML renderer: CSS animations
+          for (let x = 0; x < columns; x++) {
+            for (let y = 0; y < rows; y++) {
+              const distance = Math.sqrt((x - centerX) ** 2 + (y - centerY) ** 2);
+              this.animator.animateCell(x, y, { name: 'glow', duration: '2s', delay: `${distance * 0.04}s`, iteration: 'infinite' });
+            }
+          }
+        }
+      },
+      
+      // Optimized random burst animation
+      _animateRandom(columns, rows, isLarge) {
+        this.animator.resetAllCells();
+        const numCells = Math.min(150, columns * rows * 0.15);
+        const randomCells = [];
+        
+        // Generate random cell positions
+        for (let i = 0; i < numCells; i++) {
+          randomCells.push({
+            x: Math.floor(Math.random() * columns),
+            y: Math.floor(Math.random() * rows),
+            hue: Math.random() * 360,
+            speed: 0.5 + Math.random()
+          });
+        }
+        
+        // Set initial colors
+        randomCells.forEach(cell => {
+          this.animator.updateCell(cell.x, cell.y, { background: `hsl(${cell.hue}, 80%, 50%)` });
+        });
+        
+        if (isLarge) {
+          // Canvas-optimized: Bounce effect via RAF
+          const startTime = performance.now();
+          const animateFrame = () => {
+            const elapsed = performance.now() - startTime;
+            const updates = [];
+            
+            randomCells.forEach(cell => {
+              const phase = (elapsed / 1000 / cell.speed) % 1;
+              const scale = phase < 0.25 ? 1 + phase * 1.6 : 
+                           phase < 0.5 ? 1.4 - (phase - 0.25) * 2 :
+                           phase < 0.75 ? 0.9 + (phase - 0.5) * 1.2 : 1.2 - (phase - 0.75) * 0.8;
+              const lightness = 40 + scale * 20;
+              updates.push({ x: cell.x, y: cell.y, styles: { background: `hsl(${cell.hue}, 80%, ${lightness}%)` } });
+            });
+            
+            this.animator.updateCells(updates);
+            this._customAnimationId = requestAnimationFrame(animateFrame);
+          };
+          this._customAnimationId = requestAnimationFrame(animateFrame);
+        } else {
+          // HTML renderer: CSS animations
+          randomCells.forEach(cell => {
+            this.animator.animateCell(cell.x, cell.y, { name: 'bounce', duration: `${cell.speed}s`, delay: `${Math.random() * 0.5}s`, iteration: 'infinite' });
+          });
+        }
+      },
+      
+      // Optimized border chase animation
+      _animateBorder(columns, rows, isLarge) {
+        const borderColor = '#e17055';
+        const borderCells = [];
+        
+        // Collect border cells
+        for (let x = 0; x < columns; x++) {
+          borderCells.push({ x, y: 0, order: x });
+          borderCells.push({ x, y: rows - 1, order: columns - 1 + rows - 1 + (columns - 1 - x) });
+        }
+        for (let y = 1; y < rows - 1; y++) {
+          borderCells.push({ x: columns - 1, y, order: columns - 1 + y });
+          borderCells.push({ x: 0, y, order: 2 * (columns - 1) + 2 * (rows - 1) - y });
+        }
+        
+        // Set initial color
+        borderCells.forEach(cell => {
+          this.animator.updateCell(cell.x, cell.y, { background: borderColor });
+        });
+        
+        if (isLarge) {
+          // Canvas-optimized: Chase animation via RAF
+          const startTime = performance.now();
+          const totalBorder = 2 * (columns + rows - 2);
+          const animateFrame = () => {
+            const elapsed = performance.now() - startTime;
+            const updates = [];
+            
+            borderCells.forEach(cell => {
+              const phase = ((elapsed / 2000) + cell.order / totalBorder) % 1;
+              const pulse = Math.sin(phase * Math.PI * 2);
+              const lightness = 50 + pulse * 25;
+              const hue = 15 + pulse * 10;
+              updates.push({ x: cell.x, y: cell.y, styles: { background: `hsl(${hue}, 80%, ${lightness}%)` } });
+            });
+            
+            this.animator.updateCells(updates);
+            this._customAnimationId = requestAnimationFrame(animateFrame);
+          };
+          this._customAnimationId = requestAnimationFrame(animateFrame);
+        } else {
+          // HTML renderer: CSS animations
+          borderCells.forEach(cell => {
+            this.animator.animateCell(cell.x, cell.y, { name: 'pulse', duration: '1s', delay: `${cell.order * 0.03}s`, iteration: 'infinite' });
+          });
+        }
+      },
+      
+      pattern(type, isReapply = false) {
+        const { columns, rows } = this.animator.getGridInfo();
+        this.log('Pattern', `Applying ${type}`);
+        
+        // Stop any running animations
+        this._stopCustomAnimation();
+        this.animator.stopAllAnimations();
+        
+        // Track current effect (unless this is a re-apply)
+        if (!isReapply) {
+          this.currentEffect = { type: 'pattern', name: type };
+        }
+        
+        switch (type) {
+          case 'gradient-linear':
+            this.animator.updateCells(PatternHelpers.generateHorizontalGradient({ gridWidth: columns, gridHeight: rows, colorStart: '#ff6b6b', colorEnd: '#4ecdc4' }));
+            break;
+          case 'gradient-radial':
+            const cx = (columns - 1) / 2, cy = (rows - 1) / 2;
+            this.animator.updateCells(PatternHelpers.generateRadialGradient({ centerX: cx, centerY: cy, radius: Math.max(columns, rows) * 0.6, colorCenter: '#ffd93d', colorEdge: '#6c5ce7', gridWidth: columns, gridHeight: rows }));
+            break;
+          case 'gradient-diagonal':
+            this.animator.updateCells(PatternHelpers.generateDiagonalGradient({ gridWidth: columns, gridHeight: rows, colorStart: '#a29bfe', colorEnd: '#00b894' }));
+            break;
+          case 'checkerboard':
+            const updates = [];
+            for (let y = 0; y < rows; y++) {
+              for (let x = 0; x < columns; x++) {
+                updates.push({ x, y, styles: { background: (x + y) % 2 === 0 ? '#2d3436' : '#636e72' } });
+              }
+            }
+            this.animator.updateCells(updates);
+            break;
+        }
+      },
+      
+      stopAll() {
+        this._stopCustomAnimation();
+        this.animator.stopAllAnimations();
+        this.currentEffect = null;  // Clear effect state
+        this.log('Animation', 'All stopped');
+      },
+      
+      reset() {
+        this._stopCustomAnimation();
+        this.animator.stopAllAnimations();
+        this.animator.resetAllCells();
+        this.currentEffect = null;  // Clear effect state
+        this.log('Grid', 'Reset');
+      },
+      
+      toggleBorders() {
+        this.bordersEnabled = !this.bordersEnabled;
+        this.setBorders(this.bordersEnabled);
+        this.log('Grid', `Borders ${this.bordersEnabled ? 'shown' : 'hidden'}`);
+      },
+      
+      setBorders(enabled) {
+        // Programmatically set borders without toggle
+        this.bordersEnabled = enabled;
+        
+        // Update button icon
+        const icon = document.getElementById('border-icon');
+        const btn = document.getElementById('border-toggle');
+        if (icon && btn) {
+          if (this.bordersEnabled) {
+            icon.textContent = '🔲';
+            btn.title = 'Hide cell borders';
+          } else {
+            icon.textContent = '⬜';
+            btn.title = 'Show cell borders';
+          }
+        }
+        
+        // Update renderer config
+        if (this.animator && this.animator.renderer) {
+          this.animator.config.cellBorders = this.bordersEnabled;
+          this.animator.renderer.config.cellBorders = this.bordersEnabled;
+          
+          // Check renderer type
+          if (this.animator.renderer.mode === 'canvas') {
+            // Canvas renderer - force full redraw
+            this.animator.renderer.fullRedrawNeeded = true;
+            this.animator.renderer._drawGrid();
+          } else {
+            // HTML renderer - update all cell styles via the container
+            const container = this.animator.config.container;
+            const cells = container.querySelectorAll('.cell');
+            cells.forEach(cell => {
+              if (this.bordersEnabled) {
+                cell.style.border = `${this.animator.config.borderWidth}px ${this.animator.config.borderStyle} ${this.animator.config.borderColor}`;
+              } else {
+                cell.style.border = 'none';
+              }
+            });
+          }
+        }
+      }
+    };
+    
+    // Initialize on load
+    window.addEventListener('DOMContentLoaded', () => Demo.init());
+  </script>
+</body>
+</html>

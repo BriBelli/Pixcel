@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CellAnimator Demo</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: Arial, sans-serif;
+            background: #1a1a1a;
+            color: #fff;
+            overflow: hidden;
+        }
+
+        #container {
+            width: 100%;
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .cell {
+            background: #2a2a2a;
+            border: 1px solid #333;
+            transition: all 0.3s ease;
+        }
+
+        .cell:hover {
+            background: #4a4a4a;
+        }
+
+        /* Animation keyframes */
+        @keyframes pulse {
+            0%, 100% {
+                background: #2a2a2a;
+                transform: scale(1);
+            }
+            50% {
+                background: #00ffff;
+                transform: scale(1.2);
+            }
+        }
+
+        @keyframes wave {
+            0%, 100% {
+                background: #2a2a2a;
+            }
+            50% {
+                background: #ff00ff;
+            }
+        }
+
+        @keyframes glow {
+            0%, 100% {
+                background: #2a2a2a;
+                box-shadow: none;
+            }
+            50% {
+                background: #ffff00;
+                box-shadow: 0 0 20px #ffff00;
+            }
+        }
+
+        .controls {
+            position: fixed;
+            top: 20px;
+            left: 20px;
+            background: rgba(0, 0, 0, 0.8);
+            padding: 20px;
+            border-radius: 8px;
+            z-index: 1000;
+        }
+
+        button {
+            display: block;
+            width: 100%;
+            margin: 10px 0;
+            padding: 10px 20px;
+            background: #00ffff;
+            border: none;
+            border-radius: 4px;
+            color: #000;
+            font-weight: bold;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+
+        button:hover {
+            background: #00cccc;
+        }
+
+        h2 {
+            margin-bottom: 10px;
+            font-size: 18px;
+        }
+    </style>
+</head>
+<body>
+    <div class="controls">
+        <h2>CellAnimator Demo</h2>
+        <button onclick="animateDiagonal()">Animate Diagonal</button>
+        <button onclick="animateRandom()">Animate Random</button>
+        <button onclick="animateWave()">Animate Wave</button>
+        <button onclick="animateBorder()">Animate Border</button>
+        <button onclick="resetAll()">Reset All</button>
+    </div>
+
+    <div id="container"></div>
+
+    <script>
+        // CellAnimator Core Functions
+        const generateGraphic = (width, height, cellWidth, cellHeight) => {
+            return new Promise((resolve, reject) => {
+                let row = '';
+                const canvasWidth = (width === '100%' ? window.innerWidth : parseInt(width));
+                const canvasHeight = (height === '100%' ? window.innerHeight : parseInt(height));
+                const columns = Math.floor(canvasWidth / cellWidth);
+                const rows = Math.floor(canvasHeight / cellHeight);
+                const cells = columns * rows;
+                let xPos = 0;
+                let yPos = 0;
+                for (let x = 0; x < cells; x++) {
+                    row += `<div style="display:block;width:${cellWidth}px;height:${cellHeight}px" class="x-${xPos++} y-${yPos} cell"></div>`;
+                    if (xPos === columns) {
+                        xPos = 0;
+                        yPos++;
+                    }
+                }
+                resolve({
+                    html: `<div style="display:flex; flex-wrap: wrap; max-width:${columns * cellWidth}px;max-height:${rows * cellHeight}px" class="grid">${row}</div>`,
+                    count: cells,
+                    columns: columns,
+                    rows: rows,
+                    width: canvasWidth,
+                    height: canvasHeight
+                });
+            });
+        };
+
+        function resetAnimation(cell) {
+            cell.style.animation = "none";
+            cell.offsetHeight; /* trigger reflow */
+            cell.style.animation = null;
+        }
+
+        const canvasAnimation = (elements) => {
+            if (!elements || !elements.length) {
+                console.warn('PXS: canvasAnimation parameter undefined');
+                return;
+            }
+            for (let element of elements) {
+                const cells = document.querySelectorAll(element.dimension);
+                for (let cell of cells) {
+                    resetAnimation(cell);
+                    cell.style.animation = 'none';
+                    Object.assign(cell.style, element.styles);
+                }
+            }
+        };
+
+        const selectCell = (xPoint, yPoint, columnAmount, rowAmount) => {
+            let frame = [];
+            for (let y = 0; y < columnAmount; y++) {
+                for (let x = 0; x < rowAmount; x++) {
+                    frame.push(`.x-${xPoint}.y-${yPoint}`);
+                }
+            }
+            return frame;
+        };
+
+        // Store grid info globally
+        let gridInfo;
+
+        // Initialize the grid
+        async function init() {
+            const graphic = await generateGraphic('100%', '100%', 30, 30);
+            document.getElementById('container').innerHTML = graphic.html;
+            gridInfo = graphic;
+            console.log('Grid initialized:', gridInfo);
+        }
+
+        // Demo Animation Functions
+        function animateDiagonal() {
+            const animations = [];
+            for (let i = 0; i < Math.min(gridInfo.columns, gridInfo.rows); i++) {
+                animations.push({
+                    dimension: `.x-${i}.y-${i}`,
+                    styles: {
+                        animation: `pulse 1s ease-in-out ${i * 0.1}s infinite`
+                    }
+                });
+            }
+            canvasAnimation(animations);
+        }
+
+        function animateRandom() {
+            const animations = [];
+            for (let i = 0; i < 50; i++) {
+                const randomX = Math.floor(Math.random() * gridInfo.columns);
+                const randomY = Math.floor(Math.random() * gridInfo.rows);
+                animations.push({
+                    dimension: `.x-${randomX}.y-${randomY}`,
+                    styles: {
+                        animation: `glow ${Math.random() * 2 + 1}s ease-in-out ${Math.random()}s infinite`
+                    }
+                });
+            }
+            canvasAnimation(animations);
+        }
+
+        function animateWave() {
+            const animations = [];
+            for (let x = 0; x < gridInfo.columns; x++) {
+                for (let y = 0; y < gridInfo.rows; y++) {
+                    animations.push({
+                        dimension: `.x-${x}.y-${y}`,
+                        styles: {
+                            animation: `wave 2s ease-in-out ${(x + y) * 0.05}s infinite`
+                        }
+                    });
+                }
+            }
+            canvasAnimation(animations);
+        }
+
+        function animateBorder() {
+            const animations = [];
+            // Top and bottom borders
+            for (let x = 0; x < gridInfo.columns; x++) {
+                animations.push({
+                    dimension: `.x-${x}.y-0`,
+                    styles: {
+                        animation: `pulse 1.5s ease-in-out ${x * 0.05}s infinite`
+                    }
+                });
+                animations.push({
+                    dimension: `.x-${x}.y-${gridInfo.rows - 1}`,
+                    styles: {
+                        animation: `pulse 1.5s ease-in-out ${x * 0.05}s infinite`
+                    }
+                });
+            }
+            // Left and right borders
+            for (let y = 1; y < gridInfo.rows - 1; y++) {
+                animations.push({
+                    dimension: `.x-0.y-${y}`,
+                    styles: {
+                        animation: `pulse 1.5s ease-in-out ${y * 0.05}s infinite`
+                    }
+                });
+                animations.push({
+                    dimension: `.x-${gridInfo.columns - 1}.y-${y}`,
+                    styles: {
+                        animation: `pulse 1.5s ease-in-out ${y * 0.05}s infinite`
+                    }
+                });
+            }
+            canvasAnimation(animations);
+        }
+
+        function resetAll() {
+            const allCells = document.querySelectorAll('.cell');
+            allCells.forEach(cell => {
+                cell.style.animation = 'none';
+                cell.style.background = '#2a2a2a';
+                cell.style.transform = 'scale(1)';
+                cell.style.boxShadow = 'none';
+            });
+        }
+
+        // Initialize on page load
+        init();
+    </script>
+</body>
+</html>

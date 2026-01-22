@@ -1,0 +1,552 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CellAnimator - Canvas Renderer Demo</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+            color: #ffffff;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        header {
+            background: rgba(0, 0, 0, 0.3);
+            padding: 20px;
+            text-align: center;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
+        }
+
+        h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+        }
+
+        .subtitle {
+            font-size: 1.2em;
+            opacity: 0.9;
+        }
+
+        .badge {
+            display: inline-block;
+            background: #4CAF50;
+            padding: 5px 15px;
+            border-radius: 20px;
+            font-size: 0.9em;
+            margin-left: 10px;
+        }
+
+        main {
+            flex: 1;
+            display: flex;
+            padding: 20px;
+            gap: 20px;
+        }
+
+        .grid-container {
+            flex: 1;
+            background: rgba(0, 0, 0, 0.4);
+            border-radius: 10px;
+            padding: 20px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+            display: flex;
+            flex-direction: column;
+        }
+
+        #grid {
+            flex: 1;
+            position: relative;
+            border: 2px solid rgba(255, 255, 255, 0.2);
+            border-radius: 5px;
+            overflow: hidden;
+        }
+
+        .canvas-animator-canvas {
+            display: block;
+        }
+
+        .controls {
+            width: 350px;
+            background: rgba(0, 0, 0, 0.4);
+            border-radius: 10px;
+            padding: 20px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+            overflow-y: auto;
+        }
+
+        .control-section {
+            margin-bottom: 25px;
+        }
+
+        .control-section h3 {
+            font-size: 1.2em;
+            margin-bottom: 15px;
+            color: #4CAF50;
+            border-bottom: 2px solid #4CAF50;
+            padding-bottom: 5px;
+        }
+
+        button {
+            width: 100%;
+            padding: 12px;
+            margin: 8px 0;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 5px;
+            font-size: 14px;
+            cursor: pointer;
+            transition: all 0.3s;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+        }
+
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
+        }
+
+        button:active {
+            transform: translateY(0);
+        }
+
+        button.danger {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+        }
+
+        .info-panel {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+        }
+
+        .info-row {
+            display: flex;
+            justify-content: space-between;
+            margin: 8px 0;
+            font-size: 14px;
+        }
+
+        .info-label {
+            opacity: 0.8;
+        }
+
+        .info-value {
+            font-weight: bold;
+            color: #4CAF50;
+        }
+
+        .event-log {
+            background: rgba(0, 0, 0, 0.3);
+            padding: 15px;
+            border-radius: 5px;
+            max-height: 200px;
+            overflow-y: auto;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+        }
+
+        .event-log-item {
+            margin: 5px 0;
+            padding: 5px;
+            background: rgba(255, 255, 255, 0.05);
+            border-left: 3px solid #4CAF50;
+            padding-left: 10px;
+        }
+
+        .event-time {
+            color: #888;
+            margin-right: 10px;
+        }
+
+        .performance-stats {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 10px;
+            margin-top: 15px;
+        }
+
+        .stat-card {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 15px;
+            border-radius: 5px;
+            text-align: center;
+        }
+
+        .stat-value {
+            font-size: 24px;
+            font-weight: bold;
+            color: #4CAF50;
+        }
+
+        .stat-label {
+            font-size: 12px;
+            opacity: 0.8;
+            margin-top: 5px;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>🎨 CellAnimator - Canvas Renderer Demo</h1>
+        <p class="subtitle">
+            High-Performance Grid Animation 
+            <span class="badge" id="render-mode-badge">CANVAS MODE</span>
+        </p>
+    </header>
+
+    <main>
+        <div class="grid-container">
+            <div id="grid"></div>
+        </div>
+
+        <div class="controls">
+            <div class="info-panel">
+                <h3>Grid Information</h3>
+                <div class="info-row">
+                    <span class="info-label">Render Mode:</span>
+                    <span class="info-value" id="info-mode">-</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Grid Size:</span>
+                    <span class="info-value" id="info-size">-</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Total Cells:</span>
+                    <span class="info-value" id="info-total">-</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Cell Size:</span>
+                    <span class="info-value" id="info-cell">-</span>
+                </div>
+            </div>
+
+            <div class="control-section">
+                <h3>🎭 Animation Patterns</h3>
+                <button onclick="animateDiagonal()">Diagonal Pulse</button>
+                <button onclick="animateRandom()">Random Glow</button>
+                <button onclick="animateWave()">Wave Effect</button>
+                <button onclick="animateBorder()">Border Animation</button>
+                <button onclick="animateSpiral()">Spiral Pattern</button>
+                <button onclick="animateChecker()">Checkerboard</button>
+            </div>
+
+            <div class="control-section">
+                <h3>🔧 Controls</h3>
+                <button onclick="stopAll()">Stop All Animations</button>
+                <button onclick="resetAll()" class="danger">Reset Grid</button>
+            </div>
+
+            <div class="control-section">
+                <h3>📊 Performance Stats</h3>
+                <div class="performance-stats">
+                    <div class="stat-card">
+                        <div class="stat-value" id="stat-init">-</div>
+                        <div class="stat-label">Init Time (ms)</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value" id="stat-fps">60</div>
+                        <div class="stat-label">Target FPS</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value" id="stat-updates">0</div>
+                        <div class="stat-label">Updates</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value" id="stat-animations">0</div>
+                        <div class="stat-label">Active Animations</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="control-section">
+                <h3>📜 Event Log</h3>
+                <div class="event-log" id="event-log"></div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Load Renderer Classes -->
+    <script src="../src/renderers/BaseRenderer.js"></script>
+    <script src="../src/renderers/HTMLRenderer.js"></script>
+    <script src="../src/renderers/CanvasRenderer.js"></script>
+    <script src="../src/CellAnimator.js"></script>
+
+    <script>
+        let animator;
+        let updateCount = 0;
+        let animationCount = 0;
+
+        // Initialize animator
+        async function init() {
+            const startTime = performance.now();
+
+            animator = new CellAnimator({
+                width: '100%',
+                height: '100%',
+                cellWidth: 10,  // Small cells for large grid
+                cellHeight: 10,
+                container: document.getElementById('grid'),
+                renderMode: 'canvas'  // Force canvas mode
+            });
+
+            await animator.init();
+
+            const initTime = Math.round(performance.now() - startTime);
+            document.getElementById('stat-init').textContent = initTime;
+
+            // Update info panel
+            const info = animator.getGridInfo();
+            document.getElementById('info-mode').textContent = info.renderMode.toUpperCase();
+            document.getElementById('info-size').textContent = `${info.columns} × ${info.rows}`;
+            document.getElementById('info-total').textContent = info.totalCells.toLocaleString();
+            document.getElementById('info-cell').textContent = `${info.cellWidth}px × ${info.cellHeight}px`;
+
+            // Update badge
+            document.getElementById('render-mode-badge').textContent = 
+                `${info.renderMode.toUpperCase()} MODE - ${info.totalCells.toLocaleString()} CELLS`;
+
+            // Set up event listeners
+            animator.on('cellClick', handleCellClick);
+            animator.on('cellUpdate', handleCellUpdate);
+            animator.on('animationStart', handleAnimationStart);
+            animator.on('animationStop', handleAnimationStop);
+
+            logEvent('Grid initialized', `${info.totalCells.toLocaleString()} cells in ${initTime}ms`);
+        }
+
+        // Event handlers
+        function handleCellClick(data) {
+            logEvent('Cell Clicked', `(${data.x}, ${data.y})`);
+            
+            // Toggle cell color on click
+            const currentCell = animator.getCell(data.x, data.y);
+            const newColor = currentCell.styles.background === '#ff0000' ? '#333333' : '#ff0000';
+            animator.updateCell(data.x, data.y, { background: newColor });
+        }
+
+        function handleCellUpdate(data) {
+            updateCount++;
+            document.getElementById('stat-updates').textContent = updateCount;
+        }
+
+        function handleAnimationStart(data) {
+            animationCount++;
+            document.getElementById('stat-animations').textContent = animationCount;
+        }
+
+        function handleAnimationStop(data) {
+            animationCount = Math.max(0, animationCount - 1);
+            document.getElementById('stat-animations').textContent = animationCount;
+        }
+
+        // Animation patterns
+        function animateDiagonal() {
+            logEvent('Pattern', 'Diagonal Pulse started');
+            const info = animator.getGridInfo();
+            const maxDiagonal = Math.min(info.columns, info.rows);
+            
+            // MATCH HTML VERSION EXACTLY - animate diagonal cells
+            const animations = [];
+            for (let i = 0; i < maxDiagonal; i++) {
+                animations.push({
+                    x: i,
+                    y: i,
+                    animation: {
+                        name: 'pulse',
+                        duration: '1s',
+                        timing: 'ease-in-out',
+                        delay: `${i * 0.1}s`,
+                        iteration: 'infinite'
+                    }
+                });
+            }
+            
+            animator.animateCells(animations);
+        }
+
+        function animateRandom() {
+            logEvent('Pattern', 'Random Burst started');
+            const info = animator.getGridInfo();
+            const colors = ['#ff6b6b', '#4ecdc4', '#45b7d1', '#f9ca24', '#6c5ce7'];
+
+            for (let i = 0; i < 200; i++) {
+                setTimeout(() => {
+                    const x = Math.floor(Math.random() * info.columns);
+                    const y = Math.floor(Math.random() * info.rows);
+                    const color = colors[Math.floor(Math.random() * colors.length)];
+
+                    animator.updateCell(x, y, { background: color });
+                    animator.animateCell(x, y, {
+                        name: 'pulse',
+                        duration: '0.5s',
+                        timing: 'ease-out',
+                        iteration: '1'
+                    });
+                }, i * 10);
+            }
+        }
+
+        function animateWave() {
+            logEvent('Pattern', 'Wave started');
+            const info = animator.getGridInfo();
+            
+            // MATCH HTML VERSION EXACTLY
+            const animations = [];
+            for (let x = 0; x < info.columns; x++) {
+                for (let y = 0; y < info.rows; y++) {
+                    animations.push({
+                        x: x,
+                        y: y,
+                        animation: {
+                            name: 'wave',
+                            duration: '2s',
+                            timing: 'ease-in-out',
+                            delay: `${(x + y) * 0.05}s`,
+                            iteration: 'infinite'
+                        }
+                    });
+                }
+            }
+            
+            animator.animateCells(animations);
+        }
+
+        function animateBorder() {
+            logEvent('Pattern', 'Border Pulse started');
+            const info = animator.getGridInfo();
+            const cells = [];
+
+            // Top and bottom edges
+            for (let x = 0; x < info.columns; x++) {
+                cells.push({ x, y: 0 });
+                cells.push({ x, y: info.rows - 1 });
+            }
+
+            // Left and right edges
+            for (let y = 1; y < info.rows - 1; y++) {
+                cells.push({ x: 0, y });
+                cells.push({ x: info.columns - 1, y });
+            }
+
+            cells.forEach((cell, index) => {
+                setTimeout(() => {
+                    animator.updateCell(cell.x, cell.y, { background: '#ff6348' });
+                    animator.animateCell(cell.x, cell.y, {
+                        name: 'pulse',
+                        duration: '2s',
+                        timing: 'ease-in-out',
+                        iteration: 'infinite'
+                    });
+                }, index * 5);
+            });
+        }
+
+        function animateSpiral() {
+            logEvent('Pattern', 'Spiral Glow started');
+            const info = animator.getGridInfo();
+            const centerX = Math.floor(info.columns / 2);
+            const centerY = Math.floor(info.rows / 2);
+            
+            // Create spiral pattern - MATCH HTML VERSION EXACTLY
+            // Animate ALL cells at once with distance-based delays
+            const animations = [];
+            for (let x = 0; x < info.columns; x++) {
+                for (let y = 0; y < info.rows; y++) {
+                    const dx = x - centerX;
+                    const dy = y - centerY;
+                    const distance = Math.sqrt(dx * dx + dy * dy);
+                    
+                    animations.push({
+                        x: x,
+                        y: y,
+                        animation: {
+                            name: 'glow',
+                            duration: '2s',
+                            timing: 'ease-in-out',
+                            delay: `${distance * 0.1}s`,
+                            iteration: 'infinite'
+                        }
+                    });
+                }
+            }
+            
+            animator.animateCells(animations);
+        }
+
+        function animateChecker() {
+            logEvent('Pattern', 'Checkerboard started');
+            const info = animator.getGridInfo();
+
+            for (let y = 0; y < info.rows; y++) {
+                for (let x = 0; x < info.columns; x++) {
+                    const isEven = (x + y) % 2 === 0;
+                    const color = isEven ? '#ff9ff3' : '#54a0ff';
+
+                    setTimeout(() => {
+                        animator.updateCell(x, y, { background: color });
+                        animator.animateCell(x, y, {
+                            name: 'bounce',
+                            duration: '1s',
+                            timing: 'ease-in-out',
+                            iteration: '2'
+                        });
+                    }, (x + y) * 5);
+                }
+            }
+        }
+
+        function stopAll() {
+            logEvent('Control', 'All animations stopped');
+            animator.stopAllAnimations();
+            animationCount = 0;
+            document.getElementById('stat-animations').textContent = '0';
+        }
+
+        function resetAll() {
+            logEvent('Control', 'Grid reset');
+            animator.resetAllCells();
+            updateCount = 0;
+            animationCount = 0;
+            document.getElementById('stat-updates').textContent = '0';
+            document.getElementById('stat-animations').textContent = '0';
+        }
+
+        // Event logging
+        function logEvent(type, message) {
+            const log = document.getElementById('event-log');
+            const time = new Date().toLocaleTimeString();
+            const item = document.createElement('div');
+            item.className = 'event-log-item';
+            item.innerHTML = `<span class="event-time">${time}</span> <strong>${type}:</strong> ${message}`;
+            log.insertBefore(item, log.firstChild);
+
+            // Keep only last 50 events
+            while (log.children.length > 50) {
+                log.removeChild(log.lastChild);
+            }
+        }
+
+        // Initialize on load
+        window.addEventListener('load', init);
+
+        // Cleanup on unload
+        window.addEventListener('beforeunload', () => {
+            if (animator) {
+                animator.destroy();
+            }
+        });
+    </script>
+</body>
+</html>

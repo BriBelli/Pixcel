@@ -545,7 +545,7 @@
   <canvas id="image-processor" style="display: none;"></canvas>
 
   <!-- Load PXS -->
-  <script src="shared/pxs-loader.js?v=20260121m"></script>
+  <script src="shared/pxs-loader.js?v=20260122a"></script>
   <script>
     // Demo Application
     const Demo = {
@@ -873,104 +873,83 @@
             this.log('Image', `Creating ${cols}×${rows} grid...`);
             await this.createGrid(cols, rows);
           }
-        
-        // Ensure image processor canvas exists
-        let canvas = document.getElementById('image-processor');
-        if (!canvas) {
-          canvas = document.createElement('canvas');
-          canvas.id = 'image-processor';
-          canvas.style.display = 'none';
-          document.body.appendChild(canvas);
-        }
-        
-        // Set willReadFrequently for better getImageData performance
-        const ctx = canvas.getContext('2d', { willReadFrequently: true });
-        
-        // Use block averaging for clean pixel art conversion
-        const sourceWidth = this.loadedImage.width;
-        const sourceHeight = this.loadedImage.height;
-        
-        // Draw source image at full size to temp canvas
-        const tempCanvas = document.createElement('canvas');
-        const tempCtx = tempCanvas.getContext('2d', { willReadFrequently: true });
-        tempCanvas.width = sourceWidth;
-        tempCanvas.height = sourceHeight;
-        tempCtx.drawImage(this.loadedImage, 0, 0);
-        const sourceData = tempCtx.getImageData(0, 0, sourceWidth, sourceHeight);
-        
-        // Calculate block size
-        const blockWidth = sourceWidth / cols;
-        const blockHeight = sourceHeight / rows;
-        
-        // Create output at target resolution
-        canvas.width = cols;
-        canvas.height = rows;
-        const imageData = ctx.createImageData(cols, rows);
-        
-        // Block average: sample all pixels in each block
-        for (let cellY = 0; cellY < rows; cellY++) {
-          for (let cellX = 0; cellX < cols; cellX++) {
-            // Calculate source block bounds
-            const srcX1 = Math.floor(cellX * blockWidth);
-            const srcY1 = Math.floor(cellY * blockHeight);
-            const srcX2 = Math.floor((cellX + 1) * blockWidth);
-            const srcY2 = Math.floor((cellY + 1) * blockHeight);
-            
-            // Average all pixels in this block
-            let r = 0, g = 0, b = 0, count = 0;
-            
-            for (let y = srcY1; y < srcY2 && y < sourceHeight; y++) {
-              for (let x = srcX1; x < srcX2 && x < sourceWidth; x++) {
-                const idx = (y * sourceWidth + x) * 4;
-                r += sourceData.data[idx];
-                g += sourceData.data[idx + 1];
-                b += sourceData.data[idx + 2];
-                count++;
-              }
-            }
-            
-            // Set averaged color
-            const outIdx = (cellY * cols + cellX) * 4;
-            imageData.data[outIdx] = Math.round(r / count);
-            imageData.data[outIdx + 1] = Math.round(g / count);
-            imageData.data[outIdx + 2] = Math.round(b / count);
-            imageData.data[outIdx + 3] = 255;
-          }
-        }
-        
-        ctx.putImageData(imageData, 0, 0);
-        
-        // Convert to cell updates (directly, CanvasRenderer handles batching)
-        const updates = [];
-        const data = imageData.data;
-        for (let y = 0; y < rows; y++) {
-          for (let x = 0; x < cols; x++) {
-            const i = (y * cols + x) * 4;
-            updates.push({
-              x, y,
-              styles: {
-                background: `rgb(${data[i]}, ${data[i + 1]}, ${data[i + 2]})`
-              }
-            });
-          }
-        }
-        
-        // Apply to grid (ensure animator still exists)
-        if (this.animator) {
-          this.animator.updateCells(updates);
+          
+          // ✨ CLEAN API: Use ImageHelpers for image-to-data conversion
+          const frameData = await ImageHelpers.loadImage(this.loadedImage, {
+            cols,
+            rows,
+            preserveAspect: false, // Already calculated
+            gammaCorrect: true     // Better color accuracy
+          });
+          
+          // Store frame data for access/editing
+          this.currentFrameData = frameData;
+          
+          // Apply frame data to grid
+          await this.animator.setData(frameData, { resize: false });
           
           // Force redraw for Canvas renderer
           if (this.animator.renderer && this.animator.renderer._drawGrid) {
             this.animator.renderer._drawGrid();
           }
-        }
           
           const elapsed = (performance.now() - startTime).toFixed(1);
           this.log('Render', `${cols}×${rows} in ${elapsed}ms`);
           
+          // Log that data is now accessible
+          console.log(`[PXS] Frame data available: Demo.currentFrameData (${frameData.cells.length} cells)`);
+          
           return elapsed;
         } finally {
           this._isRenderingImage = false; // Clear flag
+        }
+      },
+      
+      // ✨ NEW: Get current frame data (for export/editing)
+      getFrameData() {
+        if (this.currentFrameData) {
+          return this.currentFrameData;
+        }
+        // Fall back to getting data from animator
+        if (this.animator) {
+          return this.animator.getData();
+        }
+        return null;
+      },
+      
+      // ✨ NEW: Export current frame as JSON
+      exportFrameJSON(pretty = false) {
+        const data = this.getFrameData();
+        if (!data) {
+          this.log('Export', 'No frame data to export');
+          return null;
+        }
+        return JSON.stringify(data, null, pretty ? 2 : 0);
+      },
+      
+      // ✨ NEW: Load frame from JSON data
+      async loadFrameFromData(frameData) {
+        if (!ImageHelpers.validateFrame(frameData)) {
+          this.log('Import', 'Invalid frame data');
+          return false;
+        }
+        
+        this._isRenderingImage = true;
+        this.setBorders(false);
+        
+        try {
+          // Create grid if needed
+          if (!this.animator || frameData.cols !== this.currentCols || frameData.rows !== this.currentRows) {
+            await this.createGrid(frameData.cols, frameData.rows);
+          }
+          
+          await this.animator.setData(frameData, { resize: false });
+          this.currentFrameData = frameData;
+          
+          this.log('Import', `Loaded ${frameData.cols}×${frameData.rows} frame`);
+          return true;
+        } finally {
+          this._isRenderingImage = false;
         }
       },
       

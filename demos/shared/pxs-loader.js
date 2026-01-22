@@ -19,6 +19,9 @@ const PXSLoader = {
     'transforms/TransformMatrix.js',
     'core/CellGroup.js',
     'helpers/PatternHelpers.js',
+    'helpers/ImageHelpers.js',
+    'helpers/AnimationHelpers.js',
+    'storage/StorageAdapters.js',
     'CellAnimator.js'
   ],
   

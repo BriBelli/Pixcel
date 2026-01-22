@@ -996,6 +996,416 @@ class CellAnimator {
         // No manual updates needed
     }
 
+    // ========================================
+    // Data API Methods (PXSFrame support)
+    // ========================================
+
+    /**
+     * Get current grid state as PXSFrame data
+     * @returns {PXSFrame} Frame data object
+     */
+    getData() {
+        const cells = [];
+        
+        for (const [key, cellData] of this.cells) {
+            const [x, y] = key.split('-').map(Number);
+            cells.push({
+                x,
+                y,
+                color: cellData.color || cellData.styles?.background || '#2A2A2A'
+            });
+        }
+        
+        return {
+            cols: this.state.columns,
+            rows: this.state.rows,
+            cells,
+            metadata: {
+                source: 'animator',
+                timestamp: Date.now(),
+                version: '2.0.0',
+                renderMode: this.renderMode
+            }
+        };
+    }
+
+    /**
+     * Set grid state from PXSFrame data
+     * @param {PXSFrame} frameData - Frame data object
+     * @param {Object} [options] - Options
+     * @param {boolean} [options.resize=true] - Resize grid if dimensions differ
+     * @returns {Promise<void>}
+     */
+    async setData(frameData, options = {}) {
+        const { resize = true } = options;
+        
+        // Validate frame data
+        if (typeof ImageHelpers !== 'undefined' && !ImageHelpers.validateFrame(frameData)) {
+            console.warn('CellAnimator: Invalid frame data');
+            return;
+        }
+        
+        // Resize grid if needed
+        if (resize && (frameData.cols !== this.state.columns || frameData.rows !== this.state.rows)) {
+            // Re-initialize with new dimensions
+            await this._reinitialize(frameData.cols, frameData.rows);
+        }
+        
+        // Convert cells to update format and apply
+        const updates = frameData.cells.map(cell => ({
+            x: cell.x,
+            y: cell.y,
+            styles: {
+                background: cell.color
+            }
+        }));
+        
+        this.updateCells(updates);
+        
+        // Emit data change event
+        this._emit('dataChange', frameData);
+    }
+
+    /**
+     * Re-initialize animator with new dimensions
+     * @private
+     */
+    async _reinitialize(cols, rows) {
+        const container = this.config.container;
+        const config = { ...this.config };
+        
+        // Calculate new cell sizes to maintain similar canvas size
+        const totalWidth = this.state.canvasWidth || container.clientWidth;
+        const totalHeight = this.state.canvasHeight || container.clientHeight;
+        
+        config.cellWidth = Math.floor(totalWidth / cols);
+        config.cellHeight = Math.floor(totalHeight / rows);
+        
+        // Destroy current renderer
+        if (this.renderer) {
+            this.renderer.destroy();
+        }
+        
+        // Clear cells
+        this.cells.clear();
+        
+        // Update state
+        this.state.columns = cols;
+        this.state.rows = rows;
+        this.state.totalCells = cols * rows;
+        
+        // Update config
+        this.config.cellWidth = config.cellWidth;
+        this.config.cellHeight = config.cellHeight;
+        
+        // Re-create renderer
+        this.renderer = this._createRenderer();
+        await this.renderer.init(this);
+    }
+
+    /**
+     * Export current state as JSON string
+     * @param {Object} [options] - Export options
+     * @param {boolean} [options.compress=false] - Use compressed format
+     * @param {boolean} [options.pretty=false] - Pretty print JSON
+     * @returns {string} JSON string
+     */
+    exportData(options = {}) {
+        const { compress = false, pretty = false } = options;
+        
+        let data = this.getData();
+        
+        if (compress && typeof ImageHelpers !== 'undefined') {
+            data = ImageHelpers.compressFrame(data);
+        }
+        
+        return pretty ? JSON.stringify(data, null, 2) : JSON.stringify(data);
+    }
+
+    /**
+     * Import data from JSON string
+     * @param {string} json - JSON string
+     * @param {Object} [options] - Import options
+     * @returns {Promise<void>}
+     */
+    async importData(json, options = {}) {
+        let data;
+        
+        try {
+            data = JSON.parse(json);
+        } catch (e) {
+            console.error('CellAnimator: Invalid JSON');
+            return;
+        }
+        
+        // Check if compressed
+        if (data.c && data.r && data.d && typeof ImageHelpers !== 'undefined') {
+            data = ImageHelpers.decompressFrame(data);
+        }
+        
+        await this.setData(data, options);
+    }
+
+    /**
+     * Subscribe to data changes
+     * @param {Function} callback - Callback function(frameData)
+     * @returns {Function} Unsubscribe function
+     */
+    subscribeToData(callback) {
+        this.on('dataChange', callback);
+        return () => this.off('dataChange', callback);
+    }
+
+    /**
+     * Load image and render to grid
+     * @param {string|File|HTMLImageElement} source - Image source
+     * @param {Object} [options] - Options
+     * @returns {Promise<PXSFrame>} The frame data that was rendered
+     */
+    async loadImage(source, options = {}) {
+        if (typeof ImageHelpers === 'undefined') {
+            console.error('CellAnimator: ImageHelpers not loaded');
+            return null;
+        }
+        
+        // Use current grid dimensions if not specified
+        const loadOptions = {
+            cols: options.cols || this.state.columns,
+            rows: options.rows || this.state.rows,
+            ...options
+        };
+        
+        // Load and convert image to data
+        const frameData = await ImageHelpers.loadImage(source, loadOptions);
+        
+        // Render the data
+        await this.setData(frameData);
+        
+        return frameData;
+    }
+
+    // ========================================
+    // Animation Playback System
+    // ========================================
+
+    /**
+     * Load an animation
+     * @param {PXSAnimation} animation - Animation data
+     */
+    loadAnimation(animation) {
+        if (typeof AnimationHelpers === 'undefined') {
+            console.error('CellAnimator: AnimationHelpers not loaded');
+            return;
+        }
+        
+        if (!AnimationHelpers.validateAnimation(animation)) {
+            console.error('CellAnimator: Invalid animation data');
+            return;
+        }
+        
+        this._animation = animation;
+        this._animationState = {
+            playing: false,
+            currentFrame: 0,
+            startTime: 0,
+            frameInterval: 1000 / animation.fps
+        };
+        
+        this._emit('animationLoaded', animation);
+    }
+
+    /**
+     * Play the loaded animation
+     * @param {Object} [options] - Playback options
+     */
+    playAnimation(options = {}) {
+        if (!this._animation) {
+            console.warn('CellAnimator: No animation loaded');
+            return;
+        }
+        
+        const { loop, fps } = options;
+        
+        if (loop !== undefined) {
+            this._animation.metadata.loop = loop;
+        }
+        
+        if (fps !== undefined) {
+            this._animation.fps = fps;
+            this._animationState.frameInterval = 1000 / fps;
+        }
+        
+        this._animationState.playing = true;
+        this._animationState.startTime = performance.now();
+        
+        this._emit('animationPlay');
+        this._animationLoop();
+    }
+
+    /**
+     * Pause animation playback
+     */
+    pauseAnimation() {
+        if (!this._animationState) return;
+        
+        this._animationState.playing = false;
+        
+        if (this._animationFrameId) {
+            cancelAnimationFrame(this._animationFrameId);
+            this._animationFrameId = null;
+        }
+        
+        this._emit('animationPause');
+    }
+
+    /**
+     * Stop animation and reset to first frame
+     */
+    stopAnimation() {
+        this.pauseAnimation();
+        
+        if (this._animationState) {
+            this._animationState.currentFrame = 0;
+            
+            // Render first frame
+            if (this._animation && this._animation.frames.length > 0) {
+                this.setData(this._animation.frames[0], { resize: false });
+            }
+        }
+        
+        this._emit('animationStop');
+    }
+
+    /**
+     * Go to specific frame
+     * @param {number} index - Frame index
+     */
+    goToFrame(index) {
+        if (!this._animation) return;
+        
+        const frameCount = this._animation.frames.length;
+        index = Math.max(0, Math.min(index, frameCount - 1));
+        
+        this._animationState.currentFrame = index;
+        this.setData(this._animation.frames[index], { resize: false });
+        
+        this._emit('frameChange', { index, frame: this._animation.frames[index] });
+    }
+
+    /**
+     * Go to next frame
+     */
+    nextFrame() {
+        if (!this._animation) return;
+        
+        const nextIndex = this._animationState.currentFrame + 1;
+        if (nextIndex >= this._animation.frames.length) {
+            if (this._animation.metadata.loop) {
+                this.goToFrame(0);
+            }
+        } else {
+            this.goToFrame(nextIndex);
+        }
+    }
+
+    /**
+     * Go to previous frame
+     */
+    prevFrame() {
+        if (!this._animation) return;
+        
+        const prevIndex = this._animationState.currentFrame - 1;
+        if (prevIndex < 0) {
+            if (this._animation.metadata.loop) {
+                this.goToFrame(this._animation.frames.length - 1);
+            }
+        } else {
+            this.goToFrame(prevIndex);
+        }
+    }
+
+    /**
+     * Get current animation playback state
+     * @returns {PXSPlaybackState|null}
+     */
+    getPlaybackState() {
+        if (!this._animation || !this._animationState) return null;
+        
+        return {
+            playing: this._animationState.playing,
+            currentFrame: this._animationState.currentFrame,
+            totalFrames: this._animation.frames.length,
+            fps: this._animation.fps,
+            loop: this._animation.metadata.loop,
+            timestamp: this._animationState.currentFrame * this._animationState.frameInterval
+        };
+    }
+
+    /**
+     * Get current frame data
+     * @returns {PXSFrame|null}
+     */
+    getCurrentAnimationFrame() {
+        if (!this._animation) return null;
+        return this._animation.frames[this._animationState.currentFrame];
+    }
+
+    /**
+     * Update a cell in the current animation frame
+     * @param {number} frameIndex - Frame index
+     * @param {number} x - Cell X
+     * @param {number} y - Cell Y
+     * @param {string} color - New color
+     */
+    updateAnimationCell(frameIndex, x, y, color) {
+        if (!this._animation) return;
+        
+        const frame = this._animation.frames[frameIndex];
+        if (frame) {
+            ImageHelpers.updateCell(frame, x, y, color);
+            
+            // Re-render if this is the current frame
+            if (frameIndex === this._animationState.currentFrame) {
+                this.setData(frame, { resize: false });
+            }
+            
+            this._emit('animationFrameUpdated', { frameIndex, x, y, color });
+        }
+    }
+
+    /**
+     * Internal animation loop
+     * @private
+     */
+    _animationLoop() {
+        if (!this._animationState || !this._animationState.playing) return;
+        
+        const elapsed = performance.now() - this._animationState.startTime;
+        const frameIndex = Math.floor(elapsed / this._animationState.frameInterval);
+        const totalFrames = this._animation.frames.length;
+        
+        let targetFrame;
+        if (this._animation.metadata.loop) {
+            targetFrame = frameIndex % totalFrames;
+        } else {
+            targetFrame = Math.min(frameIndex, totalFrames - 1);
+            if (frameIndex >= totalFrames) {
+                this.pauseAnimation();
+                this._emit('animationComplete');
+                return;
+            }
+        }
+        
+        // Only update if frame changed
+        if (targetFrame !== this._animationState.currentFrame) {
+            this._animationState.currentFrame = targetFrame;
+            this.setData(this._animation.frames[targetFrame], { resize: false });
+            this._emit('frameChange', { index: targetFrame });
+        }
+        
+        this._animationFrameId = requestAnimationFrame(() => this._animationLoop());
+    }
+
     /**
      * Destroy the animator and clean up
      */

@@ -315,6 +315,187 @@ pub fn rgba(r: u8, g: u8, b: u8, a: u8) -> u32 {
     ((r as u32) << 24) | ((g as u32) << 16) | ((b as u32) << 8) | (a as u32)
 }
 
+/// Image Processing - High-quality block averaging with gamma correction
+/// This is the core algorithm for converting photos to pixel art
+#[wasm_bindgen]
+pub struct ImageProcessor {
+    gamma: f32,
+}
+
+#[wasm_bindgen]
+impl ImageProcessor {
+    #[wasm_bindgen(constructor)]
+    pub fn new() -> ImageProcessor {
+        ImageProcessor { gamma: 2.2 }
+    }
+    
+    /// Set gamma value for correction (default 2.2)
+    #[wasm_bindgen]
+    pub fn set_gamma(&mut self, gamma: f32) {
+        self.gamma = gamma;
+    }
+    
+    /// Process image data with gamma-correct block averaging
+    /// 
+    /// source_data: Raw RGBA image data (Uint8ClampedArray from canvas)
+    /// source_width, source_height: Source image dimensions
+    /// target_cols, target_rows: Target grid dimensions
+    /// 
+    /// Returns: Packed color array for target grid
+    #[wasm_bindgen]
+    pub fn process_image(
+        &self,
+        source_data: &[u8],
+        source_width: u32,
+        source_height: u32,
+        target_cols: u32,
+        target_rows: u32,
+        use_gamma: bool,
+    ) -> Vec<u32> {
+        let block_width = source_width as f32 / target_cols as f32;
+        let block_height = source_height as f32 / target_rows as f32;
+        
+        let mut result = Vec::with_capacity((target_cols * target_rows) as usize);
+        
+        for cell_y in 0..target_rows {
+            for cell_x in 0..target_cols {
+                // Calculate source block bounds
+                let src_x1 = (cell_x as f32 * block_width) as u32;
+                let src_y1 = (cell_y as f32 * block_height) as u32;
+                let src_x2 = ((cell_x + 1) as f32 * block_width) as u32;
+                let src_y2 = ((cell_y + 1) as f32 * block_height) as u32;
+                
+                // Accumulate colors in linear space (gamma corrected)
+                let mut r_sum: f64 = 0.0;
+                let mut g_sum: f64 = 0.0;
+                let mut b_sum: f64 = 0.0;
+                let mut count: u32 = 0;
+                
+                for y in src_y1..src_y2.min(source_height) {
+                    for x in src_x1..src_x2.min(source_width) {
+                        let idx = ((y * source_width + x) * 4) as usize;
+                        
+                        if idx + 2 < source_data.len() {
+                            let r = source_data[idx] as f64 / 255.0;
+                            let g = source_data[idx + 1] as f64 / 255.0;
+                            let b = source_data[idx + 2] as f64 / 255.0;
+                            
+                            if use_gamma {
+                                // Convert to linear space for accurate averaging
+                                r_sum += r.powf(self.gamma as f64);
+                                g_sum += g.powf(self.gamma as f64);
+                                b_sum += b.powf(self.gamma as f64);
+                            } else {
+                                r_sum += r;
+                                g_sum += g;
+                                b_sum += b;
+                            }
+                            count += 1;
+                        }
+                    }
+                }
+                
+                // Calculate average and convert back from linear space
+                let (final_r, final_g, final_b) = if count > 0 {
+                    if use_gamma {
+                        (
+                            (r_sum / count as f64).powf(1.0 / self.gamma as f64),
+                            (g_sum / count as f64).powf(1.0 / self.gamma as f64),
+                            (b_sum / count as f64).powf(1.0 / self.gamma as f64),
+                        )
+                    } else {
+                        (
+                            r_sum / count as f64,
+                            g_sum / count as f64,
+                            b_sum / count as f64,
+                        )
+                    }
+                } else {
+                    (0.0, 0.0, 0.0)
+                };
+                
+                // Clamp and pack
+                let r = (final_r.clamp(0.0, 1.0) * 255.0) as u32;
+                let g = (final_g.clamp(0.0, 1.0) * 255.0) as u32;
+                let b = (final_b.clamp(0.0, 1.0) * 255.0) as u32;
+                
+                result.push((r << 24) | (g << 16) | (b << 8) | 0xFF);
+            }
+        }
+        
+        result
+    }
+    
+    /// Process image and output as PXS-compatible JSON cells
+    /// Returns RGB strings in "rgb(r,g,b)" format
+    #[wasm_bindgen]
+    pub fn process_to_rgb_strings(
+        &self,
+        source_data: &[u8],
+        source_width: u32,
+        source_height: u32,
+        target_cols: u32,
+        target_rows: u32,
+    ) -> Vec<JsValue> {
+        let colors = self.process_image(
+            source_data, 
+            source_width, 
+            source_height, 
+            target_cols, 
+            target_rows, 
+            true
+        );
+        
+        colors.iter().map(|&c| {
+            let r = (c >> 24) & 0xFF;
+            let g = (c >> 16) & 0xFF;
+            let b = (c >> 8) & 0xFF;
+            JsValue::from_str(&format!("rgb({}, {}, {})", r, g, b))
+        }).collect()
+    }
+}
+
+/// Fast noise generation for effects
+#[wasm_bindgen]
+pub fn generate_noise_grid(width: u32, height: u32, seed: u32) -> Vec<u32> {
+    let mut result = Vec::with_capacity((width * height) as usize);
+    let mut rng = seed;
+    
+    for _ in 0..(width * height) {
+        // Simple LCG for deterministic noise
+        rng = rng.wrapping_mul(1664525).wrapping_add(1013904223);
+        let value = ((rng >> 16) & 0xFF) as u32;
+        result.push((value << 24) | (value << 16) | (value << 8) | 0xFF);
+    }
+    
+    result
+}
+
+/// Interpolate between two frames (for smooth transitions)
+/// Returns array of interpolated colors
+#[wasm_bindgen]
+pub fn interpolate_frames(
+    frame_a: &[u32],
+    frame_b: &[u32],
+    t: f32,
+) -> Vec<u32> {
+    if frame_a.len() != frame_b.len() {
+        return frame_a.to_vec();
+    }
+    
+    frame_a.iter().zip(frame_b.iter()).map(|(&a, &b)| {
+        let (ar, ag, ab, aa) = unpack_rgba(a);
+        let (br, bg, bb, ba) = unpack_rgba(b);
+        
+        pack_rgba(
+            lerp(ar, br, t),
+            lerp(ag, bg, t),
+            lerp(ab, bb, t),
+            lerp(aa, ba, t),
+        )
+    }).collect()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

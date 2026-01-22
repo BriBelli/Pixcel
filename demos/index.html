@@ -201,6 +201,491 @@
     }
     .benchmark-item__res { font-weight: 600; }
     .benchmark-item__time { color: var(--pxs-accent-primary); }
+    
+    /* ============================================
+       Frame Deck - Animation Timeline
+       ============================================ */
+    .pxs-frame-deck {
+      background: var(--pxs-bg-secondary);
+      border-top: 1px solid var(--pxs-border);
+      display: flex;
+      flex-direction: column;
+      max-height: 180px;
+      overflow: visible;
+      transition: max-height 0.2s ease;
+    }
+    .pxs-frame-deck--collapsed {
+      max-height: 36px;
+    }
+    .pxs-frame-deck--collapsed .pxs-frame-deck__track-container {
+      display: none;
+    }
+    .pxs-frame-deck__header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 10px 16px;
+      background: var(--pxs-bg-tertiary);
+      border-bottom: 1px solid var(--pxs-border);
+      min-height: 44px;
+    }
+    .pxs-frame-deck__controls {
+      display: flex;
+      gap: 4px;
+      align-items: center;
+    }
+    .pxs-frame-deck__btn {
+      width: 28px;
+      height: 28px;
+      background: var(--pxs-bg-elevated);
+      border: 1px solid var(--pxs-border);
+      border-radius: var(--pxs-radius-sm);
+      color: var(--pxs-text-secondary);
+      cursor: pointer;
+      font-size: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.15s ease;
+    }
+    .pxs-frame-deck__btn:hover:not(:disabled) {
+      background: var(--pxs-bg-secondary);
+      border-color: var(--pxs-accent-primary);
+      color: var(--pxs-accent-primary);
+    }
+    .pxs-frame-deck__btn:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+    }
+    .pxs-frame-deck__btn--danger:hover:not(:disabled) {
+      border-color: var(--pxs-error);
+      color: var(--pxs-error);
+    }
+    .pxs-frame-deck__divider {
+      width: 1px;
+      height: 20px;
+      background: var(--pxs-border);
+      margin: 0 4px;
+    }
+    .pxs-frame-deck__info {
+      flex: 1;
+      text-align: center;
+    }
+    .pxs-frame-deck__info-text {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      color: var(--pxs-text-muted);
+    }
+    .pxs-frame-deck__actions {
+      display: flex;
+      gap: 4px;
+      align-items: center;
+    }
+    .pxs-frame-deck__toggle {
+      background: none;
+      border: none;
+      color: var(--pxs-text-muted);
+      cursor: pointer;
+      padding: 4px;
+      font-size: 10px;
+      opacity: 0.6;
+    }
+    .pxs-frame-deck__toggle:hover {
+      opacity: 1;
+    }
+    .pxs-frame-deck__track-container {
+      overflow-x: auto;
+      overflow-y: visible;
+      padding: 50px 16px 16px;  /* Extra top padding for tooltip */
+    }
+    .pxs-frame-deck__track-container::-webkit-scrollbar {
+      height: 6px;
+    }
+    .pxs-frame-deck__track-container::-webkit-scrollbar-track {
+      background: var(--pxs-bg-primary);
+    }
+    .pxs-frame-deck__track-container::-webkit-scrollbar-thumb {
+      background: var(--pxs-border);
+      border-radius: 3px;
+    }
+    .pxs-frame-deck__track {
+      display: flex;
+      gap: 8px;
+      min-height: 80px;
+    }
+    .pxs-frame-card {
+      flex-shrink: 0;
+      width: 80px;
+      background: var(--pxs-bg-tertiary);
+      border: 2px solid var(--pxs-border);
+      border-radius: var(--pxs-radius-sm);
+      overflow: hidden;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+    .pxs-frame-card:hover {
+      border-color: var(--pxs-accent-primary);
+    }
+    .pxs-frame-card--active {
+      border-color: var(--pxs-success);
+      box-shadow: 0 0 0 2px rgba(35, 134, 54, 0.3);
+    }
+    .pxs-frame-card--dragging {
+      opacity: 0.5;
+    }
+    .pxs-frame-card--drag-over {
+      border-color: var(--pxs-warning);
+      transform: scale(1.05);
+    }
+    .pxs-frame-card__thumb {
+      width: 100%;
+      height: 60px;
+      display: block;
+      image-rendering: pixelated;
+    }
+    .pxs-frame-card__label {
+      display: block;
+      text-align: center;
+      font-size: 10px;
+      font-family: 'JetBrains Mono', monospace;
+      color: var(--pxs-text-muted);
+      padding: 4px;
+      background: var(--pxs-bg-primary);
+    }
+    .pxs-frame-card--active .pxs-frame-card__label {
+      color: var(--pxs-success);
+    }
+    
+    /* Canvas wrap adjustment for frame deck */
+    .pxs-ide__canvas-wrap {
+      display: flex;
+      flex-direction: column;
+      position: relative;
+    }
+    .pxs-ide__canvas {
+      flex: 1;
+    }
+    #frame-deck-container {
+      position: absolute;
+      bottom: 16px;
+      left: 16px;
+      right: 16px;
+      z-index: 50;
+      border-radius: var(--pxs-radius-md);
+      overflow: visible;
+      box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.4);
+      opacity: 0;
+      transform: translateY(20px);
+      pointer-events: none;
+      transition: opacity 0.25s ease, transform 0.25s ease;
+    }
+    #frame-deck-container.visible {
+      opacity: 1;
+      transform: translateY(0);
+      pointer-events: auto;
+    }
+    
+    /* ============================================
+       Editor Mode - Frame/Cell Inspector
+       ============================================ */
+    .pxs-editor-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0, 0, 0, 0.7);
+      backdrop-filter: blur(4px);
+      z-index: 1000;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.2s ease;
+    }
+    .pxs-editor-overlay.visible {
+      opacity: 1;
+      pointer-events: auto;
+    }
+    .pxs-editor {
+      width: 90%;
+      max-width: 900px;
+      max-height: 85vh;
+      background: var(--pxs-bg-secondary);
+      border: 1px solid var(--pxs-border);
+      border-radius: var(--pxs-radius-lg);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      box-shadow: 0 24px 80px rgba(0, 0, 0, 0.6);
+      transform: scale(0.95) translateY(20px);
+      transition: transform 0.25s ease;
+    }
+    .pxs-editor-overlay.visible .pxs-editor {
+      transform: scale(1) translateY(0);
+    }
+    .pxs-editor__header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 16px;
+      background: var(--pxs-bg-tertiary);
+      border-bottom: 1px solid var(--pxs-border);
+    }
+    .pxs-editor__title {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-weight: 600;
+      font-size: 14px;
+      color: var(--pxs-text-primary);
+    }
+    .pxs-editor__title-icon {
+      width: 32px;
+      height: 32px;
+      background: var(--pxs-accent-primary);
+      border-radius: 6px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 16px;
+    }
+    .pxs-editor__close {
+      width: 32px;
+      height: 32px;
+      background: transparent;
+      border: 1px solid transparent;
+      border-radius: var(--pxs-radius-sm);
+      color: var(--pxs-text-muted);
+      cursor: pointer;
+      font-size: 18px;
+      transition: all 0.15s ease;
+    }
+    .pxs-editor__close:hover {
+      background: var(--pxs-bg-elevated);
+      border-color: var(--pxs-border);
+      color: var(--pxs-text-primary);
+    }
+    .pxs-editor__tabs {
+      display: flex;
+      gap: 0;
+      padding: 0 16px;
+      background: var(--pxs-bg-tertiary);
+      border-bottom: 1px solid var(--pxs-border);
+    }
+    .pxs-editor__tab {
+      padding: 10px 16px;
+      font-size: 12px;
+      font-weight: 500;
+      background: transparent;
+      border: none;
+      border-bottom: 2px solid transparent;
+      color: var(--pxs-text-muted);
+      cursor: pointer;
+      transition: all 0.15s ease;
+      margin-bottom: -1px;
+    }
+    .pxs-editor__tab:hover {
+      color: var(--pxs-text-secondary);
+    }
+    .pxs-editor__tab--active {
+      color: var(--pxs-accent-primary);
+      border-bottom-color: var(--pxs-accent-primary);
+    }
+    .pxs-editor__body {
+      flex: 1;
+      overflow: auto;
+      padding: 20px;
+    }
+    .pxs-editor__panel {
+      display: none;
+    }
+    .pxs-editor__panel--active {
+      display: block;
+    }
+    
+    /* Metadata Panel */
+    .pxs-meta-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 16px;
+      margin-bottom: 20px;
+    }
+    .pxs-meta-card {
+      background: var(--pxs-bg-tertiary);
+      border: 1px solid var(--pxs-border);
+      border-radius: var(--pxs-radius-md);
+      padding: 16px;
+    }
+    .pxs-meta-card__label {
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: var(--pxs-text-muted);
+      margin-bottom: 6px;
+    }
+    .pxs-meta-card__value {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 18px;
+      font-weight: 600;
+      color: var(--pxs-accent-primary);
+    }
+    .pxs-meta-card__value--small {
+      font-size: 13px;
+      color: var(--pxs-text-primary);
+    }
+    
+    /* Code Panel */
+    .pxs-code-container {
+      position: relative;
+    }
+    .pxs-code-toolbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 12px;
+    }
+    .pxs-code-toolbar__info {
+      font-size: 11px;
+      color: var(--pxs-text-muted);
+    }
+    .pxs-code-toolbar__actions {
+      display: flex;
+      gap: 8px;
+    }
+    .pxs-code-btn {
+      padding: 6px 12px;
+      font-size: 11px;
+      background: var(--pxs-bg-tertiary);
+      border: 1px solid var(--pxs-border);
+      border-radius: var(--pxs-radius-sm);
+      color: var(--pxs-text-secondary);
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+    .pxs-code-btn:hover {
+      background: var(--pxs-bg-elevated);
+      border-color: var(--pxs-accent-primary);
+      color: var(--pxs-accent-primary);
+    }
+    .pxs-code-editor {
+      background: var(--pxs-bg-primary);
+      border: 1px solid var(--pxs-border);
+      border-radius: var(--pxs-radius-md);
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 12px;
+      line-height: 1.6;
+      color: var(--pxs-text-primary);
+      padding: 16px;
+      max-height: 400px;
+      overflow: auto;
+      white-space: pre-wrap;
+      word-break: break-all;
+    }
+    .pxs-code-editor::-webkit-scrollbar {
+      width: 8px;
+    }
+    .pxs-code-editor::-webkit-scrollbar-track {
+      background: var(--pxs-bg-tertiary);
+    }
+    .pxs-code-editor::-webkit-scrollbar-thumb {
+      background: var(--pxs-border);
+      border-radius: 4px;
+    }
+    
+    /* Color preview cells */
+    .pxs-cell-grid {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 6px;
+      margin-top: 12px;
+    }
+    .pxs-cell-grid--auto {
+      grid-template-columns: repeat(auto-fill, minmax(60px, 1fr));
+    }
+    .pxs-cell-item {
+      background: var(--pxs-bg-tertiary);
+      border: 1px solid var(--pxs-border);
+      border-radius: var(--pxs-radius-sm);
+      padding: 6px;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+    .pxs-cell-item:hover {
+      border-color: var(--pxs-accent-primary);
+      transform: translateY(-1px);
+      box-shadow: 0 2px 8px rgba(88, 166, 255, 0.2);
+    }
+    .pxs-cell-item__preview {
+      width: 28px;
+      height: 28px;
+      border-radius: 4px;
+      margin: 0 auto 4px;
+      border: 1px solid rgba(255,255,255,0.15);
+      box-shadow: inset 0 1px 2px rgba(0,0,0,0.3);
+    }
+    .pxs-cell-item__coord {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 9px;
+      color: var(--pxs-text-muted);
+    }
+    
+    /* JSON Syntax highlighting */
+    .json-key { color: #79c0ff; }
+    .json-string { color: #a5d6ff; }
+    .json-number { color: #ffa657; }
+    .json-boolean { color: #ff7b72; }
+    .json-null { color: #8b949e; }
+    .json-bracket { color: #8b949e; }
+    
+    /* Frame Card Hover Tooltip */
+    .pxs-frame-tooltip {
+      position: absolute;
+      bottom: calc(100% + 8px);
+      left: 50%;
+      transform: translateX(-50%) translateY(4px);
+      background: var(--pxs-bg-tertiary);
+      border: 1px solid var(--pxs-border);
+      border-radius: var(--pxs-radius-sm);
+      padding: 8px 12px;
+      font-size: 11px;
+      color: var(--pxs-text-primary);
+      white-space: nowrap;
+      z-index: 100;
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 0.2s ease, transform 0.2s ease;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    }
+    .pxs-frame-tooltip::after {
+      content: '';
+      position: absolute;
+      top: 100%;
+      left: 50%;
+      transform: translateX(-50%);
+      border: 6px solid transparent;
+      border-top-color: var(--pxs-bg-tertiary);
+    }
+    .pxs-frame-tooltip.visible {
+      opacity: 1;
+      transform: translateX(-50%) translateY(0);
+    }
+    .pxs-frame-tooltip__hint {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .pxs-frame-tooltip__kbd {
+      background: var(--pxs-bg-primary);
+      border: 1px solid var(--pxs-border);
+      border-radius: 3px;
+      padding: 2px 5px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 10px;
+      color: var(--pxs-text-muted);
+    }
   </style>
 </head>
 <body>
@@ -227,6 +712,7 @@
         <button class="section-tab section-tab--active" data-section="resolution">📐 Resolution</button>
         <button class="section-tab" data-section="effects">✨ Effects</button>
         <button class="section-tab" data-section="image">🖼️ Image</button>
+        <button class="section-tab" data-section="animation">🎬 Anim</button>
       </div>
       
       <!-- Resolution Section -->
@@ -427,6 +913,57 @@
           </div>
         </div>
       </div>
+      
+      <!-- Animation Section -->
+      <div id="section-animation" class="section-content">
+        <div class="pxs-ide__sidebar-section">
+          <div class="pxs-ide__sidebar-title"><span>🎬 Create Animation</span></div>
+          <div class="pxs-ide__sidebar-content">
+            <label class="image-upload" style="margin-bottom: 8px;">
+              <div class="image-upload__icon">🎞️</div>
+              <div class="image-upload__text">Load multiple images</div>
+              <input type="file" accept="image/*" id="anim-images-input" multiple>
+            </label>
+            <button class="pxs-btn" onclick="Demo.createRandomAnimation()" style="width: 100%; margin-bottom: 6px;">
+              🎲 Random (5 frames)
+            </button>
+            <button class="pxs-btn" onclick="Demo.createGradientAnimation()" style="width: 100%;">
+              🌈 Gradient (10 frames)
+            </button>
+          </div>
+        </div>
+        
+        <div class="pxs-ide__sidebar-section">
+          <div class="pxs-ide__sidebar-title"><span>⚙️ Animation Info</span></div>
+          <div class="pxs-ide__sidebar-content">
+            <div class="pxs-stat-grid" style="grid-template-columns: 1fr 1fr;">
+              <div class="pxs-stat">
+                <div class="pxs-stat__value" id="anim-frames">0</div>
+                <div class="pxs-stat__label">Frames</div>
+              </div>
+              <div class="pxs-stat">
+                <div class="pxs-stat__value" id="anim-fps">30</div>
+                <div class="pxs-stat__label">FPS</div>
+              </div>
+            </div>
+            <div style="margin-top: 12px; font-size: 11px; color: var(--pxs-text-muted);">
+              Use timeline below canvas for playback controls
+            </div>
+          </div>
+        </div>
+        
+        <div class="pxs-ide__sidebar-section">
+          <div class="pxs-ide__sidebar-title"><span>💾 Data</span></div>
+          <div class="pxs-ide__sidebar-content">
+            <button class="pxs-btn" onclick="Demo.logAnimationData()" style="width: 100%; margin-bottom: 6px;">
+              📋 Log to Console
+            </button>
+            <button class="pxs-btn" onclick="Demo.addCurrentFrameToAnimation()" style="width: 100%;">
+              ➕ Add Current as Frame
+            </button>
+          </div>
+        </div>
+      </div>
     </aside>
     
     <!-- Main Canvas Area -->
@@ -463,6 +1000,9 @@
           <p>Click any cell to interact</p>
           <p>Use resolution presets or upload an image to pixelate</p>
         </div>
+        
+        <!-- Frame Deck Timeline -->
+        <div id="frame-deck-container"></div>
       </div>
     </main>
     
@@ -543,13 +1083,72 @@
   
   <!-- Hidden canvas for image processing -->
   <canvas id="image-processor" style="display: none;"></canvas>
+  
+  <!-- Editor Mode Dialog -->
+  <div class="pxs-editor-overlay" id="editor-overlay">
+    <div class="pxs-editor">
+      <div class="pxs-editor__header">
+        <div class="pxs-editor__title">
+          <div class="pxs-editor__title-icon" id="editor-icon">🎬</div>
+          <div>
+            <div id="editor-title">Frame Inspector</div>
+            <div style="font-size: 11px; font-weight: 400; color: var(--pxs-text-muted);" id="editor-subtitle">View and edit frame data</div>
+          </div>
+        </div>
+        <button class="pxs-editor__close" onclick="Demo.closeEditor()" title="Close (Esc)">×</button>
+      </div>
+      <div class="pxs-editor__tabs">
+        <button class="pxs-editor__tab pxs-editor__tab--active" data-editor-tab="metadata">📊 Metadata</button>
+        <button class="pxs-editor__tab" data-editor-tab="code">{ } Code</button>
+        <button class="pxs-editor__tab" data-editor-tab="cells">🎨 Cells</button>
+      </div>
+      <div class="pxs-editor__body">
+        <!-- Metadata Panel -->
+        <div class="pxs-editor__panel pxs-editor__panel--active" id="editor-panel-metadata">
+          <div class="pxs-meta-grid" id="editor-meta-grid">
+            <!-- Filled dynamically -->
+          </div>
+        </div>
+        
+        <!-- Code Panel -->
+        <div class="pxs-editor__panel" id="editor-panel-code">
+          <div class="pxs-code-container">
+            <div class="pxs-code-toolbar">
+              <div class="pxs-code-toolbar__info">
+                <span id="code-size">0 bytes</span> • JSON
+              </div>
+              <div class="pxs-code-toolbar__actions">
+                <button class="pxs-code-btn" onclick="Demo.copyEditorCode()">📋 Copy</button>
+                <button class="pxs-code-btn" onclick="Demo.downloadEditorCode()">💾 Download</button>
+              </div>
+            </div>
+            <div class="pxs-code-editor" id="editor-code">
+              // Loading...
+            </div>
+          </div>
+        </div>
+        
+        <!-- Cells Panel -->
+        <div class="pxs-editor__panel" id="editor-panel-cells">
+          <div style="margin-bottom: 12px; font-size: 12px; color: var(--pxs-text-muted);">
+            Preview of cells in this frame. Click to inspect individual cell.
+          </div>
+          <div class="pxs-cell-grid" id="editor-cell-grid">
+            <!-- Filled dynamically -->
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
 
   <!-- Load PXS -->
-  <script src="shared/pxs-loader.js?v=20260122a"></script>
+  <script src="shared/pxs-loader.js?v=20260122c"></script>
   <script>
     // Demo Application
     const Demo = {
       animator: null,
+      frameDeck: null,  // Frame Deck UI component
+      currentAnimation: null,  // Current animation data
       loadedImage: null,
       currentCols: 40,
       currentRows: 30,
@@ -573,6 +1172,8 @@
           this.setupSectionTabs();
           this.setupResolutionPresets();
           this.setupImageUpload();
+          this.setupFrameDeck();
+          this.setupAnimationUpload();
           this.updateFeatures();
           this.hideLoading();
           this.showInstructions();
@@ -681,6 +1282,14 @@
             document.querySelectorAll('.section-content').forEach(s => s.classList.remove('section-content--active'));
             tab.classList.add('section-tab--active');
             document.getElementById('section-' + tab.dataset.section).classList.add('section-content--active');
+            
+            // Show/hide Frame Deck based on active tab
+            const frameDeckContainer = document.getElementById('frame-deck-container');
+            if (tab.dataset.section === 'animation') {
+              frameDeckContainer.classList.add('visible');
+            } else {
+              frameDeckContainer.classList.remove('visible');
+            }
           });
         });
       },
@@ -1019,6 +1628,11 @@
             name: 'pulse', duration: '0.5s', timing: 'ease-out', iteration: '1'
           });
         });
+        
+        // Double-click opens cell editor
+        this.animator.on('cellDblClick', (data) => {
+          this.openCellEditor(data.x, data.y);
+        });
       },
       
       updateGridInfo() {
@@ -1105,6 +1719,512 @@
       showInstructions() {
         setTimeout(() => document.getElementById('instructions').classList.add('pxs-ide__instructions--hidden'), 4000);
       },
+      
+      // ============================================
+      // FRAME DECK & ANIMATION
+      // ============================================
+      
+      setupFrameDeck() {
+        if (!this.animator) return;
+        
+        this.frameDeck = new FrameDeck({
+          container: document.getElementById('frame-deck-container'),
+          animator: this.animator,
+          onFrameSelect: (index, frame) => {
+            this.log('Animation', `Frame ${index + 1} selected`);
+            // Render the selected frame to the grid!
+            if (frame && this.animator) {
+              this.animator.setData(frame);
+            }
+            this.updateAnimationStats();
+          },
+          onFrameReorder: (animation) => {
+            this.currentAnimation = animation;
+            this.log('Animation', 'Frames reordered');
+          }
+        });
+        
+        this.log('System', 'Frame Deck initialized');
+      },
+      
+      setupAnimationUpload() {
+        const input = document.getElementById('anim-images-input');
+        if (!input) return;
+        
+        input.addEventListener('change', async (e) => {
+          const files = Array.from(e.target.files);
+          if (files.length === 0) return;
+          
+          this.log('Animation', `Loading ${files.length} image(s)...`);
+          
+          try {
+            const animation = await AnimationHelpers.createFromImages(files, {
+              fps: 30,
+              quality: 'medium',
+              cols: 64,
+              rows: 48
+            });
+            
+            this.currentAnimation = animation;
+            this.frameDeck.loadAnimation(animation);
+            this.updateAnimationStats();
+            this.log('Animation', `Created ${animation.frames.length} frames`);
+          } catch (error) {
+            this.log('Error', `Animation failed: ${error.message}`);
+          }
+          
+          e.target.value = '';
+        });
+      },
+      
+      updateAnimationStats() {
+        if (!this.currentAnimation) {
+          document.getElementById('anim-frames').textContent = '0';
+          document.getElementById('anim-fps').textContent = '30';
+          return;
+        }
+        document.getElementById('anim-frames').textContent = this.currentAnimation.frames.length;
+        document.getElementById('anim-fps').textContent = this.currentAnimation.fps || 30;
+      },
+      
+      createRandomAnimation() {
+        this.log('Animation', 'Generating random animation...');
+        
+        // Use CURRENT grid dimensions
+        const cols = this.currentCols;
+        const rows = this.currentRows;
+        
+        const frames = [];
+        for (let i = 0; i < 5; i++) {
+          const frame = ImageHelpers.createBlankFrame(cols, rows, '#0d1117');
+          
+          // Random colored cells (proportional to grid size)
+          const cellCount = Math.floor((cols * rows) * 0.15); // 15% of cells
+          for (let j = 0; j < cellCount; j++) {
+            const x = Math.floor(Math.random() * cols);
+            const y = Math.floor(Math.random() * rows);
+            const hue = Math.random() * 360;
+            ImageHelpers.updateCell(frame, x, y, `hsl(${hue}, 70%, 50%)`);
+          }
+          
+          frames.push(frame);
+        }
+        
+        this.currentAnimation = AnimationHelpers.createAnimation(frames, {
+          fps: 10,
+          metadata: { name: 'Random Animation', loop: true }
+        });
+        
+        this.frameDeck.loadAnimation(this.currentAnimation);
+        this.updateAnimationStats();
+        this.log('Animation', 'Random animation created (5 frames)');
+      },
+      
+      createGradientAnimation() {
+        this.log('Animation', 'Generating gradient animation...');
+        
+        // Use CURRENT grid dimensions
+        const cols = this.currentCols;
+        const rows = this.currentRows;
+        
+        // Helper to convert HSL to Hex (PatternHelpers expects hex)
+        const hslToHex = (h, s, l) => {
+          s /= 100;
+          l /= 100;
+          const a = s * Math.min(l, 1 - l);
+          const f = n => {
+            const k = (n + h / 30) % 12;
+            const color = l - a * Math.max(Math.min(k - 3, 9 - k, 1), -1);
+            return Math.round(255 * color).toString(16).padStart(2, '0');
+          };
+          return `#${f(0)}${f(8)}${f(4)}`;
+        };
+        
+        const frames = [];
+        for (let i = 0; i < 10; i++) {
+          const frame = ImageHelpers.createBlankFrame(cols, rows, '#0d1117');
+          
+          const hue = (i / 10) * 360;
+          const centerHex = hslToHex(hue, 80, 60);
+          const edgeHex = hslToHex((hue + 180) % 360, 80, 20);
+          
+          const gradient = PatternHelpers.generateRadialGradient({
+            centerX: Math.floor(cols / 2),
+            centerY: Math.floor(rows / 2),
+            radius: Math.floor(Math.min(cols, rows) * 0.6),
+            colorCenter: centerHex,
+            colorEdge: edgeHex,
+            gridWidth: cols,
+            gridHeight: rows
+          });
+          
+          // PatternHelpers returns { x, y, styles: { background } } format
+          // ImageHelpers.updateCell expects color string
+          gradient.forEach(cell => {
+            const color = cell.color || cell.styles?.background || '#0d1117';
+            ImageHelpers.updateCell(frame, cell.x, cell.y, color);
+          });
+          
+          frames.push(frame);
+        }
+        
+        this.currentAnimation = AnimationHelpers.createAnimation(frames, {
+          fps: 30,
+          metadata: { name: 'Gradient Animation', loop: true }
+        });
+        
+        this.frameDeck.loadAnimation(this.currentAnimation);
+        this.updateAnimationStats();
+        this.log('Animation', 'Gradient animation created (10 frames)');
+      },
+      
+      logAnimationData() {
+        if (!this.currentAnimation) {
+          console.log('📊 No animation loaded');
+          this.log('Animation', 'No animation to export');
+          return;
+        }
+        
+        console.log('📊 Animation Data:', this.currentAnimation);
+        console.log('📊 JSON:', JSON.stringify(this.currentAnimation, null, 2));
+        this.log('Animation', 'Data logged to console (F12)');
+      },
+      
+      addCurrentFrameToAnimation() {
+        const currentFrame = this.animator.getData();
+        
+        if (!this.currentAnimation) {
+          this.currentAnimation = {
+            fps: 30,
+            frames: [currentFrame],
+            metadata: { name: 'New Animation', loop: true }
+          };
+          this.frameDeck.loadAnimation(this.currentAnimation);
+        } else {
+          this.currentAnimation.frames.push(currentFrame);
+          this.frameDeck.loadAnimation(this.currentAnimation);
+          this.frameDeck._selectFrame(this.currentAnimation.frames.length - 1);
+        }
+        
+        this.updateAnimationStats();
+        this.log('Animation', `Added frame (total: ${this.currentAnimation.frames.length})`);
+        console.log('📊 Frame added:', currentFrame);
+      },
+      
+      // ============================================
+      // EDITOR MODE - Frame/Cell Inspector
+      // ============================================
+      
+      _editorData: null,
+      _editorType: 'frame', // 'frame' or 'cell'
+      
+      openFrameEditor(frameIndex) {
+        if (!this.currentAnimation || !this.currentAnimation.frames[frameIndex]) {
+          this.log('Error', 'No frame data to inspect');
+          return;
+        }
+        
+        this._editorData = this.currentAnimation.frames[frameIndex];
+        this._editorType = 'frame';
+        
+        // Update header
+        document.getElementById('editor-icon').textContent = '🎬';
+        document.getElementById('editor-title').textContent = `Frame ${frameIndex + 1}`;
+        document.getElementById('editor-subtitle').textContent = `${this._editorData.cols}×${this._editorData.rows} • ${this._editorData.cells.length} cells`;
+        
+        this._populateEditorPanels();
+        this._showEditor();
+        this.log('Editor', `Opened frame ${frameIndex + 1}`);
+      },
+      
+      openCellEditor(x, y) {
+        const frameData = this.animator.getData();
+        const cell = frameData.cells.find(c => c.x === x && c.y === y);
+        
+        if (!cell) {
+          this.log('Error', `Cell (${x}, ${y}) not found`);
+          return;
+        }
+        
+        this._editorData = { cell, frameData, x, y };
+        this._editorType = 'cell';
+        
+        // Update header
+        document.getElementById('editor-icon').textContent = '🎨';
+        document.getElementById('editor-title').textContent = `Cell (${x}, ${y})`;
+        document.getElementById('editor-subtitle').textContent = `Color: ${cell.color}`;
+        
+        this._populateEditorPanels();
+        this._showEditor();
+        this.log('Editor', `Opened cell (${x}, ${y})`);
+      },
+      
+      _showEditor() {
+        const overlay = document.getElementById('editor-overlay');
+        overlay.classList.add('visible');
+        
+        // Setup tab switching
+        document.querySelectorAll('.pxs-editor__tab').forEach(tab => {
+          tab.onclick = () => {
+            document.querySelectorAll('.pxs-editor__tab').forEach(t => t.classList.remove('pxs-editor__tab--active'));
+            document.querySelectorAll('.pxs-editor__panel').forEach(p => p.classList.remove('pxs-editor__panel--active'));
+            tab.classList.add('pxs-editor__tab--active');
+            document.getElementById('editor-panel-' + tab.dataset.editorTab).classList.add('pxs-editor__panel--active');
+          };
+        });
+        
+        // Close on Escape
+        const escHandler = (e) => {
+          if (e.key === 'Escape') {
+            this.closeEditor();
+            document.removeEventListener('keydown', escHandler);
+          }
+        };
+        document.addEventListener('keydown', escHandler);
+        
+        // Close on overlay click
+        document.getElementById('editor-overlay').onclick = (e) => {
+          if (e.target.id === 'editor-overlay') {
+            this.closeEditor();
+          }
+        };
+      },
+      
+      closeEditor() {
+        document.getElementById('editor-overlay').classList.remove('visible');
+        this._editorData = null;
+      },
+      
+      _populateEditorPanels() {
+        if (this._editorType === 'frame') {
+          this._populateFrameMetadata();
+          this._populateFrameCode();
+          this._populateFrameCells();
+        } else {
+          this._populateCellMetadata();
+          this._populateCellCode();
+          this._populateCellNeighbors();
+        }
+      },
+      
+      _populateFrameMetadata() {
+        const frame = this._editorData;
+        const metaGrid = document.getElementById('editor-meta-grid');
+        
+        const timestamp = frame.metadata?.timestamp ? new Date(frame.metadata.timestamp).toLocaleString() : 'N/A';
+        const source = frame.metadata?.source || 'Generated';
+        
+        metaGrid.innerHTML = `
+          <div class="pxs-meta-card">
+            <div class="pxs-meta-card__label">Dimensions</div>
+            <div class="pxs-meta-card__value">${frame.cols} × ${frame.rows}</div>
+          </div>
+          <div class="pxs-meta-card">
+            <div class="pxs-meta-card__label">Total Cells</div>
+            <div class="pxs-meta-card__value">${frame.cells.length.toLocaleString()}</div>
+          </div>
+          <div class="pxs-meta-card">
+            <div class="pxs-meta-card__label">Unique Colors</div>
+            <div class="pxs-meta-card__value">${new Set(frame.cells.map(c => c.color)).size}</div>
+          </div>
+          <div class="pxs-meta-card">
+            <div class="pxs-meta-card__label">Source</div>
+            <div class="pxs-meta-card__value pxs-meta-card__value--small">${source}</div>
+          </div>
+          <div class="pxs-meta-card">
+            <div class="pxs-meta-card__label">Timestamp</div>
+            <div class="pxs-meta-card__value pxs-meta-card__value--small">${timestamp}</div>
+          </div>
+          <div class="pxs-meta-card">
+            <div class="pxs-meta-card__label">Version</div>
+            <div class="pxs-meta-card__value pxs-meta-card__value--small">${frame.metadata?.version || 'PXS 3.0'}</div>
+          </div>
+        `;
+      },
+      
+      _populateCellMetadata() {
+        const { cell, x, y, frameData } = this._editorData;
+        const metaGrid = document.getElementById('editor-meta-grid');
+        
+        // Parse color to RGB
+        let rgb = { r: 0, g: 0, b: 0 };
+        if (cell.color.startsWith('rgb')) {
+          const match = cell.color.match(/rgb\((\d+),\s*(\d+),\s*(\d+)\)/);
+          if (match) rgb = { r: match[1], g: match[2], b: match[3] };
+        } else if (cell.color.startsWith('#')) {
+          const hex = cell.color.slice(1);
+          rgb = {
+            r: parseInt(hex.substr(0, 2), 16),
+            g: parseInt(hex.substr(2, 2), 16),
+            b: parseInt(hex.substr(4, 2), 16)
+          };
+        }
+        
+        metaGrid.innerHTML = `
+          <div class="pxs-meta-card">
+            <div class="pxs-meta-card__label">Position</div>
+            <div class="pxs-meta-card__value">(${x}, ${y})</div>
+          </div>
+          <div class="pxs-meta-card">
+            <div class="pxs-meta-card__label">Color</div>
+            <div class="pxs-meta-card__value pxs-meta-card__value--small" style="display: flex; align-items: center; gap: 8px;">
+              <span style="width: 24px; height: 24px; background: ${cell.color}; border-radius: 4px; border: 1px solid rgba(255,255,255,0.2);"></span>
+              ${cell.color}
+            </div>
+          </div>
+          <div class="pxs-meta-card">
+            <div class="pxs-meta-card__label">RGB</div>
+            <div class="pxs-meta-card__value pxs-meta-card__value--small">R: ${rgb.r} G: ${rgb.g} B: ${rgb.b}</div>
+          </div>
+          <div class="pxs-meta-card">
+            <div class="pxs-meta-card__label">Grid Index</div>
+            <div class="pxs-meta-card__value">${y * frameData.cols + x}</div>
+          </div>
+          <div class="pxs-meta-card">
+            <div class="pxs-meta-card__label">Frame Size</div>
+            <div class="pxs-meta-card__value pxs-meta-card__value--small">${frameData.cols}×${frameData.rows}</div>
+          </div>
+        `;
+      },
+      
+      _populateFrameCode() {
+        const json = JSON.stringify(this._editorData, null, 2);
+        document.getElementById('code-size').textContent = `${(json.length / 1024).toFixed(1)} KB`;
+        document.getElementById('editor-code').innerHTML = this._syntaxHighlight(json);
+      },
+      
+      _populateCellCode() {
+        const { cell, x, y } = this._editorData;
+        const json = JSON.stringify({ x, y, color: cell.color }, null, 2);
+        document.getElementById('code-size').textContent = `${json.length} bytes`;
+        document.getElementById('editor-code').innerHTML = this._syntaxHighlight(json);
+      },
+      
+      _populateFrameCells() {
+        const frame = this._editorData;
+        const grid = document.getElementById('editor-cell-grid');
+        
+        // Show a sample of cells (first 50 + unique colors)
+        const uniqueColors = [...new Set(frame.cells.map(c => c.color))].slice(0, 20);
+        const sampleCells = frame.cells.slice(0, 30);
+        
+        let html = `<div style="margin-bottom: 12px; font-size: 11px; color: var(--pxs-text-muted);"><strong>Unique Colors (${uniqueColors.length})</strong></div>`;
+        html += '<div style="display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 20px;">';
+        uniqueColors.forEach(color => {
+          html += `<div style="width: 28px; height: 28px; background: ${color}; border-radius: 4px; border: 1px solid rgba(255,255,255,0.1);" title="${color}"></div>`;
+        });
+        html += '</div>';
+        
+        html += '<div style="font-size: 11px; color: var(--pxs-text-muted); margin-bottom: 8px;"><strong>Sample Cells</strong> (click to inspect)</div>';
+        html += '<div class="pxs-cell-grid pxs-cell-grid--auto">';
+        sampleCells.forEach(cell => {
+          html += `
+            <div class="pxs-cell-item" onclick="Demo.openCellEditor(${cell.x}, ${cell.y})">
+              <div class="pxs-cell-item__preview" style="background: ${cell.color};"></div>
+              <div class="pxs-cell-item__coord">(${cell.x}, ${cell.y})</div>
+            </div>
+          `;
+        });
+        html += '</div>';
+        
+        grid.innerHTML = html;
+      },
+      
+      _populateCellNeighbors() {
+        const { cell, x, y, frameData } = this._editorData;
+        const grid = document.getElementById('editor-cell-grid');
+        
+        // Show color info for current cell prominently
+        let html = `
+          <div style="margin-bottom: 16px; padding: 12px; background: var(--pxs-bg-tertiary); border-radius: var(--pxs-radius-md); border: 1px solid var(--pxs-border);">
+            <div style="display: flex; align-items: center; gap: 12px;">
+              <div style="width: 48px; height: 48px; border-radius: 6px; background: ${cell.color}; border: 2px solid var(--pxs-accent-primary); box-shadow: 0 0 0 3px rgba(88, 166, 255, 0.2);"></div>
+              <div>
+                <div style="font-size: 14px; font-weight: 600; color: var(--pxs-text-primary);">Current Cell</div>
+                <div style="font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--pxs-accent-primary);">${cell.color}</div>
+                <div style="font-size: 11px; color: var(--pxs-text-muted);">Position: (${x}, ${y})</div>
+              </div>
+            </div>
+          </div>
+        `;
+        
+        // Get neighboring cells in a 5x5 grid centered on current cell
+        const neighbors = [];
+        for (let dy = -2; dy <= 2; dy++) {
+          for (let dx = -2; dx <= 2; dx++) {
+            const nx = x + dx;
+            const ny = y + dy;
+            if (nx >= 0 && nx < frameData.cols && ny >= 0 && ny < frameData.rows) {
+              const neighborCell = frameData.cells.find(c => c.x === nx && c.y === ny);
+              if (neighborCell) neighbors.push({ ...neighborCell, isCurrent: dx === 0 && dy === 0 });
+            }
+          }
+        }
+        
+        html += '<div style="font-size: 11px; color: var(--pxs-text-muted); margin-bottom: 8px;"><strong>5×5 Neighborhood</strong> (click to navigate)</div>';
+        html += '<div class="pxs-cell-grid">';
+        neighbors.forEach(neighborCell => {
+          const isCurrent = neighborCell.isCurrent;
+          const style = isCurrent ? 'border: 2px solid var(--pxs-accent-primary); box-shadow: 0 0 0 2px rgba(88, 166, 255, 0.3);' : '';
+          const opacity = isCurrent ? 'opacity: 1;' : '';
+          html += `
+            <div class="pxs-cell-item" style="${style} ${opacity}" onclick="Demo.openCellEditor(${neighborCell.x}, ${neighborCell.y})">
+              <div class="pxs-cell-item__preview" style="background: ${neighborCell.color};"></div>
+              <div class="pxs-cell-item__coord">(${neighborCell.x}, ${neighborCell.y})</div>
+            </div>
+          `;
+        });
+        html += '</div>';
+        
+        grid.innerHTML = html;
+      },
+      
+      _syntaxHighlight(json) {
+        return json
+          .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+          .replace(/("(\\u[a-zA-Z0-9]{4}|\\[^u]|[^\\"])*"(\s*:)?|\b(true|false|null)\b|-?\d+(?:\.\d*)?(?:[eE][+\-]?\d+)?)/g, (match) => {
+            let cls = 'json-number';
+            if (/^"/.test(match)) {
+              cls = /:$/.test(match) ? 'json-key' : 'json-string';
+            } else if (/true|false/.test(match)) {
+              cls = 'json-boolean';
+            } else if (/null/.test(match)) {
+              cls = 'json-null';
+            }
+            return `<span class="${cls}">${match}</span>`;
+          })
+          .replace(/[{}\[\]]/g, '<span class="json-bracket">$&</span>');
+      },
+      
+      copyEditorCode() {
+        const code = this._editorType === 'frame' 
+          ? JSON.stringify(this._editorData, null, 2)
+          : JSON.stringify({ x: this._editorData.x, y: this._editorData.y, color: this._editorData.cell.color }, null, 2);
+        
+        navigator.clipboard.writeText(code).then(() => {
+          this.log('Editor', 'Code copied to clipboard');
+        });
+      },
+      
+      downloadEditorCode() {
+        const code = this._editorType === 'frame'
+          ? JSON.stringify(this._editorData, null, 2)
+          : JSON.stringify({ x: this._editorData.x, y: this._editorData.y, color: this._editorData.cell.color }, null, 2);
+        
+        const filename = this._editorType === 'frame' ? 'pxs-frame.json' : `pxs-cell-${this._editorData.x}-${this._editorData.y}.json`;
+        const blob = new Blob([code], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        a.click();
+        URL.revokeObjectURL(url);
+        this.log('Editor', `Downloaded ${filename}`);
+      },
+      
+      // ============================================
+      // LOGGING
+      // ============================================
       
       log(type, message) {
         const log = document.getElementById('event-log');

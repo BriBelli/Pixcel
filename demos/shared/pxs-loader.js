@@ -22,7 +22,8 @@ const PXSLoader = {
     'helpers/ImageHelpers.js',
     'helpers/AnimationHelpers.js',
     'storage/StorageAdapters.js',
-    'CellAnimator.js'
+    'CellAnimator.js',
+    'ui/FrameDeck.js'
   ],
   
   loaded: false,

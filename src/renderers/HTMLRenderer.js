@@ -164,6 +164,11 @@ class HTMLRenderer extends BaseRenderer {
         cell.addEventListener('click', (e) => {
             this.animator._emit('cellClick', { x, y, element: cell, event: e });
         });
+        
+        // Add double-click listener for editor mode
+        cell.addEventListener('dblclick', (e) => {
+            this.animator._emit('cellDblClick', { x, y, element: cell, event: e });
+        });
 
         return cell;
     }

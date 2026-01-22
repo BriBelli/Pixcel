@@ -169,6 +169,15 @@ class HTMLRenderer extends BaseRenderer {
         cell.addEventListener('dblclick', (e) => {
             this.animator._emit('cellDblClick', { x, y, element: cell, event: e });
         });
+        
+        // Add hover listeners for tooltips
+        cell.addEventListener('mouseenter', (e) => {
+            this.animator._emit('cellHover', { x, y, element: cell, event: e });
+        });
+        
+        cell.addEventListener('mouseleave', (e) => {
+            this.animator._emit('cellLeave', { x, y, element: cell, event: e });
+        });
 
         return cell;
     }

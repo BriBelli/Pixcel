@@ -130,29 +130,42 @@
     /* Floating Border Toggle */
     .pxs-border-toggle {
       position: absolute;
-      bottom: 20px;
-      right: 20px;
-      width: 48px;
-      height: 48px;
-      background: var(--pxs-bg-elevated);
-      border: 2px solid var(--pxs-border);
-      border-radius: 50%;
+      top: 12px;
+      right: 12px;
+      width: 32px;
+      height: 32px;
+      background: transparent;
+      border: 1px solid #30363d;
+      border-radius: 16px;
       cursor: pointer;
-      font-size: 20px;
       display: flex;
       align-items: center;
       justify-content: center;
-      transition: all 0.2s ease;
+      transition: all 0.15s ease;
       z-index: 100;
-      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    }
+    .pxs-border-toggle svg {
+      width: 14px;
+      height: 14px;
+      transition: all 0.15s ease;
+    }
+    /* Default/inactive state = borders hidden = muted gray icon */
+    .pxs-border-toggle .border-icon-path {
+      stroke: #6e7681;
     }
     .pxs-border-toggle:hover {
-      transform: scale(1.1);
-      border-color: var(--pxs-accent-primary);
-      box-shadow: 0 6px 16px rgba(88, 166, 255, 0.4);
+      border-color: #58a6ff;
+      box-shadow: 0 0 0 2px rgba(56, 139, 253, 0.25), 0 0 8px rgba(56, 139, 253, 0.15);
+    }
+    .pxs-border-toggle:hover .border-icon-path {
+      stroke: #58a6ff;
     }
     .pxs-border-toggle:active {
       transform: scale(0.95);
+    }
+    /* Active state = borders visible = solid blue icon */
+    .pxs-border-toggle--active .border-icon-path {
+      stroke: #58a6ff;
     }
     
     /* Section tabs */
@@ -534,6 +547,63 @@
     .pxs-meta-card__value--small {
       font-size: 13px;
       color: var(--pxs-text-primary);
+    }
+    
+    /* Frame Preview (Animation Inspector) */
+    .pxs-frame-preview {
+      padding: 6px;
+      background: var(--pxs-bg-tertiary);
+      border: 1px solid var(--pxs-border);
+      border-radius: var(--pxs-radius-sm);
+      transition: all 0.15s ease;
+    }
+    .pxs-frame-preview:hover {
+      border-color: var(--pxs-accent-primary);
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+    }
+    .pxs-frame-preview canvas {
+      display: block;
+    }
+    
+    /* Cell Tooltip */
+    .pxs-cell-tooltip {
+      position: fixed;
+      background: var(--pxs-bg-elevated, #1c2128);
+      border: 1px solid var(--pxs-border);
+      border-radius: var(--pxs-radius-sm);
+      padding: 6px 10px;
+      font-size: 11px;
+      color: var(--pxs-text-primary);
+      pointer-events: none;
+      z-index: 9999;
+      opacity: 0;
+      transform: translateY(4px);
+      transition: opacity 0.15s ease, transform 0.15s ease;
+      white-space: nowrap;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+    }
+    .pxs-cell-tooltip.active {
+      opacity: 1;
+      transform: translateY(0);
+    }
+    .pxs-cell-tooltip__color {
+      display: inline-block;
+      width: 12px;
+      height: 12px;
+      border-radius: 2px;
+      border: 1px solid rgba(255,255,255,0.2);
+      vertical-align: middle;
+      margin-right: 6px;
+    }
+    .pxs-cell-tooltip__coord {
+      font-family: 'JetBrains Mono', monospace;
+      color: var(--pxs-accent-primary);
+    }
+    .pxs-cell-tooltip__hint {
+      font-size: 10px;
+      color: var(--pxs-text-muted);
+      margin-top: 4px;
     }
     
     /* Code Panel */
@@ -955,8 +1025,8 @@
         <div class="pxs-ide__sidebar-section">
           <div class="pxs-ide__sidebar-title"><span>💾 Data</span></div>
           <div class="pxs-ide__sidebar-content">
-            <button class="pxs-btn" onclick="Demo.logAnimationData()" style="width: 100%; margin-bottom: 6px;">
-              📋 Log to Console
+            <button class="pxs-btn pxs-btn--accent" onclick="Demo.openAnimationInspector()" style="width: 100%; margin-bottom: 6px;">
+              🔍 Inspect Animation
             </button>
             <button class="pxs-btn" onclick="Demo.addCurrentFrameToAnimation()" style="width: 100%;">
               ➕ Add Current as Frame
@@ -978,8 +1048,11 @@
         <div id="pxs-canvas" class="pxs-ide__canvas"></div>
         
         <!-- Floating Border Toggle -->
-        <button class="pxs-border-toggle" id="border-toggle" onclick="Demo.toggleBorders()" title="Toggle cell borders">
-          <span id="border-icon">🔲</span>
+        <button class="pxs-border-toggle pxs-border-toggle--active" id="border-toggle" onclick="Demo.toggleBorders()" title="Toggle cell borders">
+          <svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <!-- Single cell with top and left border only -->
+            <path class="border-icon-path" d="M2 14V2.5C2 2.22 2.22 2 2.5 2H14" stroke-width="2" stroke-linecap="round" fill="none"/>
+          </svg>
         </button>
         
         <!-- Loading -->
@@ -1142,7 +1215,7 @@
   </div>
 
   <!-- Load PXS -->
-  <script src="shared/pxs-loader.js?v=20260122c"></script>
+  <script src="shared/pxs-loader.js?v=20260122e"></script>
   <script>
     // Demo Application
     const Demo = {
@@ -1633,6 +1706,58 @@
         this.animator.on('cellDblClick', (data) => {
           this.openCellEditor(data.x, data.y);
         });
+        
+        // Cell hover for tooltips
+        this._cellHoverTimeout = null;
+        this.animator.on('cellHover', (data) => {
+          // Debounce tooltip display (500ms delay)
+          clearTimeout(this._cellHoverTimeout);
+          this._cellHoverTimeout = setTimeout(() => {
+            this.showCellTooltip(data.x, data.y, data.event);
+          }, 500);
+        });
+        
+        this.animator.on('cellLeave', () => {
+          clearTimeout(this._cellHoverTimeout);
+          this.hideCellTooltip();
+        });
+      },
+      
+      showCellTooltip(x, y, event) {
+        const tooltip = document.getElementById('cell-tooltip');
+        const colorEl = document.getElementById('tooltip-color');
+        const coordEl = document.getElementById('tooltip-coord');
+        
+        // Get cell color
+        const cell = this.animator.getCell(x, y);
+        const color = cell?.styles?.background || cell?.element?.style?.backgroundColor || '#2a2a2a';
+        
+        // Update tooltip content
+        colorEl.style.background = color;
+        coordEl.textContent = `(${x}, ${y})`;
+        
+        // Position tooltip near cursor
+        const offsetX = 15;
+        const offsetY = 15;
+        let left = event.clientX + offsetX;
+        let top = event.clientY + offsetY;
+        
+        // Keep tooltip in viewport
+        const tooltipRect = tooltip.getBoundingClientRect();
+        if (left + 150 > window.innerWidth) {
+          left = event.clientX - 150 - offsetX;
+        }
+        if (top + 60 > window.innerHeight) {
+          top = event.clientY - 60 - offsetY;
+        }
+        
+        tooltip.style.left = left + 'px';
+        tooltip.style.top = top + 'px';
+        tooltip.classList.add('active');
+      },
+      
+      hideCellTooltip() {
+        document.getElementById('cell-tooltip').classList.remove('active');
       },
       
       updateGridInfo() {
@@ -1878,16 +2003,26 @@
         this.log('Animation', 'Gradient animation created (10 frames)');
       },
       
-      logAnimationData() {
+      openAnimationInspector() {
         if (!this.currentAnimation) {
-          console.log('📊 No animation loaded');
-          this.log('Animation', 'No animation to export');
+          this.log('Animation', 'No animation to inspect - create one first');
           return;
         }
         
+        this._editorData = this.currentAnimation;
+        this._editorType = 'animation';
+        
+        // Update header
+        document.getElementById('editor-icon').textContent = '🎬';
+        document.getElementById('editor-title').textContent = this.currentAnimation.metadata?.name || 'Animation';
+        document.getElementById('editor-subtitle').textContent = `${this.currentAnimation.frames.length} frames • ${this.currentAnimation.fps} FPS`;
+        
+        this._populateEditorPanels();
+        this._showEditor();
+        this.log('Editor', `Opened animation inspector`);
+        
+        // Also log to console for developers
         console.log('📊 Animation Data:', this.currentAnimation);
-        console.log('📊 JSON:', JSON.stringify(this.currentAnimation, null, 2));
-        this.log('Animation', 'Data logged to console (F12)');
       },
       
       addCurrentFrameToAnimation() {
@@ -1996,7 +2131,11 @@
       },
       
       _populateEditorPanels() {
-        if (this._editorType === 'frame') {
+        if (this._editorType === 'animation') {
+          this._populateAnimationMetadata();
+          this._populateAnimationCode();
+          this._populateAnimationFrames();
+        } else if (this._editorType === 'frame') {
           this._populateFrameMetadata();
           this._populateFrameCode();
           this._populateFrameCells();
@@ -2005,6 +2144,125 @@
           this._populateCellCode();
           this._populateCellNeighbors();
         }
+      },
+      
+      // Animation-specific panels
+      _populateAnimationMetadata() {
+        const anim = this._editorData;
+        const metaGrid = document.getElementById('editor-meta-grid');
+        
+        const duration = anim.frames.length > 0 ? ((anim.frames.length / anim.fps) * 1000).toFixed(0) : 0;
+        const totalCells = anim.frames[0]?.cells?.length || 0;
+        const dimensions = anim.frames[0] ? `${anim.frames[0].cols} × ${anim.frames[0].rows}` : 'N/A';
+        
+        metaGrid.innerHTML = `
+          <div class="pxs-meta-card">
+            <div class="pxs-meta-card__label">Frames</div>
+            <div class="pxs-meta-card__value">${anim.frames.length}</div>
+          </div>
+          <div class="pxs-meta-card">
+            <div class="pxs-meta-card__label">FPS</div>
+            <div class="pxs-meta-card__value">${anim.fps}</div>
+          </div>
+          <div class="pxs-meta-card">
+            <div class="pxs-meta-card__label">Duration</div>
+            <div class="pxs-meta-card__value">${duration}ms</div>
+          </div>
+          <div class="pxs-meta-card">
+            <div class="pxs-meta-card__label">Dimensions</div>
+            <div class="pxs-meta-card__value pxs-meta-card__value--small">${dimensions}</div>
+          </div>
+          <div class="pxs-meta-card">
+            <div class="pxs-meta-card__label">Cells/Frame</div>
+            <div class="pxs-meta-card__value">${totalCells.toLocaleString()}</div>
+          </div>
+          <div class="pxs-meta-card">
+            <div class="pxs-meta-card__label">Loop</div>
+            <div class="pxs-meta-card__value">${anim.metadata?.loop ? '✓ Yes' : '✗ No'}</div>
+          </div>
+        `;
+      },
+      
+      _populateAnimationCode() {
+        const anim = this._editorData;
+        const codeEditor = document.getElementById('editor-code');
+        const json = JSON.stringify(anim, null, 2);
+        
+        codeEditor.innerHTML = `<pre style="margin: 0; font-size: 11px; line-height: 1.5;">${this._syntaxHighlight(json)}</pre>`;
+      },
+      
+      _populateAnimationFrames() {
+        const anim = this._editorData;
+        const grid = document.getElementById('editor-cell-grid');
+        
+        let html = `
+          <div style="margin-bottom: 16px;">
+            <div style="font-size: 11px; color: var(--pxs-text-muted); margin-bottom: 8px;">
+              <strong>Frame Previews</strong> — Click any frame to inspect it
+            </div>
+            <div style="display: flex; flex-wrap: wrap; gap: 8px;">
+        `;
+        
+        anim.frames.forEach((frame, index) => {
+          // Create a mini canvas preview
+          const previewId = `frame-preview-${index}`;
+          html += `
+            <div class="pxs-frame-preview" onclick="Demo.openFrameEditor(${index})" style="cursor: pointer; text-align: center;">
+              <canvas id="${previewId}" width="48" height="36" style="border-radius: 4px; border: 1px solid var(--pxs-border); background: var(--pxs-bg-tertiary);"></canvas>
+              <div style="font-size: 9px; color: var(--pxs-text-muted); margin-top: 2px;">Frame ${index + 1}</div>
+            </div>
+          `;
+        });
+        
+        html += '</div></div>';
+        
+        // Add export options
+        html += `
+          <div style="margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--pxs-border);">
+            <div style="font-size: 11px; color: var(--pxs-text-muted); margin-bottom: 8px;"><strong>Quick Actions</strong></div>
+            <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+              <button class="pxs-btn pxs-btn--primary" onclick="Demo.copyEditorCode()" style="font-size: 11px; padding: 6px 12px;">
+                📋 Copy JSON
+              </button>
+              <button class="pxs-btn" onclick="Demo.downloadEditorCode()" style="font-size: 11px; padding: 6px 12px;">
+                💾 Download
+              </button>
+            </div>
+          </div>
+        `;
+        
+        grid.innerHTML = html;
+        
+        // Render mini previews after DOM update
+        setTimeout(() => {
+          anim.frames.forEach((frame, index) => {
+            const canvas = document.getElementById(`frame-preview-${index}`);
+            if (canvas) {
+              this._renderMiniPreview(canvas, frame);
+            }
+          });
+        }, 10);
+      },
+      
+      _renderMiniPreview(canvas, frame) {
+        const ctx = canvas.getContext('2d');
+        const cellWidth = canvas.width / frame.cols;
+        const cellHeight = canvas.height / frame.rows;
+        
+        // Clear
+        ctx.fillStyle = '#0d1117';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        
+        // Draw cells
+        frame.cells.forEach(cell => {
+          ctx.fillStyle = cell.color;
+          ctx.fillRect(
+            cell.x * cellWidth,
+            cell.y * cellHeight,
+            Math.ceil(cellWidth),
+            Math.ceil(cellHeight)
+          );
+        });
       },
       
       _populateFrameMetadata() {
@@ -2576,15 +2834,16 @@
         // Programmatically set borders without toggle
         this.bordersEnabled = enabled;
         
-        // Update button icon
-        const icon = document.getElementById('border-icon');
+        // Update button appearance
         const btn = document.getElementById('border-toggle');
-        if (icon && btn) {
+        if (btn) {
           if (this.bordersEnabled) {
-            icon.textContent = '🔲';
+            btn.classList.add('pxs-border-toggle--active');
+            btn.classList.remove('pxs-border-toggle--inactive');
             btn.title = 'Hide cell borders';
           } else {
-            icon.textContent = '⬜';
+            btn.classList.remove('pxs-border-toggle--active');
+            btn.classList.add('pxs-border-toggle--inactive');
             btn.title = 'Show cell borders';
           }
         }
@@ -2618,5 +2877,14 @@
     // Initialize on load
     window.addEventListener('DOMContentLoaded', () => Demo.init());
   </script>
+  
+  <!-- Cell Tooltip -->
+  <div class="pxs-cell-tooltip" id="cell-tooltip">
+    <div>
+      <span class="pxs-cell-tooltip__color" id="tooltip-color"></span>
+      <span class="pxs-cell-tooltip__coord" id="tooltip-coord">(0, 0)</span>
+    </div>
+    <div class="pxs-cell-tooltip__hint">Double-click to inspect</div>
+  </div>
 </body>
 </html>

@@ -127,6 +127,34 @@
       cursor: pointer;
     }
     
+    /* Floating Border Toggle */
+    .pxs-border-toggle {
+      position: absolute;
+      bottom: 20px;
+      right: 20px;
+      width: 48px;
+      height: 48px;
+      background: var(--pxs-bg-elevated);
+      border: 2px solid var(--pxs-border);
+      border-radius: 50%;
+      cursor: pointer;
+      font-size: 20px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.2s ease;
+      z-index: 100;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    }
+    .pxs-border-toggle:hover {
+      transform: scale(1.1);
+      border-color: var(--pxs-accent-primary);
+      box-shadow: 0 6px 16px rgba(88, 166, 255, 0.4);
+    }
+    .pxs-border-toggle:active {
+      transform: scale(0.95);
+    }
+    
     /* Section tabs */
     .section-tabs {
       display: flex;
@@ -292,15 +320,7 @@
           </div>
         </div>
         
-        <!-- Grid Options -->
-        <div class="pxs-ide__sidebar-section">
-          <div class="pxs-ide__sidebar-title"><span>⚙️ Grid Options</span></div>
-          <div class="pxs-ide__sidebar-content">
-            <button class="pxs-btn" id="toggle-borders" onclick="Demo.toggleBorders()">
-              <span id="borders-icon">🔲</span> Hide Borders
-            </button>
-          </div>
-        </div>
+        <!-- Grid Options - Removed, now using floating toggle -->
       </div>
       
       <!-- Effects Section -->
@@ -357,35 +377,35 @@
             
             <div id="image-controls" style="display: none;">
               <button class="pxs-btn pxs-btn--primary" onclick="Demo.renderImage()" style="width: 100%; margin-bottom: 8px;">
-                🎨 Render to Grid
+                🎨 Render (Preserves Aspect)
               </button>
               
               <div style="margin-top: 12px;">
                 <div class="pxs-stat__label" style="margin-bottom: 8px;">Render Quality</div>
                 <div class="res-presets">
-                  <button class="res-preset" onclick="Demo.renderImageAtRes(16, 16)">
+                  <button class="res-preset" onclick="Demo.renderImageAtQuality(16)">
                     <span class="res-preset__name">Retro</span>
-                    <span class="res-preset__size">16×16</span>
+                    <span class="res-preset__size">~16px</span>
                   </button>
-                  <button class="res-preset" onclick="Demo.renderImageAtRes(32, 32)">
+                  <button class="res-preset" onclick="Demo.renderImageAtQuality(32)">
                     <span class="res-preset__name">Low</span>
-                    <span class="res-preset__size">32×32</span>
+                    <span class="res-preset__size">~32px</span>
                   </button>
-                  <button class="res-preset" onclick="Demo.renderImageAtRes(64, 64)">
+                  <button class="res-preset" onclick="Demo.renderImageAtQuality(64)">
                     <span class="res-preset__name">Medium</span>
-                    <span class="res-preset__size">64×64</span>
+                    <span class="res-preset__size">~64px</span>
                   </button>
-                  <button class="res-preset" onclick="Demo.renderImageAtRes(128, 128)">
+                  <button class="res-preset" onclick="Demo.renderImageAtQuality(128)">
                     <span class="res-preset__name">High</span>
-                    <span class="res-preset__size">128×128</span>
+                    <span class="res-preset__size">~128px</span>
                   </button>
-                  <button class="res-preset" onclick="Demo.renderImageAtRes(200, 200)">
+                  <button class="res-preset" onclick="Demo.renderImageAtQuality(200)">
                     <span class="res-preset__name">HD</span>
-                    <span class="res-preset__size">200×200</span>
+                    <span class="res-preset__size">~200px</span>
                   </button>
-                  <button class="res-preset" onclick="Demo.renderImageAtRes(300, 300)">
+                  <button class="res-preset" onclick="Demo.renderImageAtQuality(300)">
                     <span class="res-preset__name">Ultra</span>
-                    <span class="res-preset__size">300×300</span>
+                    <span class="res-preset__size">~300px</span>
                   </button>
                 </div>
               </div>
@@ -419,6 +439,11 @@
       
       <div class="pxs-ide__canvas-wrap">
         <div id="pxs-canvas" class="pxs-ide__canvas"></div>
+        
+        <!-- Floating Border Toggle -->
+        <button class="pxs-border-toggle" id="border-toggle" onclick="Demo.toggleBorders()" title="Toggle cell borders">
+          <span id="border-icon">🔲</span>
+        </button>
         
         <!-- Loading -->
         <div class="pxs-ide__loading" id="loading">
@@ -520,7 +545,7 @@
   <canvas id="image-processor" style="display: none;"></canvas>
 
   <!-- Load PXS -->
-  <script src="shared/pxs-loader.js?v=20260121f"></script>
+  <script src="shared/pxs-loader.js?v=20260121m"></script>
   <script>
     // Demo Application
     const Demo = {
@@ -529,6 +554,7 @@
       currentCols: 40,
       currentRows: 30,
       bordersEnabled: true,
+      _isRenderingImage: false,  // Flag to prevent effects from interfering during image render
       
       // Track current effect state for re-application after resolution change
       currentEffect: null,  // { type: 'animation'|'pattern', name: string }
@@ -639,9 +665,12 @@
         
         this.log('Grid', `Created ${cols}×${rows} = ${totalCells.toLocaleString()} cells (${renderMode})`);
         
-        // Re-apply current effect after grid recreation (unless we're changing for image render)
-        if (this.currentEffect && !this.loadedImage) {
+        // Re-apply current effect after grid recreation (unless we're rendering an image)
+        if (this.currentEffect && !this.loadedImage && !this._isRenderingImage) {
           this._reapplyCurrentEffect();
+        } else if (this.loadedImage && !this._isRenderingImage) {
+          // Clear any active effects when image is loaded (image render will happen separately)
+          this.currentEffect = null;
         }
       },
       
@@ -722,7 +751,24 @@
             document.getElementById('image-controls').style.display = 'block';
             document.getElementById('benchmark-btn').disabled = false;
             
-            this.log('Image', `Loaded ${img.width}×${img.height} image`);
+            // Calculate suggested grid size based on aspect ratio
+            const maxWidth = 400;
+            const maxHeight = 300;
+            const imgAspect = img.width / img.height;
+            
+            let suggestedCols, suggestedRows;
+            if (imgAspect > 1) {
+              suggestedCols = Math.min(maxWidth, Math.floor(img.width / 4));
+              suggestedRows = Math.floor(suggestedCols / imgAspect);
+            } else {
+              suggestedRows = Math.min(maxHeight, Math.floor(img.height / 4));
+              suggestedCols = Math.floor(suggestedRows * imgAspect);
+            }
+            
+            suggestedCols = Math.max(16, suggestedCols);
+            suggestedRows = Math.max(16, suggestedRows);
+            
+            this.log('Image', `Loaded ${img.width}×${img.height} image (suggested grid: ${suggestedCols}×${suggestedRows})`);
           };
           img.src = e.target.result;
         };
@@ -741,55 +787,191 @@
       },
       
       async renderImage() {
-        if (!this.loadedImage) return;
-        await this.renderImageAtRes(this.currentCols, this.currentRows);
+        if (!this.loadedImage) {
+          this.log('Image', 'No image loaded');
+          return;
+        }
+        
+        // Always adjust grid to match image aspect ratio
+        if (this.animator) {
+          // Use current grid's total cell count to determine quality level
+          const currentCellCount = this.currentCols * this.currentRows;
+          
+          // Calculate new cols/rows that match image aspect ratio
+          const imgAspect = this.loadedImage.width / this.loadedImage.height;
+          
+          // Calculate target size maintaining similar cell count
+          let cols, rows;
+          if (imgAspect >= 1) {
+            // Landscape: calculate based on aspect ratio
+            cols = Math.round(Math.sqrt(currentCellCount * imgAspect));
+            rows = Math.round(cols / imgAspect);
+          } else {
+            // Portrait: calculate based on aspect ratio
+            rows = Math.round(Math.sqrt(currentCellCount / imgAspect));
+            cols = Math.round(rows * imgAspect);
+          }
+          
+          // Ensure minimum size
+          cols = Math.max(16, cols);
+          rows = Math.max(16, rows);
+          
+          this.log('Image', `Adjusted grid to ${cols}×${rows} (aspect: ${imgAspect.toFixed(2)}, ~${cols*rows} cells)`);
+          await this.renderImageAtRes(cols, rows);
+          return;
+        }
+        
+        // Otherwise, auto-calculate based on image aspect ratio
+        const defaultQuality = 200;
+        await this.renderImageAtQuality(defaultQuality);
+      },
+      
+      async renderImageAtQuality(maxSize) {
+        if (!this.loadedImage) {
+          this.log('Image', 'No image loaded');
+          return;
+        }
+        
+        // Calculate grid size based on image aspect ratio
+        const imgAspect = this.loadedImage.width / this.loadedImage.height;
+        
+        let cols, rows;
+        if (imgAspect >= 1) {
+          // Landscape: fit to width
+          cols = maxSize;
+          rows = Math.round(maxSize / imgAspect);
+        } else {
+          // Portrait: fit to height
+          rows = maxSize;
+          cols = Math.round(maxSize * imgAspect);
+        }
+        
+        // Ensure minimum size
+        cols = Math.max(16, cols);
+        rows = Math.max(16, rows);
+        
+        this.log('Image', `Rendering at ${cols}×${rows} (quality: ${maxSize}px, aspect: ${imgAspect.toFixed(2)})`);
+        await this.renderImageAtRes(cols, rows);
       },
       
       async renderImageAtRes(cols, rows) {
-        if (!this.loadedImage) return;
-        
-        const startTime = performance.now();
-        
-        // Create grid if different size
-        if (cols !== this.currentCols || rows !== this.currentRows) {
-          await this.createGrid(cols, rows);
+        if (!this.loadedImage) {
+          this.log('Image', 'No image loaded');
+          return;
         }
         
-        // Get pixel data from image
-        const canvas = document.getElementById('image-processor');
-        const ctx = canvas.getContext('2d');
+        this._isRenderingImage = true; // Prevent effects from interfering
+        
+        try {
+          const startTime = performance.now();
+          
+          // Auto-hide borders for photo-realistic rendering
+          this.setBorders(false);
+          
+          // Create grid if different size or doesn't exist
+          if (!this.animator || cols !== this.currentCols || rows !== this.currentRows) {
+            this.log('Image', `Creating ${cols}×${rows} grid...`);
+            await this.createGrid(cols, rows);
+          }
+        
+        // Ensure image processor canvas exists
+        let canvas = document.getElementById('image-processor');
+        if (!canvas) {
+          canvas = document.createElement('canvas');
+          canvas.id = 'image-processor';
+          canvas.style.display = 'none';
+          document.body.appendChild(canvas);
+        }
+        
+        // Set willReadFrequently for better getImageData performance
+        const ctx = canvas.getContext('2d', { willReadFrequently: true });
+        
+        // Use block averaging for clean pixel art conversion
+        const sourceWidth = this.loadedImage.width;
+        const sourceHeight = this.loadedImage.height;
+        
+        // Draw source image at full size to temp canvas
+        const tempCanvas = document.createElement('canvas');
+        const tempCtx = tempCanvas.getContext('2d', { willReadFrequently: true });
+        tempCanvas.width = sourceWidth;
+        tempCanvas.height = sourceHeight;
+        tempCtx.drawImage(this.loadedImage, 0, 0);
+        const sourceData = tempCtx.getImageData(0, 0, sourceWidth, sourceHeight);
+        
+        // Calculate block size
+        const blockWidth = sourceWidth / cols;
+        const blockHeight = sourceHeight / rows;
+        
+        // Create output at target resolution
         canvas.width = cols;
         canvas.height = rows;
+        const imageData = ctx.createImageData(cols, rows);
         
-        // Draw image scaled to grid size
-        ctx.drawImage(this.loadedImage, 0, 0, cols, rows);
-        const imageData = ctx.getImageData(0, 0, cols, rows);
+        // Block average: sample all pixels in each block
+        for (let cellY = 0; cellY < rows; cellY++) {
+          for (let cellX = 0; cellX < cols; cellX++) {
+            // Calculate source block bounds
+            const srcX1 = Math.floor(cellX * blockWidth);
+            const srcY1 = Math.floor(cellY * blockHeight);
+            const srcX2 = Math.floor((cellX + 1) * blockWidth);
+            const srcY2 = Math.floor((cellY + 1) * blockHeight);
+            
+            // Average all pixels in this block
+            let r = 0, g = 0, b = 0, count = 0;
+            
+            for (let y = srcY1; y < srcY2 && y < sourceHeight; y++) {
+              for (let x = srcX1; x < srcX2 && x < sourceWidth; x++) {
+                const idx = (y * sourceWidth + x) * 4;
+                r += sourceData.data[idx];
+                g += sourceData.data[idx + 1];
+                b += sourceData.data[idx + 2];
+                count++;
+              }
+            }
+            
+            // Set averaged color
+            const outIdx = (cellY * cols + cellX) * 4;
+            imageData.data[outIdx] = Math.round(r / count);
+            imageData.data[outIdx + 1] = Math.round(g / count);
+            imageData.data[outIdx + 2] = Math.round(b / count);
+            imageData.data[outIdx + 3] = 255;
+          }
+        }
         
-        // Convert to cell updates
+        ctx.putImageData(imageData, 0, 0);
+        
+        // Convert to cell updates (directly, CanvasRenderer handles batching)
         const updates = [];
+        const data = imageData.data;
         for (let y = 0; y < rows; y++) {
           for (let x = 0; x < cols; x++) {
             const i = (y * cols + x) * 4;
-            const r = imageData.data[i];
-            const g = imageData.data[i + 1];
-            const b = imageData.data[i + 2];
-            
             updates.push({
               x, y,
               styles: {
-                background: `rgb(${r}, ${g}, ${b})`
+                background: `rgb(${data[i]}, ${data[i + 1]}, ${data[i + 2]})`
               }
             });
           }
         }
         
-        // Apply to grid
-        this.animator.updateCells(updates);
-        
-        const elapsed = (performance.now() - startTime).toFixed(1);
-        this.log('Render', `${cols}×${rows} in ${elapsed}ms`);
-        
-        return elapsed;
+        // Apply to grid (ensure animator still exists)
+        if (this.animator) {
+          this.animator.updateCells(updates);
+          
+          // Force redraw for Canvas renderer
+          if (this.animator.renderer && this.animator.renderer._drawGrid) {
+            this.animator.renderer._drawGrid();
+          }
+        }
+          
+          const elapsed = (performance.now() - startTime).toFixed(1);
+          this.log('Render', `${cols}×${rows} in ${elapsed}ms`);
+          
+          return elapsed;
+        } finally {
+          this._isRenderingImage = false; // Clear flag
+        }
       },
       
       async runBenchmark() {
@@ -1287,13 +1469,25 @@
       
       toggleBorders() {
         this.bordersEnabled = !this.bordersEnabled;
+        this.setBorders(this.bordersEnabled);
+        this.log('Grid', `Borders ${this.bordersEnabled ? 'shown' : 'hidden'}`);
+      },
+      
+      setBorders(enabled) {
+        // Programmatically set borders without toggle
+        this.bordersEnabled = enabled;
         
-        // Update button text
-        const btn = document.getElementById('toggle-borders');
-        if (this.bordersEnabled) {
-          btn.innerHTML = '<span id="borders-icon">🔲</span> Hide Borders';
-        } else {
-          btn.innerHTML = '<span id="borders-icon">⬜</span> Show Borders';
+        // Update button icon
+        const icon = document.getElementById('border-icon');
+        const btn = document.getElementById('border-toggle');
+        if (icon && btn) {
+          if (this.bordersEnabled) {
+            icon.textContent = '🔲';
+            btn.title = 'Hide cell borders';
+          } else {
+            icon.textContent = '⬜';
+            btn.title = 'Show cell borders';
+          }
         }
         
         // Update renderer config
@@ -1319,8 +1513,6 @@
             });
           }
         }
-        
-        this.log('Grid', `Borders ${this.bordersEnabled ? 'shown' : 'hidden'}`);
       }
     };
     

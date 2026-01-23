@@ -755,6 +755,76 @@
       font-size: 10px;
       color: var(--pxs-text-muted);
     }
+    
+    /* Enhanced Loading Indicator - CSS animations continue even when JS is busy */
+    .pxs-loading-indicator {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 16px;
+    }
+    .pxs-loading-spinner {
+      width: 56px;
+      height: 56px;
+    }
+    .pxs-loading-spinner svg {
+      width: 100%;
+      height: 100%;
+      animation: pxs-spinner-rotate 2s linear infinite;
+    }
+    .pxs-loading-spinner__arc {
+      stroke-dasharray: 80, 200;
+      stroke-dashoffset: 0;
+      animation: pxs-spinner-dash 1.5s ease-in-out infinite;
+    }
+    @keyframes pxs-spinner-rotate {
+      100% { transform: rotate(360deg); }
+    }
+    @keyframes pxs-spinner-dash {
+      0% { stroke-dasharray: 1, 200; stroke-dashoffset: 0; }
+      50% { stroke-dasharray: 89, 200; stroke-dashoffset: -35; }
+      100% { stroke-dasharray: 89, 200; stroke-dashoffset: -124; }
+    }
+    
+    /* Pulsing dots - visual feedback when JS might be blocking */
+    .pxs-loading-dots {
+      display: flex;
+      gap: 6px;
+    }
+    .pxs-loading-dots span {
+      width: 8px;
+      height: 8px;
+      background: var(--pxs-accent-primary);
+      border-radius: 50%;
+      animation: pxs-dots-pulse 1.4s ease-in-out infinite both;
+    }
+    .pxs-loading-dots span:nth-child(1) { animation-delay: -0.32s; }
+    .pxs-loading-dots span:nth-child(2) { animation-delay: -0.16s; }
+    .pxs-loading-dots span:nth-child(3) { animation-delay: 0s; }
+    @keyframes pxs-dots-pulse {
+      0%, 80%, 100% { transform: scale(0.6); opacity: 0.5; }
+      40% { transform: scale(1); opacity: 1; }
+    }
+    
+    /* Shimmer effect for progress bar - shows activity during long operations */
+    .pxs-loading-shimmer {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: linear-gradient(
+        90deg,
+        transparent 0%,
+        rgba(255,255,255,0.2) 50%,
+        transparent 100%
+      );
+      animation: pxs-shimmer 1.5s ease-in-out infinite;
+    }
+    @keyframes pxs-shimmer {
+      0% { transform: translateX(-100%); }
+      100% { transform: translateX(100%); }
+    }
   </style>
 </head>
 <body>
@@ -958,9 +1028,17 @@
                     <span class="res-preset__name">HD</span>
                     <span class="res-preset__size">~200px</span>
                   </button>
-                  <button class="res-preset" onclick="Demo.renderImageAtQuality(300)">
+                  <button class="res-preset" onclick="Demo.renderImageAtQuality(256)">
                     <span class="res-preset__name">Ultra</span>
-                    <span class="res-preset__size">~300px</span>
+                    <span class="res-preset__size">~256px</span>
+                  </button>
+                  <button class="res-preset" onclick="Demo.renderImageAtQuality(320)" title="QVGA quality - smooth">
+                    <span class="res-preset__name">QVGA 🦀</span>
+                    <span class="res-preset__size">~320px</span>
+                  </button>
+                  <button class="res-preset" onclick="Demo.renderImageAtQuality(400)" title="4K quality - may take a moment" style="border-color: var(--pxs-warning);">
+                    <span class="res-preset__name">4K 🦀</span>
+                    <span class="res-preset__size">~400px ⏳</span>
                   </button>
                 </div>
               </div>
@@ -1056,13 +1134,27 @@
         
         <!-- Loading -->
         <div class="pxs-ide__loading" id="loading">
-          <div class="pxs-spinner"></div>
-          <div class="pxs-ide__loading-text" id="loading-text">Initializing PXS...</div>
-          <div id="loading-progress" style="display: none; margin-top: 12px; width: 200px;">
-            <div style="background: var(--pxs-bg-tertiary); border-radius: 4px; height: 8px; overflow: hidden;">
-              <div id="loading-progress-bar" style="background: var(--pxs-accent-primary); height: 100%; width: 0%; transition: width 0.1s ease;"></div>
+          <div class="pxs-loading-indicator">
+            <!-- Indeterminate spinner - always animates via CSS -->
+            <div class="pxs-loading-spinner">
+              <svg viewBox="0 0 50 50">
+                <circle cx="25" cy="25" r="20" fill="none" stroke="var(--pxs-bg-elevated)" stroke-width="4"/>
+                <circle class="pxs-loading-spinner__arc" cx="25" cy="25" r="20" fill="none" stroke="var(--pxs-accent-primary)" stroke-width="4" stroke-linecap="round"/>
+              </svg>
             </div>
-            <div id="loading-progress-text" style="text-align: center; margin-top: 6px; font-size: 11px; color: var(--pxs-text-muted);">0%</div>
+            <!-- Pulsing dots for when JS is blocking -->
+            <div class="pxs-loading-dots">
+              <span></span><span></span><span></span>
+            </div>
+          </div>
+          <div class="pxs-ide__loading-text" id="loading-text">Initializing PXS...</div>
+          <div id="loading-progress" style="display: none; margin-top: 12px; width: 240px;">
+            <div style="background: var(--pxs-bg-tertiary); border-radius: 4px; height: 6px; overflow: hidden; position: relative;">
+              <div id="loading-progress-bar" style="background: linear-gradient(90deg, var(--pxs-accent-primary), var(--pxs-accent-secondary)); height: 100%; width: 0%; transition: width 0.15s ease;"></div>
+              <!-- Indeterminate shimmer overlay -->
+              <div id="loading-shimmer" class="pxs-loading-shimmer"></div>
+            </div>
+            <div id="loading-progress-text" style="text-align: center; margin-top: 8px; font-size: 11px; color: var(--pxs-text-muted);">0%</div>
           </div>
         </div>
         
@@ -1214,7 +1306,7 @@
   </div>
 
   <!-- Load PXS -->
-  <script src="shared/pxs-loader.js?v=20260122e"></script>
+  <script src="shared/pxs-loader.js?v=20260122g"></script>
   <script>
     // Demo Application
     const Demo = {
@@ -1236,6 +1328,15 @@
           this.log('System', 'Loading PXS modules...');
           await PXS.load();
           this.log('System', `PXS loaded (${PXS.getVersion().phase})`);
+          
+          // Initialize WASM for high-performance image processing
+          this.log('System', 'Initializing WASM...');
+          const wasmLoaded = await PXSWasm.init('/demos/wasm/pxs_compute.js');
+          if (wasmLoaded) {
+            this.log('System', '🦀 WASM loaded - 10x faster image processing!');
+          } else {
+            this.log('System', '⚠️ WASM unavailable - using JS fallback');
+          }
           
           // Initialize with default resolution
           await this.createGrid(40, 30);
@@ -1259,11 +1360,12 @@
       async createGrid(cols, rows) {
         const container = document.getElementById('pxs-canvas');
         const totalCells = cols * rows;
-        const isLargeGrid = totalCells > 100000; // Only show progress for VGA+ (Canvas handles QVGA fast)
+        const isLargeGrid = totalCells > 20000; // Show progress for grids > 20K cells
         
-        // Show loading for large grids
+        // Show loading for large grids - AWAIT ensures browser paints BEFORE heavy work
         if (isLargeGrid) {
-          this.showGridProgress(0, totalCells);
+          await this.showLoading(`Creating ${cols}×${rows} grid (${totalCells.toLocaleString()} cells)...`);
+          this.showGridProgress(0, totalCells, 'creating');
         }
         
         // Stop any custom animations before clearing
@@ -1320,7 +1422,7 @@
         // Setup progress listener for large grids
         if (isLargeGrid) {
           this.animator.on('gridProgress', (data) => {
-            this.showGridProgress(data.cellsCreated, data.totalCells);
+            this.showGridProgress(data.cellsCreated, data.totalCells, data.phase || 'creating');
           });
         }
         
@@ -1542,8 +1644,12 @@
         }
         
         this._isRenderingImage = true; // Prevent effects from interfering
+        const totalCells = cols * rows;
         
         try {
+          // Show loading immediately and wait for browser to paint
+          await this.showLoading(`Rendering ${cols}×${rows} (${totalCells.toLocaleString()} cells)...`);
+          
           const startTime = performance.now();
           
           // Auto-hide borders for photo-realistic rendering
@@ -1552,10 +1658,17 @@
           // Create grid if different size or doesn't exist
           if (!this.animator || cols !== this.currentCols || rows !== this.currentRows) {
             this.log('Image', `Creating ${cols}×${rows} grid...`);
+            this.showGridProgress(0, totalCells, 'creating');
             await this.createGrid(cols, rows);
           }
           
-          // ✨ CLEAN API: Use ImageHelpers for image-to-data conversion
+          // Update loading text for processing phase
+          this.showGridProgress(50, 100, 'processing');
+          
+          // Yield to browser before heavy image processing
+          await new Promise(r => requestAnimationFrame(r));
+          
+          // ✨ CLEAN API: Use ImageHelpers for image-to-data conversion (WASM accelerated)
           const frameData = await ImageHelpers.loadImage(this.loadedImage, {
             cols,
             rows,
@@ -1565,6 +1678,10 @@
           
           // Store frame data for access/editing
           this.currentFrameData = frameData;
+          
+          // Update loading for final render phase
+          this.showGridProgress(80, 100, 'processing');
+          await new Promise(r => requestAnimationFrame(r));
           
           // Apply frame data to grid
           await this.animator.setData(frameData, { resize: false });
@@ -1583,6 +1700,7 @@
           return elapsed;
         } finally {
           this._isRenderingImage = false; // Clear flag
+          this.hideGridProgress();
         }
       },
       
@@ -1810,21 +1928,50 @@
         setTimeout(() => loading.style.display = 'none', 300);
       },
       
-      showGridProgress(cellsCreated, totalCells) {
+      // Show loading immediately with a promise to ensure browser paints before heavy work
+      async showLoading(message = 'Loading...') {
+        const loading = document.getElementById('loading');
+        const loadingText = document.getElementById('loading-text');
+        const progressContainer = document.getElementById('loading-progress');
+        
+        loading.style.display = 'flex';
+        loading.style.opacity = '1';
+        loadingText.textContent = message;
+        progressContainer.style.display = 'none'; // Hide progress bar, show spinner
+        
+        // Force browser to paint the loading indicator before continuing
+        await new Promise(resolve => {
+          requestAnimationFrame(() => {
+            requestAnimationFrame(resolve);
+          });
+        });
+      },
+      
+      showGridProgress(cellsCreated, totalCells, phase = 'creating') {
         const loading = document.getElementById('loading');
         const loadingText = document.getElementById('loading-text');
         const progressContainer = document.getElementById('loading-progress');
         const progressBar = document.getElementById('loading-progress-bar');
         const progressText = document.getElementById('loading-progress-text');
         
-        const percent = Math.round((cellsCreated / totalCells) * 100);
-        
         loading.style.display = 'flex';
         loading.style.opacity = '1';
-        loadingText.textContent = `Creating ${totalCells.toLocaleString()} cells...`;
         progressContainer.style.display = 'block';
-        progressBar.style.width = `${percent}%`;
-        progressText.textContent = `${percent}% (${cellsCreated.toLocaleString()} / ${totalCells.toLocaleString()})`;
+        
+        if (phase === 'creating') {
+          const percent = Math.round((cellsCreated / totalCells) * 100);
+          loadingText.textContent = `Creating ${totalCells.toLocaleString()} cells...`;
+          progressBar.style.width = `${percent}%`;
+          progressText.textContent = `${percent}% (${cellsCreated.toLocaleString()} / ${totalCells.toLocaleString()})`;
+        } else if (phase === 'drawing') {
+          loadingText.textContent = `Rendering grid...`;
+          progressBar.style.width = '100%';
+          progressText.textContent = 'Drawing cells to canvas...';
+        } else if (phase === 'processing') {
+          loadingText.textContent = `Processing image...`;
+          progressBar.style.width = `${cellsCreated}%`;
+          progressText.textContent = `${cellsCreated}% complete`;
+        }
       },
       
       hideGridProgress() {

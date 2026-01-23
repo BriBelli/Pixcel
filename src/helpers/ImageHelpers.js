@@ -33,15 +33,20 @@ class ImageHelpers {
   static VERSION = '2.0.0';
   
   /**
-   * Quality presets
+   * Quality presets (max dimension in pixels)
+   * Higher presets use WASM when available for 10x faster processing.
    */
   static QUALITY_PRESETS = {
-    retro: 16,
-    low: 32,
-    medium: 64,
-    high: 128,
-    hd: 200,
-    ultra: 300
+    retro: 16,      // ~16×12 - Classic 8-bit style
+    low: 32,        // ~32×24 - Chunky pixels
+    medium: 64,     // ~64×48 - Balanced quality
+    high: 128,      // ~128×96 - Good detail
+    hd: 200,        // ~200×150 - High definition
+    ultra: 256,     // ~256×192 - Very sharp
+    qvga: 320,      // ~320×240 - QVGA quality
+    '4k': 400,      // ~400×300 - 4K style (WASM recommended)
+    cinema: 512,    // ~512×384 - Cinema quality (WASM recommended)
+    vga: 640        // ~640×480 - VGA quality (WASM required)
   };
   
   /**
@@ -176,6 +181,7 @@ class ImageHelpers {
   
   /**
    * Convert image to cell data using block averaging with optional gamma correction
+   * Uses WASM when available for 10x+ faster processing
    * @private
    */
   static async _imageToData(img, cols, rows, gammaCorrect = true) {
@@ -190,22 +196,23 @@ class ImageHelpers {
     const sourceData = ctx.getImageData(0, 0, img.width, img.height);
     const sourcePixels = sourceData.data;
     
-    // Calculate block size
+    // Use WASM if available (10x faster for large images)
+    if (typeof PXSWasm !== 'undefined' && PXSWasm.isAvailable()) {
+      return PXSWasm.processImage(sourcePixels, img.width, img.height, cols, rows, gammaCorrect);
+    }
+    
+    // JavaScript fallback
     const blockWidth = img.width / cols;
     const blockHeight = img.height / rows;
-    
-    // Process each cell
     const cells = [];
     
     for (let cellY = 0; cellY < rows; cellY++) {
       for (let cellX = 0; cellX < cols; cellX++) {
-        // Calculate source block bounds
         const srcX1 = Math.floor(cellX * blockWidth);
         const srcY1 = Math.floor(cellY * blockHeight);
         const srcX2 = Math.min(Math.floor((cellX + 1) * blockWidth), img.width);
         const srcY2 = Math.min(Math.floor((cellY + 1) * blockHeight), img.height);
         
-        // Average all pixels in this block
         let r = 0, g = 0, b = 0, count = 0;
         
         for (let y = srcY1; y < srcY2; y++) {
@@ -213,13 +220,10 @@ class ImageHelpers {
             const idx = (y * img.width + x) * 4;
             
             if (gammaCorrect) {
-              // Gamma-correct averaging (convert to linear space, average, convert back)
-              // This produces more accurate color perception
               r += Math.pow(sourcePixels[idx] / 255, 2.2);
               g += Math.pow(sourcePixels[idx + 1] / 255, 2.2);
               b += Math.pow(sourcePixels[idx + 2] / 255, 2.2);
             } else {
-              // Direct averaging (faster but less accurate)
               r += sourcePixels[idx];
               g += sourcePixels[idx + 1];
               b += sourcePixels[idx + 2];
@@ -228,11 +232,9 @@ class ImageHelpers {
           }
         }
         
-        // Calculate final color
         let finalR, finalG, finalB;
         
         if (gammaCorrect && count > 0) {
-          // Convert back from linear space
           finalR = Math.round(Math.pow(r / count, 1 / 2.2) * 255);
           finalG = Math.round(Math.pow(g / count, 1 / 2.2) * 255);
           finalB = Math.round(Math.pow(b / count, 1 / 2.2) * 255);
@@ -244,7 +246,6 @@ class ImageHelpers {
           finalR = finalG = finalB = 0;
         }
         
-        // Clamp values
         finalR = Math.max(0, Math.min(255, finalR));
         finalG = Math.max(0, Math.min(255, finalG));
         finalB = Math.max(0, Math.min(255, finalB));

@@ -8,6 +8,7 @@ const PXSLoader = {
   
   // Core modules in dependency order
   modules: [
+    'wasm/WASMIntegration.js',  // Load WASM wrapper first
     'renderers/BaseRenderer.js',
     'renderers/HTMLRenderer.js',
     'renderers/CanvasRenderer.js',

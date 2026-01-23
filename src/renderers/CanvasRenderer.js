@@ -112,8 +112,8 @@ class CanvasRenderer extends BaseRenderer {
     async _createCells() {
         const { columns, rows } = this.state;
         const totalCells = columns * rows;
-        const CHUNK_SIZE = 20000; // Create 20k cells per chunk
-        const CHUNK_THRESHOLD = 100000; // Only chunk for VGA+ (100K+ cells)
+        const CHUNK_SIZE = 10000; // Create 10k cells per chunk (more frequent updates)
+        const CHUNK_THRESHOLD = 50000; // Chunk for grids > 50K cells
         let index = 0;
         
         // For grids under threshold, create synchronously (QVGA is ~76K - fast enough)
@@ -186,6 +186,17 @@ class CanvasRenderer extends BaseRenderer {
     _drawGrid() {
         const { cellWidth, cellHeight } = this.config;
         const { columns, rows } = this.state;
+        const totalCells = columns * rows;
+        
+        // Emit drawing phase for progress tracking
+        if (totalCells > 50000) {
+            this.animator._emit('gridProgress', { 
+                cellsCreated: 0, 
+                totalCells, 
+                progress: 0,
+                phase: 'drawing'
+            });
+        }
         
         // Phase 2C: Check if we should use viewport rendering
         const viewportManager = this.animator.viewportManager;

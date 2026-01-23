@@ -39,7 +39,9 @@ class CellAnimator {
             borderStyle: config.borderStyle || 'solid',
             enableProfiling: config.enableProfiling || false,
             enableViewport: config.enableViewport || false,
-            enableSpatialIndex: config.enableSpatialIndex || false
+            enableSpatialIndex: config.enableSpatialIndex || false,
+            backgroundColor: config.backgroundColor || '#0d1117', // Grid container background
+            defaultCellOpacity: config.defaultCellOpacity !== undefined ? config.defaultCellOpacity : 1.0 // Default cell opacity (0-1)
         };
 
         // Initialize state
@@ -1056,7 +1058,8 @@ class CellAnimator {
             x: cell.x,
             y: cell.y,
             styles: {
-                background: cell.color
+                background: cell.color,
+                opacity: cell.opacity !== undefined ? cell.opacity : this.config.defaultCellOpacity
             }
         }));
         

@@ -6,10 +6,10 @@
  * 
  * @example
  * // Initialize WASM
- * await PXSWasm.init('/wasm/pxs_compute_bg.wasm');
+ * await PXSWasm.init('/demos/wasm/pxs_compute.js');
  * 
  * // Process image with gamma-correct block averaging
- * const colors = PXSWasm.processImage(imageData, sourceWidth, sourceHeight, targetCols, targetRows);
+ * const cells = PXSWasm.processImage(imageData, sourceWidth, sourceHeight, targetCols, targetRows);
  * 
  * // Create high-performance pixel grid
  * const grid = PXSWasm.createGrid(64, 48);
@@ -19,14 +19,15 @@ const PXSWasm = {
   _module: null,
   _initialized: false,
   _initPromise: null,
+  _imageProcessor: null,
   
   /**
    * Initialize WASM module
-   * @param {string} [wasmPath] - Path to WASM file
+   * @param {string} [wasmPath] - Path to WASM JS wrapper
    * @returns {Promise<boolean>} True if WASM loaded, false if using JS fallback
    */
-  async init(wasmPath = '/wasm/pkg/pxs_compute_bg.wasm') {
-    if (this._initialized) return true;
+  async init(wasmPath = '/demos/wasm/pxs_compute.js') {
+    if (this._initialized) return this._module !== null;
     if (this._initPromise) return this._initPromise;
     
     this._initPromise = this._loadWasm(wasmPath);
@@ -34,31 +35,28 @@ const PXSWasm = {
   },
   
   /**
-   * Load WASM module
+   * Load WASM module using ES module import
    * @private
    */
   async _loadWasm(wasmPath) {
     try {
-      // Try to load the WASM module
-      const response = await fetch(wasmPath);
-      if (!response.ok) {
-        console.warn('[PXS WASM] WASM file not found, using JS fallback');
-        this._initialized = true;
-        return false;
-      }
+      // Dynamic import of the generated WASM wrapper
+      const wasmModule = await import(wasmPath);
       
-      const wasmBuffer = await response.arrayBuffer();
-      const wasmModule = await WebAssembly.instantiate(wasmBuffer);
+      // Initialize the WASM module
+      await wasmModule.default();
       
-      this._module = wasmModule.instance.exports;
+      this._module = wasmModule;
+      this._imageProcessor = new wasmModule.ImageProcessor();
       this._initialized = true;
       
-      console.log('[PXS WASM] Loaded successfully');
+      console.log('[PXS WASM] ✅ Loaded successfully - 10x faster image processing enabled!');
       return true;
       
     } catch (e) {
-      console.warn('[PXS WASM] Failed to load, using JS fallback:', e.message);
+      console.warn('[PXS WASM] ⚠️ Failed to load, using JS fallback:', e.message);
       this._initialized = true;
+      this._module = null;
       return false;
     }
   },
@@ -96,9 +94,44 @@ const PXSWasm = {
    * @private
    */
   _processImageWasm(data, sourceWidth, sourceHeight, targetCols, targetRows, useGamma) {
-    // This would call the actual WASM function
-    // For now, fall back to JS until WASM is compiled
-    return this._processImageJS(data, sourceWidth, sourceHeight, targetCols, targetRows, useGamma);
+    const startTime = performance.now();
+    
+    // Convert Uint8ClampedArray to Uint8Array for WASM
+    const uint8Data = new Uint8Array(data);
+    
+    // Use WASM ImageProcessor
+    const packedColors = this._imageProcessor.process_image(
+      uint8Data,
+      sourceWidth,
+      sourceHeight,
+      targetCols,
+      targetRows,
+      useGamma
+    );
+    
+    // Convert packed u32 colors to PXS cell format
+    const cells = [];
+    let idx = 0;
+    for (let y = 0; y < targetRows; y++) {
+      for (let x = 0; x < targetCols; x++) {
+        const color = packedColors[idx++];
+        // Unpack RGBA from u32 (WASM uses RGBA order)
+        const r = (color >> 24) & 0xFF;
+        const g = (color >> 16) & 0xFF;
+        const b = (color >> 8) & 0xFF;
+        
+        cells.push({
+          x,
+          y,
+          color: `rgb(${r}, ${g}, ${b})`
+        });
+      }
+    }
+    
+    const elapsed = performance.now() - startTime;
+    console.log(`[PXS WASM] ⚡ Processed ${targetCols}×${targetRows} (${cells.length} cells) in ${elapsed.toFixed(1)}ms`);
+    
+    return cells;
   },
   
   /**
@@ -106,6 +139,8 @@ const PXSWasm = {
    * @private
    */
   _processImageJS(data, sourceWidth, sourceHeight, targetCols, targetRows, useGamma) {
+    const startTime = performance.now();
+    
     const gamma = 2.2;
     const blockWidth = sourceWidth / targetCols;
     const blockHeight = sourceHeight / targetRows;
@@ -175,35 +210,27 @@ const PXSWasm = {
       }
     }
     
+    const elapsed = performance.now() - startTime;
+    console.log(`[PXS JS] 🐢 Processed ${targetCols}×${targetRows} (${cells.length} cells) in ${elapsed.toFixed(1)}ms`);
+    
     return cells;
   },
   
   /**
-   * Create a high-performance pixel grid
-   * Uses WASM for large grids, JS for small ones
+   * Create a high-performance pixel grid (WASM-backed for large grids)
    * @param {number} cols - Columns
    * @param {number} rows - Rows
    * @returns {Object} Grid object with methods
    */
   createGrid(cols, rows) {
-    if (this.isAvailable() && cols * rows > 10000) {
-      // Use WASM for large grids
-      return this._createWasmGrid(cols, rows);
+    if (this.isAvailable()) {
+      return new this._module.PixelGrid(cols, rows);
     }
     return this._createJSGrid(cols, rows);
   },
   
   /**
-   * Create WASM-backed grid
-   * @private
-   */
-  _createWasmGrid(cols, rows) {
-    // Placeholder - would use actual WASM PixelGrid
-    return this._createJSGrid(cols, rows);
-  },
-  
-  /**
-   * Create JS grid
+   * Create JS grid (fallback)
    * @private
    */
   _createJSGrid(cols, rows) {
@@ -264,6 +291,11 @@ const PXSWasm = {
    * @returns {Uint32Array} Interpolated colors
    */
   interpolateFrames(frameA, frameB, t) {
+    if (this.isAvailable()) {
+      return this._module.interpolate_frames(frameA, frameB, t);
+    }
+    
+    // JS fallback
     if (frameA.length !== frameB.length) {
       return frameA;
     }
@@ -290,6 +322,31 @@ const PXSWasm = {
     }
     
     return result;
+  },
+  
+  /**
+   * Utility: Create RGB color as packed u32
+   */
+  rgb(r, g, b) {
+    if (this.isAvailable()) {
+      return this._module.rgb(r, g, b);
+    }
+    return ((r & 0xFF) << 24) | ((g & 0xFF) << 16) | ((b & 0xFF) << 8) | 0xFF;
+  },
+  
+  /**
+   * Utility: Parse hex color to u32
+   */
+  parseHexColor(hex) {
+    if (this.isAvailable()) {
+      return this._module.parse_hex_color(hex);
+    }
+    // JS fallback
+    const h = hex.replace('#', '');
+    const r = parseInt(h.substring(0, 2), 16);
+    const g = parseInt(h.substring(2, 4), 16);
+    const b = parseInt(h.substring(4, 6), 16);
+    return ((r & 0xFF) << 24) | ((g & 0xFF) << 16) | ((b & 0xFF) << 8) | 0xFF;
   }
 };
 

@@ -128,6 +128,11 @@ class HTMLRenderer extends BaseRenderer {
             });
         }
 
+        // Set container background (supports 'transparent' or any color)
+        if (this.config.backgroundColor) {
+            this.config.container.style.backgroundColor = this.config.backgroundColor;
+        }
+        
         this.config.container.innerHTML = '';
         this.config.container.appendChild(gridContainer);
         this.gridElement = gridContainer;
@@ -164,6 +169,20 @@ class HTMLRenderer extends BaseRenderer {
         cell.addEventListener('click', (e) => {
             this.animator._emit('cellClick', { x, y, element: cell, event: e });
         });
+        
+        // Add double-click listener for editor mode
+        cell.addEventListener('dblclick', (e) => {
+            this.animator._emit('cellDblClick', { x, y, element: cell, event: e });
+        });
+        
+        // Add hover listeners for tooltips
+        cell.addEventListener('mouseenter', (e) => {
+            this.animator._emit('cellHover', { x, y, element: cell, event: e });
+        });
+        
+        cell.addEventListener('mouseleave', (e) => {
+            this.animator._emit('cellLeave', { x, y, element: cell, event: e });
+        });
 
         return cell;
     }
@@ -198,6 +217,31 @@ class HTMLRenderer extends BaseRenderer {
 
         // Handle border properties specially
         const cellStyles = { ...styles };
+        
+        // Handle opacity: if opacity is provided, apply it
+        // If background is rgba() with alpha, opacity parameter overrides the alpha
+        if (cellStyles.opacity !== undefined) {
+            const opacity = Math.max(0, Math.min(1, parseFloat(cellStyles.opacity)));
+            cellStyles.opacity = opacity;
+            
+            // If background color is provided and has alpha, we need to combine them
+            if (cellStyles.background) {
+                const bgColor = cellStyles.background;
+                // If it's rgba(), extract RGB and apply opacity
+                const rgbaMatch = bgColor.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)(?:,\s*([\d.]+))?\)/);
+                if (rgbaMatch) {
+                    const r = rgbaMatch[1];
+                    const g = rgbaMatch[2];
+                    const b = rgbaMatch[3];
+                    // Use opacity parameter if provided, otherwise use alpha from rgba()
+                    const finalAlpha = opacity !== undefined ? opacity : (parseFloat(rgbaMatch[4]) || 1);
+                    cellStyles.background = `rgba(${r}, ${g}, ${b}, ${finalAlpha})`;
+                } else {
+                    // For non-rgba colors, apply opacity via CSS opacity property
+                    // Keep background as-is, opacity will be applied separately
+                }
+            }
+        }
         
         // If cellBorders is set (true/false), apply border style
         if (cellStyles.cellBorders !== undefined) {

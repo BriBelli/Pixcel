@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PXS v3.0 - Simple Usage Examples</title>
+  <style>
+    body {
+      font-family: system-ui, -apple-system, sans-serif;
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 20px;
+      background: #1a1a2e;
+      color: #fff;
+    }
+    .example {
+      margin: 40px 0;
+      padding: 20px;
+      background: #16213e;
+      border-radius: 8px;
+    }
+    .example h2 {
+      margin-top: 0;
+      color: #58a6ff;
+    }
+    .example code {
+      background: #0d1117;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-size: 14px;
+    }
+    #canvas {
+      width: 100%;
+      height: 400px;
+      background: #0d1117;
+      border: 2px solid #30363d;
+      border-radius: 8px;
+      margin: 20px 0;
+    }
+    button {
+      background: #238636;
+      color: white;
+      border: none;
+      padding: 10px 20px;
+      border-radius: 6px;
+      cursor: pointer;
+      margin: 5px;
+      font-size: 14px;
+    }
+    button:hover {
+      background: #2ea043;
+    }
+    .code-block {
+      background: #0d1117;
+      padding: 15px;
+      border-radius: 6px;
+      overflow-x: auto;
+      margin: 15px 0;
+    }
+    .code-block code {
+      color: #c9d1d9;
+      font-family: 'Monaco', 'Courier New', monospace;
+      font-size: 13px;
+      line-height: 1.6;
+    }
+  </style>
+</head>
+<body>
+  <h1>🎨 PXS v3.0 - Consumer API Examples</h1>
+  <p>This page demonstrates the <strong>consumer-facing API</strong> - how to use PXS in your applications.</p>
+
+  <div class="example">
+    <h2>Example 1: High-Level API - Load Image</h2>
+    <p>The <strong>simplest way</strong> to use PXS - one method call:</p>
+    <div class="code-block">
+      <code>
+// ✨ ONE LINE - Load image and render<br>
+const frameData = await animator.loadImage('photo.jpg', {<br>
+&nbsp;&nbsp;quality: 'high'<br>
+});<br>
+// Frame data is automatically rendered and available
+      </code>
+    </div>
+    <input type="file" id="image-input" accept="image/*">
+    <button onclick="loadImageExample()">Load Image</button>
+    <div id="canvas"></div>
+  </div>
+
+  <div class="example">
+    <h2>Example 2: Get Data - Access Current State</h2>
+    <p>Get the current grid as <code>PXSFrame</code> data:</p>
+    <div class="code-block">
+      <code>
+// Get current state<br>
+const frameData = animator.getData();<br>
+console.log(frameData.cells.length);  // Number of cells<br>
+console.log(frameData.cells[0]);      // { x: 0, y: 0, color: 'rgb(...)' }
+      </code>
+    </div>
+    <button onclick="getDataExample()">Get Current Data</button>
+    <pre id="data-output" style="background: #0d1117; padding: 15px; border-radius: 6px; overflow-x: auto;"></pre>
+  </div>
+
+  <div class="example">
+    <h2>Example 3: Edit Data - Modify Pixels</h2>
+    <p>Edit the data structure, then render it back:</p>
+    <div class="code-block">
+      <code>
+// Get data<br>
+const frame = animator.getData();<br>
+<br>
+// Edit specific cells<br>
+frame.cells[100].color = '#FF0000';  // Red<br>
+frame.cells[101].color = '#00FF00';  // Green<br>
+frame.cells[102].color = '#0000FF';  // Blue<br>
+<br>
+// Render changes<br>
+await animator.setData(frame);
+      </code>
+    </div>
+    <button onclick="editDataExample()">Edit Pixels</button>
+  </div>
+
+  <div class="example">
+    <h2>Example 4: Export/Import - Save & Load</h2>
+    <p>Export as JSON, save anywhere, import later:</p>
+    <div class="code-block">
+      <code>
+// Export<br>
+const json = animator.exportData({ pretty: true });<br>
+localStorage.setItem('my-art', json);<br>
+<br>
+// Import<br>
+const saved = localStorage.getItem('my-art');<br>
+await animator.importData(saved);
+      </code>
+    </div>
+    <button onclick="exportExample()">Export to JSON</button>
+    <button onclick="importExample()">Import from JSON</button>
+    <pre id="export-output" style="background: #0d1117; padding: 15px; border-radius: 6px; overflow-x: auto; max-height: 200px; overflow-y: auto;"></pre>
+  </div>
+
+  <div class="example">
+    <h2>Example 5: Storage Adapters - Save Anywhere</h2>
+    <p>Use different storage backends:</p>
+    <div class="code-block">
+      <code>
+// LocalStorage (fast, ~5MB)<br>
+await PXSStorage.local.save('my-art', frameData);<br>
+const art = await PXSStorage.local.load('my-art');<br>
+<br>
+// IndexedDB (large storage)<br>
+await PXSStorage.indexedDB.save('big-animation', animData);
+      </code>
+    </div>
+    <button onclick="storageExample()">Save to LocalStorage</button>
+    <button onclick="loadStorageExample()">Load from LocalStorage</button>
+  </div>
+
+  <div class="example">
+    <h2>Example 6: Pattern Helpers - Generate Gradients</h2>
+    <p>Use helpers to create patterns:</p>
+    <div class="code-block">
+      <code>
+// Generate gradient<br>
+const gradient = PatternHelpers.generateRadialGradient({<br>
+&nbsp;&nbsp;centerX: 20, centerY: 15,<br>
+&nbsp;&nbsp;colorCenter: '#FFD700',<br>
+&nbsp;&nbsp;colorEdge: '#1a1a2e',<br>
+&nbsp;&nbsp;gridWidth: 40, gridHeight: 30<br>
+});<br>
+<br>
+// Apply to animator<br>
+animator.updateCells(gradient);
+      </code>
+    </div>
+    <button onclick="patternExample()">Generate Radial Gradient</button>
+  </div>
+
+  <script src="../demos/shared/pxs-loader.js"></script>
+  <script>
+    let animator = null;
+    let savedData = null;
+
+    // Initialize
+    async function init() {
+      await PXSLoader.load();
+      
+      animator = new CellAnimator({
+        container: document.getElementById('canvas'),
+        cellWidth: 10,
+        cellHeight: 10,
+        renderMode: 'auto',
+        cellBorders: false
+      });
+      
+      await animator.init();
+      console.log('✅ PXS initialized');
+    }
+
+    // Example 1: Load Image
+    async function loadImageExample() {
+      const input = document.getElementById('image-input');
+      if (!input.files[0]) {
+        alert('Please select an image file first');
+        return;
+      }
+      
+      const file = input.files[0];
+      const frameData = await animator.loadImage(file, {
+        quality: 'medium',
+        preserveAspect: true
+      });
+      
+      console.log('✅ Image loaded:', frameData);
+      console.log(`📊 ${frameData.cells.length} cells created`);
+    }
+
+    // Example 2: Get Data
+    function getDataExample() {
+      const frameData = animator.getData();
+      const output = document.getElementById('data-output');
+      
+      output.textContent = JSON.stringify({
+        cols: frameData.cols,
+        rows: frameData.rows,
+        totalCells: frameData.cells.length,
+        firstCell: frameData.cells[0],
+        lastCell: frameData.cells[frameData.cells.length - 1],
+        metadata: frameData.metadata
+      }, null, 2);
+      
+      console.log('✅ Current data:', frameData);
+    }
+
+    // Example 3: Edit Data
+    async function editDataExample() {
+      const frame = animator.getData();
+      
+      // Edit some cells
+      const centerX = Math.floor(frame.cols / 2);
+      const centerY = Math.floor(frame.rows / 2);
+      
+      // Create a red cross
+      for (let i = 0; i < frame.cols; i++) {
+        const cell = frame.cells.find(c => c.x === i && c.y === centerY);
+        if (cell) cell.color = '#FF0000';
+      }
+      for (let i = 0; i < frame.rows; i++) {
+        const cell = frame.cells.find(c => c.x === centerX && c.y === i);
+        if (cell) cell.color = '#FF0000';
+      }
+      
+      await animator.setData(frame);
+      console.log('✅ Pixels edited');
+    }
+
+    // Example 4: Export
+    function exportExample() {
+      const json = animator.exportData({ pretty: true });
+      savedData = json;
+      
+      const output = document.getElementById('export-output');
+      output.textContent = json.substring(0, 500) + '...\n\n(truncated - full data in console)';
+      
+      console.log('✅ Exported:', json);
+    }
+
+    // Example 4: Import
+    async function importExample() {
+      if (!savedData) {
+        alert('Export data first!');
+        return;
+      }
+      
+      await animator.importData(savedData);
+      console.log('✅ Imported');
+    }
+
+    // Example 5: Storage
+    async function storageExample() {
+      const frameData = animator.getData();
+      await PXSStorage.local.save('example-art', frameData);
+      console.log('✅ Saved to LocalStorage');
+    }
+
+    async function loadStorageExample() {
+      const frameData = await PXSStorage.local.load('example-art');
+      if (frameData) {
+        await animator.setData(frameData);
+        console.log('✅ Loaded from LocalStorage');
+      } else {
+        alert('No saved data found. Save first!');
+      }
+    }
+
+    // Example 6: Pattern
+    function patternExample() {
+      const info = animator.getGridInfo();
+      const gradient = PatternHelpers.generateRadialGradient({
+        centerX: Math.floor(info.columns / 2),
+        centerY: Math.floor(info.rows / 2),
+        radius: Math.min(info.columns, info.rows) / 2,
+        colorCenter: '#FFD700',
+        colorEdge: '#1a1a2e',
+        gridWidth: info.columns,
+        gridHeight: info.rows
+      });
+      
+      animator.updateCells(gradient);
+      console.log('✅ Radial gradient applied');
+    }
+
+    // Initialize on load
+    init();
+  </script>
+</body>
+</html>

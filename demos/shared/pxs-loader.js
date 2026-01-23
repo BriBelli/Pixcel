@@ -8,6 +8,7 @@ const PXSLoader = {
   
   // Core modules in dependency order
   modules: [
+    'wasm/WASMIntegration.js',  // Load WASM wrapper first
     'renderers/BaseRenderer.js',
     'renderers/HTMLRenderer.js',
     'renderers/CanvasRenderer.js',
@@ -22,7 +23,8 @@ const PXSLoader = {
     'helpers/ImageHelpers.js',
     'helpers/AnimationHelpers.js',
     'storage/StorageAdapters.js',
-    'CellAnimator.js'
+    'CellAnimator.js',
+    'ui/FrameDeck.js'
   ],
   
   loaded: false,

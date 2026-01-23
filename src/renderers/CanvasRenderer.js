@@ -60,6 +60,11 @@ class CanvasRenderer extends BaseRenderer {
         this.ctx = this.canvas.getContext('2d');
         this.ctx.scale(dpr, dpr);
         
+        // Set container background (supports 'transparent' or any color)
+        if (this.config.backgroundColor) {
+            this.config.container.style.backgroundColor = this.config.backgroundColor;
+        }
+        
         // Append to container
         this.config.container.appendChild(this.canvas);
         
@@ -112,8 +117,8 @@ class CanvasRenderer extends BaseRenderer {
     async _createCells() {
         const { columns, rows } = this.state;
         const totalCells = columns * rows;
-        const CHUNK_SIZE = 20000; // Create 20k cells per chunk
-        const CHUNK_THRESHOLD = 100000; // Only chunk for VGA+ (100K+ cells)
+        const CHUNK_SIZE = 10000; // Create 10k cells per chunk (more frequent updates)
+        const CHUNK_THRESHOLD = 50000; // Chunk for grids > 50K cells
         let index = 0;
         
         // For grids under threshold, create synchronously (QVGA is ~76K - fast enough)
@@ -186,6 +191,17 @@ class CanvasRenderer extends BaseRenderer {
     _drawGrid() {
         const { cellWidth, cellHeight } = this.config;
         const { columns, rows } = this.state;
+        const totalCells = columns * rows;
+        
+        // Emit drawing phase for progress tracking
+        if (totalCells > 50000) {
+            this.animator._emit('gridProgress', { 
+                cellsCreated: 0, 
+                totalCells, 
+                progress: 0,
+                phase: 'drawing'
+            });
+        }
         
         // Phase 2C: Check if we should use viewport rendering
         const viewportManager = this.animator.viewportManager;
@@ -193,6 +209,12 @@ class CanvasRenderer extends BaseRenderer {
         
         // Clear canvas (use logical dimensions since context is scaled by DPR)
         this.ctx.clearRect(0, 0, this.logicalWidth, this.logicalHeight);
+        
+        // Fill background if specified (supports 'transparent' or any color)
+        if (this.config.backgroundColor && this.config.backgroundColor !== 'transparent') {
+            this.ctx.fillStyle = this.config.backgroundColor;
+            this.ctx.fillRect(0, 0, this.logicalWidth, this.logicalHeight);
+        }
         
         if (this.viewportEnabled && !this.fullRedrawNeeded) {
             // Partial redraw - only dirty regions
@@ -283,12 +305,26 @@ class CanvasRenderer extends BaseRenderer {
             }
         }
         
-        // Handle opacity
-        const opacity = styles.opacity !== undefined ? parseFloat(styles.opacity) : 1;
-        this.ctx.globalAlpha = opacity;
+        // Handle opacity and rgba() colors
+        let finalColor = color;
+        let finalOpacity = styles.opacity !== undefined ? Math.max(0, Math.min(1, parseFloat(styles.opacity))) : 1;
+        
+        // If color is rgba(), extract alpha and combine with opacity parameter
+        const rgbaMatch = color.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)(?:,\s*([\d.]+))?\)/);
+        if (rgbaMatch) {
+            const r = rgbaMatch[1];
+            const g = rgbaMatch[2];
+            const b = rgbaMatch[3];
+            const colorAlpha = rgbaMatch[4] ? parseFloat(rgbaMatch[4]) : 1;
+            // Combine color alpha with opacity parameter (multiply them)
+            finalOpacity = colorAlpha * finalOpacity;
+            finalColor = `rgb(${r}, ${g}, ${b})`;
+        }
+        
+        this.ctx.globalAlpha = finalOpacity;
         
         // Draw cell background
-        this.ctx.fillStyle = color;
+        this.ctx.fillStyle = finalColor;
         this.ctx.fillRect(pixelX, pixelY, cellWidth, cellHeight);
         
         // Draw cell border if enabled (check cell-level override, then global config)

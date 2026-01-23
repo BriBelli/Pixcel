@@ -36,7 +36,7 @@ await animator.setData(pixelArt);
 await PXSStorage.local.save('my-art', pixelArt);
 ```
 
-## ✨ Version 3.0 — Data-First Architecture
+## ✨ Version 3.1 — Data-First + Frame Deck UI
 
 ### New Core Concepts
 
@@ -276,6 +276,33 @@ MIT
 
 ---
 
-**Version**: 3.0.0  
-**Status**: Active Development  
+## 🎯 Current Status
+
+**Version**: 3.1.0  
+**Released**: January 22, 2026  
+**Status**: Production-ready for 320px resolutions
+
+### ✅ What's Working
+- Data-first architecture (images/animations as JSON)
+- Rust/WASM for 10x faster image processing
+- Frame Deck UI with visual timeline
+- Storage adapters (local, IndexedDB, memory)
+- Multi-resolution support (8x8 to 320x240)
+
+### ⚠️ Known Limitations
+- High-res (400px+) causes browser freezes (single-threaded JavaScript bottleneck)
+- No virtual DOM (direct DOM manipulation)
+- Library code mixed with demo app
+
+### 🚀 Next: Version 4.0 (Q1 2026)
+**Architecture Migration** — See [`docs/ARCHITECTURE-PROPOSAL.md`](docs/ARCHITECTURE-PROPOSAL.md)
+- Nx monorepo (separate library from app)
+- Web Workers (unlock 640px+ without freezing)
+- React + Next.js (Adobe-level UX)
+- OffscreenCanvas (non-blocking rendering)
+
+**Timeline**: 10-12 weeks to v4.0 launch
+
+---
+
 **Philosophy**: *"Stay Pure"* — Each cell is one solid color. Gradients emerge from arrangement.

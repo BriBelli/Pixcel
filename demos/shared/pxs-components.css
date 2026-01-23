@@ -56,6 +56,18 @@
   color: white;
 }
 
+.pxs-btn--accent {
+  background: linear-gradient(135deg, #7c3aed, #a855f7);
+  border-color: transparent;
+  color: white;
+  box-shadow: var(--pxs-shadow-sm);
+}
+
+.pxs-btn--accent:hover {
+  background: linear-gradient(135deg, #8b5cf6, #c084fc);
+  box-shadow: 0 0 12px rgba(168, 85, 247, 0.4);
+}
+
 .pxs-btn--ghost {
   background: transparent;
   border-color: transparent;

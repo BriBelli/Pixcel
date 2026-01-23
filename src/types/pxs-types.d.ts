@@ -13,8 +13,10 @@ interface PXSCell {
   x: number;
   /** Y coordinate (row) */
   y: number;
-  /** Cell color (hex, rgb, or named color) */
+  /** Cell color (hex, rgb, rgba, or named color) */
   color: string;
+  /** Optional opacity override (0-1). If not provided, uses alpha from rgba() color if present */
+  opacity?: number;
 }
 
 /**

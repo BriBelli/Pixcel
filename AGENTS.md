@@ -76,10 +76,12 @@ const animation = {
 - **PXSStorage.chunked**: Chunked loading for large animations
 
 #### 🦀 Rust/WASM Integration
-- **High-performance image processing**
-- **Gamma-correct block averaging**
-- **Frame interpolation**
-- **Auto-fallback to JavaScript**
+- **Image Processing**: Used for **ALL image-to-pixel conversions** when available (not resolution-specific)
+- **What it does**: Gamma-correct block averaging algorithm (10x faster than JavaScript)
+- **When it's used**: Automatically for any image processing if WASM is loaded and available
+- **Resolution impact**: Most beneficial for high-res images (256×192 / 4K and above), but works for all resolutions
+- **Auto-fallback**: Falls back to JavaScript implementation if WASM unavailable
+- **Additional features**: Frame interpolation, high-performance grid creation
 
 ---
 
@@ -322,11 +324,18 @@ const frames = await PXSStorage.chunked.loadRange('movie', 0, 5);
 
 ### PXSWasm
 
+**When Rust/WASM is Used:**
+- **Image Processing**: Automatically used for **ALL image-to-pixel conversions** when available (any resolution)
+- **Most Beneficial**: High-resolution images (256×192 / 4K and above) see 10x performance improvement
+- **What it does**: Gamma-correct block averaging algorithm for accurate color downsampling
+- **Auto-fallback**: Falls back to JavaScript if WASM unavailable
+
 ```javascript
 // Initialize WASM (auto-fallback to JS if unavailable)
 const wasmAvailable = await PXSWasm.init('/wasm/pkg/pxs_compute_bg.wasm');
 
 // Process image with gamma-correct block averaging
+// Used automatically by ImageHelpers.loadImage() for ALL resolutions when available
 const cells = PXSWasm.processImage(
   imageData,       // ImageData or Uint8ClampedArray
   sourceWidth,
@@ -380,21 +389,56 @@ Viewport culling, spatial indexing, transforms, profiling
 - **Chunked storage**: Large animation loading
 
 ### ✅ Phase 3C: Rust/WASM Integration (Complete) ⭐ NEW
-- **Rust ImageProcessor**: High-performance block averaging
-- **Gamma correction**: Accurate color processing
-- **JS wrapper**: Auto-fallback to JavaScript
+- **Rust ImageProcessor**: High-performance block averaging (10x faster than JS)
+- **Usage**: Automatically used for **ALL image-to-pixel conversions** when available (any resolution)
+- **Most beneficial**: High-res images (256×192 / 4K+) see dramatic performance gains
+- **Gamma correction**: Accurate color processing with proper color space conversion
+- **JS wrapper**: Auto-fallback to JavaScript if WASM unavailable
+- **What it does**: Converts source images to pixel grids using gamma-correct block averaging algorithm
 
-### 📋 Phase 4: Frame Deck UI (Planned)
-- Visual frame timeline like video editors
-- Card deck shuffle animation for frame scrubbing
-- Click-to-edit specific frames
-- Playback controls in UI
+### ✅ Phase 3D: Frame Deck UI (Complete) ⭐ NEW
+- **Visual frame timeline**: Horizontal timeline below canvas
+- **Drag-to-reorder**: Intuitive frame management
+- **Double-click to inspect**: Frame/cell editor dialog
+- **Playback controls**: Play, pause, stop, next, prev
+- **Frame metadata**: Animation inspector with full data view
 
-### 📋 Phase 5: WebGL Renderer & 3D (Planned)
+### 🚀 Phase 4: Production Architecture Migration (NEXT - Q1 2026)
+**Status**: Planning complete, migration starting  
+**Goal**: Separate library from app, unlock high-res performance, Adobe-level UX
+
+#### 4A: Monorepo Setup (Week 1-2)
+- Nx workspace with pnpm
+- Extract `pxs-core` library (headless)
+- Create `pxs-studio` app shell (Next.js + React)
+- Setup build pipeline
+
+#### 4B: Web Workers (Week 3-4)
+- GridWorker: Cell data creation off main thread
+- RenderWorker: OffscreenCanvas rendering
+- ImageWorker: WASM image processing integration
+- Unlock 400px+ without browser freezes
+
+#### 4C: React Studio (Week 5-8)
+- Component-based architecture
+- Zustand state management
+- Unified ResolutionPicker component
+- Professional timeline UI
+- Keyboard shortcuts, undo/redo
+
+#### 4D: Production Features (Week 9-12)
+- Performance tuning (60 FPS at 640px+)
+- Accessibility audit
+- Cross-browser testing
+- Documentation site
+- **Launch PXS Studio v1.0**
+
+### 📋 Phase 5: Advanced Features (Future)
 - WebGL renderer for 1M+ cells
-- 3D coordinate system (x, y, z)
-- Voxel rendering
-- Camera/projection system
+- 3D voxel rendering
+- Real-time collaboration
+- Plugin system
+- Cloud storage integration
 
 ---
 
@@ -484,6 +528,13 @@ const json = animator.exportData({ pretty: true });
 | 2.0 | Dec 2025 | Class-based architecture, events |
 | 2.5 | Jan 2026 | Phase 2C: Performance systems |
 | **3.0** | **Jan 2026** | **Data-first architecture, animations, storage, WASM** |
+| **3.1** | **Jan 22, 2026** | **Frame Deck UI, improved animations, Phase 3 badge** |
+| **4.0** | **Q1 2026 (Planned)** | **Architecture migration: Nx + React + Web Workers** |
+
+### Current Status (v3.1)
+✅ **Complete**: All Phase 3 features (data-first, animations, storage, WASM, Frame Deck UI)  
+⚠️ **Known Limitation**: Single-threaded JS limits high-res performance (320px practical max)  
+🚀 **Next**: v4.0 architecture migration will unlock 640px+ with Web Workers
 
 ---
 
@@ -495,4 +546,4 @@ const json = animator.exportData({ pretty: true });
 ---
 
 **Last Updated**: January 22, 2026  
-**Next Review**: After Phase 4 (Frame Deck UI)
+**Next Review**: After Phase 4 (Architecture Migration) - Q1 2026

@@ -126,6 +126,11 @@ class WebGLRenderer extends BaseRenderer {
             throw new Error('WebGL not supported');
         }
         
+        // Set container background (supports 'transparent' or any color)
+        if (this.config.backgroundColor) {
+            this.config.container.style.backgroundColor = this.config.backgroundColor;
+        }
+        
         // Append canvas
         this.config.container.appendChild(this.canvas);
         
@@ -439,9 +444,25 @@ class WebGLRenderer extends BaseRenderer {
         const key = `${x}-${y}`;
         
         if (styles.background) {
-            const rgba = this._parseColor(styles.background);
+            let rgba = this._parseColor(styles.background);
+            
+            // If opacity parameter is provided, apply it to alpha
+            if (styles.opacity !== undefined) {
+                const opacity = Math.max(0, Math.min(1, parseFloat(styles.opacity)));
+                // Multiply existing alpha with opacity parameter
+                rgba[3] = rgba[3] * opacity;
+            }
+            
             this.cellColors.set(key, rgba);
             this._setCellColorInBuffer(cell.index, rgba);
+            this.needsRedraw = true;
+        } else if (styles.opacity !== undefined) {
+            // If only opacity is provided, update existing color's alpha
+            const existingRgba = this.cellColors.get(key) || [0.165, 0.165, 0.165, 1.0];
+            const opacity = Math.max(0, Math.min(1, parseFloat(styles.opacity)));
+            existingRgba[3] = opacity;
+            this.cellColors.set(key, existingRgba);
+            this._setCellColorInBuffer(cell.index, existingRgba);
             this.needsRedraw = true;
         }
         

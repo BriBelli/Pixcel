@@ -34,7 +34,12 @@ class ImageHelpers {
   
   /**
    * Quality presets (max dimension in pixels)
-   * Higher presets use WASM when available for 10x faster processing.
+   * 
+   * Rust/WASM Usage:
+   * - Automatically used for ALL image processing when available (any resolution)
+   * - Most beneficial for high-res images (256×192 / 4K and above) - 10x faster
+   * - Falls back to JavaScript if WASM unavailable
+   * - What it does: Gamma-correct block averaging for accurate color downsampling
    */
   static QUALITY_PRESETS = {
     retro: 16,      // ~16×12 - Classic 8-bit style
@@ -42,11 +47,11 @@ class ImageHelpers {
     medium: 64,     // ~64×48 - Balanced quality
     high: 128,      // ~128×96 - Good detail
     hd: 200,        // ~200×150 - High definition
-    ultra: 256,     // ~256×192 - Very sharp
+    ultra: 256,     // ~256×192 - Very sharp (4K quality)
     qvga: 320,      // ~320×240 - QVGA quality
-    '4k': 400,      // ~400×300 - 4K style (WASM recommended)
-    cinema: 512,    // ~512×384 - Cinema quality (WASM recommended)
-    vga: 640        // ~640×480 - VGA quality (WASM required)
+    '4k': 400,      // ~400×300 - 4K style
+    cinema: 512,    // ~512×384 - Cinema quality
+    vga: 640        // ~640×480 - VGA quality
   };
   
   /**
@@ -196,7 +201,8 @@ class ImageHelpers {
     const sourceData = ctx.getImageData(0, 0, img.width, img.height);
     const sourcePixels = sourceData.data;
     
-    // Use WASM if available (10x faster for large images)
+    // Use WASM if available (10x faster, used for ALL resolutions when available)
+    // Most beneficial for high-res images (256×192 / 4K+), but works for all
     if (typeof PXSWasm !== 'undefined' && PXSWasm.isAvailable()) {
       return PXSWasm.processImage(sourcePixels, img.width, img.height, cols, rows, gammaCorrect);
     }

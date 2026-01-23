@@ -758,42 +758,54 @@
     
     /* Enhanced Loading Indicator - CSS animations continue even when JS is busy */
     .pxs-loading-indicator {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 16px;
-    }
-    .pxs-loading-spinner {
-      width: 56px;
-      height: 56px;
-    }
-    .pxs-loading-spinner svg {
-      width: 100%;
-      height: 100%;
-      animation: pxs-spinner-rotate 2s linear infinite;
-    }
-    .pxs-loading-spinner__arc {
-      stroke-dasharray: 80, 200;
-      stroke-dashoffset: 0;
-      animation: pxs-spinner-dash 1.5s ease-in-out infinite;
-    }
-    @keyframes pxs-spinner-rotate {
-      100% { transform: rotate(360deg); }
-    }
-    @keyframes pxs-spinner-dash {
-      0% { stroke-dasharray: 1, 200; stroke-dashoffset: 0; }
-      50% { stroke-dasharray: 89, 200; stroke-dashoffset: -35; }
-      100% { stroke-dasharray: 89, 200; stroke-dashoffset: -124; }
+      position: relative;
+      width: 60px;
+      height: 60px;
     }
     
-    /* Pulsing dots - visual feedback when JS might be blocking */
+    /* Spinning gradient ring - works even when JS is blocked */
+    .pxs-loading-spinner {
+      position: absolute;
+      inset: 0;
+      animation: pxs-spin 1.2s cubic-bezier(0.5, 0, 0.5, 1) infinite;
+    }
+    
+    .pxs-loading-spinner::before,
+    .pxs-loading-spinner::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      border-radius: 50%;
+    }
+    
+    /* Outer glow */
+    .pxs-loading-spinner::before {
+      border: 3px solid transparent;
+      border-top-color: var(--pxs-accent-primary);
+      border-right-color: var(--pxs-accent-primary);
+      opacity: 0.3;
+      filter: blur(4px);
+    }
+    
+    /* Main spinner arc */
+    .pxs-loading-spinner::after {
+      border: 3px solid transparent;
+      border-top-color: var(--pxs-accent-primary);
+      border-right-color: var(--pxs-accent-secondary);
+    }
+    
+    /* Pulsing dots in center */
     .pxs-loading-dots {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
       display: flex;
-      gap: 6px;
+      gap: 4px;
     }
     .pxs-loading-dots span {
-      width: 8px;
-      height: 8px;
+      width: 6px;
+      height: 6px;
       background: var(--pxs-accent-primary);
       border-radius: 50%;
       animation: pxs-dots-pulse 1.4s ease-in-out infinite both;
@@ -801,8 +813,14 @@
     .pxs-loading-dots span:nth-child(1) { animation-delay: -0.32s; }
     .pxs-loading-dots span:nth-child(2) { animation-delay: -0.16s; }
     .pxs-loading-dots span:nth-child(3) { animation-delay: 0s; }
+    
+    @keyframes pxs-spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+    
     @keyframes pxs-dots-pulse {
-      0%, 80%, 100% { transform: scale(0.6); opacity: 0.5; }
+      0%, 80%, 100% { transform: scale(0.4); opacity: 0.3; }
       40% { transform: scale(1); opacity: 1; }
     }
     
@@ -834,7 +852,7 @@
       <div class="pxs-ide__logo">
         <div class="pxs-ide__logo-icon">⬢</div>
         <span class="pxs-ide__logo-text">PXS Studio</span>
-        <span class="pxs-badge pxs-badge--info">Phase 2C</span>
+        <span class="pxs-badge pxs-badge--info">Phase 3</span>
       </div>
       <div style="display: flex; align-items: center; gap: 12px;">
         <span style="font-size: 12px; color: var(--pxs-text-secondary);">Resolution:</span>
@@ -862,39 +880,39 @@
           <div class="pxs-ide__sidebar-content">
             <div class="res-presets" id="res-presets">
               <button class="res-preset" data-cols="8" data-rows="8">
-                <span class="res-preset__name">8-bit</span>
+                <span class="res-preset__name">8-bit <span style="opacity: 0.5; font-size: 9px;">(Micro)</span></span>
                 <span class="res-preset__size">8×8</span>
               </button>
               <button class="res-preset" data-cols="16" data-rows="16">
-                <span class="res-preset__name">16-bit</span>
+                <span class="res-preset__name">16-bit <span style="opacity: 0.5; font-size: 9px;">(Retro)</span></span>
                 <span class="res-preset__size">16×16</span>
               </button>
               <button class="res-preset" data-cols="32" data-rows="32">
-                <span class="res-preset__name">32-bit</span>
+                <span class="res-preset__name">32-bit <span style="opacity: 0.5; font-size: 9px;">(Low)</span></span>
                 <span class="res-preset__size">32×32</span>
               </button>
               <button class="res-preset res-preset--active" data-cols="40" data-rows="30">
-                <span class="res-preset__name">Default</span>
+                <span class="res-preset__name">Default <span style="opacity: 0.5; font-size: 9px;">(SD)</span></span>
                 <span class="res-preset__size">40×30</span>
               </button>
               <button class="res-preset" data-cols="64" data-rows="48">
-                <span class="res-preset__name">64-bit</span>
+                <span class="res-preset__name">64-bit <span style="opacity: 0.5; font-size: 9px;">(Med)</span></span>
                 <span class="res-preset__size">64×48</span>
               </button>
               <button class="res-preset" data-cols="128" data-rows="96">
-                <span class="res-preset__name">128-bit</span>
+                <span class="res-preset__name">128-bit <span style="opacity: 0.5; font-size: 9px;">(HD)</span></span>
                 <span class="res-preset__size">128×96</span>
               </button>
               <button class="res-preset" data-cols="160" data-rows="120">
-                <span class="res-preset__name">QQVGA</span>
+                <span class="res-preset__name">QQVGA <span style="opacity: 0.5; font-size: 9px;">(HD+)</span></span>
                 <span class="res-preset__size">160×120</span>
               </button>
               <button class="res-preset" data-cols="256" data-rows="192">
-                <span class="res-preset__name">256-bit</span>
+                <span class="res-preset__name">256-bit <span style="opacity: 0.5; font-size: 9px;">(4K)</span></span>
                 <span class="res-preset__size">256×192</span>
               </button>
               <button class="res-preset" data-cols="320" data-rows="240">
-                <span class="res-preset__name">QVGA</span>
+                <span class="res-preset__name">QVGA <span style="opacity: 0.5; font-size: 9px;">(UHD)</span></span>
                 <span class="res-preset__size">320×240</span>
               </button>
               <!-- VGA/SVGA disabled - requires Rust/WASM for performance
@@ -942,6 +960,9 @@
                 <div class="pxs-stat__label">Renderer</div>
               </div>
             </div>
+            <div style="margin-top: 12px; padding: 8px; background: rgba(88, 166, 255, 0.08); border: 1px solid rgba(88, 166, 255, 0.2); border-radius: 4px; font-size: 11px; color: var(--pxs-text-muted);">
+              <strong style="color: var(--pxs-accent-primary);">💡 Note:</strong> These dimensions apply to all tabs (Effects, Image, Animation). Image rendering auto-adjusts to match uploaded image aspect ratios.
+            </div>
           </div>
         </div>
         
@@ -985,6 +1006,39 @@
       
       <!-- Image Section -->
       <div id="section-image" class="section-content">
+        <!-- Resolution Selection for Image -->
+        <div class="pxs-ide__sidebar-section">
+          <div class="pxs-ide__sidebar-title"><span>📏 Grid Resolution</span></div>
+          <div class="pxs-ide__sidebar-content">
+            <div class="res-presets" id="image-res-presets">
+              <button class="res-preset" data-cols="16" data-rows="16" onclick="Demo.createGrid(16, 16)">
+                <span class="res-preset__name">16-bit <span style="opacity: 0.5; font-size: 9px;">(Retro)</span></span>
+                <span class="res-preset__size">16×16</span>
+              </button>
+              <button class="res-preset" data-cols="32" data-rows="32" onclick="Demo.createGrid(32, 32)">
+                <span class="res-preset__name">32-bit <span style="opacity: 0.5; font-size: 9px;">(Low)</span></span>
+                <span class="res-preset__size">32×32</span>
+              </button>
+              <button class="res-preset res-preset--active" data-cols="40" data-rows="30" onclick="Demo.createGrid(40, 30)">
+                <span class="res-preset__name">Default <span style="opacity: 0.5; font-size: 9px;">(SD)</span></span>
+                <span class="res-preset__size">40×30</span>
+              </button>
+              <button class="res-preset" data-cols="64" data-rows="48" onclick="Demo.createGrid(64, 48)">
+                <span class="res-preset__name">64-bit <span style="opacity: 0.5; font-size: 9px;">(Med)</span></span>
+                <span class="res-preset__size">64×48</span>
+              </button>
+              <button class="res-preset" data-cols="128" data-rows="96" onclick="Demo.createGrid(128, 96)">
+                <span class="res-preset__name">128-bit <span style="opacity: 0.5; font-size: 9px;">(HD)</span></span>
+                <span class="res-preset__size">128×96</span>
+              </button>
+              <button class="res-preset" data-cols="256" data-rows="192" onclick="Demo.createGrid(256, 192)">
+                <span class="res-preset__name">256-bit <span style="opacity: 0.5; font-size: 9px;">(4K)</span></span>
+                <span class="res-preset__size">256×192</span>
+              </button>
+            </div>
+          </div>
+        </div>
+        
         <!-- Image Upload -->
         <div class="pxs-ide__sidebar-section">
           <div class="pxs-ide__sidebar-title"><span>📤 Load Image</span></div>
@@ -1063,6 +1117,39 @@
       
       <!-- Animation Section -->
       <div id="section-animation" class="section-content">
+        <!-- Resolution Selection for Animation -->
+        <div class="pxs-ide__sidebar-section">
+          <div class="pxs-ide__sidebar-title"><span>📏 Grid Resolution</span></div>
+          <div class="pxs-ide__sidebar-content">
+            <div class="res-presets" id="anim-res-presets">
+              <button class="res-preset" data-cols="16" data-rows="16" onclick="Demo.createGrid(16, 16)">
+                <span class="res-preset__name">16-bit <span style="opacity: 0.5; font-size: 9px;">(Retro)</span></span>
+                <span class="res-preset__size">16×16</span>
+              </button>
+              <button class="res-preset" data-cols="32" data-rows="32" onclick="Demo.createGrid(32, 32)">
+                <span class="res-preset__name">32-bit <span style="opacity: 0.5; font-size: 9px;">(Low)</span></span>
+                <span class="res-preset__size">32×32</span>
+              </button>
+              <button class="res-preset res-preset--active" data-cols="40" data-rows="30" onclick="Demo.createGrid(40, 30)">
+                <span class="res-preset__name">Default <span style="opacity: 0.5; font-size: 9px;">(SD)</span></span>
+                <span class="res-preset__size">40×30</span>
+              </button>
+              <button class="res-preset" data-cols="64" data-rows="48" onclick="Demo.createGrid(64, 48)">
+                <span class="res-preset__name">64-bit <span style="opacity: 0.5; font-size: 9px;">(Med)</span></span>
+                <span class="res-preset__size">64×48</span>
+              </button>
+              <button class="res-preset" data-cols="128" data-rows="96" onclick="Demo.createGrid(128, 96)">
+                <span class="res-preset__name">128-bit <span style="opacity: 0.5; font-size: 9px;">(HD)</span></span>
+                <span class="res-preset__size">128×96</span>
+              </button>
+              <button class="res-preset" data-cols="256" data-rows="192" onclick="Demo.createGrid(256, 192)">
+                <span class="res-preset__name">256-bit <span style="opacity: 0.5; font-size: 9px;">(4K)</span></span>
+                <span class="res-preset__size">256×192</span>
+              </button>
+            </div>
+          </div>
+        </div>
+        
         <div class="pxs-ide__sidebar-section">
           <div class="pxs-ide__sidebar-title"><span>🎬 Create Animation</span></div>
           <div class="pxs-ide__sidebar-content">
@@ -1075,7 +1162,7 @@
               🎲 Random (5 frames)
             </button>
             <button class="pxs-btn" onclick="Demo.createGradientAnimation()" style="width: 100%;">
-              🌈 Gradient (10 frames)
+              🌈 Gradient (30 frames)
             </button>
           </div>
         </div>
@@ -1103,7 +1190,7 @@
           <div class="pxs-ide__sidebar-title"><span>💾 Data</span></div>
           <div class="pxs-ide__sidebar-content">
             <button class="pxs-btn pxs-btn--accent" onclick="Demo.openAnimationInspector()" style="width: 100%; margin-bottom: 6px;">
-              🔍 Inspect Animation
+              ✏️ Animation Editor
             </button>
             <button class="pxs-btn" onclick="Demo.addCurrentFrameToAnimation()" style="width: 100%;">
               ➕ Add Current as Frame
@@ -1135,14 +1222,7 @@
         <!-- Loading -->
         <div class="pxs-ide__loading" id="loading">
           <div class="pxs-loading-indicator">
-            <!-- Indeterminate spinner - always animates via CSS -->
-            <div class="pxs-loading-spinner">
-              <svg viewBox="0 0 50 50">
-                <circle cx="25" cy="25" r="20" fill="none" stroke="var(--pxs-bg-elevated)" stroke-width="4"/>
-                <circle class="pxs-loading-spinner__arc" cx="25" cy="25" r="20" fill="none" stroke="var(--pxs-accent-primary)" stroke-width="4" stroke-linecap="round"/>
-              </svg>
-            </div>
-            <!-- Pulsing dots for when JS is blocking -->
+            <div class="pxs-loading-spinner"></div>
             <div class="pxs-loading-dots">
               <span></span><span></span><span></span>
             </div>
@@ -1239,7 +1319,7 @@
         </span>
       </div>
       <div class="pxs-ide__statusbar-right">
-        <span class="pxs-ide__statusbar-item">Phase 2C • 3D Ready</span>
+        <span class="pxs-ide__statusbar-item">Phase 3 • Data-First + WASM</span>
         <span class="pxs-ide__statusbar-item">PXS v2.0.0</span>
       </div>
     </footer>
@@ -1306,7 +1386,7 @@
   </div>
 
   <!-- Load PXS -->
-  <script src="shared/pxs-loader.js?v=20260122g"></script>
+  <script src="shared/pxs-loader.js?v=20260122h"></script>
   <script>
     // Demo Application
     const Demo = {
@@ -1469,26 +1549,41 @@
       },
       
       setupResolutionPresets() {
-        document.querySelectorAll('.res-preset[data-cols]').forEach(btn => {
-          btn.addEventListener('click', async () => {
-            const cols = parseInt(btn.dataset.cols);
-            const rows = parseInt(btn.dataset.rows);
-            
-            // Update active state
-            document.querySelectorAll('#res-presets .res-preset').forEach(b => b.classList.remove('res-preset--active'));
-            btn.classList.add('res-preset--active');
-            
-            // Update custom inputs
-            document.getElementById('custom-cols').value = cols;
-            document.getElementById('custom-rows').value = rows;
-            
-            // Create new grid
-            await this.createGrid(cols, rows);
-            
-            // If image is loaded, re-render it
-            if (this.loadedImage) {
-              this.renderImage();
-            }
+        // Get all preset containers
+        const containers = ['#res-presets', '#image-res-presets', '#anim-res-presets'];
+        
+        // Add click handlers to all resolution presets
+        containers.forEach(containerId => {
+          document.querySelectorAll(`${containerId} .res-preset[data-cols]`).forEach(btn => {
+            btn.addEventListener('click', async () => {
+              const cols = parseInt(btn.dataset.cols);
+              const rows = parseInt(btn.dataset.rows);
+              
+              // Update active state in ALL preset containers
+              containers.forEach(id => {
+                document.querySelectorAll(`${id} .res-preset`).forEach(b => {
+                  const bCols = parseInt(b.dataset.cols);
+                  const bRows = parseInt(b.dataset.rows);
+                  if (bCols === cols && bRows === rows) {
+                    b.classList.add('res-preset--active');
+                  } else {
+                    b.classList.remove('res-preset--active');
+                  }
+                });
+              });
+              
+              // Update custom inputs
+              document.getElementById('custom-cols').value = cols;
+              document.getElementById('custom-rows').value = rows;
+              
+              // Create new grid
+              await this.createGrid(cols, rows);
+              
+              // If image is loaded, re-render it
+              if (this.loadedImage) {
+                this.renderImage();
+              }
+            });
           });
         });
       },
@@ -2091,14 +2186,19 @@
         this.log('Animation', 'Random animation created (5 frames)');
       },
       
-      createGradientAnimation() {
+      async createGradientAnimation() {
         this.log('Animation', 'Generating gradient animation...');
         
         // Use CURRENT grid dimensions
         const cols = this.currentCols;
         const rows = this.currentRows;
+        const frameCount = 30; // 30 frames for silky smooth 1-second loop at 30 FPS
+        const totalCells = cols * rows * frameCount;
         
-        // Helper to convert HSL to Hex (PatternHelpers expects hex)
+        // Show loading indicator
+        await this.showGridProgress(0, frameCount, 'creating');
+        
+        // Helper to convert HSL to Hex
         const hslToHex = (h, s, l) => {
           s /= 100;
           l /= 100;
@@ -2111,42 +2211,76 @@
           return `#${f(0)}${f(8)}${f(4)}`;
         };
         
+        // Easing function for smoother animation
+        const easeInOutCubic = (t) => {
+          return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+        };
+        
         const frames = [];
-        for (let i = 0; i < 10; i++) {
-          const frame = ImageHelpers.createBlankFrame(cols, rows, '#0d1117');
+        
+        for (let i = 0; i < frameCount; i++) {
+          // Update progress
+          await this.showGridProgress(i + 1, frameCount, 'creating');
           
-          const hue = (i / 10) * 360;
-          const centerHex = hslToHex(hue, 80, 60);
-          const edgeHex = hslToHex((hue + 180) % 360, 80, 20);
+          const frame = ImageHelpers.createBlankFrame(cols, rows, '#0a0a0f');
           
-          const gradient = PatternHelpers.generateRadialGradient({
-            centerX: Math.floor(cols / 2),
-            centerY: Math.floor(rows / 2),
-            radius: Math.floor(Math.min(cols, rows) * 0.6),
-            colorCenter: centerHex,
-            colorEdge: edgeHex,
-            gridWidth: cols,
-            gridHeight: rows
-          });
+          // Progress with easing
+          const rawProgress = i / frameCount;
+          const easedProgress = easeInOutCubic(rawProgress);
           
-          // PatternHelpers returns { x, y, styles: { background } } format
-          // ImageHelpers.updateCell expects color string
-          gradient.forEach(cell => {
-            const color = cell.color || cell.styles?.background || '#0d1117';
-            ImageHelpers.updateCell(frame, cell.x, cell.y, color);
-          });
+          // Create multiple animated gradients for a "plasma" effect
+          for (let y = 0; y < rows; y++) {
+            for (let x = 0; x < cols; x++) {
+              // Normalized coordinates (0-1)
+              const nx = x / cols;
+              const ny = y / rows;
+              
+              // Center distance
+              const dx = nx - 0.5;
+              const dy = ny - 0.5;
+              const dist = Math.sqrt(dx * dx + dy * dy);
+              
+              // Angle from center
+              const angle = Math.atan2(dy, dx);
+              
+              // Combine multiple waves for complex pattern
+              const wave1 = Math.sin(dist * 15 + rawProgress * Math.PI * 4);
+              const wave2 = Math.cos(angle * 3 + rawProgress * Math.PI * 2);
+              const wave3 = Math.sin(nx * 10 + rawProgress * Math.PI * 6);
+              const wave4 = Math.cos(ny * 10 - rawProgress * Math.PI * 4);
+              
+              // Combine waves
+              const combined = (wave1 + wave2 + wave3 + wave4) / 4;
+              
+              // Map to hue (0-360) - creates rainbow effect
+              const hue = ((combined + 1) * 180 + rawProgress * 360) % 360;
+              
+              // Saturation and lightness based on distance and waves
+              const saturation = 70 + wave1 * 20;
+              const lightness = 40 + combined * 20;
+              
+              const color = hslToHex(hue, saturation, lightness);
+              ImageHelpers.updateCell(frame, x, y, color);
+            }
+          }
           
           frames.push(frame);
         }
         
+        // Show drawing phase
+        await this.showGridProgress(frameCount, frameCount, 'drawing');
+        
         this.currentAnimation = AnimationHelpers.createAnimation(frames, {
           fps: 30,
-          metadata: { name: 'Gradient Animation', loop: true }
+          metadata: { name: 'Plasma Gradient', loop: true }
         });
         
         this.frameDeck.loadAnimation(this.currentAnimation);
         this.updateAnimationStats();
-        this.log('Animation', 'Gradient animation created (10 frames)');
+        this.log('Animation', `Plasma gradient animation created (${frameCount} frames)`);
+        
+        // Hide loading indicator
+        this.hideGridProgress();
       },
       
       openAnimationInspector() {

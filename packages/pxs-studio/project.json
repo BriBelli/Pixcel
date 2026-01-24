@@ -1,40 +1,37 @@
 {
-  "name": "pxs-studio",
   "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "name": "pxs-studio",
   "sourceRoot": "packages/pxs-studio/src",
   "projectType": "application",
   "targets": {
     "dev": {
       "executor": "nx:run-commands",
       "options": {
-        "command": "npm run dev",
+        "command": "next dev",
         "cwd": "packages/pxs-studio"
       }
     },
     "build": {
       "executor": "nx:run-commands",
       "options": {
-        "command": "npm run build",
+        "command": "next build",
         "cwd": "packages/pxs-studio"
-      },
-      "outputs": ["{projectRoot}/.next"],
-      "dependsOn": ["^build"]
+      }
     },
     "start": {
       "executor": "nx:run-commands",
       "options": {
-        "command": "npm run start",
+        "command": "next start",
         "cwd": "packages/pxs-studio"
-      },
-      "dependsOn": ["build"]
+      }
     },
     "lint": {
       "executor": "nx:run-commands",
       "options": {
-        "command": "npm run lint",
+        "command": "next lint",
         "cwd": "packages/pxs-studio"
       }
     }
   },
-  "tags": ["type:application", "scope:studio"]
+  "tags": []
 }

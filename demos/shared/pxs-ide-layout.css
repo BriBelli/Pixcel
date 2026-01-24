@@ -332,18 +332,22 @@
 /* Loading State */
 .pxs-ide__loading {
   position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  display: flex;
+  inset: 0;
+  display: none;
   flex-direction: column;
   align-items: center;
+  justify-content: center;
   gap: 16px;
+  background: rgba(13, 17, 23, 0.95);
+  z-index: 200;
+  opacity: 1;
+  transition: opacity 0.3s ease;
 }
 
 .pxs-ide__loading-text {
-  font-size: 14px;
+  font-size: 13px;
   color: var(--pxs-text-secondary);
+  font-family: 'JetBrains Mono', monospace;
 }
 
 /* Instructions Overlay */
@@ -355,7 +359,13 @@
   text-align: center;
   pointer-events: none;
   opacity: 0.8;
-  transition: opacity 1s ease;
+  transition: opacity 0.3s ease;
+  z-index: 10;
+}
+
+/* Hide instructions when loading */
+.pxs-ide__loading[style*="flex"] ~ .pxs-ide__instructions {
+  opacity: 0;
 }
 
 .pxs-ide__instructions--hidden {

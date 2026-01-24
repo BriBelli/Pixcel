@@ -289,10 +289,13 @@ class ImageHelpers {
    * @returns {string} Hex color string
    */
   static rgbToHex(r, g, b) {
-    return '#' + [r, g, b].map(x => {
-      const hex = Math.round(x).toString(16);
-      return hex.length === 1 ? '0' + hex : hex;
-    }).join('');
+    const rHex = Math.round(r).toString(16);
+    const gHex = Math.round(g).toString(16);
+    const bHex = Math.round(b).toString(16);
+    return '#' + 
+      (rHex.length === 1 ? '0' + rHex : rHex) +
+      (gHex.length === 1 ? '0' + gHex : gHex) +
+      (bHex.length === 1 ? '0' + bHex : bHex);
   }
   
   /**
@@ -328,23 +331,47 @@ class ImageHelpers {
    * @returns {PXSFrame} Cloned frame
    */
   static cloneFrame(frame) {
+    const srcCells = frame.cells;
+    const len = srcCells.length;
+    const cells = new Array(len);
+    for (let i = 0; i < len; i++) {
+      const src = srcCells[i];
+      cells[i] = { x: src.x, y: src.y, color: src.color };
+    }
     return {
       cols: frame.cols,
       rows: frame.rows,
-      cells: frame.cells.map(cell => ({ ...cell })),
+      cells,
       metadata: { ...frame.metadata, timestamp: Date.now() }
     };
   }
   
   /**
    * Get a specific cell from frame data
+   * Uses O(1) index calculation (cells are stored in row-major order)
    * @param {PXSFrame} frame - Frame data
    * @param {number} x - X coordinate
    * @param {number} y - Y coordinate
    * @returns {Object|null} Cell object or null if not found
    */
   static getCell(frame, x, y) {
-    return frame.cells.find(cell => cell.x === x && cell.y === y) || null;
+    // Bounds check
+    if (x < 0 || x >= frame.cols || y < 0 || y >= frame.rows) {
+      return null;
+    }
+    // Direct index calculation: cells are stored in row-major order (y * cols + x)
+    const index = y * frame.cols + x;
+    const cell = frame.cells[index];
+    // Verify the cell is at expected position (in case cells aren't in order)
+    if (cell && cell.x === x && cell.y === y) {
+      return cell;
+    }
+    // Fallback to search if cells aren't in expected order (rare)
+    for (let i = 0, len = frame.cells.length; i < len; i++) {
+      const c = frame.cells[i];
+      if (c.x === x && c.y === y) return c;
+    }
+    return null;
   }
   
   /**
@@ -374,12 +401,17 @@ class ImageHelpers {
     if (!Array.isArray(data.cells)) return false;
     if (data.cells.length !== data.cols * data.rows) return false;
     
-    // Validate cell structure
-    return data.cells.every(cell => 
-      typeof cell.x === 'number' && 
-      typeof cell.y === 'number' && 
-      typeof cell.color === 'string'
-    );
+    // Validate cell structure (for loop is faster than .every() for early exit)
+    const cells = data.cells;
+    for (let i = 0, len = cells.length; i < len; i++) {
+      const cell = cells[i];
+      if (typeof cell.x !== 'number' || 
+          typeof cell.y !== 'number' || 
+          typeof cell.color !== 'string') {
+        return false;
+      }
+    }
+    return true;
   }
   
   /**
@@ -389,15 +421,22 @@ class ImageHelpers {
    * @returns {Object} Compressed frame
    */
   static compressFrame(frame) {
-    // Sort cells by position for consistent ordering
-    const sortedCells = [...frame.cells].sort((a, b) => 
-      (a.y * frame.cols + a.x) - (b.y * frame.cols + b.x)
-    );
+    const cols = frame.cols;
+    const cells = frame.cells;
+    const len = cells.length;
+    
+    // Build color array in sorted order using direct index (avoids sort)
+    const colors = new Array(len);
+    for (let i = 0; i < len; i++) {
+      const cell = cells[i];
+      const idx = cell.y * cols + cell.x;
+      colors[idx] = cell.color;
+    }
     
     return {
-      c: frame.cols,
+      c: cols,
       r: frame.rows,
-      d: sortedCells.map(cell => cell.color),
+      d: colors,
       m: frame.metadata
     };
   }

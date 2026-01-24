@@ -211,9 +211,15 @@ class AnimationHelpers {
    * @returns {PXSAnimation} Cloned animation
    */
   static cloneAnimation(animation) {
+    const srcFrames = animation.frames;
+    const len = srcFrames.length;
+    const frames = new Array(len);
+    for (let i = 0; i < len; i++) {
+      frames[i] = ImageHelpers.cloneFrame(srcFrames[i]);
+    }
     return {
       fps: animation.fps,
-      frames: animation.frames.map(frame => ImageHelpers.cloneFrame(frame)),
+      frames,
       metadata: {
         ...animation.metadata,
         timestamp: Date.now()
@@ -269,22 +275,34 @@ class AnimationHelpers {
    * @returns {Object} Compressed animation
    */
   static compressAnimation(animation) {
+    const srcFrames = animation.frames;
+    const len = srcFrames.length;
+    const frames = new Array(len);
+    for (let i = 0; i < len; i++) {
+      frames[i] = ImageHelpers.compressFrame(srcFrames[i]);
+    }
     return {
       fps: animation.fps,
-      frames: animation.frames.map(frame => ImageHelpers.compressFrame(frame)),
+      frames,
       m: animation.metadata
     };
   }
-  
+
   /**
    * Decompress animation
    * @param {Object} compressed - Compressed animation
    * @returns {PXSAnimation} Full animation object
    */
   static decompressAnimation(compressed) {
+    const srcFrames = compressed.frames;
+    const len = srcFrames.length;
+    const frames = new Array(len);
+    for (let i = 0; i < len; i++) {
+      frames[i] = ImageHelpers.decompressFrame(srcFrames[i]);
+    }
     return {
       fps: compressed.fps,
-      frames: compressed.frames.map(frame => ImageHelpers.decompressFrame(frame)),
+      frames,
       metadata: compressed.m || {}
     };
   }
@@ -296,6 +314,7 @@ class AnimationHelpers {
    */
   static getStats(animation) {
     const frame = animation.frames[0];
+    const cellsPerFrame = frame ? frame.cols * frame.rows : 0;
     return {
       frameCount: animation.frames.length,
       fps: animation.fps,
@@ -303,8 +322,8 @@ class AnimationHelpers {
       durationSeconds: animation.metadata.duration / 1000,
       cols: frame?.cols || 0,
       rows: frame?.rows || 0,
-      cellsPerFrame: frame ? frame.cols * frame.rows : 0,
-      totalCells: animation.frames.reduce((sum, f) => sum + f.cells.length, 0),
+      cellsPerFrame,
+      totalCells: cellsPerFrame * animation.frames.length, // Simple multiplication
       estimatedSize: JSON.stringify(animation).length,
       loop: animation.metadata.loop
     };
@@ -321,8 +340,12 @@ class AnimationHelpers {
     if (!Array.isArray(data.frames)) return false;
     if (data.frames.length === 0) return true; // Empty animation is valid
     
-    // Validate each frame
-    return data.frames.every(frame => ImageHelpers.validateFrame(frame));
+    // Validate each frame (for loop for early exit)
+    const frames = data.frames;
+    for (let i = 0, len = frames.length; i < len; i++) {
+      if (!ImageHelpers.validateFrame(frames[i])) return false;
+    }
+    return true;
   }
   
   /**
@@ -338,8 +361,14 @@ class AnimationHelpers {
       return t < 0.5 ? frameA : frameB;
     }
     
-    const cells = frameA.cells.map((cellA, i) => {
-      const cellB = frameB.cells[i];
+    const cellsA = frameA.cells;
+    const cellsB = frameB.cells;
+    const len = cellsA.length;
+    const cells = new Array(len);
+    
+    for (let i = 0; i < len; i++) {
+      const cellA = cellsA[i];
+      const cellB = cellsB[i];
       
       // Parse colors
       const rgbA = this._parseColor(cellA.color);
@@ -350,12 +379,12 @@ class AnimationHelpers {
       const g = Math.round(rgbA.g + (rgbB.g - rgbA.g) * t);
       const b = Math.round(rgbA.b + (rgbB.b - rgbA.b) * t);
       
-      return {
+      cells[i] = {
         x: cellA.x,
         y: cellA.y,
         color: `rgb(${r}, ${g}, ${b})`
       };
-    });
+    }
     
     return {
       cols: frameA.cols,

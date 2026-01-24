@@ -315,12 +315,12 @@ class HTMLRenderer extends BaseRenderer {
      * Stop all animations
      */
     stopAllAnimations() {
-        this.animator.cells.forEach((cell) => {
+        for (const cell of this.animator.cells.values()) {
             if (cell.element) {
                 cell.element.style.animation = 'none';
                 cell.animated = false;
             }
-        });
+        }
     }
 
     /**
@@ -356,9 +356,9 @@ class HTMLRenderer extends BaseRenderer {
      * Reset all cells to default state
      */
     resetAllCells() {
-        this.animator.cells.forEach((cell) => {
+        for (const cell of this.animator.cells.values()) {
             this.resetCell(cell.x, cell.y);
-        });
+        }
     }
 
     /**

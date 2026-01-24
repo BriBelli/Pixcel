@@ -496,10 +496,10 @@ class WebGLRenderer extends BaseRenderer {
      * Stop all animations
      */
     stopAllAnimations() {
-        this.animator.cells.forEach(cell => {
+        for (const cell of this.animator.cells.values()) {
             cell.animated = false;
             cell.animation = null;
-        });
+        }
     }
 
     /**
@@ -527,11 +527,11 @@ class WebGLRenderer extends BaseRenderer {
         this.stopAllAnimations();
         
         const defaultColor = [0.165, 0.165, 0.165, 1.0];
-        this.animator.cells.forEach((cell, key) => {
+        for (const [key, cell] of this.animator.cells) {
             this.cellColors.set(key, defaultColor);
             this._setCellColorInBuffer(cell.index, defaultColor);
             cell.styles = {};
-        });
+        }
         
         this.needsRedraw = true;
     }

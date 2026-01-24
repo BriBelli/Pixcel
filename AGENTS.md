@@ -466,9 +466,9 @@ Viewport culling, spatial indexing, transforms, profiling
 // Validate input
 if (!ImageHelpers.validateFrame(data)) {
   console.warn('CellAnimator: Invalid frame data');
-  return;
-}
-
+        return;
+    }
+    
 // Try-catch for async operations
 try {
   const frame = await ImageHelpers.loadImage(source, options);

@@ -22,19 +22,42 @@ class PatternHelpers {
      */
     static generateHorizontalGradient(options) {
         const { gridWidth, gridHeight, colorStart, colorEnd } = options;
-        const cells = [];
+        const cells = new Array(gridWidth * gridHeight);
         
+        // Pre-parse colors once
+        const c1r = parseInt(colorStart.slice(1, 3), 16);
+        const c1g = parseInt(colorStart.slice(3, 5), 16);
+        const c1b = parseInt(colorStart.slice(5, 7), 16);
+        const c2r = parseInt(colorEnd.slice(1, 3), 16);
+        const c2g = parseInt(colorEnd.slice(3, 5), 16);
+        const c2b = parseInt(colorEnd.slice(5, 7), 16);
+        
+        // Pre-compute colors for each column (same for all rows)
+        const columnColors = new Array(gridWidth);
+        const divisor = gridWidth > 1 ? gridWidth - 1 : 1;
+        
+        for (let x = 0; x < gridWidth; x++) {
+            const t = x / divisor;
+            const r = Math.round(c1r + (c2r - c1r) * t);
+            const g = Math.round(c1g + (c2g - c1g) * t);
+            const b = Math.round(c1b + (c2b - c1b) * t);
+            const rHex = r.toString(16);
+            const gHex = g.toString(16);
+            const bHex = b.toString(16);
+            columnColors[x] = '#' + 
+                (rHex.length === 1 ? '0' + rHex : rHex) +
+                (gHex.length === 1 ? '0' + gHex : gHex) +
+                (bHex.length === 1 ? '0' + bHex : bHex);
+        }
+        
+        let idx = 0;
         for (let y = 0; y < gridHeight; y++) {
             for (let x = 0; x < gridWidth; x++) {
-                // Horizontal progress (0 at left, 1 at right)
-                const progress = gridWidth > 1 ? x / (gridWidth - 1) : 0;
-                const color = this.interpolateColor(colorStart, colorEnd, progress);
-                
-                cells.push({
+                cells[idx++] = {
                     x,
                     y,
-                    styles: { background: color }
-                });
+                    styles: { background: columnColors[x] }
+                };
             }
         }
         
@@ -53,19 +76,43 @@ class PatternHelpers {
      */
     static generateVerticalGradient(options) {
         const { gridWidth, gridHeight, colorStart, colorEnd } = options;
-        const cells = [];
+        const cells = new Array(gridWidth * gridHeight);
+        
+        // Pre-parse colors once
+        const c1r = parseInt(colorStart.slice(1, 3), 16);
+        const c1g = parseInt(colorStart.slice(3, 5), 16);
+        const c1b = parseInt(colorStart.slice(5, 7), 16);
+        const c2r = parseInt(colorEnd.slice(1, 3), 16);
+        const c2g = parseInt(colorEnd.slice(3, 5), 16);
+        const c2b = parseInt(colorEnd.slice(5, 7), 16);
+        
+        // Pre-compute colors for each row (same for all columns)
+        const rowColors = new Array(gridHeight);
+        const divisor = gridHeight > 1 ? gridHeight - 1 : 1;
         
         for (let y = 0; y < gridHeight; y++) {
-            // Vertical progress (0 at top, 1 at bottom)
-            const progress = gridHeight > 1 ? y / (gridHeight - 1) : 0;
-            const color = this.interpolateColor(colorStart, colorEnd, progress);
-            
+            const t = y / divisor;
+            const r = Math.round(c1r + (c2r - c1r) * t);
+            const g = Math.round(c1g + (c2g - c1g) * t);
+            const b = Math.round(c1b + (c2b - c1b) * t);
+            const rHex = r.toString(16);
+            const gHex = g.toString(16);
+            const bHex = b.toString(16);
+            rowColors[y] = '#' + 
+                (rHex.length === 1 ? '0' + rHex : rHex) +
+                (gHex.length === 1 ? '0' + gHex : gHex) +
+                (bHex.length === 1 ? '0' + bHex : bHex);
+        }
+        
+        let idx = 0;
+        for (let y = 0; y < gridHeight; y++) {
+            const color = rowColors[y];
             for (let x = 0; x < gridWidth; x++) {
-                cells.push({
+                cells[idx++] = {
                     x,
                     y,
                     styles: { background: color }
-                });
+                };
             }
         }
         
@@ -140,26 +187,51 @@ class PatternHelpers {
      */
     static generateRadialGradient(options) {
         const { centerX, centerY, radius, colorCenter, colorEdge, gridWidth, gridHeight } = options;
-        const cells = [];
+        const cells = new Array(gridWidth * gridHeight);
+        
+        // Pre-parse colors once (avoid parsing in inner loop)
+        const c1r = parseInt(colorCenter.slice(1, 3), 16);
+        const c1g = parseInt(colorCenter.slice(3, 5), 16);
+        const c1b = parseInt(colorCenter.slice(5, 7), 16);
+        const c2r = parseInt(colorEdge.slice(1, 3), 16);
+        const c2g = parseInt(colorEdge.slice(3, 5), 16);
+        const c2b = parseInt(colorEdge.slice(5, 7), 16);
+        
+        // Pre-compute inverse radius for multiplication instead of division
+        const invRadius = 1 / radius;
+        let idx = 0;
         
         for (let y = 0; y < gridHeight; y++) {
+            const dy = y - centerY;
+            const dySq = dy * dy;
+            
             for (let x = 0; x < gridWidth; x++) {
-                // Calculate distance from center
                 const dx = x - centerX;
-                const dy = y - centerY;
-                const distance = Math.sqrt(dx * dx + dy * dy);
+                const distance = Math.sqrt(dx * dx + dySq);
                 
                 // Normalize to 0-1 (0 = center, 1 = edge)
-                const progress = Math.min(1, distance / radius);
+                const progress = distance * invRadius;
+                const t = progress > 1 ? 1 : progress;
                 
-                // Interpolate color
-                const color = this.interpolateColor(colorCenter, colorEdge, progress);
+                // Inline interpolation (avoid function call overhead)
+                const r = Math.round(c1r + (c2r - c1r) * t);
+                const g = Math.round(c1g + (c2g - c1g) * t);
+                const b = Math.round(c1b + (c2b - c1b) * t);
                 
-                cells.push({
+                const rHex = r.toString(16);
+                const gHex = g.toString(16);
+                const bHex = b.toString(16);
+                
+                cells[idx++] = {
                     x,
                     y,
-                    styles: { background: color }
-                });
+                    styles: { 
+                        background: '#' + 
+                            (rHex.length === 1 ? '0' + rHex : rHex) +
+                            (gHex.length === 1 ? '0' + gHex : gHex) +
+                            (bHex.length === 1 ? '0' + bHex : bHex)
+                    }
+                };
             }
         }
         
@@ -178,22 +250,42 @@ class PatternHelpers {
      */
     static generateDiagonalGradient(options) {
         const { gridWidth, gridHeight, colorStart, colorEnd } = options;
-        const cells = [];
+        const cells = new Array(gridWidth * gridHeight);
         const maxDistance = gridWidth + gridHeight - 2;
+        const invMaxDist = maxDistance > 0 ? 1 / maxDistance : 1;
         
+        // Pre-parse colors once
+        const c1r = parseInt(colorStart.slice(1, 3), 16);
+        const c1g = parseInt(colorStart.slice(3, 5), 16);
+        const c1b = parseInt(colorStart.slice(5, 7), 16);
+        const c2r = parseInt(colorEnd.slice(1, 3), 16);
+        const c2g = parseInt(colorEnd.slice(3, 5), 16);
+        const c2b = parseInt(colorEnd.slice(5, 7), 16);
+        
+        let idx = 0;
         for (let y = 0; y < gridHeight; y++) {
             for (let x = 0; x < gridWidth; x++) {
                 // Diagonal progress (0 at top-left, 1 at bottom-right)
-                const progress = (x + y) / maxDistance;
+                const t = (x + y) * invMaxDist;
                 
-                // Interpolate color
-                const color = this.interpolateColor(colorStart, colorEnd, progress);
+                // Inline interpolation
+                const r = Math.round(c1r + (c2r - c1r) * t);
+                const g = Math.round(c1g + (c2g - c1g) * t);
+                const b = Math.round(c1b + (c2b - c1b) * t);
+                const rHex = r.toString(16);
+                const gHex = g.toString(16);
+                const bHex = b.toString(16);
                 
-                cells.push({
+                cells[idx++] = {
                     x,
                     y,
-                    styles: { background: color }
-                });
+                    styles: { 
+                        background: '#' + 
+                            (rHex.length === 1 ? '0' + rHex : rHex) +
+                            (gHex.length === 1 ? '0' + gHex : gHex) +
+                            (bHex.length === 1 ? '0' + bHex : bHex)
+                    }
+                };
             }
         }
         

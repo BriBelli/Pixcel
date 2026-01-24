@@ -24,7 +24,7 @@ class CanvasRenderer extends BaseRenderer {
         
         // Phase 2C: Viewport rendering state
         this.viewportEnabled = false;
-        this.dirtyRegions = new Set(); // Track cells that need redrawing
+        this.dirtyRegions = new Map(); // "x-y" -> {x, y} - avoids parsing in hot path
         this.fullRedrawNeeded = true;
         this._batchRedrawScheduled = false; // For batch update efficiency
         
@@ -217,11 +217,10 @@ class CanvasRenderer extends BaseRenderer {
         }
         
         if (this.viewportEnabled && !this.fullRedrawNeeded) {
-            // Partial redraw - only dirty regions
-            for (const key of this.dirtyRegions) {
-                const [x, y] = key.split('-').map(Number);
-                if (viewportManager.isCellVisible(x, y)) {
-                    this._drawCell(x, y);
+            // Partial redraw - only dirty regions (coords pre-stored to avoid parsing)
+            for (const coord of this.dirtyRegions.values()) {
+                if (viewportManager.isCellVisible(coord.x, coord.y)) {
+                    this._drawCell(coord.x, coord.y);
                 }
             }
             this.dirtyRegions.clear();
@@ -381,8 +380,8 @@ class CanvasRenderer extends BaseRenderer {
         const existingStyles = this.cellStyles.get(key) || {};
         this.cellStyles.set(key, { ...existingStyles, ...styles });
         
-        // Phase 2C: Mark cell as dirty for partial/batched redraw
-        this.dirtyRegions.add(key);
+        // Phase 2C: Mark cell as dirty for partial/batched redraw (store coords to avoid parsing)
+        this.dirtyRegions.set(key, { x, y });
         
         // Use debounced redraw for batch efficiency
         // If we're in animation loop, it will handle the redraw
@@ -643,7 +642,7 @@ class CanvasRenderer extends BaseRenderer {
         this.activeAnimations.clear();
         
         // Reset all animated styles
-        for (const [key, styles] of this.cellStyles.entries()) {
+        for (const styles of this.cellStyles.values()) {
             delete styles.transform;
             delete styles.opacity;
         }
@@ -777,8 +776,9 @@ class CanvasRenderer extends BaseRenderer {
      * @param {Array<{x: number, y: number}>} cells - Cells to mark dirty
      */
     markCellsDirty(cells) {
-        for (const cell of cells) {
-            this.dirtyRegions.add(`${cell.x}-${cell.y}`);
+        for (let i = 0, len = cells.length; i < len; i++) {
+            const cell = cells[i];
+            this.dirtyRegions.set(`${cell.x}-${cell.y}`, { x: cell.x, y: cell.y });
         }
     }
 

@@ -213,7 +213,7 @@ class CellAnimator {
 
             // Phase 2C: Populate spatial index with cells
             if (this.spatialIndex) {
-                this.cells.forEach((cell, key) => {
+                for (const cell of this.cells.values()) {
                     this.spatialIndex.insert({
                         x: cell.x,
                         y: cell.y,
@@ -225,7 +225,7 @@ class CellAnimator {
                         },
                         data: cell
                     });
-                });
+                }
             }
 
             this.state.initialized = true;
@@ -275,9 +275,13 @@ class CellAnimator {
      * @returns {Array<Object>} Array of cell data
      */
     getCellsByCoordinates(coordinates) {
-        return coordinates
-            .map(coord => this.getCell(coord.x, coord.y))
-            .filter(cell => cell !== null);
+        const result = [];
+        for (let i = 0, len = coordinates.length; i < len; i++) {
+            const coord = coordinates[i];
+            const cell = this.cells.get(`${coord.x}-${coord.y}`);
+            if (cell) result.push(cell);
+        }
+        return result;
     }
 
     /**
@@ -341,9 +345,10 @@ class CellAnimator {
      * @param {Array<{x: number, y: number, styles: Object}>} updates - Array of update objects
      */
     updateCells(updates) {
-        updates.forEach(update => {
+        for (let i = 0, len = updates.length; i < len; i++) {
+            const update = updates[i];
             this.updateCell(update.x, update.y, update.styles);
-        });
+        }
     }
 
     /**
@@ -379,9 +384,10 @@ class CellAnimator {
      * @param {Array<{x: number, y: number, animation: Object}>} animations - Array of animation objects
      */
     animateCells(animations) {
-        animations.forEach(anim => {
+        for (let i = 0, len = animations.length; i < len; i++) {
+            const anim = animations[i];
             this.animateCell(anim.x, anim.y, anim.animation);
-        });
+        }
     }
 
     /**
@@ -520,15 +526,16 @@ class CellAnimator {
      * @param {*} data - Event data
      */
     _emit(event, data) {
-        if (!this.eventListeners.has(event)) return;
+        const listeners = this.eventListeners.get(event);
+        if (!listeners) return;
         
-        this.eventListeners.get(event).forEach(callback => {
+        for (let i = 0, len = listeners.length; i < len; i++) {
             try {
-                callback(data);
+                listeners[i](data);
             } catch (error) {
                 console.error(`CellAnimator event error (${event}):`, error);
             }
-        });
+        }
     }
 
     // ========================================
@@ -609,8 +616,14 @@ class CellAnimator {
             return this.getAllCells();
         }
 
-        const visibleCells = this.viewportManager.getVisibleCells();
-        return visibleCells.map(coord => this.getCell(coord.x, coord.y)).filter(c => c);
+        const visibleCoords = this.viewportManager.getVisibleCells();
+        const result = [];
+        for (let i = 0, len = visibleCoords.length; i < len; i++) {
+            const coord = visibleCoords[i];
+            const cell = this.cells.get(`${coord.x}-${coord.y}`);
+            if (cell) result.push(cell);
+        }
+        return result;
     }
 
     /**
@@ -686,7 +699,10 @@ class CellAnimator {
         }
 
         const cells = group.getCells();
-        this.updateCells(cells.map(cell => ({ ...cell, styles })));
+        for (let i = 0, len = cells.length; i < len; i++) {
+            const cell = cells[i];
+            this.updateCell(cell.x, cell.y, styles);
+        }
         
         this._emit('groupUpdated', { groupName, cellCount: cells.length });
     }
@@ -704,7 +720,10 @@ class CellAnimator {
         }
 
         const cells = group.getCells();
-        this.animateCells(cells.map(cell => ({ ...cell, animation })));
+        for (let i = 0, len = cells.length; i < len; i++) {
+            const cell = cells[i];
+            this.animateCell(cell.x, cell.y, animation);
+        }
         
         group.setAnimation(animation);
         this._emit('groupAnimated', { groupName, cellCount: cells.length, animation });
@@ -722,12 +741,13 @@ class CellAnimator {
             return;
         }
 
-        cells.forEach(cell => {
-            const cellData = this.getCell(cell.x, cell.y);
+        for (let i = 0, len = cells.length; i < len; i++) {
+            const cell = cells[i];
+            const cellData = this.cells.get(`${cell.x}-${cell.y}`);
             if (cellData) {
                 group.addCell(cell.x, cell.y, cellData);
             }
-        });
+        }
 
         this._emit('cellsAddedToGroup', { groupName, count: cells.length });
     }
@@ -858,16 +878,25 @@ class CellAnimator {
      */
     getCellsInRadius(centerX, centerY, radius) {
         if (!this.spatialIndex) {
-            // Fallback: brute force search
-            return this.getAllCells().filter(cell => {
+            // Fallback: brute force search using squared distance (avoids sqrt)
+            const result = [];
+            const radiusSq = radius * radius;
+            for (const cell of this.cells.values()) {
                 const dx = cell.x - centerX;
                 const dy = cell.y - centerY;
-                return Math.sqrt(dx * dx + dy * dy) <= radius;
-            });
+                if (dx * dx + dy * dy <= radiusSq) {
+                    result.push(cell);
+                }
+            }
+            return result;
         }
 
         const results = this.spatialIndex.queryCircle(centerX, centerY, radius);
-        return results.map(item => item.data).filter(c => c);
+        const output = [];
+        for (let i = 0, len = results.length; i < len; i++) {
+            if (results[i].data) output.push(results[i].data);
+        }
+        return output;
     }
 
     /**
@@ -909,22 +938,44 @@ class CellAnimator {
      */
     getKNearestCells(x, y, k) {
         if (!this.spatialIndex) {
-            // Fallback: brute force
-            const cellsWithDist = this.getAllCells().map(cell => {
+            // Fallback: brute force using squared distance (avoid sqrt for comparison)
+            // Use a simple array with inline distance storage to avoid object creation
+            const cells = [];
+            const distances = [];
+            
+            for (const cell of this.cells.values()) {
                 const dx = cell.x - x;
                 const dy = cell.y - y;
-                return {
-                    cell,
-                    distance: Math.sqrt(dx * dx + dy * dy)
-                };
-            });
-
-            cellsWithDist.sort((a, b) => a.distance - b.distance);
-            return cellsWithDist.slice(0, k).map(item => item.cell);
+                const distSq = dx * dx + dy * dy;
+                
+                // Insert in sorted order (simple insertion for small k)
+                let inserted = false;
+                for (let i = 0; i < cells.length && i < k; i++) {
+                    if (distSq < distances[i]) {
+                        cells.splice(i, 0, cell);
+                        distances.splice(i, 0, distSq);
+                        inserted = true;
+                        break;
+                    }
+                }
+                if (!inserted && cells.length < k) {
+                    cells.push(cell);
+                    distances.push(distSq);
+                } else if (cells.length > k) {
+                    cells.pop();
+                    distances.pop();
+                }
+            }
+            
+            return cells;
         }
 
         const results = this.spatialIndex.kNearest(x, y, k);
-        return results.map(item => item.data).filter(c => c);
+        const output = [];
+        for (let i = 0, len = results.length; i < len; i++) {
+            if (results[i].data) output.push(results[i].data);
+        }
+        return output;
     }
 
     // ========================================
@@ -1007,15 +1058,16 @@ class CellAnimator {
      * @returns {PXSFrame} Frame data object
      */
     getData() {
-        const cells = [];
+        const cells = new Array(this.cells.size);
+        let i = 0;
         
-        for (const [key, cellData] of this.cells) {
-            const [x, y] = key.split('-').map(Number);
-            cells.push({
-                x,
-                y,
+        // Use cell.x/y directly - no string parsing needed
+        for (const cellData of this.cells.values()) {
+            cells[i++] = {
+                x: cellData.x,
+                y: cellData.y,
                 color: cellData.color || cellData.styles?.background || '#2A2A2A'
-            });
+            };
         }
         
         return {
@@ -1053,17 +1105,16 @@ class CellAnimator {
             await this._reinitialize(frameData.cols, frameData.rows);
         }
         
-        // Convert cells to update format and apply
-        const updates = frameData.cells.map(cell => ({
-            x: cell.x,
-            y: cell.y,
-            styles: {
+        // Apply cell updates directly - no intermediate array needed
+        const cells = frameData.cells;
+        const defaultOpacity = this.config.defaultCellOpacity;
+        for (let i = 0, len = cells.length; i < len; i++) {
+            const cell = cells[i];
+            this.updateCell(cell.x, cell.y, {
                 background: cell.color,
-                opacity: cell.opacity !== undefined ? cell.opacity : this.config.defaultCellOpacity
-            }
-        }));
-        
-        this.updateCells(updates);
+                opacity: cell.opacity !== undefined ? cell.opacity : defaultOpacity
+            });
+        }
         
         // Emit data change event
         this._emit('dataChange', frameData);

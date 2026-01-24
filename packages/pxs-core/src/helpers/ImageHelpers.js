@@ -1,0 +1,481 @@
+/**
+ * ImageHelpers - Image loading, processing, and data conversion utilities
+ * 
+ * Core principle: Images are DATA, not files. Every image converts to an array
+ * of cell objects that can be stored, edited, transmitted, and rendered.
+ * 
+ * @example
+ * // Load image and get data
+ * const frameData = await ImageHelpers.loadImage('photo.jpg', { cols: 64, rows: 48 });
+ * 
+ * // frameData = {
+ * //   cols: 64,
+ * //   rows: 48,
+ * //   cells: [{ x: 0, y: 0, color: '#2A2A2A' }, ...],
+ * //   metadata: { source: 'photo.jpg', timestamp: 1642..., version: '2.0.0' }
+ * // }
+ * 
+ * // Render it
+ * animator.setData(frameData);
+ * 
+ * // Edit it
+ * frameData.cells[100].color = '#FF0000';
+ * animator.setData(frameData);
+ * 
+ * // Export it
+ * const json = JSON.stringify(frameData);
+ */
+
+class ImageHelpers {
+  /**
+   * PXS Version for metadata
+   */
+  static VERSION = '2.0.0';
+  
+  /**
+   * Quality presets (max dimension in pixels)
+   * 
+   * Rust/WASM Usage:
+   * - Automatically used for ALL image processing when available (any resolution)
+   * - Most beneficial for high-res images (256×192 / 4K and above) - 10x faster
+   * - Falls back to JavaScript if WASM unavailable
+   * - What it does: Gamma-correct block averaging for accurate color downsampling
+   */
+  static QUALITY_PRESETS = {
+    retro: 16,      // ~16×12 - Classic 8-bit style
+    low: 32,        // ~32×24 - Chunky pixels
+    medium: 64,     // ~64×48 - Balanced quality
+    high: 128,      // ~128×96 - Good detail
+    hd: 200,        // ~200×150 - High definition
+    ultra: 256,     // ~256×192 - Very sharp (4K quality)
+    qvga: 320,      // ~320×240 - QVGA quality
+    '4k': 400,      // ~400×300 - 4K style
+    cinema: 512,    // ~512×384 - Cinema quality
+    vga: 640        // ~640×480 - VGA quality
+  };
+  
+  /**
+   * Load an image and convert to PXSFrame data
+   * @param {string|File|HTMLImageElement|Blob} source - Image source
+   * @param {Object} options - Processing options
+   * @param {number} [options.cols] - Target columns (width in cells)
+   * @param {number} [options.rows] - Target rows (height in cells)
+   * @param {string} [options.quality='medium'] - Quality preset: 'retro', 'low', 'medium', 'high', 'hd', 'ultra'
+   * @param {boolean} [options.preserveAspect=true] - Maintain image aspect ratio
+   * @param {boolean} [options.gammaCorrect=true] - Apply gamma correction for accurate color averaging
+   * @returns {Promise<PXSFrame>} Frame data object
+   */
+  static async loadImage(source, options = {}) {
+    const {
+      cols,
+      rows,
+      quality = 'medium',
+      preserveAspect = true,
+      gammaCorrect = true
+    } = options;
+    
+    // Load the image element
+    const img = await this._loadImageElement(source);
+    
+    // Calculate target dimensions
+    const { targetCols, targetRows } = this._calculateDimensions(
+      img.width, 
+      img.height, 
+      cols, 
+      rows, 
+      quality, 
+      preserveAspect
+    );
+    
+    // Convert to cell data using block averaging
+    const cells = await this._imageToData(img, targetCols, targetRows, gammaCorrect);
+    
+    // Build PXSFrame
+    return {
+      cols: targetCols,
+      rows: targetRows,
+      cells,
+      metadata: {
+        source: typeof source === 'string' ? source : source.name || 'uploaded',
+        sourceWidth: img.width,
+        sourceHeight: img.height,
+        timestamp: Date.now(),
+        version: this.VERSION,
+        options: { quality, preserveAspect, gammaCorrect }
+      }
+    };
+  }
+  
+  /**
+   * Load image element from various sources
+   * @private
+   */
+  static async _loadImageElement(source) {
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
+      
+      img.onload = () => resolve(img);
+      img.onerror = () => reject(new Error('Failed to load image'));
+      
+      if (typeof source === 'string') {
+        // URL or data URL
+        img.src = source;
+      } else if (source instanceof HTMLImageElement) {
+        // Already an image element
+        if (source.complete) {
+          resolve(source);
+        } else {
+          source.onload = () => resolve(source);
+          source.onerror = reject;
+        }
+        return;
+      } else if (source instanceof File || source instanceof Blob) {
+        // File or Blob
+        const reader = new FileReader();
+        reader.onload = (e) => { img.src = e.target.result; };
+        reader.onerror = reject;
+        reader.readAsDataURL(source);
+      } else {
+        reject(new Error('Invalid image source type'));
+      }
+    });
+  }
+  
+  /**
+   * Calculate target dimensions based on options
+   * @private
+   */
+  static _calculateDimensions(imgWidth, imgHeight, cols, rows, quality, preserveAspect) {
+    const aspect = imgWidth / imgHeight;
+    
+    // If both cols and rows specified, use them
+    if (cols && rows) {
+      return { targetCols: cols, targetRows: rows };
+    }
+    
+    // Get max size from quality preset or explicit value
+    const maxSize = typeof quality === 'number' 
+      ? quality 
+      : (this.QUALITY_PRESETS[quality] || this.QUALITY_PRESETS.medium);
+    
+    let targetCols, targetRows;
+    
+    if (preserveAspect) {
+      if (aspect >= 1) {
+        // Landscape
+        targetCols = maxSize;
+        targetRows = Math.round(maxSize / aspect);
+      } else {
+        // Portrait
+        targetRows = maxSize;
+        targetCols = Math.round(maxSize * aspect);
+      }
+    } else {
+      // Square output
+      targetCols = cols || maxSize;
+      targetRows = rows || maxSize;
+    }
+    
+    // Enforce minimums
+    targetCols = Math.max(8, targetCols);
+    targetRows = Math.max(8, targetRows);
+    
+    return { targetCols, targetRows };
+  }
+  
+  /**
+   * Convert image to cell data using block averaging with optional gamma correction
+   * Uses WASM when available for 10x+ faster processing
+   * @private
+   */
+  static async _imageToData(img, cols, rows, gammaCorrect = true) {
+    // Create canvas at source resolution
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d', { willReadFrequently: true });
+    
+    canvas.width = img.width;
+    canvas.height = img.height;
+    ctx.drawImage(img, 0, 0);
+    
+    const sourceData = ctx.getImageData(0, 0, img.width, img.height);
+    const sourcePixels = sourceData.data;
+    
+    // Use WASM if available (10x faster, used for ALL resolutions when available)
+    // Most beneficial for high-res images (256×192 / 4K+), but works for all
+    if (typeof PXSWasm !== 'undefined' && PXSWasm.isAvailable()) {
+      return PXSWasm.processImage(sourcePixels, img.width, img.height, cols, rows, gammaCorrect);
+    }
+    
+    // JavaScript fallback
+    const blockWidth = img.width / cols;
+    const blockHeight = img.height / rows;
+    const cells = [];
+    
+    for (let cellY = 0; cellY < rows; cellY++) {
+      for (let cellX = 0; cellX < cols; cellX++) {
+        const srcX1 = Math.floor(cellX * blockWidth);
+        const srcY1 = Math.floor(cellY * blockHeight);
+        const srcX2 = Math.min(Math.floor((cellX + 1) * blockWidth), img.width);
+        const srcY2 = Math.min(Math.floor((cellY + 1) * blockHeight), img.height);
+        
+        let r = 0, g = 0, b = 0, count = 0;
+        
+        for (let y = srcY1; y < srcY2; y++) {
+          for (let x = srcX1; x < srcX2; x++) {
+            const idx = (y * img.width + x) * 4;
+            
+            if (gammaCorrect) {
+              r += Math.pow(sourcePixels[idx] / 255, 2.2);
+              g += Math.pow(sourcePixels[idx + 1] / 255, 2.2);
+              b += Math.pow(sourcePixels[idx + 2] / 255, 2.2);
+            } else {
+              r += sourcePixels[idx];
+              g += sourcePixels[idx + 1];
+              b += sourcePixels[idx + 2];
+            }
+            count++;
+          }
+        }
+        
+        let finalR, finalG, finalB;
+        
+        if (gammaCorrect && count > 0) {
+          finalR = Math.round(Math.pow(r / count, 1 / 2.2) * 255);
+          finalG = Math.round(Math.pow(g / count, 1 / 2.2) * 255);
+          finalB = Math.round(Math.pow(b / count, 1 / 2.2) * 255);
+        } else if (count > 0) {
+          finalR = Math.round(r / count);
+          finalG = Math.round(g / count);
+          finalB = Math.round(b / count);
+        } else {
+          finalR = finalG = finalB = 0;
+        }
+        
+        finalR = Math.max(0, Math.min(255, finalR));
+        finalG = Math.max(0, Math.min(255, finalG));
+        finalB = Math.max(0, Math.min(255, finalB));
+        
+        cells.push({
+          x: cellX,
+          y: cellY,
+          color: `rgb(${finalR}, ${finalG}, ${finalB})`
+        });
+      }
+    }
+    
+    return cells;
+  }
+  
+  /**
+   * Convert hex color to RGB object
+   * @param {string} hex - Hex color string
+   * @returns {Object} RGB object { r, g, b }
+   */
+  static hexToRgb(hex) {
+    const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+    return result ? {
+      r: parseInt(result[1], 16),
+      g: parseInt(result[2], 16),
+      b: parseInt(result[3], 16)
+    } : null;
+  }
+  
+  /**
+   * Convert RGB to hex color
+   * @param {number} r - Red (0-255)
+   * @param {number} g - Green (0-255)
+   * @param {number} b - Blue (0-255)
+   * @returns {string} Hex color string
+   */
+  static rgbToHex(r, g, b) {
+    const rHex = Math.round(r).toString(16);
+    const gHex = Math.round(g).toString(16);
+    const bHex = Math.round(b).toString(16);
+    return '#' + 
+      (rHex.length === 1 ? '0' + rHex : rHex) +
+      (gHex.length === 1 ? '0' + gHex : gHex) +
+      (bHex.length === 1 ? '0' + bHex : bHex);
+  }
+  
+  /**
+   * Create a blank PXSFrame
+   * @param {number} cols - Number of columns
+   * @param {number} rows - Number of rows
+   * @param {string} [fillColor='#2A2A2A'] - Default cell color
+   * @returns {PXSFrame} Blank frame data
+   */
+  static createBlankFrame(cols, rows, fillColor = '#2A2A2A') {
+    const cells = [];
+    for (let y = 0; y < rows; y++) {
+      for (let x = 0; x < cols; x++) {
+        cells.push({ x, y, color: fillColor });
+      }
+    }
+    
+    return {
+      cols,
+      rows,
+      cells,
+      metadata: {
+        source: 'blank',
+        timestamp: Date.now(),
+        version: this.VERSION
+      }
+    };
+  }
+  
+  /**
+   * Clone a PXSFrame (deep copy)
+   * @param {PXSFrame} frame - Frame to clone
+   * @returns {PXSFrame} Cloned frame
+   */
+  static cloneFrame(frame) {
+    const srcCells = frame.cells;
+    const len = srcCells.length;
+    const cells = new Array(len);
+    for (let i = 0; i < len; i++) {
+      const src = srcCells[i];
+      cells[i] = { x: src.x, y: src.y, color: src.color };
+    }
+    return {
+      cols: frame.cols,
+      rows: frame.rows,
+      cells,
+      metadata: { ...frame.metadata, timestamp: Date.now() }
+    };
+  }
+  
+  /**
+   * Get a specific cell from frame data
+   * Uses O(1) index calculation (cells are stored in row-major order)
+   * @param {PXSFrame} frame - Frame data
+   * @param {number} x - X coordinate
+   * @param {number} y - Y coordinate
+   * @returns {Object|null} Cell object or null if not found
+   */
+  static getCell(frame, x, y) {
+    // Bounds check
+    if (x < 0 || x >= frame.cols || y < 0 || y >= frame.rows) {
+      return null;
+    }
+    // Direct index calculation: cells are stored in row-major order (y * cols + x)
+    const index = y * frame.cols + x;
+    const cell = frame.cells[index];
+    // Verify the cell is at expected position (in case cells aren't in order)
+    if (cell && cell.x === x && cell.y === y) {
+      return cell;
+    }
+    // Fallback to search if cells aren't in expected order (rare)
+    for (let i = 0, len = frame.cells.length; i < len; i++) {
+      const c = frame.cells[i];
+      if (c.x === x && c.y === y) return c;
+    }
+    return null;
+  }
+  
+  /**
+   * Update a specific cell in frame data
+   * @param {PXSFrame} frame - Frame data
+   * @param {number} x - X coordinate
+   * @param {number} y - Y coordinate
+   * @param {string} color - New color
+   * @returns {PXSFrame} Updated frame (mutates original)
+   */
+  static updateCell(frame, x, y, color) {
+    const cell = this.getCell(frame, x, y);
+    if (cell) {
+      cell.color = color;
+    }
+    return frame;
+  }
+  
+  /**
+   * Validate a PXSFrame object
+   * @param {Object} data - Data to validate
+   * @returns {boolean} True if valid PXSFrame
+   */
+  static validateFrame(data) {
+    if (!data || typeof data !== 'object') return false;
+    if (typeof data.cols !== 'number' || typeof data.rows !== 'number') return false;
+    if (!Array.isArray(data.cells)) return false;
+    if (data.cells.length !== data.cols * data.rows) return false;
+    
+    // Validate cell structure (for loop is faster than .every() for early exit)
+    const cells = data.cells;
+    for (let i = 0, len = cells.length; i < len; i++) {
+      const cell = cells[i];
+      if (typeof cell.x !== 'number' || 
+          typeof cell.y !== 'number' || 
+          typeof cell.color !== 'string') {
+        return false;
+      }
+    }
+    return true;
+  }
+  
+  /**
+   * Compress frame data for storage/transmission
+   * Uses a more compact format: [cols, rows, [colors...]]
+   * @param {PXSFrame} frame - Frame data
+   * @returns {Object} Compressed frame
+   */
+  static compressFrame(frame) {
+    const cols = frame.cols;
+    const cells = frame.cells;
+    const len = cells.length;
+    
+    // Build color array in sorted order using direct index (avoids sort)
+    const colors = new Array(len);
+    for (let i = 0; i < len; i++) {
+      const cell = cells[i];
+      const idx = cell.y * cols + cell.x;
+      colors[idx] = cell.color;
+    }
+    
+    return {
+      c: cols,
+      r: frame.rows,
+      d: colors,
+      m: frame.metadata
+    };
+  }
+  
+  /**
+   * Decompress frame data
+   * @param {Object} compressed - Compressed frame
+   * @returns {PXSFrame} Full frame data
+   */
+  static decompressFrame(compressed) {
+    const cells = [];
+    let i = 0;
+    
+    for (let y = 0; y < compressed.r; y++) {
+      for (let x = 0; x < compressed.c; x++) {
+        cells.push({
+          x,
+          y,
+          color: compressed.d[i++]
+        });
+      }
+    }
+    
+    return {
+      cols: compressed.c,
+      rows: compressed.r,
+      cells,
+      metadata: compressed.m || {}
+    };
+  }
+}
+
+// Make available globally
+if (typeof window !== 'undefined') {
+  window.ImageHelpers = ImageHelpers;
+}
+
+// Module export
+if (typeof module !== 'undefined' && module.exports) {
+  module.exports = ImageHelpers;
+}
+export default {};

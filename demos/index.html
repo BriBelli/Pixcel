@@ -943,6 +943,10 @@
           <div class="pxs-ide__sidebar-title"><span>📏 Grid Resolution</span></div>
           <div class="pxs-ide__sidebar-content">
             <div class="res-presets" id="image-res-presets">
+              <button class="res-preset" data-cols="8" data-rows="8" onclick="Demo.createGrid(8, 8)">
+                <span class="res-preset__name">8-bit <span style="opacity: 0.5; font-size: 9px;">(Micro)</span></span>
+                <span class="res-preset__size">8×8</span>
+              </button>
               <button class="res-preset" data-cols="16" data-rows="16" onclick="Demo.createGrid(16, 16)">
                 <span class="res-preset__name">16-bit <span style="opacity: 0.5; font-size: 9px;">(Retro)</span></span>
                 <span class="res-preset__size">16×16</span>
@@ -963,9 +967,17 @@
                 <span class="res-preset__name">128-bit <span style="opacity: 0.5; font-size: 9px;">(HD)</span></span>
                 <span class="res-preset__size">128×96</span>
               </button>
+              <button class="res-preset" data-cols="160" data-rows="120" onclick="Demo.createGrid(160, 120)">
+                <span class="res-preset__name">QQVGA <span style="opacity: 0.5; font-size: 9px;">(HD+)</span></span>
+                <span class="res-preset__size">160×120</span>
+              </button>
               <button class="res-preset" data-cols="256" data-rows="192" onclick="Demo.createGrid(256, 192)">
                 <span class="res-preset__name">256-bit <span style="opacity: 0.5; font-size: 9px;">(4K)</span></span>
                 <span class="res-preset__size">256×192</span>
+              </button>
+              <button class="res-preset" data-cols="320" data-rows="240" onclick="Demo.createGrid(320, 240)">
+                <span class="res-preset__name">QVGA <span style="opacity: 0.5; font-size: 9px;">(UHD)</span></span>
+                <span class="res-preset__size">320×240</span>
               </button>
             </div>
           </div>
@@ -1054,6 +1066,10 @@
           <div class="pxs-ide__sidebar-title"><span>📏 Grid Resolution</span></div>
           <div class="pxs-ide__sidebar-content">
             <div class="res-presets" id="anim-res-presets">
+              <button class="res-preset" data-cols="8" data-rows="8" onclick="Demo.createGrid(8, 8)">
+                <span class="res-preset__name">8-bit <span style="opacity: 0.5; font-size: 9px;">(Micro)</span></span>
+                <span class="res-preset__size">8×8</span>
+              </button>
               <button class="res-preset" data-cols="16" data-rows="16" onclick="Demo.createGrid(16, 16)">
                 <span class="res-preset__name">16-bit <span style="opacity: 0.5; font-size: 9px;">(Retro)</span></span>
                 <span class="res-preset__size">16×16</span>
@@ -1074,9 +1090,17 @@
                 <span class="res-preset__name">128-bit <span style="opacity: 0.5; font-size: 9px;">(HD)</span></span>
                 <span class="res-preset__size">128×96</span>
               </button>
+              <button class="res-preset" data-cols="160" data-rows="120" onclick="Demo.createGrid(160, 120)">
+                <span class="res-preset__name">QQVGA <span style="opacity: 0.5; font-size: 9px;">(HD+)</span></span>
+                <span class="res-preset__size">160×120</span>
+              </button>
               <button class="res-preset" data-cols="256" data-rows="192" onclick="Demo.createGrid(256, 192)">
                 <span class="res-preset__name">256-bit <span style="opacity: 0.5; font-size: 9px;">(4K)</span></span>
                 <span class="res-preset__size">256×192</span>
+              </button>
+              <button class="res-preset" data-cols="320" data-rows="240" onclick="Demo.createGrid(320, 240)">
+                <span class="res-preset__name">QVGA <span style="opacity: 0.5; font-size: 9px;">(UHD)</span></span>
+                <span class="res-preset__size">320×240</span>
               </button>
             </div>
           </div>

@@ -1,12 +1,14 @@
 'use client';
 
-import React, { useEffect, useRef, useCallback, forwardRef, useImperativeHandle } from 'react';
+import React, { useEffect, useRef, useCallback, forwardRef, useImperativeHandle, useState } from 'react';
 import type { GridData } from '../workers/grid.worker';
 import type { PXSCell } from '../store/pxs-store';
 import { usePXSStore } from '../store/pxs-store';
 
 interface GridCanvasProps {
   gridData: GridData | null;
+  onCellClick?: (x: number, y: number, cell: PXSCell | null) => void;
+  onCellDoubleClick?: (x: number, y: number, cell: PXSCell | null) => void;
 }
 
 export interface GridCanvasHandle {
@@ -22,36 +24,102 @@ interface RenderConfig {
 }
 
 const GridCanvas = forwardRef<HTMLCanvasElement, GridCanvasProps>(
-  ({ gridData }, externalRef) => {
+  ({ gridData, onCellClick, onCellDoubleClick }, externalRef) => {
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const containerRef = useRef<HTMLDivElement>(null);
     const { grid } = usePXSStore();
+    const [hoveredCell, setHoveredCell] = useState<{ x: number; y: number } | null>(null);
+    const cellDimensionsRef = useRef<{ cellWidth: number; cellHeight: number }>({ cellWidth: 10, cellHeight: 10 });
 
     // Expose canvas ref externally
     useImperativeHandle(externalRef, () => canvasRef.current!, []);
 
-    // Calculate cell dimensions based on container size and cell count
+    // Calculate cell dimensions to fill available space while maintaining aspect ratio
     const calculateCellSize = useCallback(() => {
-      if (!containerRef.current || !gridData) return { cellWidth: 10, cellHeight: 10 };
+      if (!containerRef.current || !gridData) return { cellWidth: 10, cellHeight: 10, canvasWidth: 800, canvasHeight: 600 };
       
       const container = containerRef.current;
-      const maxWidth = container.clientWidth - 40;
-      const maxHeight = container.clientHeight - 40;
+      const padding = 40;
+      const maxWidth = container.clientWidth - padding;
+      const maxHeight = container.clientHeight - padding;
       
-      const cellWidth = Math.floor(maxWidth / gridData.cols);
-      const cellHeight = Math.floor(maxHeight / gridData.rows);
+      // Calculate cell size to fit grid in available space
+      const cellWidthFit = maxWidth / gridData.cols;
+      const cellHeightFit = maxHeight / gridData.rows;
       
-      // For large grids (>10K cells), use smaller cells (min 1px)
-      // For medium grids, allow up to 10px
-      // For small grids, allow up to 20px
-      const totalCells = gridData.cols * gridData.rows;
-      const maxCellSize = totalCells > 10000 ? 4 : totalCells > 2500 ? 10 : 20;
-      const cellSize = Math.max(1, Math.min(cellWidth, cellHeight, maxCellSize));
+      // Use the smaller dimension to maintain aspect ratio
+      const cellSize = Math.min(cellWidthFit, cellHeightFit);
       
-      return { cellWidth: cellSize, cellHeight: cellSize };
+      // Ensure minimum 1px per cell for visibility
+      const finalCellSize = Math.max(1, cellSize);
+      
+      // Calculate actual canvas dimensions
+      const canvasWidth = gridData.cols * finalCellSize;
+      const canvasHeight = gridData.rows * finalCellSize;
+      
+      // Store for click handling
+      cellDimensionsRef.current = { cellWidth: finalCellSize, cellHeight: finalCellSize };
+      
+      return { 
+        cellWidth: finalCellSize, 
+        cellHeight: finalCellSize,
+        canvasWidth,
+        canvasHeight,
+      };
     }, [gridData]);
 
-    // Main rendering function - always use main thread Canvas 2D for reliability
+    // Convert canvas coordinates to cell coordinates
+    const getCellFromPoint = useCallback((clientX: number, clientY: number) => {
+      const canvas = canvasRef.current;
+      if (!canvas || !gridData) return null;
+      
+      const rect = canvas.getBoundingClientRect();
+      const scaleX = canvas.width / rect.width;
+      const scaleY = canvas.height / rect.height;
+      
+      const canvasX = (clientX - rect.left) * scaleX / (window.devicePixelRatio || 1);
+      const canvasY = (clientY - rect.top) * scaleY / (window.devicePixelRatio || 1);
+      
+      const { cellWidth, cellHeight } = cellDimensionsRef.current;
+      
+      const cellX = Math.floor(canvasX / cellWidth);
+      const cellY = Math.floor(canvasY / cellHeight);
+      
+      if (cellX >= 0 && cellX < gridData.cols && cellY >= 0 && cellY < gridData.rows) {
+        return { x: cellX, y: cellY };
+      }
+      return null;
+    }, [gridData]);
+
+    // Handle canvas click
+    const handleClick = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
+      const coords = getCellFromPoint(e.clientX, e.clientY);
+      if (coords && onCellClick && gridData) {
+        const cell = gridData.cells.find(c => c.x === coords.x && c.y === coords.y) || null;
+        onCellClick(coords.x, coords.y, cell);
+      }
+    }, [getCellFromPoint, onCellClick, gridData]);
+
+    // Handle canvas double click
+    const handleDoubleClick = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
+      const coords = getCellFromPoint(e.clientX, e.clientY);
+      if (coords && onCellDoubleClick && gridData) {
+        const cell = gridData.cells.find(c => c.x === coords.x && c.y === coords.y) || null;
+        onCellDoubleClick(coords.x, coords.y, cell);
+      }
+    }, [getCellFromPoint, onCellDoubleClick, gridData]);
+
+    // Handle mouse move for hover effect
+    const handleMouseMove = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
+      const coords = getCellFromPoint(e.clientX, e.clientY);
+      setHoveredCell(coords);
+    }, [getCellFromPoint]);
+
+    const handleMouseLeave = useCallback(() => {
+      setHoveredCell(null);
+    }, []);
+
+    // Main rendering function
     const renderGrid = useCallback(() => {
       const canvas = canvasRef.current;
       const container = containerRef.current;
@@ -60,12 +128,12 @@ const GridCanvas = forwardRef<HTMLCanvasElement, GridCanvasProps>(
       const ctx = canvas.getContext('2d', { alpha: false });
       if (!ctx) return;
 
-      const { cellWidth, cellHeight } = calculateCellSize();
+      const { cellWidth, cellHeight, canvasWidth, canvasHeight } = calculateCellSize();
       const devicePixelRatio = window.devicePixelRatio || 1;
-      const showBorders = grid.bordersVisible && cellWidth >= 4; // Only show borders if cells are big enough
+      const showBorders = grid.bordersVisible && cellWidth >= 3;
 
-      const width = gridData.cols * cellWidth;
-      const height = gridData.rows * cellHeight;
+      const width = canvasWidth;
+      const height = canvasHeight;
 
       // Set canvas size with device pixel ratio for crisp rendering
       canvas.width = width * devicePixelRatio;
@@ -91,13 +159,15 @@ const GridCanvas = forwardRef<HTMLCanvasElement, GridCanvasProps>(
 
         for (const cell of cells) {
           const color = parseColor(cell.color);
-          const startX = cell.x * cellWidth;
-          const startY = cell.y * cellHeight;
+          const startX = Math.floor(cell.x * cellWidth);
+          const startY = Math.floor(cell.y * cellHeight);
+          const endX = Math.min(startX + Math.ceil(cellWidth), width);
+          const endY = Math.min(startY + Math.ceil(cellHeight), height);
 
           // Fill the cell pixels
-          for (let py = 0; py < cellHeight; py++) {
-            for (let px = 0; px < cellWidth; px++) {
-              const idx = ((startY + py) * width + (startX + px)) * 4;
+          for (let py = startY; py < endY; py++) {
+            for (let px = startX; px < endX; px++) {
+              const idx = (py * width + px) * 4;
               data[idx] = color.r;
               data[idx + 1] = color.g;
               data[idx + 2] = color.b;
@@ -127,8 +197,17 @@ const GridCanvas = forwardRef<HTMLCanvasElement, GridCanvasProps>(
             ctx.strokeRect(x, y, cellWidth, cellHeight);
           }
         }
+
+        // Draw hover highlight
+        if (hoveredCell && cellWidth >= 3) {
+          const x = hoveredCell.x * cellWidth;
+          const y = hoveredCell.y * cellHeight;
+          ctx.strokeStyle = 'rgba(88, 166, 255, 0.8)';
+          ctx.lineWidth = 2;
+          ctx.strokeRect(x + 1, y + 1, cellWidth - 2, cellHeight - 2);
+        }
       }
-    }, [gridData, grid.bordersVisible, calculateCellSize]);
+    }, [gridData, grid.bordersVisible, calculateCellSize, hoveredCell]);
 
     // Render when gridData or borders change
     useEffect(() => {
@@ -142,7 +221,11 @@ const GridCanvas = forwardRef<HTMLCanvasElement, GridCanvasProps>(
       >
         <canvas
           ref={canvasRef}
-          className="max-w-full max-h-full object-contain shadow-2xl"
+          onClick={handleClick}
+          onDoubleClick={handleDoubleClick}
+          onMouseMove={handleMouseMove}
+          onMouseLeave={handleMouseLeave}
+          className="max-w-full max-h-full object-contain shadow-2xl cursor-crosshair"
           style={{
             imageRendering: 'pixelated',
             background: '#0d1117',

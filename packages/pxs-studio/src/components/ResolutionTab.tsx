@@ -1,20 +1,31 @@
 'use client';
 
-import { useRef, useCallback, useEffect } from 'react';
+import { useRef, useCallback, useEffect, useState } from 'react';
 import { useGridWorker } from '../hooks/useGridWorker';
 import { usePXSStore } from '../store/pxs-store';
 import type { GridData } from '../workers/grid.worker';
 
-const RESOLUTION_PRESETS = [
-  { name: '8-bit', quality: 'Micro', cols: 8, rows: 8 },
-  { name: '16-bit', quality: 'Tiny', cols: 16, rows: 16 },
-  { name: '32-bit', quality: 'Retro', cols: 32, rows: 24 },
-  { name: '40×30', quality: 'Retro', cols: 40, rows: 30 },
-  { name: '64×48', quality: 'SD', cols: 64, rows: 48 },
-  { name: '128×96', quality: 'HD', cols: 128, rows: 96 },
-  { name: 'QQVGA', quality: 'HD+', cols: 160, rows: 120 },
-  { name: '256×192', quality: '4K', cols: 256, rows: 192 },
-  { name: 'QVGA', quality: 'UHD', cols: 320, rows: 240 },
+// Simple 12 presets from low to high res
+const MAIN_PRESETS = [
+  { label: '8×8', cols: 8, rows: 8 },
+  { label: '16×16', cols: 16, rows: 16 },
+  { label: '32×32', cols: 32, rows: 32 },
+  { label: '48×48', cols: 48, rows: 48 },
+  { label: '64×48', cols: 64, rows: 48 },
+  { label: '64×64', cols: 64, rows: 64 },
+  { label: '96×72', cols: 96, rows: 72 },
+  { label: '128×96', cols: 128, rows: 96 },
+  { label: '160×120', cols: 160, rows: 120 },
+  { label: '200×150', cols: 200, rows: 150 },
+  { label: '256×192', cols: 256, rows: 192 },
+  { label: '320×240', cols: 320, rows: 240 },
+];
+
+const EXTRA_PRESETS = [
+  { label: '400×300', cols: 400, rows: 300 },
+  { label: '480×360', cols: 480, rows: 360 },
+  { label: '512×384', cols: 512, rows: 384 },
+  { label: '640×480', cols: 640, rows: 480 },
 ];
 
 interface ResolutionTabProps {
@@ -25,99 +36,108 @@ export default function ResolutionTab({ onGridUpdate }: ResolutionTabProps) {
   const { grid, actions } = usePXSStore();
   const gridWorker = useGridWorker();
   const animationRef = useRef<number | null>(null);
-  const isAnimatingRef = useRef(false);
+  const [showMore, setShowMore] = useState(false);
+  const [activeEffect, setActiveEffect] = useState<string | null>(null);
 
-  // Stop any running animation
+  // Stop animation
   const stopAnimation = useCallback(() => {
-    isAnimatingRef.current = false;
+    setActiveEffect(null);
     if (animationRef.current) {
       cancelAnimationFrame(animationRef.current);
       animationRef.current = null;
     }
   }, []);
 
-  // Cleanup on unmount
   useEffect(() => {
-    return () => stopAnimation();
-  }, [stopAnimation]);
+    return () => {
+      if (animationRef.current) {
+        cancelAnimationFrame(animationRef.current);
+      }
+    };
+  }, []);
 
-  const createGrid = async (cols: number, rows: number) => {
-    if (!gridWorker.isReady) return;
-    stopAnimation();
-
-    try {
-      actions.createGrid(cols, rows);
-      const gridData = await gridWorker.createGrid(cols, rows);
-      onGridUpdate(gridData);
-    } catch (error) {
-      console.error('Failed to create grid:', error);
-    }
-  };
-
-  // Animation methods
-  const runAnimation = useCallback(async (
-    animationType: 'diagonalPulse' | 'wave' | 'spiral',
-    baseHue?: number
-  ) => {
+  // Run effect animation using latest grid dimensions
+  const startEffect = useCallback((type: string, cols: number, rows: number) => {
     if (!gridWorker.isReady) return;
     
-    stopAnimation();
-    isAnimatingRef.current = true;
+    // Clear previous animation
+    if (animationRef.current) {
+      cancelAnimationFrame(animationRef.current);
+      animationRef.current = null;
+    }
+    
+    setActiveEffect(type);
     const startTime = performance.now();
 
     const animate = async () => {
-      if (!isAnimatingRef.current) return;
-
       const time = (performance.now() - startTime) / 1000;
       
       try {
         let gridData: GridData;
         
-        switch (animationType) {
-          case 'diagonalPulse':
-            gridData = await gridWorker.diagonalPulse(grid.cols, grid.rows, time, baseHue);
-            break;
-          case 'wave':
-            gridData = await gridWorker.wave(grid.cols, grid.rows, time, baseHue);
-            break;
+        switch (type) {
           case 'spiral':
-            gridData = await gridWorker.spiral(grid.cols, grid.rows, time, baseHue);
+            gridData = await gridWorker.spiral(cols, rows, time, 0.8);
             break;
+          case 'radialPulse':
+            gridData = await gridWorker.radialPulse(cols, rows, time);
+            break;
+          case 'plasma':
+            gridData = await gridWorker.plasma(cols, rows, time);
+            break;
+          case 'pixelBurst':
+            gridData = await gridWorker.pixelBurst(cols, rows, time);
+            break;
+          default:
+            return;
         }
 
-        if (isAnimatingRef.current) {
-          onGridUpdate(gridData);
-          animationRef.current = requestAnimationFrame(animate);
-        }
+        onGridUpdate(gridData);
+        animationRef.current = requestAnimationFrame(animate);
       } catch (error) {
         console.error('Animation error:', error);
-        stopAnimation();
+        setActiveEffect(null);
       }
     };
 
     animate();
-  }, [gridWorker, grid.cols, grid.rows, stopAnimation, onGridUpdate]);
+  }, [gridWorker, onGridUpdate]);
 
-  const animate = async (type: string) => {
-    switch (type) {
-      case 'diagonal':
-        runAnimation('diagonalPulse', 0.6);
-        break;
-      case 'wave':
-        runAnimation('wave', 0.55);
-        break;
-      case 'spiral':
-        runAnimation('spiral', 0.8);
-        break;
-      case 'random':
-        if (!gridWorker.isReady) return;
-        stopAnimation();
-        const gridData = await gridWorker.randomBurst(grid.cols, grid.rows);
-        onGridUpdate(gridData);
-        break;
+  // Change resolution - resume animation with new dimensions
+  const changeResolution = useCallback(async (cols: number, rows: number) => {
+    if (!gridWorker.isReady) return;
+    
+    const wasActive = activeEffect;
+    
+    // Stop current animation
+    if (animationRef.current) {
+      cancelAnimationFrame(animationRef.current);
+      animationRef.current = null;
     }
+
+    try {
+      actions.createGrid(cols, rows);
+      const gridData = await gridWorker.createGrid(cols, rows);
+      onGridUpdate(gridData);
+      
+      // Resume animation with new dimensions
+      if (wasActive) {
+        // Small delay to let grid update settle
+        setTimeout(() => {
+          startEffect(wasActive, cols, rows);
+        }, 16);
+      }
+    } catch (error) {
+      console.error('Failed to change resolution:', error);
+    }
+  }, [gridWorker, activeEffect, actions, onGridUpdate, startEffect]);
+
+  // Start effect with current grid dimensions
+  const runEffect = (type: string) => {
+    startEffect(type, grid.cols, grid.rows);
   };
 
+  // Apply static pattern
   const applyPattern = async (type: string) => {
     if (!gridWorker.isReady) return;
     stopAnimation();
@@ -126,20 +146,17 @@ export default function ResolutionTab({ onGridUpdate }: ResolutionTabProps) {
       let gridData: GridData;
 
       switch (type) {
-        case 'gradient-linear':
+        case 'horizontal':
           gridData = await gridWorker.horizontalGradient(grid.cols, grid.rows, '#58a6ff', '#bc8cff');
           break;
-        case 'gradient-vertical':
-          gridData = await gridWorker.verticalGradient(grid.cols, grid.rows, '#58a6ff', '#3fb950');
-          break;
-        case 'gradient-radial':
+        case 'radial':
           gridData = await gridWorker.radialGradient(grid.cols, grid.rows, '#58a6ff', '#0d1117');
           break;
-        case 'gradient-diagonal':
+        case 'diagonal':
           gridData = await gridWorker.diagonalGradient(grid.cols, grid.rows, '#ff7b72', '#d2a8ff');
           break;
-        case 'checkerboard':
-          gridData = await gridWorker.checkerboard(grid.cols, grid.rows, '#1a1f2e', '#2d3548');
+        case 'noise':
+          gridData = await gridWorker.noise(grid.cols, grid.rows);
           break;
         default:
           return;
@@ -151,143 +168,146 @@ export default function ResolutionTab({ onGridUpdate }: ResolutionTabProps) {
     }
   };
 
+  const allPresets = showMore ? [...MAIN_PRESETS, ...EXTRA_PRESETS] : MAIN_PRESETS;
+
   return (
-    <div className="space-y-6 p-6">
-      {/* Resolution Presets */}
+    <div className="p-4 space-y-5">
+      {/* Grid Info - Minimal */}
+      <div className="flex items-center justify-between text-xs">
+        <span className="font-mono text-primary font-semibold">{grid.cols}×{grid.rows}</span>
+        <span className="text-text-muted">{(grid.cols * grid.rows).toLocaleString()}</span>
+      </div>
+
+      {/* Resolution Grid */}
       <section>
-        <h3 className="text-sm font-semibold mb-3 text-text-primary">📏 Resolution Presets</h3>
-        <div className="grid grid-cols-3 gap-2">
-          {RESOLUTION_PRESETS.map((preset) => (
-            <button
-              key={`${preset.cols}x${preset.rows}`}
-              onClick={() => createGrid(preset.cols, preset.rows)}
-              className={`p-2 rounded-lg text-xs transition-all ${
-                grid.cols === preset.cols && grid.rows === preset.rows
-                  ? 'bg-primary text-white border-2 border-primary'
-                  : 'bg-background-overlay hover:bg-border border-2 border-transparent text-text-primary'
-              }`}
-            >
-              <div className="font-semibold">{preset.name}</div>
-              <div className="text-[10px] opacity-70">({preset.quality})</div>
-              <div className="text-[9px] opacity-50">{preset.cols}×{preset.rows}</div>
-            </button>
-          ))}
+        <div className="flex items-center justify-between mb-2">
+          <span className="text-[10px] font-medium text-text-muted uppercase tracking-wider">Size</span>
         </div>
+        <div className="grid grid-cols-4 gap-1.5">
+          {allPresets.map((preset) => {
+            const isActive = grid.cols === preset.cols && grid.rows === preset.rows;
+            return (
+              <button
+                key={preset.label}
+                onClick={() => changeResolution(preset.cols, preset.rows)}
+                className={`py-2 px-1 rounded text-[11px] font-mono transition-all ${
+                  isActive
+                    ? 'bg-primary text-white shadow-lg shadow-primary/25'
+                    : 'bg-background-overlay hover:bg-border text-text-secondary hover:text-text-primary'
+                }`}
+              >
+                {preset.label}
+              </button>
+            );
+          })}
+        </div>
+        <button
+          onClick={() => setShowMore(!showMore)}
+          className="w-full mt-2 py-1.5 text-[10px] text-text-muted hover:text-primary transition-colors"
+        >
+          {showMore ? '− Less' : '+ More sizes'}
+        </button>
       </section>
 
-      {/* Grid Stats */}
+      {/* Live Effects */}
       <section>
-        <h3 className="text-sm font-semibold mb-3 text-text-primary">📊 Grid Stats</h3>
-        <div className="grid grid-cols-2 gap-3">
-          <div className="p-3 rounded-lg bg-background-overlay">
-            <div className="text-2xl font-bold text-primary">{grid.cols}</div>
-            <div className="text-xs text-text-muted">Columns</div>
-          </div>
-          <div className="p-3 rounded-lg bg-background-overlay">
-            <div className="text-2xl font-bold text-primary">{grid.rows}</div>
-            <div className="text-xs text-text-muted">Rows</div>
-          </div>
-          <div className="p-3 rounded-lg bg-background-overlay">
-            <div className="text-2xl font-bold text-primary">{(grid.cols * grid.rows).toLocaleString()}</div>
-            <div className="text-xs text-text-muted">Total Cells</div>
-          </div>
-          <div className="p-3 rounded-lg bg-background-overlay">
-            <div className="text-xs font-mono text-accent-green uppercase">{grid.renderer}</div>
-            <div className="text-xs text-text-muted">Renderer</div>
-          </div>
-        </div>
-      </section>
-
-      {/* Animations */}
-      <section>
-        <h3 className="text-sm font-semibold mb-3 text-text-primary">🎬 Animations</h3>
-        <div className="space-y-2">
+        <span className="text-[10px] font-medium text-text-muted uppercase tracking-wider">Live Effects</span>
+        <div className="grid grid-cols-2 gap-1.5 mt-2">
           <button
-            onClick={() => animate('diagonal')}
-            className="w-full px-4 py-2 rounded-lg bg-background-overlay hover:bg-border text-sm text-text-primary transition-colors flex items-center gap-2"
+            onClick={() => runEffect('spiral')}
+            className={`group relative py-2.5 px-3 rounded text-xs font-medium transition-all overflow-hidden ${
+              activeEffect === 'spiral' 
+                ? 'bg-primary text-white' 
+                : 'bg-background-overlay hover:bg-border text-text-primary'
+            }`}
           >
-            <span className="text-lg">↗️</span>
-            <span>Diagonal Pulse</span>
+            <span className="relative z-10">Spiral</span>
+            {activeEffect === 'spiral' && (
+              <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent animate-shimmer" />
+            )}
           </button>
           <button
-            onClick={() => animate('wave')}
-            className="w-full px-4 py-2 rounded-lg bg-background-overlay hover:bg-border text-sm text-text-primary transition-colors flex items-center gap-2"
+            onClick={() => runEffect('radialPulse')}
+            className={`group relative py-2.5 px-3 rounded text-xs font-medium transition-all overflow-hidden ${
+              activeEffect === 'radialPulse' 
+                ? 'bg-primary text-white' 
+                : 'bg-background-overlay hover:bg-border text-text-primary'
+            }`}
           >
-            <span className="text-lg">🌊</span>
-            <span>Wave Effect</span>
+            <span className="relative z-10">Pulse</span>
+            {activeEffect === 'radialPulse' && (
+              <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent animate-shimmer" />
+            )}
           </button>
           <button
-            onClick={() => animate('spiral')}
-            className="w-full px-4 py-2 rounded-lg bg-background-overlay hover:bg-border text-sm text-text-primary transition-colors flex items-center gap-2"
+            onClick={() => runEffect('plasma')}
+            className={`group relative py-2.5 px-3 rounded text-xs font-medium transition-all overflow-hidden ${
+              activeEffect === 'plasma' 
+                ? 'bg-primary text-white' 
+                : 'bg-background-overlay hover:bg-border text-text-primary'
+            }`}
           >
-            <span className="text-lg">🌀</span>
-            <span>Spiral Glow</span>
+            <span className="relative z-10">Plasma</span>
+            {activeEffect === 'plasma' && (
+              <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent animate-shimmer" />
+            )}
           </button>
           <button
-            onClick={() => animate('random')}
-            className="w-full px-4 py-2 rounded-lg bg-background-overlay hover:bg-border text-sm text-text-primary transition-colors flex items-center gap-2"
+            onClick={() => runEffect('pixelBurst')}
+            className={`group relative py-2.5 px-3 rounded text-xs font-medium transition-all overflow-hidden ${
+              activeEffect === 'pixelBurst' 
+                ? 'bg-primary text-white' 
+                : 'bg-background-overlay hover:bg-border text-text-primary'
+            }`}
           >
-            <span className="text-lg">🎲</span>
-            <span>Random Burst</span>
+            <span className="relative z-10">Pixel Burst</span>
+            {activeEffect === 'pixelBurst' && (
+              <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent animate-shimmer" />
+            )}
           </button>
         </div>
       </section>
 
       {/* Patterns */}
       <section>
-        <h3 className="text-sm font-semibold mb-3 text-text-primary">🎨 Patterns</h3>
-        <div className="space-y-2">
+        <span className="text-[10px] font-medium text-text-muted uppercase tracking-wider">Patterns</span>
+        <div className="grid grid-cols-4 gap-1.5 mt-2">
           <button
-            onClick={() => applyPattern('gradient-linear')}
-            className="w-full px-4 py-2 rounded-lg bg-background-overlay hover:bg-border text-sm text-text-primary transition-colors flex items-center gap-2"
+            onClick={() => applyPattern('horizontal')}
+            className="py-2 rounded text-[10px] bg-background-overlay hover:bg-border text-text-secondary hover:text-text-primary transition-all"
           >
-            <span className="text-lg">➡️</span>
-            <span>Linear Gradient</span>
+            Linear
           </button>
           <button
-            onClick={() => applyPattern('gradient-radial')}
-            className="w-full px-4 py-2 rounded-lg bg-background-overlay hover:bg-border text-sm text-text-primary transition-colors flex items-center gap-2"
+            onClick={() => applyPattern('radial')}
+            className="py-2 rounded text-[10px] bg-background-overlay hover:bg-border text-text-secondary hover:text-text-primary transition-all"
           >
-            <span className="text-lg">⭕</span>
-            <span>Radial Gradient</span>
+            Radial
           </button>
           <button
-            onClick={() => applyPattern('gradient-diagonal')}
-            className="w-full px-4 py-2 rounded-lg bg-background-overlay hover:bg-border text-sm text-text-primary transition-colors flex items-center gap-2"
+            onClick={() => applyPattern('diagonal')}
+            className="py-2 rounded text-[10px] bg-background-overlay hover:bg-border text-text-secondary hover:text-text-primary transition-all"
           >
-            <span className="text-lg">↘️</span>
-            <span>Diagonal Gradient</span>
+            Diagonal
           </button>
           <button
-            onClick={() => applyPattern('checkerboard')}
-            className="w-full px-4 py-2 rounded-lg bg-background-overlay hover:bg-border text-sm text-text-primary transition-colors flex items-center gap-2"
+            onClick={() => applyPattern('noise')}
+            className="py-2 rounded text-[10px] bg-background-overlay hover:bg-border text-text-secondary hover:text-text-primary transition-all"
           >
-            <span className="text-lg">🏁</span>
-            <span>Checkerboard</span>
+            Noise
           </button>
         </div>
       </section>
 
-      {/* Actions */}
-      <section>
-        <h3 className="text-sm font-semibold mb-3 text-text-primary">🔧 Actions</h3>
-        <div className="space-y-2">
-          <button
-            onClick={stopAnimation}
-            className="w-full px-4 py-2 rounded-lg bg-accent-red/10 hover:bg-accent-red/20 border border-accent-red/30 text-sm text-accent-red transition-colors flex items-center justify-center gap-2"
-          >
-            <span>⏹</span>
-            <span>Stop Animations</span>
-          </button>
-          <button
-            onClick={() => createGrid(grid.cols, grid.rows)}
-            className="w-full px-4 py-2 rounded-lg bg-background-overlay hover:bg-border text-sm text-text-primary transition-colors flex items-center justify-center gap-2"
-          >
-            <span>🔄</span>
-            <span>Reset Grid</span>
-          </button>
-        </div>
-      </section>
+      {/* Stop Button */}
+      {activeEffect && (
+        <button
+          onClick={stopAnimation}
+          className="w-full py-2 rounded text-xs font-medium bg-accent-red/10 hover:bg-accent-red/20 text-accent-red border border-accent-red/20 transition-all"
+        >
+          Stop Effect
+        </button>
+      )}
     </div>
   );
 }

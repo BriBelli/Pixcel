@@ -86,4 +86,14 @@
     background-repeat: no-repeat;
     animation: loader 1s infinite linear;
   }
+  
+  /* Shimmer animation for active effects */
+  @keyframes shimmer {
+    0% { transform: translateX(-100%); }
+    100% { transform: translateX(100%); }
+  }
+  
+  .animate-shimmer {
+    animation: shimmer 1.5s infinite;
+  }
 }

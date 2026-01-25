@@ -1,8 +1,9 @@
 'use client';
 
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { usePXSStore } from '../store/pxs-store';
 import { useAutoSave } from '../hooks/useAutoSave';
+import FrameInspector, { InspectorData } from './FrameInspector';
 
 interface AnimationTabProps {
   onCreateAnimation: (type: string) => void;
@@ -10,12 +11,31 @@ interface AnimationTabProps {
 
 export default function AnimationTab({ onCreateAnimation }: AnimationTabProps) {
   const { animation, actions, grid } = usePXSStore();
-  const { exportProject, importProject, getBackups, loadBackup } = useAutoSave();
+  const { exportProject, importProject } = useAutoSave();
   const [isPlaying, setIsPlaying] = useState(false);
-  const [showBackups, setShowBackups] = useState(false);
+  const [inspectorOpen, setInspectorOpen] = useState(false);
+  const [inspectorData, setInspectorData] = useState<InspectorData | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const animationIntervalRef = useRef<number | null>(null);
 
-  // Export handlers
+  useEffect(() => {
+    setIsPlaying(animation.playing);
+  }, [animation.playing]);
+
+  useEffect(() => {
+    if (animation.playing && animation.frames.length > 0) {
+      animationIntervalRef.current = window.setInterval(() => {
+        actions.nextFrame();
+      }, 1000 / animation.fps);
+      
+      return () => {
+        if (animationIntervalRef.current) {
+          clearInterval(animationIntervalRef.current);
+        }
+      };
+    }
+  }, [animation.playing, animation.fps, animation.frames.length, actions]);
+
   const handleExportJSON = () => {
     const json = exportProject();
     const blob = new Blob([json], { type: 'application/json' });
@@ -30,266 +50,170 @@ export default function AnimationTab({ onCreateAnimation }: AnimationTabProps) {
   const handleExportPNG = async () => {
     const canvas = document.querySelector('canvas');
     if (!canvas) return;
-
     const link = document.createElement('a');
     link.download = `pxs-artwork-${Date.now()}.png`;
     link.href = canvas.toDataURL('image/png');
     link.click();
   };
 
-  // Import handler
   const handleImport = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-
     const reader = new FileReader();
     reader.onload = (event) => {
       const json = event.target?.result as string;
-      const success = importProject(json);
-      if (success) {
-        console.log('✅ Project imported successfully');
-      } else {
-        console.error('❌ Failed to import project');
-      }
+      importProject(json);
     };
     reader.readAsText(file);
+    if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
-  // Playback controls
   const handlePlay = () => {
     if (isPlaying) {
       actions.pauseAnimation();
     } else {
       actions.playAnimation();
     }
-    setIsPlaying(!isPlaying);
   };
 
-  const handleStop = () => {
-    actions.stopAnimation();
-    setIsPlaying(false);
-  };
-
-  const handlePrev = () => {
-    actions.prevFrame();
-  };
-
-  const handleNext = () => {
-    actions.nextFrame();
-  };
-
-  // Add current frame
   const handleAddFrame = () => {
     const cells = Array.from(grid.cells.values());
+    if (cells.length === 0) return;
     actions.addFrame({
       cols: grid.cols,
       rows: grid.rows,
       cells,
+      metadata: { timestamp: Date.now(), source: 'user' },
     });
   };
 
-  // Get backups
-  const backups = getBackups();
+  const handleOpenInspector = () => {
+    setInspectorData({ mode: 'animation' });
+    setInspectorOpen(true);
+  };
 
   return (
-    <div className="space-y-6 p-6">
-      {/* Export/Import */}
+    <div className="p-4 space-y-4">
+      {/* Export */}
       <section>
-        <h3 className="text-sm font-semibold mb-3 text-text-primary">💾 Export / Import</h3>
-        <div className="space-y-2">
-          <div className="grid grid-cols-2 gap-2">
-            <button
-              onClick={handleExportJSON}
-              className="px-4 py-2 rounded-lg bg-primary hover:bg-primary-dark text-white text-sm font-medium transition-colors"
-            >
-              📦 Export JSON
-            </button>
-            <button
-              onClick={handleExportPNG}
-              className="px-4 py-2 rounded-lg bg-accent-green/20 hover:bg-accent-green/30 border border-accent-green/30 text-accent-green text-sm font-medium transition-colors"
-            >
-              🖼️ Export PNG
-            </button>
-          </div>
-          
+        <span className="text-[10px] font-medium text-text-muted uppercase tracking-wider">Export</span>
+        <div className="grid grid-cols-2 gap-1.5 mt-2">
           <button
-            onClick={() => fileInputRef.current?.click()}
-            className="w-full px-4 py-2 rounded-lg bg-background-overlay hover:bg-border text-sm text-text-primary transition-colors"
+            onClick={handleExportJSON}
+            className="py-2 rounded text-[10px] font-medium bg-primary hover:bg-primary-dark text-white transition-colors"
           >
-            📂 Import Project...
+            JSON
           </button>
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept=".json"
-            onChange={handleImport}
-            className="hidden"
-          />
+          <button
+            onClick={handleExportPNG}
+            className="py-2 rounded text-[10px] font-medium bg-accent-green/20 hover:bg-accent-green/30 text-accent-green transition-colors"
+          >
+            PNG
+          </button>
         </div>
+        <button
+          onClick={() => fileInputRef.current?.click()}
+          className="w-full mt-1.5 py-2 rounded text-[10px] bg-background-overlay hover:bg-border text-text-secondary hover:text-text-primary transition-colors"
+        >
+          Import...
+        </button>
+        <input ref={fileInputRef} type="file" accept=".json" onChange={handleImport} className="hidden" />
       </section>
 
-      {/* Backups */}
+      {/* Animation */}
       <section>
-        <button
-          onClick={() => setShowBackups(!showBackups)}
-          className="flex items-center justify-between w-full text-sm font-semibold text-text-primary mb-3"
-        >
-          <span>🕐 Recent Backups ({backups.length})</span>
-          <span className="text-xs text-text-muted">{showBackups ? '▲' : '▼'}</span>
-        </button>
+        <span className="text-[10px] font-medium text-text-muted uppercase tracking-wider">Animation</span>
         
-        {showBackups && (
-          <div className="space-y-2 max-h-48 overflow-y-auto">
-            {backups.length === 0 ? (
-              <p className="text-xs text-text-muted p-2">No backups yet</p>
-            ) : (
-              backups.map((backup, index) => (
-                <button
-                  key={backup.id}
-                  onClick={() => loadBackup(index)}
-                  className="w-full px-3 py-2 rounded-lg bg-background-overlay hover:bg-border text-left text-xs transition-colors"
-                >
-                  <div className="text-text-primary font-medium">
-                    {backup.grid.cols}×{backup.grid.rows} Grid
-                  </div>
-                  <div className="text-text-muted">
-                    {new Date(backup.timestamp).toLocaleString()}
-                  </div>
-                </button>
-              ))
-            )}
+        {/* Stats */}
+        {animation.frames.length > 0 && (
+          <div className="flex items-center justify-between mt-2 text-xs">
+            <span className="font-mono text-primary">{animation.frames.length} frames</span>
+            <span className="text-text-muted">{animation.fps} fps</span>
           </div>
         )}
-      </section>
 
-      <hr className="border-border" />
-
-      {/* Create Animation */}
-      <section>
-        <h3 className="text-sm font-semibold mb-3 text-text-primary">✨ Create Animation</h3>
-        <div className="space-y-2">
-          <button
-            onClick={handleAddFrame}
-            className="w-full px-4 py-2 rounded-lg bg-primary hover:bg-primary-dark text-white font-medium transition-colors"
-          >
-            ➕ Add Current Grid as Frame
-          </button>
-          <button
-            onClick={() => onCreateAnimation('random')}
-            className="w-full px-4 py-2 rounded-lg bg-background-overlay hover:bg-border text-sm text-text-primary transition-colors"
-          >
-            🎲 Generate Random Animation (10 frames)
-          </button>
-          <button
-            onClick={() => onCreateAnimation('gradient')}
-            className="w-full px-4 py-2 rounded-lg bg-background-overlay hover:bg-border text-sm text-text-primary transition-colors"
-          >
-            🌈 Generate Gradient Animation (30 frames)
-          </button>
-        </div>
-      </section>
-
-      {/* Animation Info */}
-      {animation.frames.length > 0 && (
-        <section>
-          <h3 className="text-sm font-semibold mb-3 text-text-primary">📊 Animation Info</h3>
-          <div className="grid grid-cols-2 gap-3">
-            <div className="p-3 rounded-lg bg-background-overlay">
-              <div className="text-2xl font-bold text-primary">{animation.frames.length}</div>
-              <div className="text-xs text-text-muted">Frames</div>
-            </div>
-            <div className="p-3 rounded-lg bg-background-overlay">
-              <div className="text-2xl font-bold text-primary">{animation.fps}</div>
-              <div className="text-xs text-text-muted">FPS</div>
-            </div>
-            <div className="p-3 rounded-lg bg-background-overlay">
-              <div className="text-lg font-mono text-accent-green">{animation.currentFrame + 1}</div>
-              <div className="text-xs text-text-muted">Current Frame</div>
-            </div>
-            <div className="p-3 rounded-lg bg-background-overlay">
-              <div className="text-lg font-mono text-accent-green">
-                {(animation.frames.length / animation.fps).toFixed(2)}s
-              </div>
-              <div className="text-xs text-text-muted">Duration</div>
-            </div>
-          </div>
-        </section>
-      )}
-
-      {/* Playback Controls */}
-      {animation.frames.length > 0 && (
-        <section>
-          <h3 className="text-sm font-semibold mb-3 text-text-primary">🎬 Playback</h3>
-          <div className="flex gap-2">
+        {/* Playback */}
+        {animation.frames.length > 0 && (
+          <div className="flex gap-1 mt-2">
+            <button
+              onClick={actions.prevFrame}
+              className="w-8 h-8 rounded flex items-center justify-center bg-background-overlay hover:bg-border text-text-primary transition-colors"
+            >
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M6 6h2v12H6zm3.5 6l8.5 6V6z"/></svg>
+            </button>
             <button
               onClick={handlePlay}
-              className="flex-1 px-4 py-2 rounded-lg bg-primary hover:bg-primary-dark text-white font-medium transition-colors"
+              className={`flex-1 h-8 rounded text-xs font-medium transition-colors ${
+                isPlaying 
+                  ? 'bg-accent-orange text-white' 
+                  : 'bg-primary hover:bg-primary-dark text-white'
+              }`}
             >
-              {isPlaying ? '⏸ Pause' : '▶️ Play'}
+              {isPlaying ? 'Pause' : 'Play'}
             </button>
             <button
-              onClick={handleStop}
-              className="px-4 py-2 rounded-lg bg-background-overlay hover:bg-border text-text-primary transition-colors"
+              onClick={actions.stopAnimation}
+              className="w-8 h-8 rounded flex items-center justify-center bg-background-overlay hover:bg-border text-text-primary transition-colors"
             >
-              ⏹
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="6" width="12" height="12"/></svg>
+            </button>
+            <button
+              onClick={actions.nextFrame}
+              className="w-8 h-8 rounded flex items-center justify-center bg-background-overlay hover:bg-border text-text-primary transition-colors"
+            >
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/></svg>
             </button>
           </div>
-          
-          <div className="flex gap-2 mt-2">
-            <button
-              onClick={handlePrev}
-              className="flex-1 px-3 py-2 rounded-lg bg-background-overlay hover:bg-border text-sm text-text-primary transition-colors"
-            >
-              ⏮ Prev
-            </button>
-            <button
-              onClick={handleNext}
-              className="flex-1 px-3 py-2 rounded-lg bg-background-overlay hover:bg-border text-sm text-text-primary transition-colors"
-            >
-              ⏭ Next
-            </button>
-          </div>
-        </section>
-      )}
+        )}
 
-      {/* Frame Deck */}
-      {animation.frames.length > 0 && (
-        <section>
-          <h3 className="text-sm font-semibold mb-3 text-text-primary">🎞️ Frame Timeline</h3>
-          <div className="flex gap-2 overflow-x-auto pb-2">
-            {animation.frames.map((frame, index) => (
-              <button
-                key={index}
-                onClick={() => actions.goToFrame(index)}
-                className={`flex-shrink-0 w-16 h-12 rounded-lg border-2 transition-all ${
-                  animation.currentFrame === index
-                    ? 'border-primary bg-primary/20'
-                    : 'border-border bg-background-overlay hover:border-primary/50'
-                }`}
-              >
-                <div className="text-xs font-mono text-center pt-3 text-text-muted">
-                  {index + 1}
-                </div>
-              </button>
-            ))}
-          </div>
-        </section>
-      )}
-
-      {/* Info */}
-      {animation.frames.length === 0 && (
-        <div className="p-4 rounded-lg bg-accent-purple/10 border border-accent-purple/20">
-          <div className="text-sm space-y-2">
-            <p className="font-semibold text-accent-purple">🎬 Animations</p>
-            <p className="text-text-secondary text-xs">
-              Create multi-frame animations with smooth playback. Add the current grid as a frame, or generate procedural animations!
-            </p>
-            <p className="text-text-muted text-xs mt-2">
-              💡 Keyboard: Space=Play, ←/→=Frames
-            </p>
+        {/* Create */}
+        <div className="mt-3 space-y-1.5">
+          <button
+            onClick={handleAddFrame}
+            className="w-full py-2 rounded text-[10px] font-medium bg-primary hover:bg-primary-dark text-white transition-colors"
+          >
+            + Add Frame
+          </button>
+          <div className="grid grid-cols-2 gap-1.5">
+            <button
+              onClick={() => onCreateAnimation('random')}
+              className="py-2 rounded text-[10px] bg-background-overlay hover:bg-border text-text-secondary hover:text-text-primary transition-colors"
+            >
+              Random
+            </button>
+            <button
+              onClick={() => onCreateAnimation('gradient')}
+              className="py-2 rounded text-[10px] bg-background-overlay hover:bg-border text-text-secondary hover:text-text-primary transition-colors"
+            >
+              Gradient
+            </button>
           </div>
         </div>
+      </section>
+
+      {/* Inspector */}
+      {animation.frames.length > 0 && (
+        <button
+          onClick={handleOpenInspector}
+          className="w-full py-2 rounded text-[10px] font-medium bg-accent-purple/10 hover:bg-accent-purple/20 text-accent-purple transition-colors"
+        >
+          Inspect Animation
+        </button>
       )}
+
+      {/* Empty State */}
+      {animation.frames.length === 0 && (
+        <div className="text-center py-6 text-text-muted">
+          <div className="text-xs">No frames yet</div>
+          <div className="text-[10px] mt-1 opacity-60">Add current grid or generate</div>
+        </div>
+      )}
+
+      <FrameInspector
+        isOpen={inspectorOpen}
+        onClose={() => setInspectorOpen(false)}
+        data={inspectorData}
+      />
     </div>
   );
 }

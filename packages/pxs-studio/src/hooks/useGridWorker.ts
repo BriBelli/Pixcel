@@ -114,7 +114,43 @@ export function useGridWorker() {
     [sendCommand]
   );
 
-  // Animation frame methods
+  const noise = useCallback(
+    (cols: number, rows: number): Promise<GridData> => {
+      return sendCommand('noise', cols, rows);
+    },
+    [sendCommand]
+  );
+
+  // NEW: Impressive live effects
+  const spiral = useCallback(
+    (cols: number, rows: number, time: number, baseHue?: number): Promise<GridData> => {
+      return sendCommand('spiral', cols, rows, { time, baseHue });
+    },
+    [sendCommand]
+  );
+
+  const radialPulse = useCallback(
+    (cols: number, rows: number, time: number): Promise<GridData> => {
+      return sendCommand('radialPulse', cols, rows, { time });
+    },
+    [sendCommand]
+  );
+
+  const plasma = useCallback(
+    (cols: number, rows: number, time: number): Promise<GridData> => {
+      return sendCommand('plasma', cols, rows, { time });
+    },
+    [sendCommand]
+  );
+
+  const pixelBurst = useCallback(
+    (cols: number, rows: number, time: number): Promise<GridData> => {
+      return sendCommand('pixelBurst', cols, rows, { time });
+    },
+    [sendCommand]
+  );
+
+  // Legacy effects
   const diagonalPulse = useCallback(
     (cols: number, rows: number, time: number, baseHue?: number): Promise<GridData> => {
       return sendCommand('diagonalPulse', cols, rows, { time, baseHue });
@@ -125,13 +161,6 @@ export function useGridWorker() {
   const wave = useCallback(
     (cols: number, rows: number, time: number, baseHue?: number): Promise<GridData> => {
       return sendCommand('wave', cols, rows, { time, baseHue });
-    },
-    [sendCommand]
-  );
-
-  const spiral = useCallback(
-    (cols: number, rows: number, time: number, baseHue?: number): Promise<GridData> => {
-      return sendCommand('spiral', cols, rows, { time, baseHue });
     },
     [sendCommand]
   );
@@ -152,10 +181,15 @@ export function useGridWorker() {
     diagonalGradient,
     radialGradient,
     checkerboard,
-    // Animations
+    noise,
+    // New impressive effects
+    spiral,
+    radialPulse,
+    plasma,
+    pixelBurst,
+    // Legacy effects
     diagonalPulse,
     wave,
-    spiral,
     randomBurst,
   };
 }

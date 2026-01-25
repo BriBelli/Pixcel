@@ -29,10 +29,15 @@ function hexToRgb(hex: string): { r: number; g: number; b: number } {
 }
 
 function rgbToString(r: number, g: number, b: number): string {
-  return `rgb(${Math.round(r)}, ${Math.round(g)}, ${Math.round(b)})`;
+  return `rgb(${Math.round(Math.max(0, Math.min(255, r)))}, ${Math.round(Math.max(0, Math.min(255, g)))}, ${Math.round(Math.max(0, Math.min(255, b)))})`;
 }
 
 function hslToRgb(h: number, s: number, l: number): { r: number; g: number; b: number } {
+  // Normalize h to 0-1 range
+  h = ((h % 1) + 1) % 1;
+  s = Math.max(0, Math.min(1, s));
+  l = Math.max(0, Math.min(1, l));
+  
   let r, g, b;
 
   if (s === 0) {
@@ -72,7 +77,7 @@ function createHorizontalGradient(cols: number, rows: number, startColor: string
   const cells: PXSCell[] = [];
   for (let y = 0; y < rows; y++) {
     for (let x = 0; x < cols; x++) {
-      const t = x / (cols - 1);
+      const t = cols > 1 ? x / (cols - 1) : 0;
       cells.push({ x, y, color: lerpColor(startColor, endColor, t), opacity: 1 });
     }
   }
@@ -83,7 +88,7 @@ function createVerticalGradient(cols: number, rows: number, startColor: string, 
   const cells: PXSCell[] = [];
   for (let y = 0; y < rows; y++) {
     for (let x = 0; x < cols; x++) {
-      const t = y / (rows - 1);
+      const t = rows > 1 ? y / (rows - 1) : 0;
       cells.push({ x, y, color: lerpColor(startColor, endColor, t), opacity: 1 });
     }
   }
@@ -95,7 +100,7 @@ function createDiagonalGradient(cols: number, rows: number, startColor: string, 
   const maxDist = cols + rows - 2;
   for (let y = 0; y < rows; y++) {
     for (let x = 0; x < cols; x++) {
-      const t = (x + y) / maxDist;
+      const t = maxDist > 0 ? (x + y) / maxDist : 0;
       cells.push({ x, y, color: lerpColor(startColor, endColor, t), opacity: 1 });
     }
   }
@@ -113,7 +118,7 @@ function createRadialGradient(cols: number, rows: number, centerColor: string, e
       const dx = x - centerX;
       const dy = y - centerY;
       const dist = Math.sqrt(dx * dx + dy * dy);
-      const t = Math.min(dist / maxDist, 1);
+      const t = maxDist > 0 ? Math.min(dist / maxDist, 1) : 0;
       cells.push({ x, y, color: lerpColor(centerColor, edgeColor, t), opacity: 1 });
     }
   }
@@ -131,7 +136,169 @@ function createCheckerboard(cols: number, rows: number, color1: string, color2: 
   return cells;
 }
 
-// Animation frame generators
+function createNoise(cols: number, rows: number): PXSCell[] {
+  const cells: PXSCell[] = [];
+  for (let y = 0; y < rows; y++) {
+    for (let x = 0; x < cols; x++) {
+      const hue = Math.random();
+      const { r, g, b } = hslToRgb(hue, 0.7, 0.5);
+      cells.push({ x, y, color: rgbToString(r, g, b), opacity: 1 });
+    }
+  }
+  return cells;
+}
+
+// ============================================
+// IMPRESSIVE LIVE EFFECTS
+// ============================================
+
+// Spiral Glow - Hypnotic spiral with color cycling
+function createSpiralFrame(cols: number, rows: number, time: number, baseHue: number = 0.8): PXSCell[] {
+  const cells: PXSCell[] = [];
+  const centerX = cols / 2;
+  const centerY = rows / 2;
+  const maxDist = Math.sqrt(centerX * centerX + centerY * centerY);
+
+  for (let y = 0; y < rows; y++) {
+    for (let x = 0; x < cols; x++) {
+      const dx = x - centerX;
+      const dy = y - centerY;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      const angle = Math.atan2(dy, dx);
+      
+      // Multiple spiral arms with varying speeds
+      const spiral1 = Math.sin(dist * 0.25 - angle * 3 + time * 2.5);
+      const spiral2 = Math.sin(dist * 0.15 + angle * 2 - time * 1.5);
+      const combined = (spiral1 + spiral2) * 0.5;
+      
+      // Color based on spiral and distance
+      const hue = (baseHue + combined * 0.2 + dist / maxDist * 0.3 + time * 0.1) % 1;
+      const saturation = 0.8 + combined * 0.2;
+      const lightness = 0.35 + combined * 0.25 + Math.sin(dist * 0.1 - time) * 0.1;
+      
+      const { r, g, b } = hslToRgb(hue, saturation, lightness);
+      cells.push({ x, y, color: rgbToString(r, g, b), opacity: 1 });
+    }
+  }
+  return cells;
+}
+
+// Radial Pulse - Rings emanating from center with glow
+function createRadialPulseFrame(cols: number, rows: number, time: number): PXSCell[] {
+  const cells: PXSCell[] = [];
+  const centerX = cols / 2;
+  const centerY = rows / 2;
+  const maxDist = Math.sqrt(centerX * centerX + centerY * centerY);
+
+  for (let y = 0; y < rows; y++) {
+    for (let x = 0; x < cols; x++) {
+      const dx = x - centerX;
+      const dy = y - centerY;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      const normDist = dist / maxDist;
+      
+      // Multiple ring pulses at different speeds
+      const ring1 = Math.sin(dist * 0.4 - time * 4) * 0.5 + 0.5;
+      const ring2 = Math.sin(dist * 0.25 - time * 2.5 + Math.PI) * 0.3 + 0.3;
+      const ring3 = Math.sin(dist * 0.15 - time * 1.5) * 0.2 + 0.2;
+      
+      const pulse = ring1 + ring2 + ring3;
+      
+      // Vibrant color scheme - cyan to magenta
+      const hue = 0.5 + pulse * 0.15 + normDist * 0.1;
+      const saturation = 0.9;
+      const lightness = 0.2 + pulse * 0.4;
+      
+      const { r, g, b } = hslToRgb(hue, saturation, lightness);
+      cells.push({ x, y, color: rgbToString(r, g, b), opacity: 1 });
+    }
+  }
+  return cells;
+}
+
+// Plasma - Classic demoscene plasma effect
+function createPlasmaFrame(cols: number, rows: number, time: number): PXSCell[] {
+  const cells: PXSCell[] = [];
+
+  for (let y = 0; y < rows; y++) {
+    for (let x = 0; x < cols; x++) {
+      // Classic plasma formula with multiple sine waves
+      const v1 = Math.sin(x * 0.1 + time);
+      const v2 = Math.sin((y * 0.1 + time) * 0.5);
+      const v3 = Math.sin((x * 0.1 + y * 0.1 + time) * 0.5);
+      
+      const cx = x + 0.5 * cols * Math.sin(time * 0.5);
+      const cy = y + 0.5 * rows * Math.cos(time * 0.3);
+      const v4 = Math.sin(Math.sqrt((cx * cx + cy * cy) * 0.01) + time);
+      
+      const v = (v1 + v2 + v3 + v4) * 0.25;
+      
+      // Rich color palette
+      const r = Math.sin(v * Math.PI) * 127 + 128;
+      const g = Math.sin(v * Math.PI + 2.094) * 127 + 128;
+      const b = Math.sin(v * Math.PI + 4.188) * 127 + 128;
+      
+      cells.push({ x, y, color: rgbToString(r, g, b), opacity: 1 });
+    }
+  }
+  return cells;
+}
+
+// Pixel Burst - Explosive particle-like effect
+function createPixelBurstFrame(cols: number, rows: number, time: number): PXSCell[] {
+  const cells: PXSCell[] = [];
+  const centerX = cols / 2;
+  const centerY = rows / 2;
+  const maxDist = Math.sqrt(centerX * centerX + centerY * centerY);
+  
+  // Multiple burst origins that move
+  const bursts = [
+    { x: centerX, y: centerY, phase: 0 },
+    { x: centerX + Math.sin(time) * cols * 0.3, y: centerY + Math.cos(time) * rows * 0.3, phase: 1 },
+    { x: centerX + Math.sin(time * 0.7 + 2) * cols * 0.25, y: centerY + Math.cos(time * 0.7 + 2) * rows * 0.25, phase: 2 },
+  ];
+
+  for (let y = 0; y < rows; y++) {
+    for (let x = 0; x < cols; x++) {
+      let totalIntensity = 0;
+      let dominantHue = 0;
+      
+      for (const burst of bursts) {
+        const dx = x - burst.x;
+        const dy = y - burst.y;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        
+        // Expanding ring effect
+        const ringRadius = (time * 20 + burst.phase * 10) % (maxDist * 1.5);
+        const ringWidth = 3 + Math.sin(time * 2 + burst.phase) * 2;
+        const distToRing = Math.abs(dist - ringRadius);
+        
+        if (distToRing < ringWidth) {
+          const intensity = 1 - (distToRing / ringWidth);
+          totalIntensity += intensity * 0.5;
+          dominantHue = (burst.phase * 0.33 + time * 0.1) % 1;
+        }
+        
+        // Inner glow
+        const innerGlow = Math.max(0, 1 - dist / (maxDist * 0.3));
+        totalIntensity += innerGlow * 0.3;
+      }
+      
+      totalIntensity = Math.min(1, totalIntensity);
+      
+      // High contrast colors
+      const hue = (dominantHue + totalIntensity * 0.2) % 1;
+      const saturation = 0.9;
+      const lightness = 0.1 + totalIntensity * 0.6;
+      
+      const { r, g, b } = hslToRgb(hue, saturation, lightness);
+      cells.push({ x, y, color: rgbToString(r, g, b), opacity: 1 });
+    }
+  }
+  return cells;
+}
+
+// Legacy effects for backward compatibility
 function createDiagonalPulseFrame(cols: number, rows: number, time: number, baseHue: number = 0.6): PXSCell[] {
   const cells: PXSCell[] = [];
   const maxDist = cols + rows;
@@ -166,30 +333,8 @@ function createWaveFrame(cols: number, rows: number, time: number, baseHue: numb
   return cells;
 }
 
-function createSpiralFrame(cols: number, rows: number, time: number, baseHue: number = 0.8): PXSCell[] {
-  const cells: PXSCell[] = [];
-  const centerX = cols / 2;
-  const centerY = rows / 2;
-
-  for (let y = 0; y < rows; y++) {
-    for (let x = 0; x < cols; x++) {
-      const dx = x - centerX;
-      const dy = y - centerY;
-      const dist = Math.sqrt(dx * dx + dy * dy);
-      const angle = Math.atan2(dy, dx);
-      const spiral = Math.sin(dist * 0.3 - angle * 2 + time * 2);
-      const hue = (baseHue + spiral * 0.15 + dist * 0.01) % 1;
-      const lightness = 0.3 + spiral * 0.3;
-      const { r, g, b } = hslToRgb(Math.abs(hue), 0.85, Math.max(0.1, lightness));
-      cells.push({ x, y, color: rgbToString(r, g, b), opacity: 1 });
-    }
-  }
-  return cells;
-}
-
 function createRandomBurstFrame(cols: number, rows: number, seed: number): PXSCell[] {
   const cells: PXSCell[] = [];
-  // Simple seeded random for consistency
   const random = (x: number, y: number) => {
     const n = Math.sin(seed * 12.9898 + x * 78.233 + y * 37.719) * 43758.5453;
     return n - Math.floor(n);
@@ -249,16 +394,34 @@ self.addEventListener('message', (e: MessageEvent) => {
         cells = createCheckerboard(cols, rows, color1 || '#1a1f2e', color2 || '#2d3548');
         break;
 
+      case 'noise':
+        cells = createNoise(cols, rows);
+        break;
+
+      // New impressive effects
+      case 'spiral':
+        cells = createSpiralFrame(cols, rows, time || 0, baseHue || 0.8);
+        break;
+
+      case 'radialPulse':
+        cells = createRadialPulseFrame(cols, rows, time || 0);
+        break;
+
+      case 'plasma':
+        cells = createPlasmaFrame(cols, rows, time || 0);
+        break;
+
+      case 'pixelBurst':
+        cells = createPixelBurstFrame(cols, rows, time || 0);
+        break;
+
+      // Legacy effects
       case 'diagonalPulse':
         cells = createDiagonalPulseFrame(cols, rows, time || 0, baseHue || 0.6);
         break;
 
       case 'wave':
         cells = createWaveFrame(cols, rows, time || 0, baseHue || 0.55);
-        break;
-
-      case 'spiral':
-        cells = createSpiralFrame(cols, rows, time || 0, baseHue || 0.8);
         break;
 
       case 'randomBurst':

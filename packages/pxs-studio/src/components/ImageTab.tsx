@@ -5,16 +5,16 @@ import { useImageWorker } from '../hooks/useImageWorker';
 import { usePXSStore } from '../store/pxs-store';
 
 const QUALITY_PRESETS = [
-  { name: 'Retro', size: 32, label: '~32px' },
-  { name: 'Low', size: 48, label: '~48px' },
-  { name: 'Medium', size: 64, label: '~64px' },
-  { name: 'High', size: 128, label: '~128px' },
-  { name: 'HD', size: 192, label: '~192px' },
-  { name: 'Ultra', size: 256, label: '~256px' },
+  { name: 'Retro', size: 32 },
+  { name: 'Low', size: 48 },
+  { name: 'Medium', size: 64 },
+  { name: 'High', size: 128 },
+  { name: 'HD', size: 192 },
+  { name: 'Ultra', size: 256 },
 ];
 
 interface ImageTabProps {
-  onGridUpdate: (data: any) => void;
+  onGridUpdate: (data: { cols: number; rows: number; cells: Array<{ x: number; y: number; color: string; opacity: number }>; totalCells: number; creationTime: number }) => void;
 }
 
 export default function ImageTab({ onGridUpdate }: ImageTabProps) {
@@ -54,14 +54,10 @@ export default function ImageTab({ onGridUpdate }: ImageTabProps) {
     setProcessing(true);
 
     try {
-      // Process image in worker
       const result = await imageWorker.processImage(selectedFile, targetCols, targetRows, true);
-      
-      console.log(`✅ Image processed in ${result.processTime.toFixed(2)}ms (WASM: ${result.wasmUsed})`);
       setLastProcessTime(result.processTime);
       setWasmUsed(result.wasmUsed);
       
-      // Update grid
       onGridUpdate({
         cols: result.cols,
         rows: result.rows,
@@ -77,11 +73,10 @@ export default function ImageTab({ onGridUpdate }: ImageTabProps) {
   };
 
   const renderAtQuality = async (quality: typeof QUALITY_PRESETS[0]) => {
-    if (!selectedFile) return;
+    if (!selectedFile || !previewUrl) return;
 
-    // Calculate dimensions based on quality, preserving aspect ratio
     const img = new Image();
-    img.src = previewUrl!;
+    img.src = previewUrl;
     await new Promise((resolve) => { img.onload = resolve; });
 
     const aspectRatio = img.width / img.height;
@@ -99,23 +94,17 @@ export default function ImageTab({ onGridUpdate }: ImageTabProps) {
   };
 
   return (
-    <div className="space-y-6 p-6">
-      {/* Image Upload */}
+    <div className="p-4 space-y-4">
+      {/* Upload */}
       <section>
-        <h3 className="text-sm font-semibold mb-3 text-text-primary">📤 Load Image</h3>
-        
         <div
-          className="border-2 border-dashed border-border rounded-lg p-6 text-center cursor-pointer hover:border-primary hover:bg-primary/5 transition-colors"
+          className="border border-dashed border-border rounded-lg p-4 text-center cursor-pointer hover:border-primary/50 hover:bg-primary/5 transition-all"
           onClick={() => fileInputRef.current?.click()}
           onDrop={handleDrop}
           onDragOver={(e) => e.preventDefault()}
         >
-          <div className="text-4xl mb-2">📷</div>
-          <div className="text-sm text-text-muted">
-            Click to upload or drag & drop
-          </div>
-          <div className="text-xs text-text-muted mt-1">
-            JPG, PNG, GIF supported
+          <div className="text-xs text-text-muted">
+            {selectedFile ? selectedFile.name : 'Drop image or click'}
           </div>
           <input
             ref={fileInputRef}
@@ -126,90 +115,72 @@ export default function ImageTab({ onGridUpdate }: ImageTabProps) {
           />
         </div>
 
-        {/* Image Preview */}
+        {/* Preview */}
         {previewUrl && (
-          <div className="mt-4 relative rounded-lg overflow-hidden border border-border">
-            <img src={previewUrl} alt="Preview" className="w-full h-auto" />
+          <div className="mt-2 relative rounded overflow-hidden">
+            <img src={previewUrl} alt="Preview" className="w-full h-auto max-h-32 object-contain bg-black/20" />
             <button
-              onClick={(e) => {
-                e.stopPropagation();
+              onClick={() => {
                 setSelectedFile(null);
                 setPreviewUrl(null);
                 setLastProcessTime(null);
               }}
-              className="absolute top-2 right-2 w-8 h-8 rounded-full bg-accent-red text-white hover:bg-accent-red/80 transition-colors flex items-center justify-center"
+              className="absolute top-1 right-1 w-5 h-5 rounded-full bg-background-primary/80 text-text-muted hover:text-text-primary text-xs flex items-center justify-center transition-colors"
             >
-              ✕
+              ×
             </button>
           </div>
         )}
       </section>
 
-      {/* Quality Presets */}
+      {/* Quality */}
       {selectedFile && (
         <section>
-          <h3 className="text-sm font-semibold mb-3 text-text-primary">🎨 Render Quality</h3>
-          <div className="grid grid-cols-2 gap-2">
+          <span className="text-[10px] font-medium text-text-muted uppercase tracking-wider">Quality</span>
+          <div className="grid grid-cols-3 gap-1.5 mt-2">
             {QUALITY_PRESETS.map((preset) => (
               <button
                 key={preset.name}
                 onClick={() => renderAtQuality(preset)}
                 disabled={processing}
-                className="px-4 py-3 rounded-lg bg-background-overlay hover:bg-border text-sm text-text-primary transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                className="py-2 rounded text-[10px] bg-background-overlay hover:bg-border text-text-secondary hover:text-text-primary transition-colors disabled:opacity-50"
               >
-                <div className="font-semibold">{preset.name}</div>
-                <div className="text-xs text-text-muted">{preset.label}</div>
+                {preset.name}
               </button>
             ))}
           </div>
         </section>
       )}
 
-      {/* Render to Current Grid */}
+      {/* Render */}
       {selectedFile && (
         <section>
-          <h3 className="text-sm font-semibold mb-3 text-text-primary">🎯 Render Options</h3>
           <button
             onClick={() => processImage(grid.cols, grid.rows)}
             disabled={processing}
-            className="w-full px-4 py-3 rounded-lg bg-primary hover:bg-primary-dark text-white font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            className="w-full py-2.5 rounded text-xs font-medium bg-primary hover:bg-primary-dark text-white transition-colors disabled:opacity-50"
           >
-            {processing ? '⏳ Processing...' : '🎨 Render (Uses Current Grid)'}
+            {processing ? 'Processing...' : `Render at ${grid.cols}×${grid.rows}`}
           </button>
-          <p className="text-xs text-text-muted mt-2 text-center">
-            Current: {grid.cols}×{grid.rows}
-          </p>
         </section>
       )}
 
-      {/* Processing Stats */}
+      {/* Stats */}
       {lastProcessTime !== null && (
-        <section>
-          <div className="p-3 rounded-lg bg-accent-green/10 border border-accent-green/20">
-            <div className="text-xs text-accent-green font-semibold mb-1">✅ Last Process</div>
-            <div className="flex justify-between text-xs">
-              <span className="text-text-muted">Time:</span>
-              <span className="font-mono text-text-primary">{lastProcessTime.toFixed(2)}ms</span>
-            </div>
-            <div className="flex justify-between text-xs mt-1">
-              <span className="text-text-muted">WASM:</span>
-              <span className={`font-mono ${wasmUsed ? 'text-accent-green' : 'text-text-muted'}`}>
-                {wasmUsed ? '⚡ Active' : 'Fallback JS'}
-              </span>
-            </div>
-          </div>
-        </section>
+        <div className="flex items-center justify-between text-[10px] text-text-muted px-1">
+          <span>{lastProcessTime.toFixed(1)}ms</span>
+          <span className={wasmUsed ? 'text-accent-green' : ''}>
+            {wasmUsed ? 'WASM' : 'JS'}
+          </span>
+        </div>
       )}
 
-      {/* Info */}
+      {/* Empty hint */}
       {!selectedFile && (
-        <div className="p-4 rounded-lg bg-primary/10 border border-primary/20">
-          <div className="text-sm space-y-2">
-            <p className="font-semibold text-primary">💡 Image Processing</p>
-            <p className="text-text-secondary text-xs">
-              Upload an image to convert it to pixel art using gamma-correct block averaging.
-              {imageWorker.wasmReady && ' ⚡ WASM acceleration is active!'}
-            </p>
+        <div className="text-center py-4 text-text-muted">
+          <div className="text-xs">Upload an image</div>
+          <div className="text-[10px] mt-1 opacity-60">
+            {imageWorker.wasmReady ? 'WASM ready' : 'Loading...'}
           </div>
         </div>
       )}

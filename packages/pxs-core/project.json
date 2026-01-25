@@ -1,24 +1,24 @@
 {
-  "name": "pxs-core",
   "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "name": "pxs-core",
   "sourceRoot": "packages/pxs-core/src",
   "projectType": "library",
   "targets": {
     "build": {
       "executor": "nx:run-commands",
       "options": {
-        "command": "npm run build",
+        "command": "vite build",
         "cwd": "packages/pxs-core"
       },
       "outputs": ["{projectRoot}/dist"]
     },
-    "dev": {
+    "type-check": {
       "executor": "nx:run-commands",
       "options": {
-        "command": "npm run dev",
+        "command": "tsc --noEmit",
         "cwd": "packages/pxs-core"
       }
     }
   },
-  "tags": ["type:library", "scope:core"]
+  "tags": ["type:library"]
 }

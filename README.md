@@ -1,17 +1,18 @@
-# PXS (Pixcel) - Digital Art Through Code
+# PXS (Pixcel)
 
-A revolutionary platform where **images are data, not files**. Every pixel is a first-class citizen that can be stored, edited, transmitted, and rendered through pure code.
+**Images are data, not files.** Every pixel is a cell object that can be stored, edited, transmitted, and rendered through pure code.
 
-## 🌟 The Vision
+### Built for Humans and AI
 
-> **"It creates digital art, graphics, motion graphics without files—but code."**
+PXS is **AI-native**. Images as JSON means AI agents can generate, manipulate, and understand pixel art as naturally as developers do—no file I/O, no binary formats, just clean data structures.
 
-PXS treats every image as an array of cell objects. No image files needed—just data structures that can be:
-- **Versioned** — Git-friendly, diff-able artwork
-- **Edited** — Change individual pixels in code
-- **Transmitted** — Send over APIs, WebSockets
-- **Stored** — Database, cache, localStorage
-- **Animated** — Arrays of arrays for motion graphics
+### The Core Concept
+
+Every image is an array of cells:
+- **Versioned** — Git-friendly, diff-able
+- **Edited** — Change pixels in code
+- **Transmitted** — APIs, WebSockets, databases
+- **Animated** — Arrays of frames
 
 ```javascript
 // An image is just data
@@ -19,8 +20,10 @@ const pixelArt = {
   cols: 64,
   rows: 48,
   cells: [
-    { x: 0, y: 0, color: 'rgb(42, 42, 42)' },
-    { x: 1, y: 0, color: 'rgb(255, 87, 51)' },
+    { x: 0, y: 0, color: '#2A2A2A' },
+    { x: 1, y: 0, color: '#FF5733' },
+    { x: 2, y: 0, color: 'rgba(38, 127, 51, 0.5)' },
+    { x: 2, y: 0, color: 'rgba(50, 128, 255, 0.7)' },
     // ... every pixel defined in code
   ]
 };
@@ -36,17 +39,17 @@ await animator.setData(pixelArt);
 await PXSStorage.local.save('my-art', pixelArt);
 ```
 
-## ✨ Version 3.1 — Data-First + Frame Deck UI
+## ✨ Version 4.0 — Monorepo Architecture
 
 ### New Core Concepts
 
-| Concept | Description |
-|---------|-------------|
-| **PXSFrame** | Single image as data: `{ cols, rows, cells[], metadata }` |
-| **PXSAnimation** | Motion as frames: `{ fps, frames[], metadata }` |
-| **getData/setData** | Full round-trip data access |
-| **Storage Adapters** | LocalStorage, IndexedDB, API, memory |
-| **Rust/WASM** | High-performance image processing |
+| Concept              | Description                                               |
+| -------------------- | --------------------------------------------------------- |
+| **PXSFrame**         | Single image as data: `{ cols, rows, cells[], metadata }` |
+| **PXSAnimation**     | Motion as frames: `{ fps, frames[], metadata }`           |
+| **getData/setData**  | Full round-trip data access                               |
+| **Storage Adapters** | LocalStorage, IndexedDB, API, memory                      |
+| **Rust/WASM**        | High-performance image processing                         |
 
 ### The Clean API
 
@@ -78,10 +81,27 @@ await PXSStorage.local.save('my-creation', frameData);
 git clone https://github.com/BriBelli/Pixcel.git
 cd Pixcel
 npm install
-npm run start
 ```
 
-### Open the Demo
+### Run PXS Studio (Next.js app)
+
+```bash
+npm run studio:dev
+```
+
+### Other Commands
+
+```bash
+npm run dev            # Run all packages in dev mode
+npm run build          # Build everything
+npm run core:build     # Build the core library only
+npm run studio:build   # Production build of PXS Studio
+npm run wasm:build     # Build the Rust/WASM module
+```
+
+### Legacy Demo
+
+The original standalone demo is still available:
 
 ```bash
 open demos/index.html
@@ -209,52 +229,62 @@ const frame = await ImageHelpers.loadImage(photo, { quality: 'high' });
 
 ## 🏗️ Architecture
 
+PXS is an **Nx monorepo** with two packages:
+
 ```
-src/
-├── CellAnimator.js        # Core: getData, setData, animation playback
-├── helpers/
-│   ├── ImageHelpers.js    # Image-to-data conversion
-│   ├── AnimationHelpers.js # Frame management
-│   └── PatternHelpers.js  # Gradient generation
-├── storage/
-│   └── StorageAdapters.js # LocalStorage, IndexedDB, API, memory
-├── renderers/
-│   ├── HTMLRenderer.js    # < 5K cells
-│   ├── CanvasRenderer.js  # 5K-100K cells
-│   └── WebGLRenderer.js   # 100K+ cells
-├── wasm/
-│   └── WASMIntegration.js # Rust/WASM JavaScript wrapper
-└── types/
-    └── pxs-types.d.ts     # TypeScript interfaces
+Pixcel/
+├── packages/
+│   ├── pxs-core/              # Headless library (Vite)
+│   │   └── src/
+│   │       ├── CellAnimator.js
+│   │       ├── helpers/
+│   │       │   ├── ImageHelpers.js
+│   │       │   ├── AnimationHelpers.js
+│   │       │   └── PatternHelpers.js
+│   │       ├── storage/
+│   │       │   └── StorageAdapters.js
+│   │       ├── renderers/
+│   │       │   ├── HTMLRenderer.js    # < 5K cells
+│   │       │   ├── CanvasRenderer.js  # 5K-100K cells
+│   │       │   └── WebGLRenderer.js   # 100K+ cells
+│   │       ├── wasm/
+│   │       │   └── WASMIntegration.js
+│   │       └── types/
+│   │           └── pxs-types.d.ts
+│   └── pxs-studio/            # App (Next.js + React)
+├── demos/                     # Legacy standalone demos
+├── wasm/                      # Rust/WASM source
+└── package.json               # Workspace root
 ```
 
 ## 📈 Performance
 
-| Renderer | Cell Count | Best For |
-|----------|------------|----------|
-| HTML | < 5,000 | Simple UIs, interactions |
-| Canvas | 5K - 100K | Most use cases |
-| WebGL | 100K+ | Massive grids |
-| + WASM | Any | Image processing speed |
+| Renderer | Cell Count | Best For                 |
+| -------- | ---------- | ------------------------ |
+| HTML     | < 5,000    | Simple UIs, interactions |
+| Canvas   | 5K - 100K  | Most use cases           |
+| WebGL    | 100K+      | Massive grids            |
+| + WASM   | Any        | Image processing speed   |
 
 ## 🗺️ Roadmap
 
 - ✅ **Phase 1**: Core architecture
 - ✅ **Phase 2**: Renderers, performance
-- ✅ **Phase 3**: Data-first, animations, storage, WASM
-- 📋 **Phase 4**: Frame deck UI (visual timeline)
-- 📋 **Phase 5**: WebGL & 3D voxels
-- 📋 **Phase 6**: AI-assisted creation
+- ✅ **Phase 3**: Data-first, animations, storage, WASM, Frame Deck UI
+- ✅ **Phase 4**: Monorepo migration (Nx + React + Next.js)
+- 📋 **Phase 5**: Web Workers, OffscreenCanvas, 640px+ support
+- 📋 **Phase 6**: WebGL & 3D voxels
+- 📋 **Phase 7**: AI-assisted creation
 
 ## 🎯 Why PXS?
 
-| Traditional | PXS |
-|-------------|-----|
-| Images are binary files | Images are JSON data |
-| Need Photoshop to edit | Edit in code |
-| Can't version control pixels | Git-friendly |
-| Heavy render software | Lightweight, real-time |
-| Export/import workflows | API-native |
+| Traditional                  | PXS                    |
+| ---------------------------- | ---------------------- |
+| Images are binary files      | Images are JSON data   |
+| Need Photoshop to edit       | Edit in code           |
+| Can't version control pixels | Git-friendly           |
+| Heavy render software        | Lightweight, real-time |
+| Export/import workflows      | API-native             |
 
 ## 📖 Documentation
 
@@ -278,30 +308,26 @@ MIT
 
 ## 🎯 Current Status
 
-**Version**: 3.1.0  
-**Released**: January 22, 2026  
-**Status**: Production-ready for 320px resolutions
+**Version**: 4.0.0  
+**Status**: Monorepo architecture in active development
 
 ### ✅ What's Working
+- Nx monorepo with `@pxs/core` library and `@pxs/studio` app
 - Data-first architecture (images/animations as JSON)
 - Rust/WASM for 10x faster image processing
 - Frame Deck UI with visual timeline
 - Storage adapters (local, IndexedDB, memory)
 - Multi-resolution support (8x8 to 320x240)
+- React + Next.js studio application
 
 ### ⚠️ Known Limitations
 - High-res (400px+) causes browser freezes (single-threaded JavaScript bottleneck)
-- No virtual DOM (direct DOM manipulation)
-- Library code mixed with demo app
+- Web Workers not yet integrated
 
-### 🚀 Next: Version 4.0 (Q1 2026)
-**Architecture Migration** — See [`docs/ARCHITECTURE-PROPOSAL.md`](docs/ARCHITECTURE-PROPOSAL.md)
-- Nx monorepo (separate library from app)
+### 🚀 Next Up
 - Web Workers (unlock 640px+ without freezing)
-- React + Next.js (Adobe-level UX)
 - OffscreenCanvas (non-blocking rendering)
-
-**Timeline**: 10-12 weeks to v4.0 launch
+- Production performance tuning (60 FPS at 640px+)
 
 ---
 

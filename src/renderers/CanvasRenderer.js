@@ -220,7 +220,7 @@ class CanvasRenderer extends BaseRenderer {
             // Partial redraw - only dirty regions (coords pre-stored to avoid parsing)
             for (const coord of this.dirtyRegions.values()) {
                 if (viewportManager.isCellVisible(coord.x, coord.y)) {
-                    this._drawCell(coord.x, coord.y);
+                    this._drawCell(coord.x, coord.y); // ⚡ No parsing needed!
                 }
             }
             this.dirtyRegions.clear();
@@ -795,7 +795,7 @@ class CanvasRenderer extends BaseRenderer {
         
         // Mark as dirty for redraw
         if (this.viewportEnabled) {
-            this.dirtyRegions.add(key);
+            this.dirtyRegions.set(key, { x, y }); 
         } else {
             this._drawCell(x, y);
         }

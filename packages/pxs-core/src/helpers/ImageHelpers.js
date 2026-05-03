@@ -335,8 +335,8 @@ class ImageHelpers {
     const len = srcCells.length;
     const cells = new Array(len);
     for (let i = 0; i < len; i++) {
-      const src = srcCells[i];
-      cells[i] = { x: src.x, y: src.y, color: src.color };
+      // Spread copies all PXSCell properties (x, y, color, opacity, etc.)
+      cells[i] = { ...srcCells[i] };
     }
     return {
       cols: frame.cols,
@@ -425,12 +425,15 @@ class ImageHelpers {
     const cells = frame.cells;
     const len = cells.length;
     
-    // Build color array in sorted order using direct index (avoids sort)
+    // Ensure cells are in row-major order for sequential decompression
+    const sortedCells = [...cells].sort((a, b) => 
+      (a.y * cols + a.x) - (b.y * cols + b.x)
+    );
+    
+    // Build color array in sorted order (sequential indexing)
     const colors = new Array(len);
     for (let i = 0; i < len; i++) {
-      const cell = cells[i];
-      const idx = cell.y * cols + cell.x;
-      colors[idx] = cell.color;
+      colors[i] = sortedCells[i].color;
     }
     
     return {

@@ -2,7 +2,7 @@
 
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { usePXSStore, selectGrid, selectUI, selectActions, selectAnimation, PXSCell } from '../store/pxs-store';
-import GridCanvas from './GridCanvas';
+import GridCanvas, { GridCanvasHandle } from './GridCanvas';
 import ResolutionTab from './ResolutionTab';
 import ImageTab from './ImageTab';
 import AnimationTab from './AnimationTab';
@@ -14,13 +14,16 @@ import { useAutoSave } from '../hooks/useAutoSave';
 import { useKeyboardShortcuts } from '../hooks/useKeyboardShortcuts';
 import historyManager from '../store/history-manager';
 import type { GridData } from '../workers/grid.worker';
+import { buildLogoGridData } from '../lib/pixcel-logo';
 
 export default function Studio({ children }: { children?: React.ReactNode }) {
   const containerRef = useRef<HTMLDivElement>(null);
+  const canvasHandleRef = useRef<GridCanvasHandle>(null);
   const [gridData, setGridData] = useState<GridData | null>(null);
   const [inspectorOpen, setInspectorOpen] = useState(false);
   const [inspectorData, setInspectorData] = useState<InspectorData | null>(null);
   const [selectedColor, setSelectedColor] = useState('#58a6ff');
+  const [exportOpen, setExportOpen] = useState(false);
 
   const grid = usePXSStore(selectGrid);
   const ui = usePXSStore(selectUI);
@@ -99,6 +102,52 @@ export default function Studio({ children }: { children?: React.ReactNode }) {
       }
     }
   }, [animation.currentFrame, animation.frames]);
+
+  // On first ready: either render the autosave-restored project, or paint the
+  // default PixcE landing-page logo so the canvas is never empty.
+  useEffect(() => {
+    if (!autoSaveInitialized) return;
+    if (gridData) return;
+
+    const state = usePXSStore.getState();
+    const storeCells = Array.from(state.grid.cells.values());
+
+    if (storeCells.length > 0) {
+      setGridData({
+        cols: state.grid.cols,
+        rows: state.grid.rows,
+        cells: storeCells,
+        totalCells: storeCells.length,
+        creationTime: 0,
+      });
+      return;
+    }
+
+    const logoGrid = buildLogoGridData();
+    setGridData(logoGrid);
+
+    const cellsMap = new Map();
+    logoGrid.cells.forEach((cell) => {
+      cellsMap.set(`${cell.x}-${cell.y}`, cell);
+    });
+    usePXSStore.setState((s) => ({
+      grid: {
+        ...s.grid,
+        cols: logoGrid.cols,
+        rows: logoGrid.rows,
+        cells: cellsMap,
+      },
+    }));
+
+    historyManager.push('load', 'Loaded PixcE logo', {
+      cols: logoGrid.cols,
+      rows: logoGrid.rows,
+      cells: logoGrid.cells,
+    });
+    // Treat the default logo as the baseline so autosave doesn't persist it
+    // over your latest JSON edits on reload.
+    historyManager.markSaved();
+  }, [autoSaveInitialized, gridData]);
 
   const handleGridUpdate = (data: GridData) => {
     setGridData(data);
@@ -419,30 +468,22 @@ export default function Studio({ children }: { children?: React.ReactNode }) {
         <main className="flex-1 flex flex-col relative bg-background-primary overflow-hidden">
           {/* Canvas Container */}
           <div ref={containerRef} className="flex-1 relative flex items-center justify-center overflow-hidden">
-            <GridCanvas 
-              gridData={gridData} 
+            <GridCanvas
+              ref={canvasHandleRef}
+              gridData={gridData}
               onCellClick={handleCellClick}
               onCellDoubleClick={handleCellDoubleClick}
             />
 
-            {/* Border Toggle Button */}
-            <button
-              onClick={() => actions.toggleBorders()}
-              className={`absolute top-4 right-4 w-10 h-10 rounded-lg flex items-center justify-center transition-all shadow-lg ${
-                grid.bordersVisible
-                  ? 'bg-primary text-white border-2 border-primary'
-                  : 'bg-background-secondary text-text-muted border-2 border-border hover:border-primary hover:text-primary'
-              }`}
-              title={`${grid.bordersVisible ? 'Hide' : 'Show'} Borders (B)`}
-            >
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <rect x="3" y="3" width="18" height="18" stroke="currentColor" strokeWidth="2.5" fill="none" />
-                <line x1="3" y1="9" x2="21" y2="9" stroke="currentColor" strokeWidth="2.5" />
-                <line x1="3" y1="15" x2="21" y2="15" stroke="currentColor" strokeWidth="2.5" />
-                <line x1="9" y1="3" x2="9" y2="21" stroke="currentColor" strokeWidth="2.5" />
-                <line x1="15" y1="3" x2="15" y2="21" stroke="currentColor" strokeWidth="2.5" />
-              </svg>
-            </button>
+            {/* Canvas Toolbar (top-right) */}
+            <CanvasToolbar
+              bordersVisible={grid.bordersVisible}
+              onToggleBorders={() => actions.toggleBorders()}
+              onZoomIn={() => canvasHandleRef.current?.zoomIn()}
+              onZoomOut={() => canvasHandleRef.current?.zoomOut()}
+              onFit={() => canvasHandleRef.current?.fit()}
+              onExport={() => setExportOpen(true)}
+            />
 
             {/* Performance Badge */}
             <div className="absolute top-4 left-4 px-2 py-1 rounded bg-background-secondary/90 backdrop-blur border border-border text-[10px] font-mono text-text-muted">
@@ -455,7 +496,9 @@ export default function Studio({ children }: { children?: React.ReactNode }) {
               <span className="mx-1.5 opacity-30">•</span>
               <span className="opacity-70">B</span>
               <span className="mx-1.5 opacity-30">•</span>
-              <span className="opacity-70">Click to paint</span>
+              <span className="opacity-70">Space+drag pan</span>
+              <span className="mx-1.5 opacity-30">•</span>
+              <span className="opacity-70">{modKey}+wheel zoom</span>
             </div>
           </div>
 
@@ -481,8 +524,163 @@ export default function Studio({ children }: { children?: React.ReactNode }) {
         onCellColorChange={handleCellColorChange}
       />
 
+      {/* Export Dialog */}
+      <ExportDialog
+        isOpen={exportOpen}
+        cols={grid.cols}
+        rows={grid.rows}
+        onClose={() => setExportOpen(false)}
+        onExport={(scale) => {
+          canvasHandleRef.current?.exportPNG(scale);
+          setExportOpen(false);
+          toastManager.success(`Exported PNG at ${scale}× (${grid.cols * scale}×${grid.rows * scale})`);
+        }}
+      />
+
       {/* Toast Notifications */}
       <ToastContainer toasts={toasts} onDismiss={dismissToast} />
+    </div>
+  );
+}
+
+interface CanvasToolbarProps {
+  bordersVisible: boolean;
+  onToggleBorders: () => void;
+  onZoomIn: () => void;
+  onZoomOut: () => void;
+  onFit: () => void;
+  onExport: () => void;
+}
+
+function CanvasToolbar({
+  bordersVisible,
+  onToggleBorders,
+  onZoomIn,
+  onZoomOut,
+  onFit,
+  onExport,
+}: CanvasToolbarProps) {
+  const buttonClass =
+    'w-10 h-10 rounded-md flex items-center justify-center transition-all text-text-muted hover:text-text-primary hover:bg-background-overlay';
+  return (
+    <div className="absolute top-4 right-4 flex flex-col gap-1 p-1 rounded-lg bg-background-secondary/95 backdrop-blur border border-border shadow-lg">
+      <button onClick={onZoomIn} className={buttonClass} title="Zoom In (Cmd/Ctrl+Wheel)">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <circle cx="11" cy="11" r="7" />
+          <line x1="11" y1="8" x2="11" y2="14" />
+          <line x1="8" y1="11" x2="14" y2="11" />
+          <line x1="20" y1="20" x2="16.5" y2="16.5" />
+        </svg>
+      </button>
+      <button onClick={onZoomOut} className={buttonClass} title="Zoom Out">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <circle cx="11" cy="11" r="7" />
+          <line x1="8" y1="11" x2="14" y2="11" />
+          <line x1="20" y1="20" x2="16.5" y2="16.5" />
+        </svg>
+      </button>
+      <button onClick={onFit} className={buttonClass} title="Fit to Screen / Reset View">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M4 9V5a1 1 0 0 1 1-1h4" />
+          <path d="M20 9V5a1 1 0 0 0-1-1h-4" />
+          <path d="M4 15v4a1 1 0 0 0 1 1h4" />
+          <path d="M20 15v4a1 1 0 0 1-1 1h-4" />
+        </svg>
+      </button>
+      <div className="h-px bg-border my-0.5" />
+      <button
+        onClick={onToggleBorders}
+        className={`w-10 h-10 rounded-md flex items-center justify-center transition-all ${
+          bordersVisible
+            ? 'bg-primary text-white'
+            : 'text-text-muted hover:text-text-primary hover:bg-background-overlay'
+        }`}
+        title={`${bordersVisible ? 'Hide' : 'Show'} Borders (B)`}
+      >
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <rect x="3" y="3" width="18" height="18" stroke="currentColor" strokeWidth="2.5" fill="none" />
+          <line x1="3" y1="9" x2="21" y2="9" stroke="currentColor" strokeWidth="2.5" />
+          <line x1="3" y1="15" x2="21" y2="15" stroke="currentColor" strokeWidth="2.5" />
+          <line x1="9" y1="3" x2="9" y2="21" stroke="currentColor" strokeWidth="2.5" />
+          <line x1="15" y1="3" x2="15" y2="21" stroke="currentColor" strokeWidth="2.5" />
+        </svg>
+      </button>
+      <div className="h-px bg-border my-0.5" />
+      <button onClick={onExport} className={buttonClass} title="Export PNG">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+          <polyline points="7 10 12 15 17 10" />
+          <line x1="12" y1="15" x2="12" y2="3" />
+        </svg>
+      </button>
+    </div>
+  );
+}
+
+interface ExportDialogProps {
+  isOpen: boolean;
+  cols: number;
+  rows: number;
+  onClose: () => void;
+  onExport: (scale: number) => void;
+}
+
+function ExportDialog({ isOpen, cols, rows, onClose, onExport }: ExportDialogProps) {
+  const [scale, setScale] = useState(8);
+  if (!isOpen) return null;
+  const presets = [1, 2, 4, 8, 16, 32];
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
+      onClick={onClose}
+    >
+      <div
+        className="w-[360px] rounded-lg bg-background-secondary border border-border shadow-2xl p-4"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between mb-3">
+          <h2 className="text-sm font-semibold text-text-primary">Export PNG</h2>
+          <button
+            onClick={onClose}
+            className="text-text-muted hover:text-text-primary text-lg leading-none"
+          >
+            ×
+          </button>
+        </div>
+        <div className="text-[11px] text-text-muted mb-2">Pixel scale (1 grid cell = N×N pixels)</div>
+        <div className="grid grid-cols-6 gap-1 mb-3">
+          {presets.map((p) => (
+            <button
+              key={p}
+              onClick={() => setScale(p)}
+              className={`py-1.5 rounded text-xs font-medium transition-all ${
+                scale === p
+                  ? 'bg-primary text-white'
+                  : 'bg-background-overlay text-text-secondary hover:text-text-primary'
+              }`}
+            >
+              {p}×
+            </button>
+          ))}
+        </div>
+        <div className="text-[11px] text-text-muted mb-4">
+          Output: <span className="text-text-secondary font-mono">{cols * scale} × {rows * scale}</span> px
+        </div>
+        <div className="flex gap-2 justify-end">
+          <button
+            onClick={onClose}
+            className="px-3 py-1.5 rounded text-xs bg-background-overlay hover:bg-border text-text-secondary"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={() => onExport(scale)}
+            className="px-3 py-1.5 rounded text-xs bg-primary hover:bg-primary/80 text-white font-medium"
+          >
+            Export PNG
+          </button>
+        </div>
+      </div>
     </div>
   );
 }

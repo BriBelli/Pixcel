@@ -1,0 +1,33 @@
+{
+  "name": "PixcE Logo",
+  "version": "1.0.0",
+  "description": "Default landing-page artwork. Edit `blocks` (a string per row, '#' = on, '.' = off), then tweak `scale` to change stroke thickness in cells per block. `padding` is empty blocks around the design.",
+  "scale": 5,
+  "padding": 2,
+  "background": "#0d1117",
+  "foreground": "#ffffff",
+  "legend": {
+    "#": "foreground",
+    ".": "background"
+  },
+  "letters": {
+    "_note": "Reference only. Source bitmaps for each glyph (5 tall). The `blocks` array below is the laid-out wordmark.",
+    "P": ["###", "#.#", "###", "#..", "#.."],
+    "i": ["#", ".", "#", "#", "#"],
+    "x": ["#...#", ".#.#.", "..#..", ".#.#.", "#...#"],
+    "c": ["###", "#..", "#..", "#..", "###"],
+    "E": ["###", "#..", "###", "#..", "###"]
+  },
+  "layout": {
+    "_note": "Width breakdown: P(3) + gap(1) + i(1) + gap(1) + x(5) + gap(1) + c(3) + gap(1) + E(3) = 19 blocks. Height: 5 blocks. With padding of 2 on all sides at scale 5 -> 115x45 cells.",
+    "gapBlocks": 1,
+    "letterOrder": ["P", "i", "x", "c", "E"]
+  },
+  "blocks": [
+    "###.#.#...#.###.###",
+    "#.#....#.#..#...#..",
+    "###.#...#...#...###",
+    "#...#..#.#..#...#..",
+    "#...#.#...#.###.###"
+  ]
+}

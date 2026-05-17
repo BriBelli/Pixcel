@@ -1,0 +1,34 @@
+{
+  "name": "Pixcel Logo",
+  "version": "1.0.0",
+  "description": "Default landing-page artwork. Edit `blocks` (a string per row, '#' = on, '.' = off), then tweak `scale` to change stroke thickness in cells per block. `padding` is empty blocks around the design.",
+  "scale": 5,
+  "padding": 2,
+  "background": "#0d1117",
+  "foreground": "#ffffff",
+  "legend": {
+    "#": "foreground",
+    ".": "background"
+  },
+  "letters": {
+    "_note": "Reference only. Source bitmaps for each glyph (5 tall). The `blocks` array below is the laid-out wordmark.",
+    "P": ["###", "#.#", "###", "#..", "#.."],
+    "i": ["#", ".", "#", "#", "#"],
+    "x": ["#...#", ".#.#.", "..#..", ".#.#.", "#...#"],
+    "c": ["###", "#..", "#..", "#..", "###"],
+    "e": ["###", "#.#", "###", "#..", "###"],
+    "l": ["###", "###", "###", "#..", "##."]
+  },
+  "layout": {
+    "_note": "Width: P(3) + gap(1) + i(1) + gap(1) + x(5) + gap(1) + c(3) + gap(1) + e(3) + gap(1) + l(3) = 23 blocks. Height: 5. Padding 2, scale 5 → 135×45 cells.",
+    "gapBlocks": 1,
+    "letterOrder": ["P", "i", "x", "c", "e", "l"]
+  },
+  "blocks": [
+    "###.#.#...#.###..###.###",
+    "#.#....#.#..#....#.#.###",
+    "###.#...#...#....###.###",
+    "#...#..#.#..#....#...#..",
+    "#...#.#...#.###..###.##."
+  ]
+}

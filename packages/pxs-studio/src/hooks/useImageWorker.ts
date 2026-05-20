@@ -43,7 +43,8 @@ export function useImageWorker() {
       file: File,
       targetCols: number,
       targetRows: number,
-      useWasm: boolean = true
+      useWasm: boolean = true,
+      sharp: boolean = false
     ): Promise<ImageProcessResult> => {
       return new Promise((resolve, reject) => {
         if (!workerRef.current) {
@@ -74,6 +75,7 @@ export function useImageWorker() {
           targetCols,
           targetRows,
           useWasm,
+          sharp,
         });
       });
     },

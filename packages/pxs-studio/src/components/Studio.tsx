@@ -14,7 +14,7 @@ import { useAutoSave } from '../hooks/useAutoSave';
 import { useKeyboardShortcuts } from '../hooks/useKeyboardShortcuts';
 import historyManager from '../store/history-manager';
 import type { GridData } from '../workers/grid.worker';
-import { buildLogoGridData } from '../lib/pixcel-logo';
+import pixcelLogo from '../data/pixcel-logo.json';
 
 export default function Studio({ children }: { children?: React.ReactNode }) {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -123,7 +123,13 @@ export default function Studio({ children }: { children?: React.ReactNode }) {
       return;
     }
 
-    const logoGrid = buildLogoGridData();
+    const logoGrid: GridData = {
+      cols: pixcelLogo.cols,
+      rows: pixcelLogo.rows,
+      cells: pixcelLogo.cells,
+      totalCells: pixcelLogo.cells.length,
+      creationTime: 0,
+    };
     setGridData(logoGrid);
 
     const cellsMap = new Map();
@@ -139,7 +145,7 @@ export default function Studio({ children }: { children?: React.ReactNode }) {
       },
     }));
 
-    historyManager.push('load', 'Loaded PixcE logo', {
+    historyManager.push('load', 'Loaded Pixcel logo', {
       cols: logoGrid.cols,
       rows: logoGrid.rows,
       cells: logoGrid.cells,

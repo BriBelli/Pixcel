@@ -11,7 +11,14 @@ const QUALITY_PRESETS = [
   { name: 'High', size: 128 },
   { name: 'HD', size: 192 },
   { name: 'Ultra', size: 256 },
+  { name: '2K', size: 512 },
+  { name: '4K', size: 1024 },
+  { name: '8K', size: 2048 },
 ];
+
+// Display-density multipliers (@1x / @2x / @3x). Same idea as iOS asset
+// scaling — multiplies the chosen quality preset for retina/mobile output.
+const SCALE_MULTIPLIERS = [1, 2, 3];
 
 interface ImageTabProps {
   onGridUpdate: (data: { cols: number; rows: number; cells: Array<{ x: number; y: number; color: string; opacity: number }>; totalCells: number; creationTime: number }) => void;
@@ -20,13 +27,15 @@ interface ImageTabProps {
 export default function ImageTab({ onGridUpdate }: ImageTabProps) {
   const { grid } = usePXSStore();
   const imageWorker = useImageWorker();
-  
+
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [processing, setProcessing] = useState(false);
   const [lastProcessTime, setLastProcessTime] = useState<number | null>(null);
   const [wasmUsed, setWasmUsed] = useState(false);
-  
+  const [sharpMode, setSharpMode] = useState(false);
+  const [scaleMultiplier, setScaleMultiplier] = useState(1);
+
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleFileSelect = (file: File) => {
@@ -54,14 +63,14 @@ export default function ImageTab({ onGridUpdate }: ImageTabProps) {
     setProcessing(true);
 
     try {
-      const result = await imageWorker.processImage(selectedFile, targetCols, targetRows, true);
+      const result = await imageWorker.processImage(selectedFile, targetCols, targetRows, true, sharpMode);
       setLastProcessTime(result.processTime);
       setWasmUsed(result.wasmUsed);
-      
+
       onGridUpdate({
         cols: result.cols,
         rows: result.rows,
-        cells: result.cells,
+        cells: result.cells.map((c) => ({ x: c.x, y: c.y, color: c.color, opacity: c.opacity ?? 1 })),
         totalCells: result.cells.length,
         creationTime: result.processTime
       });
@@ -80,13 +89,14 @@ export default function ImageTab({ onGridUpdate }: ImageTabProps) {
     await new Promise((resolve) => { img.onload = resolve; });
 
     const aspectRatio = img.width / img.height;
+    const baseSize = quality.size * scaleMultiplier;
     let cols, rows;
 
     if (aspectRatio > 1) {
-      cols = quality.size;
+      cols = baseSize;
       rows = Math.round(cols / aspectRatio);
     } else {
-      rows = quality.size;
+      rows = baseSize;
       cols = Math.round(rows * aspectRatio);
     }
 
@@ -133,6 +143,37 @@ export default function ImageTab({ onGridUpdate }: ImageTabProps) {
         )}
       </section>
 
+      {/* Sampling Mode */}
+      {selectedFile && (
+        <section>
+          <span className="text-[10px] font-medium text-text-muted uppercase tracking-wider">Mode</span>
+          <div className="grid grid-cols-2 gap-1.5 mt-2">
+            <button
+              onClick={() => setSharpMode(false)}
+              className={`py-2 rounded text-[10px] transition-colors ${
+                !sharpMode
+                  ? 'bg-primary text-white'
+                  : 'bg-background-overlay hover:bg-border text-text-secondary hover:text-text-primary'
+              }`}
+              title="Block-average: smooth color blending. Best for photos."
+            >
+              Photo
+            </button>
+            <button
+              onClick={() => setSharpMode(true)}
+              className={`py-2 rounded text-[10px] transition-colors ${
+                sharpMode
+                  ? 'bg-primary text-white'
+                  : 'bg-background-overlay hover:bg-border text-text-secondary hover:text-text-primary'
+              }`}
+              title="Nearest-neighbor: crisp edges. Best for logos, vector art, pixel art."
+            >
+              Vector
+            </button>
+          </div>
+        </section>
+      )}
+
       {/* Quality */}
       {selectedFile && (
         <section>
@@ -144,8 +185,35 @@ export default function ImageTab({ onGridUpdate }: ImageTabProps) {
                 onClick={() => renderAtQuality(preset)}
                 disabled={processing}
                 className="py-2 rounded text-[10px] bg-background-overlay hover:bg-border text-text-secondary hover:text-text-primary transition-colors disabled:opacity-50"
+                title={`${preset.size * scaleMultiplier}px max dimension`}
               >
                 {preset.name}
+              </button>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {/* Density / @Nx multiplier */}
+      {selectedFile && (
+        <section>
+          <div className="flex items-center justify-between">
+            <span className="text-[10px] font-medium text-text-muted uppercase tracking-wider">Density</span>
+            <span className="text-[10px] text-text-muted/60">retina / hi-DPI</span>
+          </div>
+          <div className="grid grid-cols-3 gap-1.5 mt-2">
+            {SCALE_MULTIPLIERS.map((n) => (
+              <button
+                key={n}
+                onClick={() => setScaleMultiplier(n)}
+                className={`py-2 rounded text-[10px] transition-colors ${
+                  scaleMultiplier === n
+                    ? 'bg-primary text-white'
+                    : 'bg-background-overlay hover:bg-border text-text-secondary hover:text-text-primary'
+                }`}
+                title={`Multiply target resolution by ${n}×`}
+              >
+                @{n}x
               </button>
             ))}
           </div>
@@ -169,8 +237,8 @@ export default function ImageTab({ onGridUpdate }: ImageTabProps) {
       {lastProcessTime !== null && (
         <div className="flex items-center justify-between text-[10px] text-text-muted px-1">
           <span>{lastProcessTime.toFixed(1)}ms</span>
-          <span className={wasmUsed ? 'text-accent-green' : ''}>
-            {wasmUsed ? 'WASM' : 'JS'}
+          <span className={sharpMode ? 'text-primary' : wasmUsed ? 'text-accent-green' : ''}>
+            {sharpMode ? 'SHARP' : wasmUsed ? 'WASM' : 'JS'}
           </span>
         </div>
       )}

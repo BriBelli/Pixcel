@@ -151,9 +151,44 @@ function blockAverage(
   return cells;
 }
 
+// Nearest-neighbor sampling — samples the center of each cell from the source.
+// Preserves crisp edges for vector / pixel-art inputs where averaging would
+// produce gray transitional cells along boundaries.
+function nearestNeighbor(
+  imageData: Uint8ClampedArray,
+  srcWidth: number,
+  srcHeight: number,
+  targetCols: number,
+  targetRows: number
+): PXSCell[] {
+  const cells: PXSCell[] = [];
+  const scaleX = srcWidth / targetCols;
+  const scaleY = srcHeight / targetRows;
+
+  for (let row = 0; row < targetRows; row++) {
+    const sy = Math.min(srcHeight - 1, Math.floor((row + 0.5) * scaleY));
+    for (let col = 0; col < targetCols; col++) {
+      const sx = Math.min(srcWidth - 1, Math.floor((col + 0.5) * scaleX));
+      const idx = (sy * srcWidth + sx) * 4;
+      const r = imageData[idx];
+      const g = imageData[idx + 1];
+      const b = imageData[idx + 2];
+
+      cells.push({
+        x: col,
+        y: row,
+        color: `rgb(${r}, ${g}, ${b})`,
+        opacity: 1,
+      });
+    }
+  }
+
+  return cells;
+}
+
 // Handle messages from main thread
 self.addEventListener('message', async (e: MessageEvent) => {
-  const { type, file, targetCols, targetRows, useWasm } = e.data;
+  const { type, file, targetCols, targetRows, useWasm, sharp } = e.data;
 
   if (type === 'initWasm') {
     const success = await initWasm();
@@ -180,26 +215,45 @@ self.addEventListener('message', async (e: MessageEvent) => {
       ctx.drawImage(bitmap, 0, 0);
       const imageData = ctx.getImageData(0, 0, bitmap.width, bitmap.height);
 
-      // Try WASM first if requested
       let cells: PXSCell[];
       let wasmUsed = false;
 
-      if (useWasm && !wasmInitialized) {
-        await initWasm();
-      }
+      // Sharp mode bypasses WASM (which always averages) and uses
+      // nearest-neighbor sampling for crisp vector/pixel-art edges.
+      if (sharp) {
+        cells = nearestNeighbor(
+          imageData.data,
+          bitmap.width,
+          bitmap.height,
+          targetCols,
+          targetRows
+        );
+      } else {
+        if (useWasm && !wasmInitialized) {
+          await initWasm();
+        }
 
-      if (useWasm && wasmInitialized && imageProcessor) {
-        try {
-          cells = processWithWasm(
-            imageData.data,
-            bitmap.width,
-            bitmap.height,
-            targetCols,
-            targetRows
-          );
-          wasmUsed = true;
-        } catch (wasmError) {
-          console.warn('WASM processing failed, falling back to JS:', wasmError);
+        if (useWasm && wasmInitialized && imageProcessor) {
+          try {
+            cells = processWithWasm(
+              imageData.data,
+              bitmap.width,
+              bitmap.height,
+              targetCols,
+              targetRows
+            );
+            wasmUsed = true;
+          } catch (wasmError) {
+            console.warn('WASM processing failed, falling back to JS:', wasmError);
+            cells = blockAverage(
+              imageData.data,
+              bitmap.width,
+              bitmap.height,
+              targetCols,
+              targetRows
+            );
+          }
+        } else {
           cells = blockAverage(
             imageData.data,
             bitmap.width,
@@ -208,15 +262,6 @@ self.addEventListener('message', async (e: MessageEvent) => {
             targetRows
           );
         }
-      } else {
-        // Use JS fallback
-        cells = blockAverage(
-          imageData.data,
-          bitmap.width,
-          bitmap.height,
-          targetCols,
-          targetRows
-        );
       }
 
       const endTime = performance.now();

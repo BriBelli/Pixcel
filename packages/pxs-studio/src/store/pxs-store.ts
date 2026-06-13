@@ -51,7 +51,7 @@ interface UIState {
   selectedCells: string[];
   activeTool: ToolType;
   sidebarCollapsed: boolean;
-  activeTab: 'resolution' | 'effects' | 'image' | 'animation';
+  activeTab: 'resolution' | 'effects' | 'image' | 'animation' | 'gallery';
   inspectorOpen: boolean;
 }
 

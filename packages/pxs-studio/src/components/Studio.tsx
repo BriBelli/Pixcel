@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect, useRef, useState, useCallback } from 'react';
-import { usePXSStore, selectGrid, selectUI, selectActions, selectAnimation, PXSCell } from '../store/pxs-store';
+import { usePXSStore, selectGrid, selectUI, selectActions, selectAnimation, PXSCell, PXSFrame } from '../store/pxs-store';
 import GridCanvas, { GridCanvasHandle } from './GridCanvas';
 import ResolutionTab from './ResolutionTab';
 import ImageTab from './ImageTab';
@@ -14,7 +14,9 @@ import { useAutoSave } from '../hooks/useAutoSave';
 import { useKeyboardShortcuts } from '../hooks/useKeyboardShortcuts';
 import historyManager from '../store/history-manager';
 import type { GridData } from '../workers/grid.worker';
-import pixcelLogo from '../data/pixcel-logo.json';
+import pixcelLogo from '../data/defaults/pixcel-logo.json';
+import ArtGalleryTab from './ArtGalleryTab';
+import { applyGalleryFrame } from '../lib/apply-gallery-frame';
 
 export default function Studio({ children }: { children?: React.ReactNode }) {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -123,33 +125,11 @@ export default function Studio({ children }: { children?: React.ReactNode }) {
       return;
     }
 
-    const logoGrid: GridData = {
-      cols: pixcelLogo.cols,
-      rows: pixcelLogo.rows,
-      cells: pixcelLogo.cells,
-      totalCells: pixcelLogo.cells.length,
-      creationTime: 0,
-    };
+    const logoGrid = applyGalleryFrame(
+      pixcelLogo as PXSFrame,
+      'Loaded Pixcel logo'
+    );
     setGridData(logoGrid);
-
-    const cellsMap = new Map();
-    logoGrid.cells.forEach((cell) => {
-      cellsMap.set(`${cell.x}-${cell.y}`, cell);
-    });
-    usePXSStore.setState((s) => ({
-      grid: {
-        ...s.grid,
-        cols: logoGrid.cols,
-        rows: logoGrid.rows,
-        cells: cellsMap,
-      },
-    }));
-
-    historyManager.push('load', 'Loaded Pixcel logo', {
-      cols: logoGrid.cols,
-      rows: logoGrid.rows,
-      cells: logoGrid.cells,
-    });
     // Treat the default logo as the baseline so autosave doesn't persist it
     // over your latest JSON edits on reload.
     historyManager.markSaved();
@@ -439,7 +419,7 @@ export default function Studio({ children }: { children?: React.ReactNode }) {
           {!ui.sidebarCollapsed && (
             <>
               <div className="flex border-b border-border shrink-0">
-                {(['resolution', 'image', 'animation'] as const).map((tab) => (
+                {(['resolution', 'image', 'animation', 'gallery'] as const).map((tab) => (
                   <button
                     key={tab}
                     onClick={() => actions.setActiveTab(tab)}
@@ -449,7 +429,13 @@ export default function Studio({ children }: { children?: React.ReactNode }) {
                         : 'text-text-muted hover:text-text-primary'
                     }`}
                   >
-                    {tab === 'resolution' ? 'Grid' : tab === 'image' ? 'Image' : 'Anim'}
+                    {tab === 'resolution'
+                      ? 'Grid'
+                      : tab === 'image'
+                        ? 'Image'
+                        : tab === 'animation'
+                          ? 'Anim'
+                          : 'Art'}
                   </button>
                 ))}
               </div>
@@ -464,6 +450,9 @@ export default function Studio({ children }: { children?: React.ReactNode }) {
                 )}
                 {ui.activeTab === 'animation' && (
                   <AnimationTab onCreateAnimation={handleCreateAnimation} />
+                )}
+                {ui.activeTab === 'gallery' && (
+                  <ArtGalleryTab onGridUpdate={handleGridUpdate} />
                 )}
               </div>
             </>

@@ -53,6 +53,7 @@ interface UIState {
   sidebarCollapsed: boolean;
   activeTab: 'resolution' | 'effects' | 'image' | 'animation' | 'gallery';
   inspectorOpen: boolean;
+  chatPanelOpen: boolean;
 }
 
 interface PXSStore {
@@ -102,6 +103,7 @@ interface PXSStore {
     setActiveTab: (tab: UIState['activeTab']) => void;
     openInspector: () => void;
     closeInspector: () => void;
+    toggleChatPanel: () => void;
     
     // Performance tracking
     updatePerformance: (metrics: Partial<PXSStore['performance']>) => void;
@@ -143,6 +145,7 @@ export const usePXSStore = create<PXSStore>()(
         sidebarCollapsed: false,
         activeTab: 'resolution',
         inspectorOpen: false,
+        chatPanelOpen: true,
       },
       
       // Initial performance metrics
@@ -406,6 +409,15 @@ export const usePXSStore = create<PXSStore>()(
             ui: {
               ...state.ui,
               inspectorOpen: false,
+            },
+          }));
+        },
+
+        toggleChatPanel: () => {
+          set((state) => ({
+            ui: {
+              ...state.ui,
+              chatPanelOpen: !state.ui.chatPanelOpen,
             },
           }));
         },

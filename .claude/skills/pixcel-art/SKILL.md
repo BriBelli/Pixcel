@@ -9,6 +9,11 @@ Hand-compose pixel art for the Pixcel studio **Art gallery**. You are the *compo
 user gives a prompt, you author the pixels yourself. The result is a `PXSFrame` JSON file
 that loads onto the canvas when clicked in the **Art** tab.
 
+> Shared source of truth: [docs/PIXCEL-METHOD.md](../../../docs/PIXCEL-METHOD.md) — the
+> canonical "Pixcel Method" (complexity-not-resolution; design → budget → place → validate).
+> The in-app Pixcel AI generator runs the same method server-side. Keep this skill and that
+> doc in sync.
+
 ## Hard rules
 
 1. **Author every pixel by hand. NEVER write a generator/helper script** (no Node loops,

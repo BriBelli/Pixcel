@@ -2,6 +2,12 @@
 
 **Images are data, not files.** Every pixel is a cell object that can be stored, edited, transmitted, and rendered through pure code.
 
+> **Pixcel AI** — the Studio's right-side chat panel generates pixel art the right way:
+> design a char-map → budget features → place every cell → validate. It's a structured-data
+> problem, not image generation. See [docs/PIXCEL-METHOD.md](docs/PIXCEL-METHOD.md) (the
+> method) and [docs/AI-GALLERY.md](docs/AI-GALLERY.md) (the in-app pipeline). Requires
+> `ANTHROPIC_API_KEY` in `packages/pxs-studio/.env.local` (see `.env.local.example`).
+
 ### Built for Humans and AI
 
 PXS is **AI-native**. Images as JSON means AI agents can generate, manipulate, and understand pixel art as naturally as developers do—no file I/O, no binary formats, just clean data structures.

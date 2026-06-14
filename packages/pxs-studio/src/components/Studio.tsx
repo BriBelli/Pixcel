@@ -16,6 +16,8 @@ import historyManager from '../store/history-manager';
 import type { GridData } from '../workers/grid.worker';
 import pixcelLogo from '../data/defaults/pixcel-logo.json';
 import ArtGalleryTab from './ArtGalleryTab';
+import AiChatPanel from './AiChatPanel';
+import { useGenJobsStore } from '../store/gen-jobs-store';
 import { applyGalleryFrame } from '../lib/apply-gallery-frame';
 
 export default function Studio({ children }: { children?: React.ReactNode }) {
@@ -31,6 +33,7 @@ export default function Studio({ children }: { children?: React.ReactNode }) {
   const ui = usePXSStore(selectUI);
   const animation = usePXSStore(selectAnimation);
   const actions = usePXSStore(selectActions);
+  const genRunning = useGenJobsStore((s) => s.jobs.filter((j) => j.state === 'running').length);
   
   // History & Auto-save hooks
   const { canUndo, canRedo, undo, redo, hasUnsavedChanges, undoDescription, redoDescription } = useHistoryManager();
@@ -372,7 +375,7 @@ export default function Studio({ children }: { children?: React.ReactNode }) {
           </div>
         </div>
 
-        {/* Right - Save */}
+        {/* Right - Save + AI panel toggle */}
         <div className="flex items-center gap-2">
           <span className="text-[10px] text-text-muted/60">
             {autoSaveInitialized ? formatTimeSinceLastSave() : '...'}
@@ -383,6 +386,25 @@ export default function Studio({ children }: { children?: React.ReactNode }) {
             title={`Save (${modKey}+S)`}
           >
             Save
+          </button>
+          <button
+            onClick={() => actions.toggleChatPanel()}
+            className={`px-2.5 py-1 rounded text-[10px] font-medium transition-all ${
+              ui.chatPanelOpen
+                ? 'bg-primary/15 text-primary'
+                : 'bg-background-overlay hover:bg-border text-text-secondary hover:text-text-primary'
+            }`}
+            title="Toggle Pixcel AI panel"
+          >
+            <span className="inline-flex items-center gap-1">
+              ✦ AI
+              {genRunning > 0 && (
+                <span className="inline-flex items-center gap-1 rounded-full bg-primary/20 px-1.5 text-[9px] text-primary">
+                  <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
+                  {genRunning}
+                </span>
+              )}
+            </span>
           </button>
         </div>
       </header>
@@ -509,6 +531,28 @@ export default function Studio({ children }: { children?: React.ReactNode }) {
 
           {children}
         </main>
+
+        {/* Right Sidebar - Pixcel AI chat */}
+        {ui.chatPanelOpen && (
+          <aside className="w-80 flex flex-col bg-background-secondary border-l border-border shrink-0">
+            <div className="h-9 px-3 border-b border-border flex items-center justify-between shrink-0">
+              <div className="flex items-center gap-1.5">
+                <span className="text-[11px] text-accent-purple">✦</span>
+                <span className="text-xs font-semibold text-text-primary">Pixcel AI</span>
+              </div>
+              <button
+                onClick={() => actions.toggleChatPanel()}
+                className="w-6 h-6 rounded flex items-center justify-center text-text-muted hover:text-text-primary hover:bg-background-overlay transition-colors"
+                title="Close panel"
+              >
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M18 6L6 18M6 6l12 12"/></svg>
+              </button>
+            </div>
+            <div className="flex-1 min-h-0">
+              <AiChatPanel onGridUpdate={handleGridUpdate} />
+            </div>
+          </aside>
+        )}
       </div>
 
       {/* Frame Inspector Modal */}

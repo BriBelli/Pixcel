@@ -7,6 +7,8 @@ export interface ToastMessage {
   message: string;
   type: 'success' | 'error' | 'info' | 'warning';
   duration?: number;
+  /** Optional inline action (e.g. "Undo"). Clicking it runs onClick then dismisses. */
+  action?: { label: string; onClick: () => void };
 }
 
 interface ToastProps {
@@ -49,12 +51,25 @@ function Toast({ toast, onDismiss }: ToastProps) {
     >
       <span className="text-lg">{icons[toast.type]}</span>
       <span className="text-sm font-medium">{toast.message}</span>
+      {toast.action && (
+        <button
+          onClick={() => {
+            toast.action?.onClick();
+            setIsExiting(true);
+            setTimeout(() => onDismiss(toast.id), 300);
+          }}
+          className="ml-auto shrink-0 rounded-md border border-current/40 px-2 py-0.5 text-xs font-semibold text-current hover:bg-current/10 transition-colors"
+        >
+          {toast.action.label}
+        </button>
+      )}
       <button
         onClick={() => {
           setIsExiting(true);
           setTimeout(() => onDismiss(toast.id), 300);
         }}
-        className="ml-auto text-current opacity-50 hover:opacity-100 transition-opacity"
+        className={`${toast.action ? '' : 'ml-auto'} text-current opacity-50 hover:opacity-100 transition-opacity`}
+        aria-label="Dismiss"
       >
         ✕
       </button>
@@ -92,9 +107,14 @@ class ToastManagerClass {
     return () => this.listeners.delete(listener);
   }
 
-  show(message: string, type: ToastMessage['type'] = 'info', duration?: number) {
+  show(
+    message: string,
+    type: ToastMessage['type'] = 'info',
+    duration?: number,
+    action?: ToastMessage['action']
+  ) {
     const id = `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-    const toast: ToastMessage = { id, message, type, duration };
+    const toast: ToastMessage = { id, message, type, duration, action };
     this.toasts.push(toast);
     this.notify();
     return id;

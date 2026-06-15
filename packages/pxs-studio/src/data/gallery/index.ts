@@ -24,6 +24,7 @@ import saguaro16 from './saguaro-16.json';
 import appleLive16 from './apple-live-16.json';
 import dragonLive48 from './dragon-live-48.json';
 import owlLive32 from './owl-live-32.json';
+import dragonLive48b from './dragon-live-48b.json';
 
 export type { GalleryEntry };
 
@@ -267,6 +268,16 @@ export const GALLERY_ENTRIES: GalleryEntry[] = [
     promptBy: 'human',
     composedBy: 'ai-composer',
     frame: owlLive32 as PXSFrame,
+    builtin: true,
+    model: 'claude-opus-4-8',
+  },
+  {
+    id: 'dragon-live-48b',
+    title: 'Dragon (Live Cascade)',
+    prompt: 'a majestic dragon — live sculptor cascade, 48², reached DETAIL (62 gestures) before credits ran out (Opus 4.8)',
+    promptBy: 'human',
+    composedBy: 'ai-composer',
+    frame: dragonLive48b as PXSFrame,
     builtin: true,
     model: 'claude-opus-4-8',
   },

@@ -1,6 +1,11 @@
 import Anthropic from '@anthropic-ai/sdk';
 import type { PXSFrame, PXSCell } from '../../../store/pxs-store';
-import { PXS_FRAME_SCHEMA, validateFrame } from '../../../lib/pxs-frame-schema';
+import {
+  CHARMAP_SCHEMA,
+  validateCharMap,
+  charMapToFrame,
+  type CharMap,
+} from '../../../lib/pxs-frame-schema';
 import { artistSystemPrompt, artistUserMessage } from '../../../lib/ai-art-system-prompt';
 import { frameToPngBase64 } from '../../../lib/render-frame';
 
@@ -23,8 +28,8 @@ const DRAW_DRAFTS_LARGE = 3; // 32²: one more look-and-fix pass
 const SUBMIT_TOOL = {
   name: 'submit_art',
   description:
-    'Submit your current pixel-art frame. It will be rendered to a real image and shown back to you so you can judge and refine it.',
-  input_schema: PXS_FRAME_SCHEMA,
+    'Submit your pixel-art drawing as a compact char-map: cols, rows, a palette (single-char symbol → lowercase #rrggbb), and grid (one string per row, one char per column; "." = background). It will be rendered to a real image and shown back to you so you can judge and refine it.',
+  input_schema: CHARMAP_SCHEMA,
 };
 
 /** Structured-output schema for the best-of-N art-director pick. */
@@ -92,9 +97,8 @@ async function artistLoop(opts: LoopOpts): Promise<PXSFrame[]> {
     );
     if (!toolUse) break; // DONE — no tool call
 
-    const candidate = toolUse.input as PXSFrame;
-    const v = validateFrame(candidate);
-    if (!quiet) send({ type: 'iteration', n: nOffset + draftN, frame: candidate });
+    const charMap = toolUse.input as CharMap;
+    const v = validateCharMap(charMap);
 
     if (!v.ok) {
       messages.push({
@@ -103,13 +107,18 @@ async function artistLoop(opts: LoopOpts): Promise<PXSFrame[]> {
           {
             type: 'tool_result',
             tool_use_id: toolUse.id,
-            content: `That frame is invalid: ${v.errors.slice(0, 6).join('; ')}. Fix exactly these and call submit_art again.`,
+            content: `That char-map is invalid: ${v.errors.slice(0, 6).join('; ')}. Fix exactly these and call submit_art again.`,
           },
         ],
       });
       draftN++;
       continue;
     }
+
+    // Expand the compact char-map into the canonical dense PXSFrame the rest of the
+    // pipeline consumes (render, judge, store, hardware).
+    const candidate = charMapToFrame(charMap);
+    if (!quiet) send({ type: 'iteration', n: nOffset + draftN, frame: candidate });
 
     valids.push(candidate);
     draftN++;
@@ -198,7 +207,7 @@ export async function POST(req: Request) {
   const prompt = (body.prompt ?? '').trim();
   if (!prompt) return Response.json({ error: 'prompt is required' }, { status: 400 });
 
-  const size = Math.min(32, Math.max(8, Math.round(body.size ?? 16)));
+  const size = Math.min(64, Math.max(8, Math.round(body.size ?? 16)));
   const model = body.model && ALLOWED_MODELS.has(body.model) ? body.model : DEFAULT_MODEL;
 
   const client = new Anthropic({ apiKey });

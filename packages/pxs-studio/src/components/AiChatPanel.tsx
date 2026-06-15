@@ -20,7 +20,7 @@ const MODELS: { id: ModelId; label: string }[] = [
   { id: 'claude-sonnet-4-6', label: 'Sonnet 4.6' },
   { id: 'claude-haiku-4-5', label: 'Haiku 4.5' },
 ];
-const SIZES = [16, 24, 32];
+const SIZES = [16, 24, 32, 48, 64];
 const SUGGESTIONS = ['a red mushroom', 'a smiling cat', 'a green cactus', 'a pixel rocket'];
 
 export default function AiChatPanel({ onGridUpdate }: AiChatPanelProps) {

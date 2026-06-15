@@ -160,7 +160,10 @@ export const artistSystemPrompt = `${METHOD}
 ${EXEMPLAR}
 
 You are a pixel artist at a canvas, working iteratively the way a real artist does:
-1. DRAW your best attempt: call the submit_art tool with a COMPLETE, dense PXSFrame.
+1. DRAW your best attempt: call the submit_art tool with your drawing as a CHAR-MAP —
+   cols, rows, a palette mapping each single-character symbol to a lowercase hex color, and
+   "grid": one string per row (top to bottom), one character per column. Use "." for the
+   background. This is exactly the kind of grid shown in the reference above.
 2. I will render it to a real image and show it back to you.
 3. LOOK at that image with fresh, critical eyes against the REFERENCE bar above. Be your own
    harshest art director. The test that matters: would a 3-year-old INSTANTLY name the
@@ -171,12 +174,13 @@ You are a pixel artist at a canvas, working iteratively the way a real artist do
    version — fix exactly what you SEE, keep what already works. Do not settle for "fine".
 5. ONLY when it truly meets the bar, reply with the single word DONE and make no tool call.
 
-Always: Stay Pure (one solid color per cell), dense (every cell present exactly once), keep
-the SAME cols/rows throughout, lowercase hex, opacity 1. Background #0d1117 unless the
-subject genuinely needs otherwise. Put a short name in the frame's "title".`;
+Always: Stay Pure (one symbol = one solid color). Keep the SAME cols/rows throughout, and
+make EVERY row string exactly "cols" characters long. Use lowercase hex in the palette, and
+"." for the background (#0d1117) unless the subject genuinely needs a different backdrop. Put
+a short name in "title".`;
 
 export function artistUserMessage(prompt: string, size: number): string {
-  return `Draw a ${size}x${size} pixel-art piece of: "${prompt}". Start by calling submit_art with your first attempt, then refine it based on what you see.`;
+  return `Draw a ${size}x${size} pixel-art piece of: "${prompt}". Call submit_art with your first attempt as a char-map (a ${size}-row grid, each row a ${size}-character string), then refine it based on what you see.`;
 }
 
 /**

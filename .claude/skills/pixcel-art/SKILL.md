@@ -13,6 +13,9 @@ that loads onto the canvas when clicked in the **Art** tab.
 > canonical "Pixcel Method" (complexity-not-resolution; design → budget → place → validate).
 > The in-app Pixcel AI generator runs the same method server-side. Keep this skill and that
 > doc in sync.
+>
+> Philosophy behind the in-app generator: [docs/AGENTIC-ARTISAN-THESIS.md](../../../docs/AGENTIC-ARTISAN-THESIS.md)
+> and the portable [`agentic-artisan`](../agentic-artisan/SKILL.md) skill.
 
 ## Hard rules
 

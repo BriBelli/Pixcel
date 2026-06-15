@@ -292,6 +292,21 @@ Pixcel/
 | Heavy render software        | Lightweight, real-time |
 | Export/import workflows      | API-native             |
 
+## ✨ Pixcel AI (in-app generation)
+
+The Studio's right-side **Pixcel AI** panel generates pixel art the way a human artisan works:
+reason at full effort → draw at the true resolution → **see the render** → fix → keep the best.
+Pure max reasoning + a perception loop — no templates, no upscaling, no brittle multi-phase
+pipeline. Generation runs **async** (start a piece, keep working; it lands in the gallery when
+done). Compact char-map I/O unlocks 16²–64².
+
+- **[docs/AGENTIC-ARTISAN-THESIS.md](docs/AGENTIC-ARTISAN-THESIS.md)** — the portable thesis:
+  *why* this succeeded where months of agentic attempts failed. Lore. Copy it into other repos.
+- **[docs/AI-GALLERY.md](docs/AI-GALLERY.md)** — the pipeline architecture.
+- **[docs/PIXCEL-METHOD.md](docs/PIXCEL-METHOD.md)** — the pixel-art rules the artist follows.
+- **[.claude/skills/agentic-artisan/](.claude/skills/agentic-artisan/)** — the thesis as a
+  portable skill any Claude agent can load and apply.
+
 ## 📖 Documentation
 
 - **[AGENTS.md](AGENTS.md)** — Complete technical reference

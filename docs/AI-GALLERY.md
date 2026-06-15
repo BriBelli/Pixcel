@@ -1,104 +1,98 @@
 # Pixcel AI Gallery — in-app generation pipeline
 
-The **Pixcel AI** panel (right side of the Studio) reproduces the Claude-Code-style
-generation experience: type a prompt, watch the design stream, get a validated `PXSFrame`
-rendered on the canvas and saved to the **Art** gallery. It runs the
-[Pixcel Method](PIXCEL-METHOD.md) server-side.
+The **Pixcel AI** panel (right side of the Studio) brings the Claude-Code generation
+experience into the app: describe a piece, watch it think and draw, and get a validated
+`PXSFrame` saved to the **Art** gallery. It is the [Agentic Artisan thesis](AGENTIC-ARTISAN-THESIS.md)
+applied to pixel art (and runs the [Pixcel Method](PIXCEL-METHOD.md) for the art rules).
 
-## Architecture: anchored progressive refinement
+> This pipeline replaced an earlier two-phase (design → serialize → blind critique → revise)
+> and a coarse-to-fine "anchored cascade" approach. Both were removed — they added brittleness
+> without quality. See the thesis doc for *why*. What's documented below is the current,
+> deliberately small core.
 
-The pipeline is an **open agentic OODA loop** (draw → render → SEE via vision → judge →
-fix → repeat), arranged as a **coarse-to-fine cascade** so identity is locked cheaply before
-detail is added:
+## The core: one autonomous artisan loop
 
 ```
-32² request:
-  1. FOUNDATION (16²)  — best-of-N: explore N artist loops, an art director picks the
-     strongest (most recognizable / crispest). Cheap to iterate → identity nailed reliably.
-  2. ANCHOR + UPSCALE  — 2× nearest-neighbor upscale (upscale2x). The foundation's
-     silhouette / feature positions / palette become FROZEN anchors.
-  3. REFINE (32²)      — an anchored artist loop: the model sees the blocky upscale, is told
-     the anchors are locked, and may only ADD detail within them (smooth edges, highlights,
-     sub-features). It cannot relocate/remove features → it can't regress, only improve.
-
-16²/24² request: a single best-of-N artist loop at that size (no upscale step).
+reason (max effort) → draw at the TRUE resolution → render to a real PNG
+→ SEE it via vision → judge against the bar → fix what it saw → keep the BEST draft
+↑________________________ repeat until the model says it's done __________________________↑
 ```
 
-Why this shape (see the conversation that produced it): a *free* high-res generation can
-wander (turn a cat into a dog, drop the ears). Freezing identity at the low-res stage and
-only varying *detail* at high-res collapses the part that goes wrong → **reliability by
-construction**, plus crispness from the dedicated detail pass. Key knobs:
-`FOUNDATION_CANDIDATES`, `FOUNDATION_DRAFTS`, `REFINE_DRAFTS` in `route.ts`.
+No exemplars, no coarse foundation, no upscaling, no best-of-N. Pure max reasoning + a
+perception loop. This is the immutable core (`route.ts`); everything else is orchestration
+around it.
 
-## Flow (single artist loop)
+Key properties (and the thesis principle each embodies):
+- **Max reasoning** — Opus 4.8 `high` effort + adaptive thinking. *(reasoning is the quality)*
+- **Perception, not introspection** — each draft is rendered to a PNG and shown back to the
+  model **as an image**; it critiques with its eyes. *(blindfold off)*
+- **True fidelity** — designs natively at the requested size (16²–64²), never a downscaled
+  proxy. *(true fidelity)*
+- **Keep-best** — every valid draft is kept; a vision judge ships the best, never blindly the
+  last, so a regressing refine can't be shipped. *(keep-best, never regress)*
+- **Compact char-map I/O** — the model submits a char-map (1 char/cell, `.` = background), not
+  verbose per-cell JSON; the server expands it to a dense `PXSFrame`. ~10× lighter, ~4×
+  faster, and what unlocks 48²/64². *(strip redundant representations)*
+
+## Flow
 
 ```
 AiChatPanel (client)
+  │  start() → gen-jobs-store (async, runs in the background)
   │  POST /api/generate-art   { prompt, size, model }
   ▼
 src/app/api/generate-art/route.ts   (Node runtime, holds ANTHROPIC_API_KEY)
   │
-  │ Phase 1 — DESIGN (streamed)
-  │   client.messages.stream(): system prompt = the method.
-  │   Model emits a short plan + ASCII char-map. Tokens stream back as
-  │   { type: 'plan_delta', text } events.
-  │
-  │ Phase 2 — SERIALIZE (structured output)
-  │   client.messages.create({ output_config: { format: { type:'json_schema',
-  │   schema: PXS_FRAME_SCHEMA } } }) — given the char-map, emit the dense PXSFrame.
-  │
-  │ Phase 3 — VALIDATE — validateFrame(frame)
-  │   cells===cols*rows, no dups/gaps, lowercase hex, opacity 1.
-  │   On failure: re-prompt Phase 2 with the exact errors, retry up to 2x.
-  │
-  │ Phase 4 — VISION CRITIQUE → REVISE  (the "blindfold-off" loop)
-  │   render the frame to a real PNG (src/lib/render-frame.ts) and SHOW it to the model
-  │   via vision. An art-director pass judges it against the rubric (identity / use of
-  │   space / expression / form / cleanliness) → { approved, issues }. If not approved,
-  │   the model SEES the same render + the issues and returns a revised PXSFrame. Loop up
-  │   to MAX_CRITIQUE_ROUNDS. This is what prior attempts missed: the model reviews with
-  │   eyes, not by reading coordinates — the blindfold stays off through the fix.
+  │  artistLoop():  for each draft —
+  │    • client.messages.stream() with the artist system prompt, submit_art tool
+  │      (input = CHARMAP_SCHEMA), thinking adaptive, output_config.effort = high
+  │    • validateCharMap() the tool input → on failure, re-prompt with exact errors
+  │    • charMapToFrame() → dense PXSFrame
+  │    • render to PNG (render-frame.ts) and feed it BACK to the model as an image
+  │    • the model judges with its eyes and either submits an improved draft or says DONE
+  │  judgeBest():  a vision art-director picks the strongest draft (keep-best)
   │
   ▼ streams newline-delimited JSON events:
-     { type:'status',    phase, message }
-     { type:'plan_delta', text }
-     { type:'iteration',  n, frame }            // a draft about to be reviewed
-     { type:'critique',   n, approved, issues } // the art director's verdict
+     { type:'status',     phase, message }
+     { type:'plan_delta', text }                 // streamed reasoning/design
+     { type:'iteration',  n, frame }             // a draft (dense, expanded)
      { type:'frame',      frame, title, palette, cells, model, durationMs, warning? }
      { type:'error',      message }
 ```
 
-The first two calls mirror the method's two phases: streaming the **design** gives the live
-"watch it think" feel; the **serialize** call is deterministic structured output. Phase 4
-is the difference-maker — the model **looks at the rendered result and fixes what it sees**,
-which is how the in-app generator approaches hand-authored quality. The client renders each
-`iteration` draft + its `critique` as a live "review trail," so the user watches the
-look-and-fix happen.
+## Async generation (orchestration around the core)
 
-**Latency note:** Phase 4 adds a vision call (+ a full re-serialize per revision), so big
-(32²) pieces can run several minutes. `maxDuration` is set high; the design phase uses
-`medium` effort at ≥24² to compensate.
+Generation takes minutes (you can't rush art), so it runs **off the request/UI critical
+path**:
+
+- `store/gen-jobs-store.ts` — a module-level store that owns each job's lifecycle independent
+  of the panel. `start()` returns immediately; events stream into job state; on completion the
+  piece is added to the persisted gallery + a toast fires.
+- The panel is a **view** over that store: start a piece, then close the panel / switch tabs /
+  keep editing / run several at once. The header `✦ AI` button shows a live running count.
+- **Limitation:** in-flight jobs don't survive a full page reload (they live in the browser);
+  finished pieces do (persisted gallery). True reload-survival → a server-side job queue
+  (future; natural home for DynamoDB).
 
 ## Key modules
 
 | File | Role |
 |---|---|
-| `src/lib/pxs-frame-schema.ts` | `PXS_FRAME_SCHEMA` (JSON schema for structured output) + `validateFrame()` (the method's checklist). Importable by the route, scripts, tests. |
-| `src/lib/ai-art-system-prompt.ts` | The method encoded as a system prompt (`designSystemPrompt`, `serializeSystemPrompt`). Derived from [PIXCEL-METHOD.md](PIXCEL-METHOD.md). |
-| `src/app/api/generate-art/route.ts` | The pipeline above. `export const runtime = 'nodejs'`. |
-| `src/components/AiChatPanel.tsx` | Right-side chat UI. Reads the stream, renders the design + preview, loads the frame via `applyGalleryFrame`, saves via the gallery store. |
-| `src/components/FramePreview.tsx` | Small canvas that paints a `PXSFrame` scaled-to-fit (chat cards + gallery thumbnails). |
-| `src/store/gallery-store.ts` | Local-first persisted store: `userPieces`, `favorites`, `hidden` + actions. |
+| `src/app/api/generate-art/route.ts` | The artist loop + keep-best. `runtime='nodejs'`, `maxDuration` high. The immutable core. |
+| `src/lib/pxs-frame-schema.ts` | `CHARMAP_SCHEMA` + `validateCharMap()` + `charMapToFrame()` (compact I/O), and `validateFrame()` (the dense Pixcel Method checklist). Single source. |
+| `src/lib/ai-art-system-prompt.ts` | The method + rubric as the artist system prompt. No exemplar images (principle 5); the char-map reference in-prompt is a *format* guide, not an output to copy. |
+| `src/lib/render-frame.ts` / `png-encode.ts` | Rasterize a `PXSFrame` to a base64 PNG so the model can SEE its work. |
+| `src/store/gen-jobs-store.ts` | Async job lifecycle (runs around the core). |
+| `src/components/AiChatPanel.tsx` | Right-side panel; a view over the job store. |
+| `src/components/FramePreview.tsx` | Canvas that paints a `PXSFrame` scaled-to-fit (chat + gallery thumbnails). |
+| `src/store/gallery-store.ts` | Local-first persisted gallery: `userPieces`, `favorites`, `hidden`. |
 
-## Persistence (local-first)
+## Resolutions
 
-Generated pieces and heart/delete state live in `localStorage` under `pxs-ai-gallery`
-(Zustand `persist`). Frames are small (16–32px); no backend required. The store is shaped
-so a DynamoDB sync hook can be added later without changing the UI (see *Future*).
-
-The **Art** tab merges built-in `GALLERY_ENTRIES` with `userPieces`, hides `hidden` ids,
-and sorts `favorites` first. Deleting a *user* piece removes it; "deleting" a *built-in*
-hides it (seeds are never destroyed).
+16² / 24² / 32² are the sweet spot (fully refined, fast). 48² is the practical fully-refined
+ceiling today. 64² is reachable (the char-map makes it fit the token budget) but the full
+refine loop can exceed the request time limit — true refined 64²+ wants the server-side job
+queue (no request-duration cap).
 
 ## Setup
 
@@ -107,14 +101,13 @@ hides it (seeds are never destroyed).
 ANTHROPIC_API_KEY=sk-ant-...
 ```
 
-The route returns a clear 500 if the key is missing. Default model is `claude-opus-4-8`
-(streaming hides latency); the panel can request another model per message.
+The route returns a clear 500 if the key is missing. Default model `claude-opus-4-8`; the
+panel can request another model per message.
 
 ## Extending
 
-- **New default size / palette:** edit `ai-art-system-prompt.ts`.
-- **Tighter validation:** edit `validateFrame()` in `pxs-frame-schema.ts` (single source).
-- **DynamoDB sync (future):** add a sync effect in `gallery-store.ts` that mirrors
-  `addPiece`/`deletePiece` to an API route; the UI is already decoupled from storage.
-- **Edit-in-chat ("add sunglasses"):** the card UI leaves room to send the current frame
-  back as context for a follow-up generation.
+- **Art rules / palette:** edit `ai-art-system-prompt.ts` (rubric/principles, *not* example
+  outputs to imitate).
+- **Validation:** edit `validateCharMap()` / `validateFrame()` in `pxs-frame-schema.ts`.
+- **Higher res / reload-survival / DynamoDB:** add a **server-side job queue** around the core
+  (the core itself stays untouched — that's the rule).

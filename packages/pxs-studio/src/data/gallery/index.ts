@@ -21,6 +21,9 @@ import wizardAnchored32 from './wizard-anchored-32.json';
 import raceCar32 from './race-car-32.json';
 import raceCarPipeline32 from './race-car-pipeline-32.json';
 import saguaro16 from './saguaro-16.json';
+import appleLive16 from './apple-live-16.json';
+import dragonLive48 from './dragon-live-48.json';
+import owlLive32 from './owl-live-32.json';
 
 export type { GalleryEntry };
 
@@ -234,6 +237,36 @@ export const GALLERY_ENTRIES: GalleryEntry[] = [
     promptBy: 'human',
     composedBy: 'ai-composer',
     frame: saguaro16 as PXSFrame,
+    builtin: true,
+    model: 'claude-opus-4-8',
+  },
+  {
+    id: 'apple-live-16',
+    title: 'Apple (Live)',
+    prompt: 'a red apple — live-artisan: eyes-open, painted gesture by gesture on an erasable canvas (Opus 4.8)',
+    promptBy: 'human',
+    composedBy: 'ai-composer',
+    frame: appleLive16 as PXSFrame,
+    builtin: true,
+    model: 'claude-opus-4-8',
+  },
+  {
+    id: 'dragon-live-48',
+    title: 'Dragon (Live 48²)',
+    prompt: 'a majestic dragon — live-artisan: eyes-open, 18 gestures on an erasable 48×48 canvas (Opus 4.8)',
+    promptBy: 'human',
+    composedBy: 'ai-composer',
+    frame: dragonLive48 as PXSFrame,
+    builtin: true,
+    model: 'claude-opus-4-8',
+  },
+  {
+    id: 'owl-live-32',
+    title: 'Owl (Live Cascade)',
+    prompt: 'an owl — live-artisan sculptor cascade: eyes-open, 6 phases (shape→qa), independent reviewer (Opus 4.8)',
+    promptBy: 'human',
+    composedBy: 'ai-composer',
+    frame: owlLive32 as PXSFrame,
     builtin: true,
     model: 'claude-opus-4-8',
   },

@@ -1,4 +1,7 @@
 import Anthropic from '@anthropic-ai/sdk';
+import fs from 'fs';
+import path from 'path';
+import os from 'os';
 import type { PXSFrame } from '../store/pxs-store';
 import { charMapToFrame, LIVE_REVIEW_SCHEMA, type CharMap } from './pxs-frame-schema';
 import { frameToPngBase64 } from './render-frame';
@@ -7,6 +10,7 @@ import {
   liveArtistUserMessage,
   liveAuditorSystemPrompt,
   liveAuditorUserMessage,
+  liveResumeUserMessage,
 } from './ai-art-system-prompt';
 
 /**
@@ -102,6 +106,26 @@ function asciiView(c: Canvas): string {
   const header = '   ' + Array.from({ length: c.cols }, (_, x) => (x % 10).toString()).join('');
   const body = c.grid.map((r, y) => `${String(y).padStart(2, ' ')} ${r.join('')}`).join('\n');
   return `${header}\n${body}`;
+}
+
+/** Reconstruct an editable Canvas (grid + palette) from a saved dense frame — for RESUME. */
+const RESUME_CHARS = 'abcdefghijklmnopqrstuvwxyz0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ#@$%&*+=';
+function frameToCanvas(frame: PXSFrame, title: string): Canvas {
+  const palette: Record<string, string> = { '.': BACKGROUND };
+  const inv: Record<string, string> = {};
+  let ci = 0;
+  const grid = blankGrid(frame.cols, frame.rows);
+  for (const c of frame.cells) {
+    const color = (c.color || BACKGROUND).toLowerCase();
+    if (color === BACKGROUND) continue;
+    if (!(color in inv)) {
+      const ch = RESUME_CHARS[ci++] || '?';
+      inv[color] = ch;
+      palette[ch] = color;
+    }
+    if (c.y >= 0 && c.y < frame.rows && c.x >= 0 && c.x < frame.cols) grid[c.y][c.x] = inv[color];
+  }
+  return { title, cols: frame.cols, rows: frame.rows, palette, grid };
 }
 
 /**
@@ -201,11 +225,15 @@ export interface LiveJob {
   prompt: string;
   size: number;
   model: string;
-  status: 'running' | 'done' | 'error';
+  status: 'running' | 'done' | 'error' | 'paused' | 'cancelled';
+  control?: 'pause' | 'cancel'; // a signal the cascade checks between gestures
   phase: string;
   phaseIndex: number;
   gestures: number;
   statusMessage: string;
+  liveThinking: string; // the artist's current streamed reasoning (for the "watch it think" UI)
+  feed: { kind: 'phase' | 'gesture' | 'review' | 'recall' | 'done' | 'user'; text: string; gesture?: number; phase?: string; approved?: boolean }[];
+  pendingFeedback?: string[]; // live user feedback queued to inject into the next artist turn
   critiques: { phase: string; approved: boolean; issues: string[]; recall?: boolean; recallPhase?: string }[];
   latestFrame?: PXSFrame;
   frames: PXSFrame[]; // every gesture frame (for the progression view)
@@ -222,11 +250,64 @@ export interface LiveJob {
 // Module-level store. Survives across requests in a single Node process (local/self-hosted).
 const jobs = new Map<string, LiveJob>();
 
-export function getLiveJob(id: string): LiveJob | null {
-  return jobs.get(id) ?? null;
+// Disk persistence — jobs survive server reloads/crashes AND become resumable. In-memory is the
+// hot path; disk is the durable fallback. (tmpdir for now; a DynamoDB layer slots in later.)
+const JOB_DIR = path.join(os.tmpdir(), 'pxs-live-jobs');
+function persist(job: LiveJob): void {
+  try {
+    fs.mkdirSync(JOB_DIR, { recursive: true });
+    const { frames, ...snap } = job; // omit the heavy per-gesture history; latestFrame is enough
+    fs.writeFileSync(path.join(JOB_DIR, `${job.id}.json`), JSON.stringify(snap));
+  } catch {
+    /* best-effort */
+  }
+}
+function loadJobFromDisk(id: string): LiveJob | null {
+  try {
+    const p = path.join(JOB_DIR, `${id}.json`);
+    if (!fs.existsSync(p)) return null;
+    const snap = JSON.parse(fs.readFileSync(p, 'utf8'));
+    // A job read from disk is no longer actively running in this process.
+    if (snap.status === 'running') snap.status = 'error', (snap.error = 'interrupted (server restarted) — resumable');
+    return { ...snap, frames: [] } as LiveJob;
+  } catch {
+    return null;
+  }
 }
 
-export function startLiveJob(opts: { prompt: string; size: number; model: string; apiKey: string }): string {
+export function getLiveJob(id: string): LiveJob | null {
+  return jobs.get(id) ?? loadJobFromDisk(id);
+}
+
+/** Signal a running job to pause (checkpoint + stop, resumable) or cancel. */
+export function controlLiveJob(id: string, action: 'pause' | 'cancel'): boolean {
+  const job = jobs.get(id);
+  if (!job || job.status !== 'running') return false;
+  job.control = action;
+  job.statusMessage = action === 'pause' ? 'Pausing…' : 'Cancelling…';
+  return true;
+}
+
+/** Inject live user feedback into a running job — the human art director, mid-creation. */
+export function feedbackLiveJob(id: string, text: string): boolean {
+  const job = jobs.get(id);
+  if (!job || job.status !== 'running' || !text.trim()) return false;
+  (job.pendingFeedback ??= []).push(text.trim());
+  job.feed.push({ kind: 'user', text: text.trim() });
+  if (job.feed.length > 140) job.feed.shift();
+  job.updatedAt = Date.now();
+  return true;
+}
+
+export function startLiveJob(opts: {
+  prompt: string;
+  size: number;
+  model: string;
+  apiKey: string;
+  resumeFrame?: PXSFrame;
+  resumePhase?: string;
+  title?: string;
+}): string {
   const id = (globalThis.crypto as Crypto).randomUUID();
   const job: LiveJob = {
     id,
@@ -234,37 +315,100 @@ export function startLiveJob(opts: { prompt: string; size: number; model: string
     size: opts.size,
     model: opts.model || DEFAULT_MODEL,
     status: 'running',
-    phase: 'setup',
+    phase: opts.resumePhase || 'setup',
     phaseIndex: 0,
     gestures: 0,
-    statusMessage: 'Planning the canvas…',
+    statusMessage: opts.resumeFrame ? 'Resuming…' : 'Planning the canvas…',
+    liveThinking: '',
+    feed: [],
     critiques: [],
     frames: [],
+    title: opts.title,
     startedAt: Date.now(),
     updatedAt: Date.now(),
   };
   jobs.set(id, job);
-  void runCascade(job, opts.apiKey);
+  const resume = opts.resumeFrame ? { frame: opts.resumeFrame, phaseKey: opts.resumePhase || 'detail' } : undefined;
+  void runCascade(job, opts.apiKey, resume);
   return id;
 }
 
-async function runCascade(job: LiveJob, apiKey: string): Promise<void> {
+async function runCascade(
+  job: LiveJob,
+  apiKey: string,
+  resume?: { frame: PXSFrame; phaseKey: string }
+): Promise<void> {
   const client = new Anthropic({ apiKey });
   const prompt = job.prompt;
   const model = job.model;
   const touch = () => {
     job.updatedAt = Date.now();
   };
+  const pushFeed = (e: LiveJob['feed'][number]) => {
+    job.feed.push(e);
+    if (job.feed.length > 140) job.feed.shift();
+    touch();
+    persist(job); // checkpoint on every significant event → durable + resumable
+  };
 
   try {
-    const messages: Anthropic.MessageParam[] = [{ role: 'user', content: liveArtistUserMessage(prompt, job.size) }];
+    const messages: Anthropic.MessageParam[] = [];
     let canvas: Canvas | null = null;
     let phaseIdx = 0;
     let reviewsThisPhase = 0;
     let totalReviews = 0;
     const progress: string[] = []; // provisionally-approved phases (recall can reopen any)
 
+    if (resume) {
+      // Returning to an unfinished piece: re-seed the canvas from the saved frame and continue.
+      canvas = frameToCanvas(resume.frame, job.title || prompt);
+      const ri = PHASES.findIndex((p) => p.key === resume.phaseKey);
+      phaseIdx = ri >= 0 ? ri : 3; // default to DETAIL
+      const f0 = canvasToFrame(canvas);
+      job.latestFrame = f0;
+      job.frames.push(f0);
+      job.phase = PHASES[phaseIdx].key;
+      const paletteStr = Object.entries(canvas.palette).filter(([k]) => k !== '.').map(([k, v]) => `${k}=${v}`).join(', ');
+      pushFeed({ kind: 'phase', text: `RESUMED → ${PHASES[phaseIdx].key.toUpperCase()}`, phase: PHASES[phaseIdx].key });
+      messages.push({
+        role: 'user',
+        content: [
+          { type: 'image', source: { type: 'base64', media_type: 'image/png', data: frameToPngBase64(f0) } },
+          { type: 'text', text: liveResumeUserMessage(prompt, canvas.cols, canvas.rows, paletteStr, PHASES[phaseIdx].key, PHASES[phaseIdx].bar, asciiView(canvas)) },
+        ],
+      });
+    } else {
+      messages.push({ role: 'user', content: liveArtistUserMessage(prompt, job.size) });
+    }
+
     for (let turn = 0; turn < MAX_GESTURES + 30; turn++) {
+      // Honor pause/cancel signals between gestures (can't interrupt an in-flight call).
+      if (job.control === 'cancel') {
+        job.status = 'cancelled';
+        job.statusMessage = 'Cancelled';
+        pushFeed({ kind: 'done', text: 'Cancelled by user' });
+        return;
+      }
+      if (job.control === 'pause') {
+        job.status = 'paused';
+        job.statusMessage = 'Paused — resumable';
+        pushFeed({ kind: 'done', text: 'Paused — resumable' });
+        return;
+      }
+      // Inject any live user feedback into the upcoming artist turn (human in the loop).
+      if (job.pendingFeedback && job.pendingFeedback.length) {
+        const fb = job.pendingFeedback.join(' ');
+        job.pendingFeedback = [];
+        const note = `\n\n⚡ LIVE FEEDBACK FROM THE USER — incorporate this now (it overrides earlier intent if it conflicts): ${fb}`;
+        const last = messages[messages.length - 1];
+        if (last && last.role === 'user' && Array.isArray(last.content)) {
+          (last.content as any[]).push({ type: 'text', text: note });
+        } else if (last && last.role === 'user') {
+          last.content = `${String(last.content)}${note}`;
+        } else {
+          messages.push({ role: 'user', content: note.trim() });
+        }
+      }
       const params = {
         model,
         max_tokens: 32000,
@@ -274,7 +418,17 @@ async function runCascade(job: LiveJob, apiKey: string): Promise<void> {
         tools: [SETUP_TOOL, PAINT_TOOL, REVIEW_TOOL],
         messages: pruneForSend(messages),
       };
-      const msg = await withRetry(() => client.messages.stream(params as any).finalMessage());
+      const msg = await withRetry(async () => {
+        const s = client.messages.stream(params as any);
+        job.liveThinking = '';
+        const cap = (d: string) => {
+          job.liveThinking = (job.liveThinking + d).slice(-1800);
+          job.updatedAt = Date.now();
+        };
+        (s as any).on('thinking', cap);
+        s.on('text', cap);
+        return s.finalMessage();
+      });
       messages.push({ role: 'assistant', content: msg.content });
 
       const tool = msg.content.find((b): b is Anthropic.ToolUseBlock => b.type === 'tool_use');
@@ -284,6 +438,10 @@ async function runCascade(job: LiveJob, apiKey: string): Promise<void> {
       }
 
       if (tool.name === 'setup') {
+        if (canvas) {
+          messages.push({ role: 'user', content: [{ type: 'tool_result', tool_use_id: tool.id, content: 'Canvas already exists (resumed) — do not call setup. Continue with paint / request_review.' }] });
+          continue;
+        }
         const input = tool.input as { title: string; cols: number; rows: number; palette: Record<string, string> };
         const cols = Math.min(64, Math.max(8, Math.round(input.cols)));
         const rows = Math.min(64, Math.max(8, Math.round(input.rows)));
@@ -294,7 +452,7 @@ async function runCascade(job: LiveJob, apiKey: string): Promise<void> {
         canvas = { title: input.title || 'piece', cols, rows, palette, grid: blankGrid(cols, rows) };
         job.phase = 'shape';
         job.statusMessage = `Canvas ${cols}×${rows} — phase 1: SHAPE`;
-        touch();
+        pushFeed({ kind: 'phase', text: 'SHAPE — blocking in the silhouette', phase: 'shape' });
         messages.push({
           role: 'user',
           content: [
@@ -320,7 +478,16 @@ async function runCascade(job: LiveJob, apiKey: string): Promise<void> {
         reviewsThisPhase++;
         totalReviews++;
         job.critiques.push({ phase: phase.key, approved: v.approved, issues: v.issues, recall: v.recall, recallPhase: v.recallPhase });
-        touch();
+        pushFeed({
+          kind: v.recall ? 'recall' : 'review',
+          text: v.recall
+            ? `recall → ${v.recallPhase}: ${v.issues[0] || ''}`
+            : v.approved
+            ? `${phase.key} approved ✓`
+            : v.issues[0] || 'needs fixes',
+          phase: phase.key,
+          approved: v.approved,
+        });
 
         // RECALL: a foundational earlier aspect is revealed wrong — go back and fix it first.
         if (v.recall && totalReviews < MAX_TOTAL_REVIEWS) {
@@ -354,7 +521,7 @@ async function runCascade(job: LiveJob, apiKey: string): Promise<void> {
           const next = PHASES[phaseIdx];
           job.phase = next.key;
           job.statusMessage = `${phase.key.toUpperCase()} approved → ${next.key.toUpperCase()}`;
-          touch();
+          pushFeed({ kind: 'phase', text: next.key.toUpperCase(), phase: next.key });
           const carry = v.issues.length ? `\nCarry forward: ${v.issues.join('; ')}.` : '';
           messages.push({
             role: 'user',
@@ -406,7 +573,7 @@ async function runCascade(job: LiveJob, apiKey: string): Promise<void> {
         job.frames.push(frame);
         job.phase = PHASES[phaseIdx].key;
         job.statusMessage = `Gesture ${job.gestures} — ${PHASES[phaseIdx].key.toUpperCase()}: ${input.note ?? ''}`;
-        touch();
+        pushFeed({ kind: 'gesture', text: input.note ?? 'gesture', gesture: job.gestures, phase: PHASES[phaseIdx].key });
 
         const png = frameToPngBase64(frame);
         const overBudget = job.gestures >= MAX_GESTURES;
@@ -446,10 +613,11 @@ async function runCascade(job: LiveJob, apiKey: string): Promise<void> {
     job.durationMs = Date.now() - job.startedAt;
     job.status = 'done';
     job.statusMessage = 'Done';
-    touch();
+    pushFeed({ kind: 'done', text: 'Finished — QA passed' });
   } catch (err) {
     job.status = 'error';
     job.error = err instanceof Error ? err.message : 'Generation failed';
     touch();
+    persist(job);
   }
 }

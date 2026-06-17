@@ -17,7 +17,9 @@ import type { GridData } from '../workers/grid.worker';
 import pixcelLogo from '../data/defaults/pixcel-logo.json';
 import ArtGalleryTab from './ArtGalleryTab';
 import AiChatPanel from './AiChatPanel';
+import FramePreview from './FramePreview';
 import { useGenJobsStore } from '../store/gen-jobs-store';
+import { useLiveArtStore } from '../store/live-art-store';
 import { applyGalleryFrame } from '../lib/apply-gallery-frame';
 
 export default function Studio({ children }: { children?: React.ReactNode }) {
@@ -34,6 +36,47 @@ export default function Studio({ children }: { children?: React.ReactNode }) {
   const animation = usePXSStore(selectAnimation);
   const actions = usePXSStore(selectActions);
   const genRunning = useGenJobsStore((s) => s.jobs.filter((j) => j.state === 'running').length);
+  const liveJob = useLiveArtStore((s) => s.job);
+  const clearLive = useLiveArtStore((s) => s.clear);
+
+  // Draggable width for the right AI panel.
+  const [panelWidth, setPanelWidth] = useState(320);
+  const panelWidthRef = useRef(320);
+  const resizingRef = useRef(false);
+  useEffect(() => {
+    try {
+      const s = localStorage.getItem('pxs-ai-panel-width');
+      if (s) {
+        const w = Math.min(720, Math.max(280, parseInt(s) || 320));
+        panelWidthRef.current = w;
+        setPanelWidth(w);
+      }
+    } catch {
+      /* ignore */
+    }
+    const move = (e: MouseEvent) => {
+      if (!resizingRef.current) return;
+      const w = Math.min(720, Math.max(280, window.innerWidth - e.clientX));
+      panelWidthRef.current = w;
+      setPanelWidth(w);
+    };
+    const up = () => {
+      if (!resizingRef.current) return;
+      resizingRef.current = false;
+      document.body.style.userSelect = '';
+      try {
+        localStorage.setItem('pxs-ai-panel-width', String(panelWidthRef.current));
+      } catch {
+        /* ignore */
+      }
+    };
+    window.addEventListener('mousemove', move);
+    window.addEventListener('mouseup', up);
+    return () => {
+      window.removeEventListener('mousemove', move);
+      window.removeEventListener('mouseup', up);
+    };
+  }, []);
   
   // History & Auto-save hooks
   const { canUndo, canRedo, undo, redo, hasUnsavedChanges, undoDescription, redoDescription } = useHistoryManager();
@@ -441,7 +484,7 @@ export default function Studio({ children }: { children?: React.ReactNode }) {
           {!ui.sidebarCollapsed && (
             <>
               <div className="flex border-b border-border shrink-0">
-                {(['resolution', 'image', 'animation', 'gallery'] as const).map((tab) => (
+                {(['gallery', 'resolution', 'image', 'animation'] as const).map((tab) => (
                   <button
                     key={tab}
                     onClick={() => actions.setActiveTab(tab)}
@@ -517,6 +560,36 @@ export default function Studio({ children }: { children?: React.ReactNode }) {
               <span className="mx-1.5 opacity-30">•</span>
               <span className="opacity-70">{modKey}+wheel zoom</span>
             </div>
+
+            {/* Live Artisan — the piece being sculpted, on the center easel */}
+            {liveJob && (liveJob.latestFrame || liveJob.frame) && (
+              <div className="absolute inset-0 z-10 flex flex-col items-center justify-center bg-background-primary/92 backdrop-blur-sm">
+                <button
+                  onClick={clearLive}
+                  className="absolute top-4 right-4 z-20 px-2 py-1 rounded-md bg-background-secondary/90 border border-border text-[11px] text-text-muted hover:text-text-primary"
+                  title="Dismiss the live preview"
+                >
+                  ✕ Dismiss
+                </button>
+                <div className="rounded-xl border border-border bg-background-secondary/40 p-4 shadow-2xl shadow-black/40">
+                  <FramePreview frame={(liveJob.latestFrame || liveJob.frame)!} size={Math.min(420, (grid?.cols ?? 32) * 13)} />
+                </div>
+                <div className="mt-5 flex items-center gap-2 text-xs font-mono">
+                  {liveJob.status === 'running' ? (
+                    <span className="inline-flex items-center gap-1.5 text-accent-purple">
+                      <span className="w-2 h-2 rounded-full bg-accent-purple animate-pulse" />
+                      Live · {(liveJob.phase || '').toUpperCase()} · g{liveJob.gestures}
+                    </span>
+                  ) : liveJob.status === 'done' ? (
+                    <span className="text-accent-green">✓ Finished — saved to your Art gallery</span>
+                  ) : liveJob.status === 'paused' ? (
+                    <span className="text-accent-yellow">⏸ Paused — resume from the panel</span>
+                  ) : (
+                    <span className="text-text-muted">{liveJob.statusMessage || liveJob.status}</span>
+                  )}
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Frame Deck - Bottom Panel */}
@@ -534,7 +607,19 @@ export default function Studio({ children }: { children?: React.ReactNode }) {
 
         {/* Right Sidebar - Pixcel AI chat */}
         {ui.chatPanelOpen && (
-          <aside className="w-80 flex flex-col bg-background-secondary border-l border-border shrink-0">
+          <aside
+            style={{ width: panelWidth }}
+            className="relative flex flex-col bg-background-secondary border-l border-border shrink-0"
+          >
+            {/* drag-to-resize handle */}
+            <div
+              onMouseDown={() => {
+                resizingRef.current = true;
+                document.body.style.userSelect = 'none';
+              }}
+              className="absolute left-0 top-0 bottom-0 w-1.5 -ml-0.5 cursor-col-resize hover:bg-primary/40 z-20"
+              title="Drag to resize"
+            />
             <div className="h-9 px-3 border-b border-border flex items-center justify-between shrink-0">
               <div className="flex items-center gap-1.5">
                 <span className="text-[11px] text-accent-purple">✦</span>

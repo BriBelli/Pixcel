@@ -299,6 +299,26 @@ ripples). Approve ONLY on a complete clean pass with zero blemishes; if you catc
 it and the artist fixes it, then the sweep restarts fresh. Polish moves forward only — light
 blemishes, not foundations (a true foundational miss there is a recall).`;
 
+/** Seed message when RESUMING a saved work-in-progress (artist returning from a break). */
+export function liveResumeUserMessage(
+  prompt: string,
+  cols: number,
+  rows: number,
+  paletteStr: string,
+  phaseKey: string,
+  phaseBar: string,
+  ascii: string
+): string {
+  return `You are RESUMING a work-in-progress pixel piece of "${prompt}" on a ${cols}x${rows} canvas — like an artist returning to an unfinished sculpture. Do NOT call setup; the canvas already exists. Palette: ${paletteStr} ("." = background).
+
+You are in the ${phaseKey.toUpperCase()} phase — ${phaseBar}
+
+Here is the current canvas (rendered image above + exact char-map):
+${ascii}
+
+Continue from here: paint gestures to advance this phase, then request_review, and carry it through to a finished, QA-approved piece.`;
+}
+
 export function liveAuditorUserMessage(
   prompt: string,
   cols: number,

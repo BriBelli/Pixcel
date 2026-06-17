@@ -8,6 +8,7 @@ import { usePXSStore, selectActions } from '../store/pxs-store';
 import { useGenJobsStore } from '../store/gen-jobs-store';
 import { toastManager } from './Toast';
 import FramePreview from './FramePreview';
+import LiveArtisanPanel from './LiveArtisanPanel';
 
 interface AiChatPanelProps {
   onGridUpdate: (gridData: GridData) => void;
@@ -24,6 +25,7 @@ const SIZES = [16, 24, 32, 48, 64];
 const SUGGESTIONS = ['a red mushroom', 'a smiling cat', 'a green cactus', 'a pixel rocket'];
 
 export default function AiChatPanel({ onGridUpdate }: AiChatPanelProps) {
+  const [mode, setMode] = useState<'quick' | 'live'>('quick');
   const [input, setInput] = useState('');
   const [size, setSize] = useState(16);
   const [model, setModel] = useState<ModelId>('claude-opus-4-8');
@@ -53,17 +55,51 @@ export default function AiChatPanel({ onGridUpdate }: AiChatPanelProps) {
 
   return (
     <div className="flex flex-col h-full">
+      {/* One artist, two depths: Sketch (fast) vs Sculpt (the full studio) */}
+      <div className="px-2 pt-2">
+        <div className="flex items-center gap-1">
+          <button
+            onClick={() => setMode('quick')}
+            className={`px-2.5 py-1 rounded-md text-[11px] font-medium transition-colors ${
+              mode === 'quick' ? 'bg-primary/15 text-primary' : 'text-text-muted hover:text-text-primary'
+            }`}
+          >
+            ⚡ Sketch
+          </button>
+          <button
+            onClick={() => setMode('live')}
+            className={`px-2.5 py-1 rounded-md text-[11px] font-medium transition-colors ${
+              mode === 'live' ? 'bg-accent-purple/20 text-accent-purple' : 'text-text-muted hover:text-text-primary'
+            }`}
+          >
+            ✦ Sculpt
+          </button>
+        </div>
+        <p className="px-1 pt-1.5 text-[9px] text-text-muted leading-snug">
+          {mode === 'quick'
+            ? 'Sketch — fast & optimized. A few minutes, lighter cost.'
+            : 'Sculpt — the full studio: phase-by-phase with an art director. Finer & more original, slower & pricier.'}
+        </p>
+      </div>
+
+      {mode === 'live' ? (
+        <div className="flex-1 min-h-0">
+          <LiveArtisanPanel onGridUpdate={onGridUpdate} />
+        </div>
+      ) : (
+        <>
       {/* Messages */}
       <div ref={scrollRef} className="flex-1 overflow-y-auto p-3 space-y-3">
         {jobs.length === 0 && (
           <div className="text-[11px] text-text-muted leading-relaxed space-y-3">
             <p>
-              Describe a pixel-art piece. Pixcel reasons it through, draws it cell-by-cell, and
-              saves it to the <span className="text-text-secondary">Art</span> tab when done.
+              <span className="text-primary">Sketch</span> — the fast artist. Describe a piece;
+              it reasons, draws, and self-corrects to a clean result, then saves it to{' '}
+              <span className="text-text-secondary">Art</span>. A few minutes, lighter cost.
             </p>
             <p className="text-[10px]">
-              Generation runs in the background — you can keep editing or close this panel; it
-              lands in your gallery when finished. Great pieces take a few minutes.
+              Want it carved with more care — phase-by-phase, an art director gating each step?
+              Switch to <span className="text-accent-purple">✦ Sculpt</span>.
             </p>
             <div className="flex flex-wrap gap-1.5">
               {SUGGESTIONS.map((s) => (
@@ -273,6 +309,8 @@ export default function AiChatPanel({ onGridUpdate }: AiChatPanelProps) {
           </button>
         </div>
       </div>
+        </>
+      )}
     </div>
   );
 }

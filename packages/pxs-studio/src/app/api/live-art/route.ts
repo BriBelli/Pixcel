@@ -1,9 +1,10 @@
-import { startLiveJob, getLiveJob } from '../../../lib/live-jobs';
+import { startLiveJob, getLiveJob, controlLiveJob, feedbackLiveJob } from '../../../lib/live-jobs';
+import type { PXSFrame } from '../../../store/pxs-store';
 
-// LIVE ARTISAN — detached execution. The sculptor cascade runs longer than any HTTP request,
-// so POST starts a background job and returns its id immediately; GET polls the job's status.
-// The cascade itself lives in lib/live-jobs.ts (the immutable artist core). In-memory store
-// (single Node process) for now — a DynamoDB layer can be added later without touching this.
+// LIVE ARTISAN — detached execution. POST starts (or RESUMES) a background job and returns its
+// id immediately; GET polls status. Cascade + persistence live in lib/live-jobs.ts. Resume:
+// pass {resume: <jobId>} to continue a saved/interrupted job, or {resumeFrame, resumePhase} to
+// start from any saved frame (e.g. finishing a piece that stopped at 90%).
 
 export const runtime = 'nodejs';
 
@@ -17,19 +18,61 @@ export async function POST(req: Request) {
       { status: 500 }
     );
   }
-  let body: { prompt?: string; size?: number; model?: string };
+  let body: {
+    prompt?: string;
+    size?: number;
+    model?: string;
+    resume?: string;
+    resumeFrame?: PXSFrame;
+    resumePhase?: string;
+    title?: string;
+    control?: 'pause' | 'cancel';
+    feedback?: string;
+    id?: string;
+  };
   try {
     body = await req.json();
   } catch {
     return Response.json({ error: 'Invalid JSON body' }, { status: 400 });
   }
-  const prompt = (body.prompt ?? '').trim();
-  if (!prompt) return Response.json({ error: 'prompt is required' }, { status: 400 });
-  const size = Math.min(64, Math.max(8, Math.round(body.size ?? 24)));
-  const model = body.model && ALLOWED_MODELS.has(body.model) ? body.model : 'claude-opus-4-8';
 
-  const id = startLiveJob({ prompt, size, model, apiKey });
-  return Response.json({ jobId: id });
+  // Control an in-flight job (pause = checkpoint + stop, resumable; cancel = stop).
+  if (body.control && body.id) {
+    const ok = controlLiveJob(body.id, body.control);
+    return Response.json({ ok, action: body.control });
+  }
+
+  // Live human feedback injected into a running job.
+  if (body.feedback && body.id) {
+    const ok = feedbackLiveJob(body.id, body.feedback);
+    return Response.json({ ok });
+  }
+
+  const model = body.model && ALLOWED_MODELS.has(body.model) ? body.model : 'claude-opus-4-8';
+  let prompt = (body.prompt ?? '').trim();
+  let resumeFrame = body.resumeFrame;
+  let resumePhase = body.resumePhase;
+  let title = body.title;
+  let size = Math.min(64, Math.max(8, Math.round(body.size ?? 24)));
+
+  // Resume a saved/interrupted job by id.
+  if (body.resume) {
+    const prev = getLiveJob(body.resume);
+    if (!prev || !prev.latestFrame) {
+      return Response.json({ error: 'no resumable job found for that id' }, { status: 404 });
+    }
+    resumeFrame = prev.latestFrame;
+    resumePhase = resumePhase || prev.phase;
+    title = title || prev.title;
+    if (!prompt) prompt = prev.prompt;
+    size = prev.size;
+  }
+
+  if (resumeFrame) size = resumeFrame.cols;
+  if (!prompt) return Response.json({ error: 'prompt is required' }, { status: 400 });
+
+  const id = startLiveJob({ prompt, size, model, apiKey, resumeFrame, resumePhase, title });
+  return Response.json({ jobId: id, resumed: !!resumeFrame });
 }
 
 export async function GET(req: Request) {

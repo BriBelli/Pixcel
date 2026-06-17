@@ -143,7 +143,7 @@ export const usePXSStore = create<PXSStore>()(
         selectedCells: [],
         activeTool: 'pen',
         sidebarCollapsed: false,
-        activeTab: 'resolution',
+        activeTab: 'gallery',
         inspectorOpen: false,
         chatPanelOpen: true,
       },

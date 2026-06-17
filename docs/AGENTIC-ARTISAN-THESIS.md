@@ -155,6 +155,37 @@ outcome**:
 
 ---
 
+## Relation to diffusion (a reasoning-native cousin)
+
+The loop **rhymes with diffusion**, which is why "refine down to the optimal output, eliminate
+drift" feels right — but the mechanism is fundamentally different.
+
+**Shared spine:** both reject one-shot generation for **iterative, coarse-to-fine convergence**
+toward a target over many small steps. Diffusion: low-frequency structure first, detail last.
+Artisan: shape first, detail last.
+
+**Where they diverge:**
+
+| | Diffusion | Agentic Artisan |
+|---|---|---|
+| Motion | **subtractive** — removes noise (form carved out of noise) | **constructive** — adds/erases strokes |
+| Guidance | a **learned denoiser** (statistical, gradient/score) | **explicit reasoning** + an **independent critic** |
+| Coarse-to-fine | **emergent** from the noise schedule | **designed** (explicit phases) |
+| Steps | uniform, fixed schedule, no decisions | **agentic** — decides the next move, when to review, when to recall |
+| Critique | none (vanilla) | explicit art director + recall + a quality bar |
+| Substrate | continuous pixel/latent tensors | discrete symbolic grid via language tokens |
+
+**Synthesis:** think of this as **"cognitive, symbolic, agentic diffusion"** — it keeps
+diffusion's coarse-to-fine convergence but swaps *noise-removal → stroke-construction* and *a
+learned statistical denoiser → reasoning + an explicit critic*. Diffusion refines in pixel space
+guided by statistics; this refines in concept/stroke space guided by reasoning.
+
+**Why the difference is a feature:** diffusion is a black box — you can't see *why*, pause at
+"fix the torso," or resume a specific feature. This loop is **interpretable, controllable, and
+resumable** (you see the thinking and the critique, recall one foundation, resume from a
+checkpoint). For a *product*, that transparency and control is the selling point a diffusion
+model structurally can't offer.
+
 ## Porting brittle pipelines → autonomous agent workflows
 
 This is the migration for a project built as a **brittle decision-tree / multi-phase

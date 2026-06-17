@@ -97,6 +97,7 @@ export const useGenJobsStore = create<GenJobsState>((set, get) => {
             set((s) => ({
               jobs: s.jobs.map((j) => (j.id === id ? { ...j, plan: j.plan + evt.text } : j)),
             }));
+            useCenterStage.getState().set({ thinking: (get().jobs.find((j) => j.id === id)?.plan || '').slice(-1800) });
           } else if (evt.type === 'status') {
             patch(id, { status: evt.message });
             useCenterStage.getState().set({ active: true, mode: 'sketch', status: 'running', label: evt.message || 'working…' });
@@ -114,6 +115,7 @@ export const useGenJobsStore = create<GenJobsState>((set, get) => {
               ),
             }));
             useCenterStage.getState().set({ active: true, mode: 'sketch', frame: evt.frame, shimmer: false, status: 'running', label: `draft ${evt.n + 1}` });
+            useCenterStage.getState().addFeed({ kind: 'gesture', text: `draft ${evt.n + 1}` });
           } else if (evt.type === 'critique') {
             set((s) => ({
               jobs: s.jobs.map((j) =>
@@ -127,6 +129,7 @@ export const useGenJobsStore = create<GenJobsState>((set, get) => {
                   : j
               ),
             }));
+            useCenterStage.getState().addFeed({ kind: 'review', approved: evt.approved, text: evt.approved ? 'approved ✓' : (evt.issues?.[0] || 'needs fixes') });
           } else if (evt.type === 'frame') {
             patch(id, {
               state: 'done',

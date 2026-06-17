@@ -114,6 +114,8 @@ export const useLiveArtStore = create<LiveArtState>((set, get) => {
         gestures: j.gestures,
         shimmer: !f,
         label: `${(j.phase || '').toUpperCase()} · g${j.gestures}`,
+        thinking: j.liveThinking || '',
+        feed: j.feed || [],
       });
       if (j.status === 'done') {
         await finalize(id);

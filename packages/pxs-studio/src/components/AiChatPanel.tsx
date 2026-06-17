@@ -7,7 +7,6 @@ import { applyGalleryFrame } from '../lib/apply-gallery-frame';
 import { usePXSStore, selectActions } from '../store/pxs-store';
 import { useGenJobsStore } from '../store/gen-jobs-store';
 import { toastManager } from './Toast';
-import FramePreview from './FramePreview';
 import LiveArtisanPanel from './LiveArtisanPanel';
 
 interface AiChatPanelProps {
@@ -56,30 +55,37 @@ export default function AiChatPanel({ onGridUpdate }: AiChatPanelProps) {
   return (
     <div className="flex flex-col h-full">
       {/* One artist, two depths: Sketch (fast) vs Sculpt (the full studio) */}
-      <div className="px-2 pt-2">
-        <div className="flex items-center gap-1">
+      <div className="px-2.5 pt-2.5">
+        <div className="flex gap-1 p-1 rounded-xl bg-background-tertiary border border-border">
           <button
             onClick={() => setMode('quick')}
-            className={`px-2.5 py-1 rounded-md text-[11px] font-medium transition-colors ${
-              mode === 'quick' ? 'bg-primary/15 text-primary' : 'text-text-muted hover:text-text-primary'
+            aria-pressed={mode === 'quick'}
+            className={`flex-1 flex flex-col items-center gap-0.5 py-1.5 rounded-lg transition-all duration-150 ${
+              mode === 'quick'
+                ? 'bg-primary/15 text-primary ring-1 ring-primary/40 shadow-sm'
+                : 'text-text-muted hover:text-text-secondary hover:bg-background-overlay/40'
             }`}
           >
-            ⚡ Optimized
+            <span className="text-[11px] font-semibold flex items-center gap-1">
+              <span className="text-accent-yellow">⚡</span> Optimized
+            </span>
+            <span className="text-[8px] opacity-70 tracking-wide">quicker · lower cost</span>
           </button>
           <button
             onClick={() => setMode('live')}
-            className={`px-2.5 py-1 rounded-md text-[11px] font-medium transition-colors ${
-              mode === 'live' ? 'bg-accent-purple/20 text-accent-purple' : 'text-text-muted hover:text-text-primary'
+            aria-pressed={mode === 'live'}
+            className={`flex-1 flex flex-col items-center gap-0.5 py-1.5 rounded-lg transition-all duration-150 ${
+              mode === 'live'
+                ? 'bg-accent-purple/15 text-accent-purple ring-1 ring-accent-purple/40 shadow-sm'
+                : 'text-text-muted hover:text-text-secondary hover:bg-background-overlay/40'
             }`}
           >
-            ✦ Comprehensive
+            <span className="text-[11px] font-semibold flex items-center gap-1">
+              <span className="text-accent-purple">✦</span> Comprehensive
+            </span>
+            <span className="text-[8px] opacity-70 tracking-wide">detailed · higher cost</span>
           </button>
         </div>
-        <p className="px-1 pt-1.5 text-[9px] text-text-muted leading-snug">
-          {mode === 'quick'
-            ? 'Optimized — quicker, lower cost.'
-            : 'Comprehensive — detailed, higher cost. The full studio: phase-by-phase with an art director.'}
-        </p>
       </div>
 
       {mode === 'live' ? (
@@ -138,94 +144,17 @@ export default function AiChatPanel({ onGridUpdate }: AiChatPanelProps) {
                   </div>
                 )}
 
-                {m.plan && (
-                  <details
-                    className="rounded-md border border-border bg-background-tertiary"
-                    open={m.state === 'running'}
-                  >
-                    <summary className="px-2 py-1 text-[9px] font-semibold uppercase tracking-wider text-text-muted cursor-pointer select-none">
-                      Design
-                    </summary>
-                    <pre className="px-2 pb-2 text-[9px] leading-[1.15] font-mono text-text-secondary whitespace-pre overflow-x-auto">
-                      {m.plan}
-                    </pre>
-                  </details>
-                )}
-
-                {m.drafts.length > 0 && (
-                  <div className="rounded-md border border-border bg-background-tertiary p-2 space-y-2">
-                    <div className="text-[9px] font-semibold uppercase tracking-wider text-text-muted">
-                      Drafts &amp; review
-                    </div>
-                    {m.drafts.map((d, i) => {
-                      const isLast = i === m.drafts.length - 1;
-                      return (
-                        <div key={d.n} className="flex gap-2">
-                          <span className="shrink-0 w-12 h-12 rounded bg-background-primary flex items-center justify-center overflow-hidden">
-                            <FramePreview frame={d.frame} size={44} />
-                          </span>
-                          <div className="min-w-0 flex-1 text-[9px] leading-snug">
-                            <div className="text-text-muted">Draft {d.n + 1}</div>
-                            {d.approved === false && (d.issues?.length ?? 0) > 0 ? (
-                              <ul className="text-accent-yellow space-y-0.5">
-                                {(d.issues ?? []).map((iss, j) => (
-                                  <li key={j}>• {iss}</li>
-                                ))}
-                              </ul>
-                            ) : d.approved ? (
-                              <div className="text-accent-green">✓ approved</div>
-                            ) : isLast && m.state === 'running' ? (
-                              <div className="flex items-center gap-1 text-text-muted">
-                                <span className="w-1 h-1 rounded-full bg-primary animate-pulse" />
-                                reviewing…
-                              </div>
-                            ) : isLast ? (
-                              <div className="text-accent-green">✓ kept</div>
-                            ) : (
-                              <div className="text-text-muted">refined →</div>
-                            )}
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-
+                {/* High-level only — the design, drafts, and the artwork itself live on the canvas. */}
                 {m.frame && (
-                  <div className="rounded-lg border border-border bg-background-tertiary overflow-hidden">
-                    <div className="flex items-center justify-center bg-background-primary py-4">
-                      <FramePreview frame={m.frame} size={200} />
-                    </div>
-                    <div className="px-2.5 py-2 space-y-2">
-                      {m.palette && m.palette.length > 0 && (
-                        <div className="flex items-center gap-1">
-                          {m.palette.map((c) => (
-                            <span
-                              key={c}
-                              className="w-3 h-3 rounded-sm border border-border"
-                              style={{ backgroundColor: c }}
-                              title={c}
-                            />
-                          ))}
-                        </div>
-                      )}
-                      <div className="flex items-center justify-between text-[9px] text-text-muted font-mono">
-                        <span>
-                          {m.frame.cols}×{m.frame.rows} · {m.cells} cells
-                        </span>
-                        <span>
-                          {MODELS.find((x) => x.id === m.model)?.label ?? m.model}
-                          {m.durationMs ? ` · ${(m.durationMs / 1000).toFixed(1)}s` : ''}
-                        </span>
-                      </div>
-                      {m.warning && <div className="text-[9px] text-accent-yellow">{m.warning}</div>}
-                      <button
-                        onClick={() => m.frame && loadFrameOntoCanvas(m.frame, m.title ?? 'piece')}
-                        className="w-full rounded-md border border-border bg-background-overlay hover:bg-border py-1 text-[10px] text-text-secondary hover:text-text-primary transition-colors"
-                      >
-                        Load on canvas
-                      </button>
-                    </div>
+                  <div className="text-[10px] text-accent-green leading-snug">
+                    ✓ Created “{m.title ?? 'piece'}” — on the canvas &amp; saved to{' '}
+                    <span className="text-text-secondary">Art</span>.{' '}
+                    <button
+                      onClick={() => m.frame && loadFrameOntoCanvas(m.frame, m.title ?? 'piece')}
+                      className="underline text-text-muted hover:text-text-primary"
+                    >
+                      load to edit
+                    </button>
                   </div>
                 )}
 

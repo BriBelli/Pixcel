@@ -21,6 +21,7 @@ import FramePreview from './FramePreview';
 import { useGenJobsStore } from '../store/gen-jobs-store';
 import { useCenterStage } from '../store/center-stage-store';
 import DiffusionShimmer from './DiffusionShimmer';
+import MaterializeFrame from './MaterializeFrame';
 import { applyGalleryFrame } from '../lib/apply-gallery-frame';
 
 export default function Studio({ children }: { children?: React.ReactNode }) {
@@ -561,24 +562,30 @@ export default function Studio({ children }: { children?: React.ReactNode }) {
               <span className="opacity-70">{modKey}+wheel zoom</span>
             </div>
 
-            {/* Center easel — the piece being made live (Sketch or Sculpt), or the diffusion shimmer */}
+            {/* Center easel — the artist's studio: the live drawing + its thoughts + the workflow feed */}
             {stage.active && (
-              <div className="absolute inset-0 z-10 flex flex-col items-center justify-center bg-background-primary/92 backdrop-blur-sm">
+              <div className="absolute inset-0 z-30 flex flex-col items-center justify-center gap-4 bg-background-primary p-6 overflow-y-auto">
                 <button
                   onClick={() => stage.clear()}
-                  className="absolute top-4 right-4 z-20 px-2 py-1 rounded-md bg-background-secondary/90 border border-border text-[11px] text-text-muted hover:text-text-primary"
+                  className="absolute top-4 right-4 z-40 px-2 py-1 rounded-md bg-background-secondary/90 border border-border text-[11px] text-text-muted hover:text-text-primary"
                   title="Dismiss the live preview"
                 >
                   ✕ Dismiss
                 </button>
+
                 <div className="rounded-xl border border-border bg-background-secondary/40 p-4 shadow-2xl shadow-black/40">
                   {stage.frame && !stage.shimmer ? (
-                    <FramePreview frame={stage.frame} size={Math.min(420, (grid?.cols ?? 32) * 13)} />
+                    stage.mode === 'sketch' ? (
+                      <MaterializeFrame frame={stage.frame} size={Math.min(400, (grid?.cols ?? 32) * 12)} />
+                    ) : (
+                      <FramePreview frame={stage.frame} size={Math.min(400, (grid?.cols ?? 32) * 12)} />
+                    )
                   ) : (
-                    <DiffusionShimmer size={Math.min(380, (grid?.cols ?? 32) * 12)} />
+                    <DiffusionShimmer size={Math.min(360, (grid?.cols ?? 32) * 11)} />
                   )}
                 </div>
-                <div className="mt-5 flex items-center gap-2 text-xs font-mono">
+
+                <div className="flex items-center gap-2 text-xs font-mono">
                   {stage.status === 'running' ? (
                     <span className="inline-flex items-center gap-1.5 text-accent-purple">
                       <span className="w-2 h-2 rounded-full bg-accent-purple animate-pulse" />
@@ -587,11 +594,44 @@ export default function Studio({ children }: { children?: React.ReactNode }) {
                   ) : stage.status === 'done' ? (
                     <span className="text-accent-green">✓ Finished — saved to your Art gallery</span>
                   ) : stage.status === 'paused' ? (
-                    <span className="text-accent-yellow">⏸ Paused — resume from the panel</span>
+                    <span className="text-accent-yellow">⏸ Paused</span>
                   ) : (
                     <span className="text-text-muted">{stage.label || stage.status}</span>
                   )}
                 </div>
+
+                {/* the artist's thoughts */}
+                {stage.status === 'running' && stage.thinking && (
+                  <div className="max-w-2xl w-full rounded-lg border border-accent-purple/30 bg-accent-purple/5 px-3 py-2">
+                    <div className="text-[9px] uppercase tracking-wider text-accent-purple mb-1 flex items-center gap-1">
+                      <span className="w-1 h-1 rounded-full bg-accent-purple animate-pulse" /> thinking
+                    </div>
+                    <div className="text-[11px] text-text-secondary italic leading-snug max-h-14 overflow-hidden">{stage.thinking}</div>
+                  </div>
+                )}
+
+                {/* the workflow feed (gestures / reviews / phases) */}
+                {stage.feed.length > 0 && (
+                  <div className="max-w-2xl w-full rounded-lg border border-border bg-background-secondary/40 px-3 py-2 max-h-28 overflow-y-auto space-y-0.5">
+                    {stage.feed.slice(-9).map((f, i) => (
+                      <div key={i} className="text-[10px] leading-snug">
+                        {f.kind === 'user' ? (
+                          <span className="text-text-primary"><span className="text-primary font-semibold">you →</span> {f.text}</span>
+                        ) : f.kind === 'phase' ? (
+                          <span className="text-primary font-semibold">◆ {f.text}</span>
+                        ) : f.kind === 'gesture' ? (
+                          <span className="text-text-secondary"><span className="text-text-muted">✎</span> {f.text}</span>
+                        ) : f.kind === 'recall' ? (
+                          <span className="text-accent-yellow">↩ {f.text}</span>
+                        ) : f.kind === 'done' ? (
+                          <span className="text-accent-green">✓ {f.text}</span>
+                        ) : (
+                          <span className={f.approved ? 'text-accent-green' : 'text-accent-yellow'}>👁 {f.text}</span>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             )}
           </div>

@@ -5,12 +5,12 @@
  * diagonal wave. Shown on the easel while the model is reasoning (no frame yet) so the canvas
  * always feels alive, like an image resolving out of noise.
  */
-export default function DiffusionShimmer({ size = 340, cells = 12 }: { size?: number; cells?: number }) {
+export default function DiffusionShimmer({ size = 340, cells = 16 }: { size?: number; cells?: number }) {
   const n = cells * cells;
   return (
     <div
       className="rounded-lg overflow-hidden"
-      style={{ width: size, height: size, display: 'grid', gridTemplateColumns: `repeat(${cells}, 1fr)`, gap: 2 }}
+      style={{ width: size, height: size, display: 'grid', gridTemplateColumns: `repeat(${cells}, 1fr)`, gap: 1.5 }}
     >
       <style>{`@keyframes pxShimmer { 0%,100% { opacity:.12; transform:scale(.96) } 50% { opacity:.7; transform:scale(1) } }`}</style>
       {Array.from({ length: n }).map((_, i) => {

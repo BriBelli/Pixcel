@@ -168,43 +168,10 @@ export default function LiveArtisanPanel({ onGridUpdate }: Props) {
               {job?.error && <div className="text-[9px] text-accent-red">{job.error}</div>}
             </div>
 
-            {/* live thinking */}
-            {running && job?.liveThinking && (
-              <div className="rounded-md border border-accent-purple/30 bg-accent-purple/5">
-                <div className="px-2 py-1 text-[8px] font-semibold uppercase tracking-wider text-accent-purple flex items-center gap-1">
-                  <span className="w-1 h-1 rounded-full bg-accent-purple animate-pulse" /> thinking
-                </div>
-                <div ref={thinkRef} className="px-2 pb-2 max-h-24 overflow-y-auto text-[9px] leading-snug text-text-secondary italic">
-                  {job.liveThinking}
-                </div>
-              </div>
-            )}
-
-            {/* studio feed */}
-            {job?.feed && job.feed.length > 0 && (
-              <div className="rounded-md border border-border bg-background-tertiary">
-                <div className="px-2 py-1 text-[8px] font-semibold uppercase tracking-wider text-text-muted">studio feed</div>
-                <div ref={feedRef} className="px-2 pb-2 max-h-64 overflow-y-auto space-y-1">
-                  {job.feed.map((f, i) => (
-                    <div key={i} className="text-[9px] leading-snug flex gap-1.5">
-                      {f.kind === 'user' ? (
-                        <span className="text-text-primary"><span className="text-primary font-semibold">you →</span> {f.text}</span>
-                      ) : f.kind === 'phase' ? (
-                        <span className="text-primary font-semibold">◆ {f.text}</span>
-                      ) : f.kind === 'gesture' ? (
-                        <span className="text-text-secondary"><span className="text-text-muted">✎ g{f.gesture}</span> {f.text}</span>
-                      ) : f.kind === 'recall' ? (
-                        <span className="text-accent-yellow">↩ {f.text}</span>
-                      ) : f.kind === 'done' ? (
-                        <span className="text-accent-green font-semibold">✓ {f.text}</span>
-                      ) : (
-                        <span className={f.approved ? 'text-accent-green' : 'text-accent-yellow'}>👁 {f.text}</span>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
+            {/* The artist's thinking + the studio feed live on the CANVAS now, not here. */}
+            <p className="text-[10px] text-text-muted leading-snug">
+              Watch the thinking &amp; the strokes on the <span className="text-text-secondary">canvas</span>. Type below to give live feedback.
+            </p>
           </>
         )}
       </div>

@@ -4,21 +4,32 @@ import { create } from 'zustand';
 import type { PXSFrame } from './pxs-store';
 
 /**
- * CENTER STAGE — the single "what's on the easel right now" source. BOTH engines write here:
- * Sketch (fast) and Sculpt (full cascade). The Studio center renders this — a unified live
- * experience, two performance tiers. `shimmer` shows the diffusion-style loading when there's
- * no frame yet (the model is thinking between updates).
+ * CENTER STAGE — the artist's studio at the center easel. The live drawing AND the artisan
+ * workflow (thinking + the studio feed of gestures/reviews) all render here, together, as one
+ * experience. The right-side chat is reserved for high-level conversation only. Both engines
+ * (Optimized + Comprehensive) write here.
  */
+export interface StageFeedItem {
+  kind: 'phase' | 'gesture' | 'review' | 'recall' | 'done' | 'user';
+  text: string;
+  gesture?: number;
+  phase?: string;
+  approved?: boolean;
+}
+
 interface CenterStage {
   active: boolean;
   mode: 'sketch' | 'sculpt' | null;
   frame: PXSFrame | null;
-  status: string; // 'running' | 'done' | 'paused' | 'error' | 'cancelled'
+  status: string;
   phase?: string;
   gestures?: number;
-  label: string; // a short status line
-  shimmer: boolean; // render the diffusion shimmer instead of a frame
-  set: (p: Partial<Omit<CenterStage, 'set' | 'clear'>>) => void;
+  label: string;
+  shimmer: boolean;
+  thinking: string; // the artist's live reasoning
+  feed: StageFeedItem[]; // gestures / reviews / phases — the workflow timeline
+  set: (p: Partial<Omit<CenterStage, 'set' | 'clear' | 'addFeed'>>) => void;
+  addFeed: (item: StageFeedItem) => void;
   clear: () => void;
 }
 
@@ -29,7 +40,10 @@ export const useCenterStage = create<CenterStage>((set) => ({
   status: '',
   label: '',
   shimmer: false,
+  thinking: '',
+  feed: [],
   set: (p) => set(p),
+  addFeed: (item) => set((s) => ({ feed: [...s.feed.slice(-119), item] })),
   clear: () =>
-    set({ active: false, mode: null, frame: null, status: '', phase: undefined, gestures: undefined, label: '', shimmer: false }),
+    set({ active: false, mode: null, frame: null, status: '', phase: undefined, gestures: undefined, label: '', shimmer: false, thinking: '', feed: [] }),
 }));

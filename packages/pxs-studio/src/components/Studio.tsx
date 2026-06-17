@@ -582,7 +582,7 @@ export default function Studio({ children }: { children?: React.ReactNode }) {
                   {stage.status === 'running' ? (
                     <span className="inline-flex items-center gap-1.5 text-accent-purple">
                       <span className="w-2 h-2 rounded-full bg-accent-purple animate-pulse" />
-                      {stage.mode === 'sculpt' ? 'Sculpt' : 'Sketch'} · {stage.label || 'working…'}
+                      {stage.mode === 'sculpt' ? 'Comprehensive' : 'Optimized'} · {stage.label || 'working…'}
                     </span>
                   ) : stage.status === 'done' ? (
                     <span className="text-accent-green">✓ Finished — saved to your Art gallery</span>

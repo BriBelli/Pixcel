@@ -88,10 +88,11 @@ export default function LiveArtisanPanel({ onGridUpdate }: Props) {
         {!jobId && (
           <div className="text-[11px] text-text-muted leading-relaxed space-y-3">
             <p>
-              <span className="text-accent-purple">Sculpt</span> — the full studio. It carves like a
-              human: block-in → refine → detail → polish, eyes open, an art director gating each
-              phase. It draws on the <span className="text-text-secondary">main canvas</span>; this
-              panel is the studio conversation and controls. Finer & more original — slower, pricier.
+              <span className="text-accent-purple">Comprehensive</span> — detailed, higher cost. The
+              full studio: it carves like a human — block-in → refine → detail → polish, eyes open,
+              an art director gating each phase. It draws on the{' '}
+              <span className="text-text-secondary">main canvas</span>; this panel is the studio
+              conversation and controls.
             </p>
             <p className="text-[10px]">Great pieces take several minutes; it runs in the background. You can send live feedback while it works.</p>
             <div className="flex flex-wrap gap-1.5">

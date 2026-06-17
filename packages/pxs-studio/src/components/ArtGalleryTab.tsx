@@ -147,7 +147,7 @@ export default function ArtGalleryTab({ onGridUpdate }: ArtGalleryTabProps) {
               {isActive && entry.session && entry.session.transcript.length > 0 && (
                 <div className="mt-1 ml-1 rounded-md border border-border bg-background-tertiary/60 p-2 space-y-1">
                   <div className="text-[8px] font-semibold uppercase tracking-wider text-text-muted flex items-center gap-1">
-                    <span className="text-accent-purple">✦</span> studio conversation · {entry.session.mode}
+                    <span className="text-accent-purple">✦</span> studio conversation · {entry.session.mode === 'sculpt' ? 'comprehensive' : 'optimized'}
                   </div>
                   {entry.prompt && (
                     <div className="text-[9px] text-text-secondary">

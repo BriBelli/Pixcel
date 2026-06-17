@@ -64,7 +64,7 @@ export default function AiChatPanel({ onGridUpdate }: AiChatPanelProps) {
               mode === 'quick' ? 'bg-primary/15 text-primary' : 'text-text-muted hover:text-text-primary'
             }`}
           >
-            ⚡ Sketch
+            ⚡ Optimized
           </button>
           <button
             onClick={() => setMode('live')}
@@ -72,13 +72,13 @@ export default function AiChatPanel({ onGridUpdate }: AiChatPanelProps) {
               mode === 'live' ? 'bg-accent-purple/20 text-accent-purple' : 'text-text-muted hover:text-text-primary'
             }`}
           >
-            ✦ Sculpt
+            ✦ Comprehensive
           </button>
         </div>
         <p className="px-1 pt-1.5 text-[9px] text-text-muted leading-snug">
           {mode === 'quick'
-            ? 'Sketch — fast & optimized. A few minutes, lighter cost.'
-            : 'Sculpt — the full studio: phase-by-phase with an art director. Finer & more original, slower & pricier.'}
+            ? 'Optimized — quicker, lower cost.'
+            : 'Comprehensive — detailed, higher cost. The full studio: phase-by-phase with an art director.'}
         </p>
       </div>
 
@@ -93,13 +93,13 @@ export default function AiChatPanel({ onGridUpdate }: AiChatPanelProps) {
         {jobs.length === 0 && (
           <div className="text-[11px] text-text-muted leading-relaxed space-y-3">
             <p>
-              <span className="text-primary">Sketch</span> — the fast artist. Describe a piece;
+              <span className="text-primary">Optimized</span> — the fast artist. Describe a piece;
               it reasons, draws, and self-corrects to a clean result, then saves it to{' '}
-              <span className="text-text-secondary">Art</span>. A few minutes, lighter cost.
+              <span className="text-text-secondary">Art</span>. Quicker, lower cost.
             </p>
             <p className="text-[10px]">
               Want it carved with more care — phase-by-phase, an art director gating each step?
-              Switch to <span className="text-accent-purple">✦ Sculpt</span>.
+              Switch to <span className="text-accent-purple">✦ Comprehensive</span>.
             </p>
             <div className="flex flex-wrap gap-1.5">
               {SUGGESTIONS.map((s) => (

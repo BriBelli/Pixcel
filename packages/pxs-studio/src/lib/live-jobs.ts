@@ -25,7 +25,11 @@ import {
  */
 
 const DEFAULT_MODEL = 'claude-opus-4-8';
+// The artist (hand) is Opus — that's the craft. The art director (eye) is a judgment task, so
+// it runs on a cheaper/faster model to cut cost. If review quality drops, flip this to Opus.
+const REVIEWER_MODEL = 'claude-sonnet-4-6';
 const EFFORT = 'high';
+const REVIEWER_EFFORT = 'medium';
 const MAX_GESTURES = 200;
 const BACKGROUND = '#0d1117';
 const MAX_TOTAL_REVIEWS = 40; // global safety against endless recall/steamroller churn
@@ -181,7 +185,6 @@ interface Verdict {
 
 async function audit(
   client: Anthropic,
-  model: string,
   subject: string,
   frame: PXSFrame,
   phase: { key: string; bar: string },
@@ -191,11 +194,11 @@ async function audit(
     const png = frameToPngBase64(frame);
     const res = await withRetry(() =>
       client.messages.create({
-        model,
+        model: REVIEWER_MODEL,
         max_tokens: 6000,
         thinking: { type: 'adaptive', display: 'summarized' },
-        output_config: { effort: 'high', format: { type: 'json_schema', schema: LIVE_REVIEW_SCHEMA } },
-        system: liveAuditorSystemPrompt,
+        output_config: { effort: REVIEWER_EFFORT, format: { type: 'json_schema', schema: LIVE_REVIEW_SCHEMA } },
+        system: [{ type: 'text', text: liveAuditorSystemPrompt, cache_control: { type: 'ephemeral' } }],
         messages: [
           {
             role: 'user',
@@ -414,8 +417,9 @@ async function runCascade(
         max_tokens: 32000,
         thinking: { type: 'adaptive', display: 'summarized' },
         output_config: { effort: EFFORT },
-        system: liveArtistSystemPrompt,
-        tools: [SETUP_TOOL, PAINT_TOOL, REVIEW_TOOL],
+        // Cache the (large, repeated) system prompt + tools so each gesture's input is cheap.
+        system: [{ type: 'text', text: liveArtistSystemPrompt, cache_control: { type: 'ephemeral' } }],
+        tools: [SETUP_TOOL, PAINT_TOOL, { ...REVIEW_TOOL, cache_control: { type: 'ephemeral' } }],
         messages: pruneForSend(messages),
       };
       const msg = await withRetry(async () => {
@@ -474,7 +478,7 @@ async function runCascade(
         const phase = PHASES[phaseIdx];
         job.statusMessage = `Art director reviewing — ${phase.key.toUpperCase()}…`;
         touch();
-        const v = await audit(client, model, prompt, canvasToFrame(canvas), phase, progress);
+        const v = await audit(client, prompt, canvasToFrame(canvas), phase, progress);
         reviewsThisPhase++;
         totalReviews++;
         job.critiques.push({ phase: phase.key, approved: v.approved, issues: v.issues, recall: v.recall, recallPhase: v.recallPhase });

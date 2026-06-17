@@ -16,7 +16,7 @@ import historyManager from '../store/history-manager';
 import type { GridData } from '../workers/grid.worker';
 import pixcelLogo from '../data/defaults/pixcel-logo.json';
 import ArtGalleryTab from './ArtGalleryTab';
-import AiChatPanel from './AiChatPanel';
+import LiveArtisanPanel from './LiveArtisanPanel';
 import FramePreview from './FramePreview';
 import { useGenJobsStore } from '../store/gen-jobs-store';
 import { useCenterStage } from '../store/center-stage-store';
@@ -678,7 +678,7 @@ export default function Studio({ children }: { children?: React.ReactNode }) {
               </button>
             </div>
             <div className="flex-1 min-h-0">
-              <AiChatPanel onGridUpdate={handleGridUpdate} />
+              <LiveArtisanPanel onGridUpdate={handleGridUpdate} />
             </div>
           </aside>
         )}

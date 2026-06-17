@@ -25,10 +25,9 @@ import {
  */
 
 const DEFAULT_MODEL = 'claude-opus-4-8';
-// The artist (hand) is Opus — that's the craft. The art director (eye) is a judgment task, so
-// it runs on a cheaper/faster model to cut cost. If review quality drops, flip this to Opus.
-const REVIEWER_MODEL = 'claude-sonnet-4-6';
 const EFFORT = 'high';
+// The reviewer (art director) is a judgment task — it runs at medium effort on the SAME model
+// the user chose for the piece (one dropdown drives both hand + eye).
 const REVIEWER_EFFORT = 'medium';
 const MAX_GESTURES = 200;
 const BACKGROUND = '#0d1117';
@@ -185,6 +184,7 @@ interface Verdict {
 
 async function audit(
   client: Anthropic,
+  model: string,
   subject: string,
   frame: PXSFrame,
   phase: { key: string; bar: string },
@@ -194,7 +194,7 @@ async function audit(
     const png = frameToPngBase64(frame);
     const res = await withRetry(() =>
       client.messages.create({
-        model: REVIEWER_MODEL,
+        model,
         max_tokens: 6000,
         thinking: { type: 'adaptive', display: 'summarized' },
         output_config: { effort: REVIEWER_EFFORT, format: { type: 'json_schema', schema: LIVE_REVIEW_SCHEMA } },
@@ -482,7 +482,7 @@ async function runCascade(
         const phase = PHASES[phaseIdx];
         job.statusMessage = `Art director reviewing — ${phase.key.toUpperCase()}…`;
         touch();
-        const v = await audit(client, prompt, canvasToFrame(canvas), phase, progress);
+        const v = await audit(client, model, prompt, canvasToFrame(canvas), phase, progress);
         reviewsThisPhase++;
         totalReviews++;
         job.critiques.push({ phase: phase.key, approved: v.approved, issues: v.issues, recall: v.recall, recallPhase: v.recallPhase });

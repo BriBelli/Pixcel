@@ -13,9 +13,9 @@ interface Props {
 
 type ModelId = 'claude-opus-4-8' | 'claude-sonnet-4-6' | 'claude-haiku-4-5';
 const MODELS: { id: ModelId; label: string }[] = [
-  { id: 'claude-opus-4-8', label: 'Opus 4.8' },
-  { id: 'claude-sonnet-4-6', label: 'Sonnet 4.6' },
-  { id: 'claude-haiku-4-5', label: 'Haiku 4.5' },
+  { id: 'claude-sonnet-4-6', label: 'Sonnet 4.6 · fast & affordable' },
+  { id: 'claude-opus-4-8', label: 'Opus 4.8 · top craft (premium)' },
+  { id: 'claude-haiku-4-5', label: 'Haiku 4.5 · cheapest' },
 ];
 const SIZES = [16, 24, 32, 48, 64];
 const PHASES = ['shape', 'elements', 'refine', 'detail', 'polish', 'qa'];
@@ -24,7 +24,7 @@ const SUGGESTIONS = ['a red apple', 'a snail', 'a teapot', 'a ladybug'];
 export default function LiveArtisanPanel({ onGridUpdate }: Props) {
   const [input, setInput] = useState('');
   const [size, setSize] = useState(24);
-  const [model, setModel] = useState<ModelId>('claude-opus-4-8');
+  const [model, setModel] = useState<ModelId>('claude-sonnet-4-6');
   const { jobId, job, startedAt, start, resume, control, feedback } = useLiveArtStore();
   const addPiece = useGalleryStore((s) => s.addPiece);
   const [elapsed, setElapsed] = useState(0);

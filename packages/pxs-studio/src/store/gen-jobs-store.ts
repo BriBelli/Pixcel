@@ -3,6 +3,7 @@
 import { create } from 'zustand';
 import type { PXSFrame } from './pxs-store';
 import { useGalleryStore } from './gallery-store';
+import { useCenterStage } from './center-stage-store';
 import { toastManager } from '../components/Toast';
 
 /**
@@ -98,6 +99,7 @@ export const useGenJobsStore = create<GenJobsState>((set, get) => {
             }));
           } else if (evt.type === 'status') {
             patch(id, { status: evt.message });
+            useCenterStage.getState().set({ active: true, mode: 'sketch', status: 'running', label: evt.message || 'working…' });
           } else if (evt.type === 'iteration') {
             set((s) => ({
               jobs: s.jobs.map((j) =>
@@ -111,6 +113,7 @@ export const useGenJobsStore = create<GenJobsState>((set, get) => {
                   : j
               ),
             }));
+            useCenterStage.getState().set({ active: true, mode: 'sketch', frame: evt.frame, shimmer: false, status: 'running', label: `draft ${evt.n + 1}` });
           } else if (evt.type === 'critique') {
             set((s) => ({
               jobs: s.jobs.map((j) =>
@@ -137,6 +140,15 @@ export const useGenJobsStore = create<GenJobsState>((set, get) => {
               warning: evt.warning,
             });
             // Land it in the Art gallery (persisted) — the async payoff.
+            const jb = get().jobs.find((j) => j.id === id);
+            const transcript: string[] = [];
+            if (jb?.plan) transcript.push('◆ ' + jb.plan.replace(/\s+/g, ' ').trim().slice(0, 220));
+            (jb?.drafts || []).forEach((d) =>
+              transcript.push(
+                `✎ Draft ${d.n + 1}${d.approved === false && d.issues?.length ? ': ' + d.issues.join('; ') : d.approved ? ' ✓' : ''}`
+              )
+            );
+            transcript.push('✓ Done');
             useGalleryStore.getState().addPiece({
               id: crypto.randomUUID(),
               title: evt.title,
@@ -146,11 +158,14 @@ export const useGenJobsStore = create<GenJobsState>((set, get) => {
               frame: evt.frame,
               createdAt: Date.now(),
               model: evt.model,
+              session: { mode: 'sketch', transcript },
             });
             toastManager.success(`Created "${evt.title}" — in your Art gallery`);
+            useCenterStage.getState().set({ active: true, mode: 'sketch', frame: evt.frame, shimmer: false, status: 'done', label: 'done' });
           } else if (evt.type === 'error') {
             patch(id, { state: 'error', error: evt.message });
             toastManager.error(`"${prompt}" failed`);
+            useCenterStage.getState().set({ status: 'error', label: evt.message });
           }
         }
       }
@@ -184,6 +199,8 @@ export const useGenJobsStore = create<GenJobsState>((set, get) => {
           },
         ],
       }));
+      // Show the diffusion shimmer on the center easel immediately.
+      useCenterStage.getState().set({ active: true, mode: 'sketch', frame: null, shimmer: true, status: 'running', label: 'designing…' });
       // Fire and forget — the job lives in the store, not in any component.
       void run(id, prompt, size, model);
       return id;

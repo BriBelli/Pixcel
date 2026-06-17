@@ -19,7 +19,8 @@ import ArtGalleryTab from './ArtGalleryTab';
 import AiChatPanel from './AiChatPanel';
 import FramePreview from './FramePreview';
 import { useGenJobsStore } from '../store/gen-jobs-store';
-import { useLiveArtStore } from '../store/live-art-store';
+import { useCenterStage } from '../store/center-stage-store';
+import DiffusionShimmer from './DiffusionShimmer';
 import { applyGalleryFrame } from '../lib/apply-gallery-frame';
 
 export default function Studio({ children }: { children?: React.ReactNode }) {
@@ -36,8 +37,7 @@ export default function Studio({ children }: { children?: React.ReactNode }) {
   const animation = usePXSStore(selectAnimation);
   const actions = usePXSStore(selectActions);
   const genRunning = useGenJobsStore((s) => s.jobs.filter((j) => j.state === 'running').length);
-  const liveJob = useLiveArtStore((s) => s.job);
-  const clearLive = useLiveArtStore((s) => s.clear);
+  const stage = useCenterStage();
 
   // Draggable width for the right AI panel.
   const [panelWidth, setPanelWidth] = useState(320);
@@ -561,31 +561,35 @@ export default function Studio({ children }: { children?: React.ReactNode }) {
               <span className="opacity-70">{modKey}+wheel zoom</span>
             </div>
 
-            {/* Live Artisan — the piece being sculpted, on the center easel */}
-            {liveJob && (liveJob.latestFrame || liveJob.frame) && (
+            {/* Center easel — the piece being made live (Sketch or Sculpt), or the diffusion shimmer */}
+            {stage.active && (
               <div className="absolute inset-0 z-10 flex flex-col items-center justify-center bg-background-primary/92 backdrop-blur-sm">
                 <button
-                  onClick={clearLive}
+                  onClick={() => stage.clear()}
                   className="absolute top-4 right-4 z-20 px-2 py-1 rounded-md bg-background-secondary/90 border border-border text-[11px] text-text-muted hover:text-text-primary"
                   title="Dismiss the live preview"
                 >
                   ✕ Dismiss
                 </button>
                 <div className="rounded-xl border border-border bg-background-secondary/40 p-4 shadow-2xl shadow-black/40">
-                  <FramePreview frame={(liveJob.latestFrame || liveJob.frame)!} size={Math.min(420, (grid?.cols ?? 32) * 13)} />
+                  {stage.frame && !stage.shimmer ? (
+                    <FramePreview frame={stage.frame} size={Math.min(420, (grid?.cols ?? 32) * 13)} />
+                  ) : (
+                    <DiffusionShimmer size={Math.min(380, (grid?.cols ?? 32) * 12)} />
+                  )}
                 </div>
                 <div className="mt-5 flex items-center gap-2 text-xs font-mono">
-                  {liveJob.status === 'running' ? (
+                  {stage.status === 'running' ? (
                     <span className="inline-flex items-center gap-1.5 text-accent-purple">
                       <span className="w-2 h-2 rounded-full bg-accent-purple animate-pulse" />
-                      Live · {(liveJob.phase || '').toUpperCase()} · g{liveJob.gestures}
+                      {stage.mode === 'sculpt' ? 'Sculpt' : 'Sketch'} · {stage.label || 'working…'}
                     </span>
-                  ) : liveJob.status === 'done' ? (
+                  ) : stage.status === 'done' ? (
                     <span className="text-accent-green">✓ Finished — saved to your Art gallery</span>
-                  ) : liveJob.status === 'paused' ? (
+                  ) : stage.status === 'paused' ? (
                     <span className="text-accent-yellow">⏸ Paused — resume from the panel</span>
                   ) : (
-                    <span className="text-text-muted">{liveJob.statusMessage || liveJob.status}</span>
+                    <span className="text-text-muted">{stage.label || stage.status}</span>
                   )}
                 </div>
               </div>

@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import type { GridData } from '../workers/grid.worker';
 import { applyGalleryFrame } from '../lib/apply-gallery-frame';
 import { useGalleryStore } from '../store/gallery-store';
-import { useLiveArtStore } from '../store/live-art-store';
+import { useLiveArtStore, feedToTranscript } from '../store/live-art-store';
 import { toastManager } from './Toast';
 
 interface Props {
@@ -66,6 +66,7 @@ export default function LiveArtisanPanel({ onGridUpdate }: Props) {
       frame: curFrame,
       createdAt: Date.now(),
       model,
+      session: { mode: 'sculpt', transcript: feedToTranscript(job?.feed ?? []) },
     });
     toastManager.success('Saved to your Art gallery');
   }

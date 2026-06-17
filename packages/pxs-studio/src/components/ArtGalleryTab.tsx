@@ -144,6 +144,25 @@ export default function ArtGalleryTab({ onGridUpdate }: ArtGalleryTabProps) {
                   </button>
                 </div>
               </div>
+              {isActive && entry.session && entry.session.transcript.length > 0 && (
+                <div className="mt-1 ml-1 rounded-md border border-border bg-background-tertiary/60 p-2 space-y-1">
+                  <div className="text-[8px] font-semibold uppercase tracking-wider text-text-muted flex items-center gap-1">
+                    <span className="text-accent-purple">✦</span> studio conversation · {entry.session.mode}
+                  </div>
+                  {entry.prompt && (
+                    <div className="text-[9px] text-text-secondary">
+                      <span className="text-primary">you →</span> {entry.prompt}
+                    </div>
+                  )}
+                  <div className="max-h-44 overflow-y-auto space-y-0.5">
+                    {entry.session.transcript.map((line, i) => (
+                      <div key={i} className="text-[9px] leading-snug text-text-muted">
+                        {line}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </li>
           );
         })}

@@ -3,6 +3,7 @@
 import { create } from 'zustand';
 import type { PXSFrame } from './pxs-store';
 import { useGalleryStore } from './gallery-store';
+import { useCenterStage } from './center-stage-store';
 import { toastManager } from '../components/Toast';
 
 /**
@@ -46,6 +47,18 @@ interface LiveArtState {
   clear: () => void;
 }
 
+/** Flatten a studio feed into readable transcript lines (saved with the piece). */
+export function feedToTranscript(feed: LiveFeedItem[]): string[] {
+  return (feed || []).map((f) => {
+    if (f.kind === 'user') return `you → ${f.text}`;
+    if (f.kind === 'phase') return `◆ ${f.text}`;
+    if (f.kind === 'gesture') return `✎ g${f.gesture} ${f.text}`;
+    if (f.kind === 'recall') return `↩ ${f.text}`;
+    if (f.kind === 'done') return `✓ ${f.text}`;
+    return `👁 ${f.approved ? '✓ ' : ''}${f.text}`; // review
+  });
+}
+
 async function post(body: unknown): Promise<any> {
   const r = await fetch('/api/live-art', {
     method: 'POST',
@@ -75,6 +88,7 @@ export const useLiveArtStore = create<LiveArtState>((set, get) => {
           frame,
           createdAt: Date.now(),
           model: jf.model,
+          session: { mode: 'sculpt', transcript: feedToTranscript(jf.feed || []) },
         });
         toastManager.success(`Created "${jf.title || 'piece'}" — in your Art gallery`);
       }
@@ -90,6 +104,17 @@ export const useLiveArtStore = create<LiveArtState>((set, get) => {
       const j: LiveJob = await r.json();
       if (get().jobId !== id) return;
       set({ job: j });
+      const f = j.latestFrame || j.frame || null;
+      useCenterStage.getState().set({
+        active: true,
+        mode: 'sculpt',
+        frame: f,
+        status: j.status,
+        phase: j.phase,
+        gestures: j.gestures,
+        shimmer: !f,
+        label: `${(j.phase || '').toUpperCase()} · g${j.gestures}`,
+      });
       if (j.status === 'done') {
         await finalize(id);
         return;
@@ -110,6 +135,7 @@ export const useLiveArtStore = create<LiveArtState>((set, get) => {
       if (j.jobId) {
         savedFor = null;
         set({ jobId: j.jobId, job: null, startedAt: Date.now() });
+        useCenterStage.getState().set({ active: true, mode: 'sculpt', frame: null, status: 'running', shimmer: true, label: 'setting up…' });
         poll(j.jobId);
       } else {
         toastManager.error(j.error || 'Could not start the artist');
@@ -140,6 +166,9 @@ export const useLiveArtStore = create<LiveArtState>((set, get) => {
       if (j.ok) toastManager.success('Feedback sent — the artist will fold it in');
       else toastManager.error('Could not send (the run may have ended)');
     },
-    clear: () => set({ jobId: null, job: null, startedAt: 0 }),
+    clear: () => {
+      set({ jobId: null, job: null, startedAt: 0 });
+      useCenterStage.getState().clear();
+    },
   };
 });

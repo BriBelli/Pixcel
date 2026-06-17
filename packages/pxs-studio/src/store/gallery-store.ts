@@ -15,6 +15,8 @@ export interface GalleryEntry {
   builtin?: boolean;
   createdAt?: number;
   model?: string;
+  /** The studio conversation that produced this piece — restored when you reopen it. */
+  session?: { mode: 'sketch' | 'sculpt'; transcript: string[] };
 }
 
 interface GalleryStore {

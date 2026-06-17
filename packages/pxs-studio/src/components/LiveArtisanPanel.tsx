@@ -88,13 +88,10 @@ export default function LiveArtisanPanel({ onGridUpdate }: Props) {
         {!jobId && (
           <div className="text-[11px] text-text-muted leading-relaxed space-y-3">
             <p>
-              <span className="text-accent-purple">Comprehensive</span> — detailed, higher cost. The
-              full studio: it carves like a human — block-in → refine → detail → polish, eyes open,
-              an art director gating each phase. It draws on the{' '}
-              <span className="text-text-secondary">main canvas</span>; this panel is the studio
-              conversation and controls.
+              Describe anything — a fox, a teapot, your logo — and watch it come to life on the
+              canvas, drawn step by step like a real artist would.
             </p>
-            <p className="text-[10px]">Great pieces take several minutes; it runs in the background. You can send live feedback while it works.</p>
+            <p className="text-[10px]">Chime in with feedback any time while it works. Pieces take a few minutes — it keeps going in the background.</p>
             <div className="flex flex-wrap gap-1.5">
               {SUGGESTIONS.map((s) => (
                 <button
@@ -178,13 +175,25 @@ export default function LiveArtisanPanel({ onGridUpdate }: Props) {
 
       {/* Composer */}
       <div className="border-t border-border p-2.5 space-y-2 shrink-0">
+        {size >= 48 && (
+          <p className="text-[9px] text-accent-yellow leading-snug">
+            {size}² is finer but noticeably slower &amp; pricier — 16²–32² are quick &amp; cheap.
+          </p>
+        )}
         <div className="flex items-center gap-2 text-[9px]">
           <div className="flex items-center gap-0.5 rounded-md border border-border bg-background-tertiary p-0.5">
             {SIZES.map((s) => (
               <button
                 key={s}
                 onClick={() => setSize(s)}
-                className={`px-1.5 py-0.5 rounded transition-colors ${size === s ? 'bg-primary text-white' : 'text-text-muted hover:text-text-primary'}`}
+                title={s >= 48 ? `${s}² — finer, slower & pricier` : `${s}² — quick & cheap`}
+                className={`px-1.5 py-0.5 rounded transition-colors ${
+                  size === s
+                    ? s >= 48
+                      ? 'bg-accent-yellow/80 text-background-primary'
+                      : 'bg-primary text-white'
+                    : 'text-text-muted hover:text-text-primary'
+                }`}
               >
                 {s}²
               </button>

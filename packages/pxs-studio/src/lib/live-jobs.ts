@@ -412,11 +412,15 @@ async function runCascade(
           messages.push({ role: 'user', content: note.trim() });
         }
       }
+      // Phase-aware effort: max reasoning where it's decided (shape/elements/refine), lighter for
+      // the mechanical detail/polish gestures. Cuts the dominant cost (thinking) without hurting
+      // the parts that determine the piece.
+      const handEffort = phaseIdx <= 2 ? EFFORT : 'medium';
       const params = {
         model,
         max_tokens: 32000,
         thinking: { type: 'adaptive', display: 'summarized' },
-        output_config: { effort: EFFORT },
+        output_config: { effort: handEffort },
         // Cache the (large, repeated) system prompt + tools so each gesture's input is cheap.
         system: [{ type: 'text', text: liveArtistSystemPrompt, cache_control: { type: 'ephemeral' } }],
         tools: [SETUP_TOOL, PAINT_TOOL, { ...REVIEW_TOOL, cache_control: { type: 'ephemeral' } }],

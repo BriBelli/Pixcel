@@ -60,36 +60,6 @@ export const CHARMAP_SCHEMA = {
   required: ['title', 'cols', 'rows', 'palette', 'grid'],
 } as const;
 
-/** Structured-output schema for the vision art-director's verdict. */
-export const CRITIQUE_SCHEMA = {
-  type: 'object',
-  additionalProperties: false,
-  properties: {
-    approved: { type: 'boolean' },
-    issues: { type: 'array', items: { type: 'string' } },
-  },
-  required: ['approved', 'issues'],
-} as const;
-
-/**
- * Live reviewer verdict — adds RECALL. Approval is PROVISIONAL, not a lock: if adding a later
- * layer reveals that an EARLIER foundation is wrong (the head shape once the face is in; a
- * badly-proportioned body), the reviewer recalls it so the artist fixes the foundation before
- * continuing. This is what makes the cascade a liquid convergence (diffusion-like drift
- * elimination) instead of a brittle one-way ratchet.
- */
-export const LIVE_REVIEW_SCHEMA = {
-  type: 'object',
-  additionalProperties: false,
-  properties: {
-    approved: { type: 'boolean', description: 'Is the CURRENT focus good enough to build the next layer on (provisional)?' },
-    issues: { type: 'array', items: { type: 'string' }, description: 'Prioritized fixes, most foundational first.' },
-    recall: { type: 'boolean', description: 'true if a foundational aspect from an EARLIER phase is now revealed wrong and must be fixed before continuing.' },
-    recallPhase: { type: 'string', description: 'If recall: the earlier phase whose foundation is wrong (e.g. "shape", "elements"). Else "".' },
-  },
-  required: ['approved', 'issues', 'recall', 'recallPhase'],
-} as const;
-
 export interface ValidateResult {
   ok: boolean;
   errors: string[];

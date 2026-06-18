@@ -1,192 +1,26 @@
 import Anthropic from '@anthropic-ai/sdk';
-import type { PXSFrame, PXSCell } from '../../../store/pxs-store';
-import {
-  CHARMAP_SCHEMA,
-  validateCharMap,
-  charMapToFrame,
-  type CharMap,
-} from '../../../lib/pxs-frame-schema';
+import type { PXSFrame } from '../../../store/pxs-store';
 import { artistSystemPrompt, artistUserMessage } from '../../../lib/ai-art-system-prompt';
-import { frameToPngBase64 } from '../../../lib/render-frame';
+import {
+  artistLoop,
+  judgeBest,
+  paletteOf,
+  DRAW_EFFORT,
+  DEFAULT_MODEL,
+  ALLOWED_MODELS,
+} from '../../../lib/artisan-loop';
 
 export const runtime = 'nodejs';
 export const maxDuration = 800;
 
-const DEFAULT_MODEL = 'claude-opus-4-8';
-const ALLOWED_MODELS = new Set(['claude-opus-4-8', 'claude-sonnet-4-6', 'claude-haiku-4-5']);
-
 // How a human artist works: reason HARD about the silhouette, draw at the real resolution,
 // look at the render, and fix — keeping the best draft. Quality lives in the reasoning
-// (max effort), full-resolution design, and the see-and-fix loop. No exemplars: showing a
-// reference makes the model COPY (derivative, capped ceiling); pure reasoning invents
-// original, more creative art. Latency is a UX problem (run async), not a reason to throttle
-// the reasoning.
-const DRAW_EFFORT = 'high';
+// (max effort), full-resolution design, and the see-and-fix loop. The shared loop lives in
+// lib/artisan-loop.ts (the immutable core); this route just adapts its emit events onto SSE.
 const DRAW_DRAFTS_SMALL = 2; // 16²/24²: draw → see → fix
 const DRAW_DRAFTS_LARGE = 3; // 32²: one more look-and-fix pass
 
-const SUBMIT_TOOL = {
-  name: 'submit_art',
-  description:
-    'Submit your pixel-art drawing as a compact char-map: cols, rows, a palette (single-char symbol → lowercase #rrggbb), and grid (one string per row, one char per column; "." = background). It will be rendered to a real image and shown back to you so you can judge and refine it.',
-  input_schema: CHARMAP_SCHEMA,
-};
-
-/** Structured-output schema for the best-of-N art-director pick. */
-const BEST_SCHEMA = {
-  type: 'object',
-  additionalProperties: false,
-  properties: { best: { type: 'integer' }, reason: { type: 'string' } },
-  required: ['best', 'reason'],
-} as const;
-
-function paletteOf(cells: PXSCell[]): string[] {
-  const seen = new Set<string>();
-  for (const c of cells) if (c.color !== '#0d1117') seen.add(c.color);
-  return [...seen].slice(0, 10);
-}
-
 type Send = (obj: unknown) => void;
-
-interface LoopOpts {
-  client: Anthropic;
-  model: string;
-  system: string;
-  firstUserContent: any;
-  maxDrafts: number;
-  send: Send;
-  quiet: boolean;
-  stage: string;
-  nOffset: number;
-  effort: string;
-}
-
-/**
- * One artist OODA loop: draw → render → SEE → judge → refine. Returns EVERY valid draft it
- * produced (not just the last) so the caller can keep-best and never ship a regression.
- */
-async function artistLoop(opts: LoopOpts): Promise<PXSFrame[]> {
-  const { client, model, system, firstUserContent, maxDrafts, send, quiet, stage, nOffset, effort } = opts;
-  const messages: Anthropic.MessageParam[] = [{ role: 'user', content: firstUserContent }];
-  const valids: PXSFrame[] = [];
-  let draftN = 0;
-
-  for (let turn = 0; turn <= maxDrafts; turn++) {
-    if (!quiet)
-      send({ type: 'status', phase: stage, message: draftN === 0 ? 'Drawing…' : 'Refining…' });
-
-    const params = {
-      model,
-      max_tokens: 64000,
-      thinking: { type: 'adaptive', display: 'summarized' },
-      output_config: { effort },
-      system,
-      tools: [SUBMIT_TOOL],
-      messages,
-    };
-    const s = client.messages.stream(params as any);
-    if (!quiet) {
-      (s as any).on('thinking', (d: string) => send({ type: 'plan_delta', text: d }));
-      s.on('text', (d) => send({ type: 'plan_delta', text: d }));
-    }
-    const msg = await s.finalMessage();
-    messages.push({ role: 'assistant', content: msg.content });
-
-    const toolUse = msg.content.find(
-      (b): b is Anthropic.ToolUseBlock => b.type === 'tool_use' && b.name === 'submit_art'
-    );
-    if (!toolUse) break; // DONE — no tool call
-
-    const charMap = toolUse.input as CharMap;
-    const v = validateCharMap(charMap);
-
-    if (!v.ok) {
-      messages.push({
-        role: 'user',
-        content: [
-          {
-            type: 'tool_result',
-            tool_use_id: toolUse.id,
-            content: `That char-map is invalid: ${v.errors.slice(0, 6).join('; ')}. Fix exactly these and call submit_art again.`,
-          },
-        ],
-      });
-      draftN++;
-      continue;
-    }
-
-    // Expand the compact char-map into the canonical dense PXSFrame the rest of the
-    // pipeline consumes (render, judge, store, hardware).
-    const candidate = charMapToFrame(charMap);
-    if (!quiet) send({ type: 'iteration', n: nOffset + draftN, frame: candidate });
-
-    valids.push(candidate);
-    draftN++;
-    if (turn === maxDrafts) break;
-
-    const png = frameToPngBase64(candidate);
-    if (!quiet) send({ type: 'status', phase: 'review', message: 'Looking at the render…' });
-    messages.push({
-      role: 'user',
-      content: [
-        {
-          type: 'tool_result',
-          tool_use_id: toolUse.id,
-          content: [
-            { type: 'image', source: { type: 'base64', media_type: 'image/png', data: png } },
-            {
-              type: 'text',
-              text: `Here is your rendered ${candidate.cols}x${candidate.rows} draft. Judge it honestly against the bar — instantly recognizable, full figure, crisp, clean? If genuinely production-ready, reply with the single word DONE and make no tool call. Otherwise call submit_art again, improving exactly what you see.`,
-            },
-          ],
-        },
-      ],
-    });
-  }
-  return valids;
-}
-
-/** Best-of-N: render all candidates, show them to an art director, return the chosen one. */
-async function judgeBest(
-  client: Anthropic,
-  model: string,
-  prompt: string,
-  frames: PXSFrame[]
-): Promise<PXSFrame> {
-  if (frames.length <= 1) return frames[0];
-  const content: any[] = [];
-  frames.forEach((f, i) => {
-    content.push({ type: 'text', text: `Option ${i}:` });
-    content.push({
-      type: 'image',
-      source: { type: 'base64', media_type: 'image/png', data: frameToPngBase64(f) },
-    });
-  });
-  content.push({
-    type: 'text',
-    text: `Subject: "${prompt}". Pick the SINGLE best option. Judge by, in order: (1) instantly recognizable as the subject — the child test; (2) clean and well-formed silhouette. A simple, clean, clearly-recognizable version BEATS a more detailed but muddy or mis-shapen one. Do not reward extra detail if it makes the shape worse. Return its index in "best".`,
-  });
-  try {
-    const s = client.messages.stream({
-      model,
-      max_tokens: 800,
-      system:
-        'You are a pixel-art art director choosing the strongest of several rendered options. Be decisive.',
-      output_config: { format: { type: 'json_schema', schema: BEST_SCHEMA } },
-      messages: [{ role: 'user', content }],
-    } as any);
-    const msg = await s.finalMessage();
-    const raw = msg.content
-      .filter((b): b is Anthropic.TextBlock => b.type === 'text')
-      .map((b) => b.text)
-      .join('');
-    const r = JSON.parse(raw);
-    const i = Math.max(0, Math.min(frames.length - 1, Number(r.best) || 0));
-    return frames[i];
-  } catch {
-    return frames[0];
-  }
-}
 
 export async function POST(req: Request) {
   const apiKey = process.env.ANTHROPIC_API_KEY;
@@ -234,11 +68,12 @@ export async function POST(req: Request) {
           system: artistSystemPrompt,
           firstUserContent: [{ type: 'text', text: artistUserMessage(prompt, size) }],
           maxDrafts: size >= 32 ? DRAW_DRAFTS_LARGE : DRAW_DRAFTS_SMALL,
-          send,
-          quiet: false,
-          stage: 'draw',
-          nOffset: 0,
           effort: DRAW_EFFORT,
+          emit: {
+            status: (phase, message) => send({ type: 'status', phase, message }),
+            thinking: (text) => send({ type: 'plan_delta', text }),
+            iteration: (n, frame) => send({ type: 'iteration', n, frame }),
+          },
         });
         if (!drafts.length) {
           send({ type: 'error', message: 'The artist did not produce a valid frame.' });

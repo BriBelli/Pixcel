@@ -89,14 +89,23 @@ export interface LoopOpts {
 }
 
 /**
- * One artist loop: draw → render → SEE → judge → refine. Returns EVERY valid draft it
- * produced (plus any seedFrames) so the caller can keep-best and never ship a regression.
+ * One artist loop: draw → render → SEE → judge → refine. Returns EVERY valid draft it produced
+ * (plus any seedFrames) AND whether the artist ended by declaring DONE at its 96% bar.
+ *
+ * `endedOnDone` lets the caller honor the persona's ship-at-the-bar confidence: when the artist
+ * looked at the render and declared DONE, that IS its at-bar verdict — ship its final draft, don't
+ * hand it to a separate judge that could override it (the auditor the thesis warns about, plus a
+ * redundant vision call). Only when the loop ran out of passes WITHOUT a DONE are the drafts
+ * genuinely ambiguous and the keep-best regression guard (judgeBest) justified.
  */
-export async function artistLoop(opts: LoopOpts): Promise<PXSFrame[]> {
+export async function artistLoop(
+  opts: LoopOpts
+): Promise<{ frames: PXSFrame[]; endedOnDone: boolean }> {
   const { client, model, system, firstUserContent, maxDrafts, effort = DRAW_EFFORT, emit, seedFrames } = opts;
   const messages: Anthropic.MessageParam[] = [{ role: 'user', content: firstUserContent }];
   const valids: PXSFrame[] = seedFrames ? [...seedFrames] : [];
   let draftN = 0;
+  let endedOnDone = false;
 
   for (let turn = 0; turn <= maxDrafts; turn++) {
     if (emit?.shouldStop?.()) break;
@@ -147,7 +156,10 @@ export async function artistLoop(opts: LoopOpts): Promise<PXSFrame[]> {
     const toolUse = msg.content.find(
       (b): b is Anthropic.ToolUseBlock => b.type === 'tool_use' && b.name === 'submit_art'
     );
-    if (!toolUse) break; // DONE — no tool call
+    if (!toolUse) {
+      endedOnDone = true; // no tool call = the artist declared DONE at its bar
+      break;
+    }
 
     const charMap = toolUse.input as CharMap;
     const v = validateCharMap(charMap);
@@ -201,7 +213,7 @@ export async function artistLoop(opts: LoopOpts): Promise<PXSFrame[]> {
       ],
     });
   }
-  return valids;
+  return { frames: valids, endedOnDone };
 }
 
 /**
@@ -211,9 +223,11 @@ export async function artistLoop(opts: LoopOpts): Promise<PXSFrame[]> {
  * this picks the strongest draft so a regression is never shipped — tie-breaking toward the LAST
  * draft, since the artist saw each render and refined toward its final, at-bar word.
  *
- * DECISION (flag for the Phase-2 A/B, not a silent change): kept because keep-best needs a chooser
- * and this is one cheap call — but the persona-isolation / architecture A/B should confirm it earns
- * its place vs simply shipping the artist's DONE draft. Drop it if it doesn't move hit-rate.
+ * Runs ONLY on the cap path — when the loop ran out of passes WITHOUT the artist declaring DONE,
+ * so the drafts are genuinely ambiguous. When the artist DID declare DONE, the caller ships its
+ * final at-bar draft directly (no judge), honoring the persona's ship-at-the-bar confidence and
+ * saving a redundant vision call. DECISION flagged for the Phase-2 A/B: confirm the guard earns
+ * its place even on the cap path; drop it if it doesn't move hit-rate.
  */
 export async function judgeBest(
   client: Anthropic,

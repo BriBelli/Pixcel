@@ -68,7 +68,7 @@ export async function POST(req: Request) {
         // foundation: pure max reasoning at full resolution is what produces original,
         // creative, crisp art.
         send({ type: 'status', phase: 'draw', message: `Drawing at ${size}×${size}…` });
-        const drafts = await artistLoop({
+        const { frames: drafts, endedOnDone } = await artistLoop({
           client,
           model,
           system: artistSystemPrompt,
@@ -86,8 +86,15 @@ export async function POST(req: Request) {
           controller.close();
           return;
         }
-        send({ type: 'status', phase: 'review', message: 'Keeping the best version…' });
-        frame = await judgeBest(client, model, prompt, drafts);
+        // Trust the artist's at-bar DONE: it looked at the render and judged it ready, so ship its
+        // final draft directly — no separate judge to override it. Only when the loop hit the draft
+        // cap WITHOUT a DONE are the drafts ambiguous → run the keep-best regression guard.
+        if (endedOnDone) {
+          frame = drafts[drafts.length - 1];
+        } else {
+          send({ type: 'status', phase: 'review', message: 'Keeping the best version…' });
+          frame = await judgeBest(client, model, prompt, drafts);
+        }
 
         if (!frame) {
           send({ type: 'error', message: 'No valid frame produced.' });

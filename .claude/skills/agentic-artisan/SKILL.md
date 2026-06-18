@@ -35,17 +35,34 @@ reason (max effort) → produce (true fidelity) → RENDER to a perceivable form
 ↑________________________ repeat until it meets the bar ________________________↑
 ```
 
+**This is iterative — never one-shot.** The thesis explicitly rejects one-shot generation in
+favor of coarse-to-fine convergence over many small steps. If you ever find yourself proposing
+"just do it in a single pass," you have left the method.
+
+**The true form is OBSERVE-AS-YOU-PAINT (the unlock).** "RENDER → perceive" above is the
+*minimum*. Rendering the **finished draft** back and reviewing it is only *intermittent* sight:
+draw-blind → review-sighted → redraw-blind. A human paints with eyes open on **every stroke**.
+The real form — and the real quality unlock, especially at higher fidelity — is a **persistent
+canvas re-rendered after each stroke**, so the artist *never composes blind*. Review-the-draft is
+better than blind, but it is **not** eyes-open. Build toward eyes-open; do not settle at review.
+
 ## Apply these by default (and ask before deviating)
 
 1. **Name the real problem.** Reasoning task vs generation task vs retrieval task — solving
    the wrong kind is the #1 root cause. State it explicitly.
-2. **Take the blindfold off.** The agent must judge its output by **perceiving it in the
-   modality a human would** (render → feed back as an image/artifact), not by reading its own
-   intermediate representation. This is the biggest single lever.
+2. **Take the blindfold off — and keep it off.** The agent must judge its output by
+   **perceiving it in the modality a human would** (render → feed back as an image/artifact),
+   not by reading its own intermediate representation. The biggest single lever — and its
+   strongest form is **observe-as-you-paint**: perceive after *every stroke* on a persistent
+   re-rendered canvas, not just review a finished draft. Reviewing the whole draft is *better
+   than blind* but is **not** eyes-open; push to per-stroke perception, don't stop at review.
 3. **Max reasoning. Never throttle effort for speed.** Reasoning is the craft, not overhead.
-4. **Subtract machinery.** Best-of-N, cascades, upscaling, anchors, templated examples,
-   decision trees — each must *earn* its place against a no-component baseline. Default to
-   removing.
+4. **Subtract machinery — but know the soul from the scaffolding.** *Machinery* (default to
+   removing): best-of-N, separate auditor/judge models, multi-phase gated cascades, recall
+   state-machines, upscaling, anchors, templated examples, decision trees. The **SOUL is NOT
+   machinery**: the eyes-open painter — reason → produce → perceive-its-own-render → fix → repeat
+   — is the quality mechanism itself. Never delete the painter and call it "simplification."
+   Subtract the scaffolding *around* the painter; keep (and strengthen) the painter.
 5. **No exemplars/templates to imitate.** They make the model copy (derivative). Constrain
    with principles + a rubric so it can *invent*.
 6. **Keep-best, never regress.** Keep every valid candidate; ship the best, never blindly the
@@ -76,6 +93,14 @@ reason (max effort) → produce (true fidelity) → RENDER to a perceivable form
 
 ## Red flags that you're regressing toward the failure mode
 
+- **Proposing "one-shot" / "just one pass."** The method is iterative convergence; one-shot is
+  a different (rejected) approach.
+- **Deleting the eyes-open painter and calling it "machinery"/"simplification."** That is the
+  soul, not scaffolding. (Subtract the auditor/phases/recall/best-of-N around it instead.)
+- **Calling whole-draft review "eyes open."** Review-the-finished-draft is intermittent sight,
+  not observe-as-you-paint. Don't overclaim it.
+- Replacing observe-as-you-paint with a synthetic, after-the-fact animation and calling it the
+  live/perception loop — the perception must be *real* (the model actually sees each step).
 - A critique/judge step that never *sees* the rendered output.
 - Effort/thinking turned down to hit a latency number.
 - New "helper" stages added because output is weak (add reasoning + perception instead).

@@ -75,31 +75,54 @@ export function artistUserMessage(prompt: string, size: number): string {
 }
 
 /**
- * THE LIVE ARTIST — identical loop, framed for the Live Studio. The user is watching each draft
- * resolve onto the canvas in real time, so we emphasise that each submit_art is a full, coherent
- * piece (the watch-it-paint reveal is produced client-side by animating the diff between drafts).
- * Same whole-frame reasoning, same see-and-fix loop, same bar — no phases, no exemplar.
+ * THE LIVE ARTIST — EYES OPEN, observe-as-you-paint. The thesis's real unlock (and the live art
+ * show): the artist works on a PERSISTENT, ERASABLE canvas and SEES it re-rendered after EVERY
+ * stroke, so it never composes blind. ONE artist — it perceives and judges its OWN work; there is
+ * no separate auditor, no gated phases, no recall machine, no best-of-N. Coarse→fine emerges from
+ * its own reasoning, not externally-imposed stages. See docs/AGENTIC-ARTISAN-THESIS.md (principle
+ * 2 caveat: observe-as-you-paint).
  */
 export const liveArtistSystemPrompt = `${METHOD}
 
-You are drawing LIVE in a studio — a person is watching each draft appear on the canvas. Work
-the way a real artist does:
-1. DRAW your best full attempt: call submit_art with the WHOLE piece as a CHAR-MAP (cols, rows,
-   a palette of single-char → lowercase hex, and "grid": one string per row). "." = background.
-   Reason about the whole grid at once; submit a complete, coherent piece every time — not a
-   single stroke.
-2. I render it to a real image and show it back to you.
-3. LOOK at it with fresh, critical eyes against the rubric — the 3-year-old test, full figure,
-   expression, real form (shadow + highlight), clean and symmetric.
-4. If it is not genuinely production-ready, call submit_art AGAIN with a clearly improved,
-   COMPLETE version — fix exactly what you SEE, keep what works. If live feedback from the user
-   arrives, fold it in immediately.
-5. ONLY when it truly meets the bar, reply with the single word DONE and make no tool call.
+You SCULPT on a LIVE, PERSISTENT, ERASABLE canvas, a person watching every stroke land. Your eyes
+are OPEN the whole time: after EVERY stroke I show you the canvas re-rendered as a real image, so
+you never work blind. This is how a real artist paints — see, place, see, adjust.
 
-Always: Stay Pure (one symbol = one solid color); keep the SAME cols/rows; every row string
-exactly "cols" characters; lowercase hex; "." for background (#0d1117) unless the subject needs
-otherwise; a short "title".`;
+How you work:
+1. Call \`setup\` ONCE: dimensions + a deliberate 3–6 color palette (each single char → a lowercase
+   hex; "." is background #0d1117; include a shadow shade and a highlight shade).
+2. Then PAINT in STROKES with \`paint\`: each stroke is one MEANINGFUL move — a feature or region
+   (the head shape, an ear, the muzzle, a shadow pass), NOT a single lonely cell and NOT the whole
+   image at once. Use "." to ERASE. After each stroke you SEE the updated canvas — LOOK at it and
+   decide the next move from what is actually there.
+3. Work COARSE → FINE because that's how form is built — block the whole silhouette first, then
+   the major parts, then form (shadow + highlight), then the identity-defining details, then clean
+   up. This is your judgment, not a checklist: freely step back and fix a parent once a child goes
+   in (a head usually needs a tweak after the face lands). Erase and redo misses — that's normal.
+4. Be your OWN harsh art director as you go: does the silhouette read instantly (the 3-year-old
+   test)? Full figure, not a floating head? Expressive (eyes with a highlight, a mouth)? Real form,
+   not a flat blob? Clean and symmetric? Fix what you SEE.
+5. If live feedback from the user arrives, fold it in immediately.
+6. ONLY when the piece is genuinely production-ready — something a person would keep and share —
+   reply with the single word DONE and make no tool call.
+
+Always: Stay Pure (one char = one solid color); stay in bounds; fill the canvas; lead with the
+identity-defining silhouette.`;
 
 export function liveArtistUserMessage(prompt: string, size: number): string {
-  return `Sculpt a pixel-art piece of: "${prompt}", about ${size}x${size}. Call submit_art with your first full attempt as a char-map (each row a ${size}-character string), then refine it draft by draft based on what you see until it's genuinely production-ready.`;
+  return `Sculpt a pixel-art piece of: "${prompt}", about ${size}x${size}. Call setup first (dimensions + palette), then paint it stroke by stroke — block the whole silhouette first, then build to detail — looking at the canvas after every stroke and refining what you see, until it's genuinely production-ready. Then reply DONE.`;
+}
+
+/** Seed message when RESUMING a saved work-in-progress (artist returning to the easel). */
+export function liveResumeUserMessage(
+  prompt: string,
+  cols: number,
+  rows: number,
+  paletteStr: string,
+  ascii: string
+): string {
+  return `You are RESUMING a work-in-progress pixel piece of "${prompt}" on a ${cols}x${rows} canvas — like returning to an unfinished sculpture. Do NOT call setup; the canvas already exists. Palette: ${paletteStr} ("." = background). Here is the current canvas (rendered image above + exact char-map):
+${ascii}
+
+Continue from here: paint strokes to refine and finish it, looking after each stroke, then reply DONE when it's genuinely production-ready.`;
 }

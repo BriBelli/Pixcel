@@ -3,48 +3,154 @@ import fs from 'fs';
 import path from 'path';
 import os from 'os';
 import type { PXSFrame } from '../store/pxs-store';
+import { charMapToFrame, type CharMap } from './pxs-frame-schema';
 import { frameToPngBase64 } from './render-frame';
-import { artistLoop, judgeBest, paletteOf, DRAW_EFFORT, DEFAULT_MODEL } from './artisan-loop';
-import { liveArtistSystemPrompt, liveArtistUserMessage } from './ai-art-system-prompt';
+import { DEFAULT_MODEL } from './artisan-loop';
+import {
+  liveArtistSystemPrompt,
+  liveArtistUserMessage,
+  liveResumeUserMessage,
+} from './ai-art-system-prompt';
 
 /**
- * SERVER-SIDE LIVE JOB RUNNER (in-memory + disk).
+ * SERVER-SIDE LIVE JOB RUNNER — the EYES-OPEN painter.
  *
- * Live Studio runs the SAME immutable artisan loop as the Quick route (lib/artisan-loop.ts) —
- * reason → draw the WHOLE piece → see the render → fix → keep the best — just DETACHED so it
- * survives the HTTP request window and the user can watch each draft resolve, give live
- * feedback, and pause/resume. This file is pure orchestration AROUND the core (per the thesis):
- * it adapts the loop's `emit` events into LiveJob state, checkpoints to disk, and never touches
- * how the artist reasons. The old gesture-by-gesture + 6-phase-auditor cascade was deleted —
- * it cost ~60–240 model calls for a result the whole-frame loop produces in ~5–7.
+ * The thesis's real unlock (docs/AGENTIC-ARTISAN-THESIS.md, principle 2 caveat): one artist on a
+ * PERSISTENT, ERASABLE canvas that SEES it re-rendered after EVERY stroke and reasons about its
+ * own next move — never composing blind. This is ALSO the live art show. There is NO separate
+ * auditor, NO gated phases, NO recall machine, NO best-of-N (that was the machinery; this is the
+ * soul). Coarse→fine emerges from the artist's own reasoning.
+ *
+ * The job runs DETACHED so it survives the request window; the client tails it over the SSE
+ * endpoint and watches each stroke land. Pause/cancel/resume/live-feedback wrap AROUND the core.
  */
 
-// How many look-and-fix passes after the first draft (total drafts ≈ this + 1). Holistic
-// whole-frame reasoning converges in a handful of passes; more is wasted spend.
-function refinePasses(size: number): number {
-  return size >= 48 ? 5 : size >= 32 ? 4 : 3;
-}
-
-const RESUME_CHARS = 'abcdefghijklmnopqrstuvwxyz0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ#@$%&*+=';
+const EFFORT = 'medium'; // adaptive thinking auto-scales; eyes-open perception carries the load,
+                         // so per-stroke reasoning needn't be maxed (keeps many calls fast/cool).
+const MAX_GESTURES = 120; // safety cap against a runaway loop; real pieces finish well under this.
 const BACKGROUND = '#0d1117';
 
-/** Reconstruct a char-map text + palette from a saved dense frame — to re-seed the artist on resume. */
-function frameToCharMapText(frame: PXSFrame): { ascii: string; paletteStr: string } {
+const SETUP_TOOL = {
+  name: 'setup',
+  description: 'Set up the canvas ONCE before painting: title, dimensions, and palette. Call this first.',
+  input_schema: {
+    type: 'object',
+    additionalProperties: false,
+    properties: {
+      title: { type: 'string', description: 'Short 1–3 word name for the piece.' },
+      cols: { type: 'integer' },
+      rows: { type: 'integer' },
+      palette: { type: 'object', description: 'Single-character symbol → lowercase #rrggbb. "." is reserved for background.', additionalProperties: { type: 'string' } },
+    },
+    required: ['title', 'cols', 'rows', 'palette'],
+  },
+};
+
+const PAINT_TOOL = {
+  name: 'paint',
+  description: 'Apply ONE stroke: a meaningful set of cell edits (a feature/region — the head shape, an ear, a shadow pass), not a single lonely cell and not the whole image. Use "." to ERASE a cell back to background. After each stroke you SEE the updated canvas.',
+  input_schema: {
+    type: 'object',
+    additionalProperties: false,
+    properties: {
+      note: { type: 'string', description: 'One short phrase: what this stroke does.' },
+      edits: {
+        type: 'array',
+        items: {
+          type: 'object',
+          additionalProperties: false,
+          properties: { x: { type: 'integer' }, y: { type: 'integer' }, c: { type: 'string', description: 'palette char, or "." to erase' } },
+          required: ['x', 'y', 'c'],
+        },
+      },
+    },
+    required: ['edits'],
+  },
+};
+
+interface Canvas {
+  title: string;
+  cols: number;
+  rows: number;
+  palette: Record<string, string>;
+  grid: string[][];
+}
+
+function blankGrid(cols: number, rows: number): string[][] {
+  return Array.from({ length: rows }, () => Array.from({ length: cols }, () => '.'));
+}
+function canvasToCharMap(c: Canvas): CharMap {
+  return { title: c.title, cols: c.cols, rows: c.rows, palette: c.palette, grid: c.grid.map((r) => r.join('')) };
+}
+function canvasToFrame(c: Canvas): PXSFrame {
+  return charMapToFrame(canvasToCharMap(c));
+}
+function asciiView(c: Canvas): string {
+  const header = '   ' + Array.from({ length: c.cols }, (_, x) => (x % 10).toString()).join('');
+  const body = c.grid.map((r, y) => `${String(y).padStart(2, ' ')} ${r.join('')}`).join('\n');
+  return `${header}\n${body}`;
+}
+
+/** Reconstruct an editable Canvas from a saved dense frame — for RESUME. */
+const RESUME_CHARS = 'abcdefghijklmnopqrstuvwxyz0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ#@$%&*+=';
+function frameToCanvas(frame: PXSFrame, title: string): Canvas {
+  const palette: Record<string, string> = { '.': BACKGROUND };
   const inv: Record<string, string> = {};
   let ci = 0;
-  const rows: string[][] = Array.from({ length: frame.rows }, () =>
-    Array.from({ length: frame.cols }, () => '.')
-  );
+  const grid = blankGrid(frame.cols, frame.rows);
   for (const c of frame.cells) {
     const color = (c.color || BACKGROUND).toLowerCase();
     if (color === BACKGROUND) continue;
-    if (!(color in inv)) inv[color] = RESUME_CHARS[ci++] || '?';
-    if (c.y >= 0 && c.y < frame.rows && c.x >= 0 && c.x < frame.cols) rows[c.y][c.x] = inv[color];
+    if (!(color in inv)) {
+      const ch = RESUME_CHARS[ci++] || '?';
+      inv[color] = ch;
+      palette[ch] = color;
+    }
+    if (c.y >= 0 && c.y < frame.rows && c.x >= 0 && c.x < frame.cols) grid[c.y][c.x] = inv[color];
   }
-  const header = '   ' + Array.from({ length: frame.cols }, (_, x) => (x % 10).toString()).join('');
-  const ascii = `${header}\n${rows.map((r, y) => `${String(y).padStart(2, ' ')} ${r.join('')}`).join('\n')}`;
-  const paletteStr = Object.entries(inv).map(([hex, ch]) => `${ch}=${hex}`).join(', ');
-  return { ascii, paletteStr };
+  return { title, cols: frame.cols, rows: frame.rows, palette, grid };
+}
+
+/**
+ * COST CONTROL: the artist only needs to SEE the CURRENT canvas. Before each call we strip the
+ * render image from every PRIOR stroke's tool_result (the latest char-map fully encodes state),
+ * keeping only the LATEST render in context. Eyes-open is preserved; input stops climbing.
+ */
+function pruneForSend(messages: Anthropic.MessageParam[]): Anthropic.MessageParam[] {
+  let lastImgIdx = -1;
+  messages.forEach((m, i) => {
+    if (m.role === 'user' && Array.isArray(m.content)) {
+      for (const block of m.content as any[]) {
+        if (block.type === 'tool_result' && Array.isArray(block.content) && block.content.some((b: any) => b.type === 'image')) lastImgIdx = i;
+      }
+    }
+  });
+  return messages.map((m, i) => {
+    if (i === lastImgIdx || m.role !== 'user' || !Array.isArray(m.content)) return m;
+    const content = (m.content as any[]).map((block: any) => {
+      if (block.type === 'tool_result' && Array.isArray(block.content)) {
+        const txt = block.content.find((b: any) => b.type === 'text');
+        const firstLine = txt ? String(txt.text).split('\n')[0] : 'canvas updated';
+        return { ...block, content: `${firstLine} [earlier render omitted — see current canvas below]` };
+      }
+      return block;
+    });
+    return { ...m, content } as Anthropic.MessageParam;
+  });
+}
+
+/** Retry with backoff — long detached jobs must survive transient API/network errors. */
+async function withRetry<T>(fn: () => Promise<T>, tries = 4): Promise<T> {
+  let lastErr: unknown;
+  for (let i = 0; i < tries; i++) {
+    try {
+      return await fn();
+    } catch (e) {
+      lastErr = e;
+      await new Promise((r) => setTimeout(r, 1500 * (i + 1)));
+    }
+  }
+  throw lastErr;
 }
 
 export interface LiveJob {
@@ -53,18 +159,18 @@ export interface LiveJob {
   size: number;
   model: string;
   status: 'running' | 'done' | 'error' | 'paused' | 'cancelled';
-  control?: 'pause' | 'cancel'; // a signal the loop checks between drafts
-  phase: string; // current activity: draw | look | judge | done
+  control?: 'pause' | 'cancel'; // a signal the loop checks between strokes
+  phase: string; // current activity: paint | done
   phaseIndex: number;
-  gestures: number; // number of drafts produced (kept name for client compat)
+  gestures: number; // number of strokes painted
   statusMessage: string;
   liveThinking: string; // the artist's current streamed reasoning (for the "watch it think" UI)
   feed: { kind: 'phase' | 'gesture' | 'review' | 'recall' | 'done' | 'user'; text: string; gesture?: number; phase?: string; approved?: boolean }[];
-  pendingFeedback?: string[]; // live user feedback queued to inject into the next draft
-  critiques: { phase: string; approved: boolean; issues: string[] }[];
+  pendingFeedback?: string[]; // live user feedback queued to inject into the next stroke
+  critiques: { phase: string; approved: boolean }[];
   latestFrame?: PXSFrame;
-  frames: PXSFrame[]; // every draft frame (for the progression view)
-  frame?: PXSFrame; // final (best)
+  frames: PXSFrame[]; // every stroke frame (for the progression view)
+  frame?: PXSFrame; // final
   title?: string;
   palette?: string[];
   cells?: number;
@@ -82,7 +188,7 @@ const JOB_DIR = path.join(os.tmpdir(), 'pxs-live-jobs');
 function persist(job: LiveJob): void {
   try {
     fs.mkdirSync(JOB_DIR, { recursive: true });
-    const { frames, ...snap } = job; // omit the heavy per-draft history; latestFrame is enough
+    const { frames, ...snap } = job; // omit heavy per-stroke history; latestFrame is enough
     fs.writeFileSync(path.join(JOB_DIR, `${job.id}.json`), JSON.stringify(snap));
   } catch {
     /* best-effort */
@@ -113,7 +219,7 @@ export function controlLiveJob(id: string, action: 'pause' | 'cancel'): boolean 
   return true;
 }
 
-/** Inject live user feedback into a running job — the human art director, mid-creation. */
+/** Inject live user feedback into a running job — the human, mid-creation. */
 export function feedbackLiveJob(id: string, text: string): boolean {
   const job = jobs.get(id);
   if (!job || job.status !== 'running' || !text.trim()) return false;
@@ -140,10 +246,10 @@ export function startLiveJob(opts: {
     size: opts.size,
     model: opts.model || DEFAULT_MODEL,
     status: 'running',
-    phase: 'draw',
+    phase: 'paint',
     phaseIndex: 0,
     gestures: 0,
-    statusMessage: opts.resumeFrame ? 'Resuming…' : 'Drawing…',
+    statusMessage: opts.resumeFrame ? 'Resuming…' : 'Planning the canvas…',
     liveThinking: '',
     feed: [],
     critiques: [],
@@ -168,114 +274,191 @@ async function runArtisan(job: LiveJob, apiKey: string, resumeFrame?: PXSFrame):
     job.feed.push(e);
     if (job.feed.length > 140) job.feed.shift();
     touch();
-    persist(job); // checkpoint on every significant event → durable + resumable
+    persist(job);
   };
 
   try {
-    // Seed the loop. Fresh start: a plain instruction. Resume: re-seed the saved draft (image +
-    // exact char-map) so the artist continues refining the real piece instead of starting over.
-    let firstUserContent: any;
-    let seedFrames: PXSFrame[] | undefined;
+    const messages: Anthropic.MessageParam[] = [];
+    let canvas: Canvas | null = null;
+
     if (resumeFrame) {
-      const { ascii, paletteStr } = frameToCharMapText(resumeFrame);
-      job.latestFrame = resumeFrame;
-      job.frames.push(resumeFrame);
-      seedFrames = [resumeFrame];
-      pushFeed({ kind: 'phase', text: 'RESUMED — refining', phase: 'draw' });
-      firstUserContent = [
-        { type: 'image', source: { type: 'base64', media_type: 'image/png', data: frameToPngBase64(resumeFrame) } },
-        {
-          type: 'text',
-          text: `You are RESUMING a work-in-progress pixel piece of "${prompt}" on a ${resumeFrame.cols}x${resumeFrame.rows} canvas. Above is the current render; its exact char-map (palette: ${paletteStr}, "." = background) is:\n${ascii}\n\nKeep the SAME ${resumeFrame.cols}x${resumeFrame.rows} size. Call submit_art with an improved, COMPLETE char-map that fixes what you see, and refine until it's genuinely production-ready.`,
-        },
-      ];
+      canvas = frameToCanvas(resumeFrame, job.title || prompt);
+      const f0 = canvasToFrame(canvas);
+      job.latestFrame = f0;
+      job.frames.push(f0);
+      const paletteStr = Object.entries(canvas.palette).filter(([k]) => k !== '.').map(([k, v]) => `${k}=${v}`).join(', ');
+      pushFeed({ kind: 'phase', text: 'RESUMED — refining', phase: 'paint' });
+      messages.push({
+        role: 'user',
+        content: [
+          { type: 'image', source: { type: 'base64', media_type: 'image/png', data: frameToPngBase64(f0) } },
+          { type: 'text', text: liveResumeUserMessage(prompt, canvas.cols, canvas.rows, paletteStr, asciiView(canvas)) },
+        ],
+      });
     } else {
-      firstUserContent = [{ type: 'text', text: liveArtistUserMessage(prompt, job.size) }];
+      messages.push({ role: 'user', content: liveArtistUserMessage(prompt, job.size) });
     }
 
-    const drafts = await artistLoop({
-      client,
-      model,
-      system: liveArtistSystemPrompt,
-      firstUserContent,
-      maxDrafts: refinePasses(job.size),
-      effort: DRAW_EFFORT,
-      seedFrames,
-      emit: {
-        shouldStop: () => job.control === 'pause' || job.control === 'cancel',
-        thinking: (delta) => {
-          job.liveThinking = (job.liveThinking + delta).slice(-1800);
+    for (let turn = 0; turn < MAX_GESTURES + 20; turn++) {
+      if (job.control === 'cancel') {
+        job.status = 'cancelled';
+        job.statusMessage = 'Cancelled';
+        pushFeed({ kind: 'done', text: 'Cancelled by user' });
+        return;
+      }
+      if (job.control === 'pause') {
+        job.status = 'paused';
+        job.statusMessage = 'Paused — resumable';
+        pushFeed({ kind: 'done', text: 'Paused — resumable' });
+        return;
+      }
+      // Inject any live user feedback into the upcoming stroke (human in the loop).
+      if (job.pendingFeedback && job.pendingFeedback.length) {
+        const fb = job.pendingFeedback.join(' ');
+        job.pendingFeedback = [];
+        const note = `\n\n⚡ LIVE FEEDBACK FROM THE USER — incorporate this now (it overrides earlier intent if it conflicts): ${fb}`;
+        const last = messages[messages.length - 1];
+        if (last && last.role === 'user' && Array.isArray(last.content)) {
+          (last.content as any[]).push({ type: 'text', text: note });
+        } else if (last && last.role === 'user') {
+          last.content = `${String(last.content)}${note}`;
+        } else {
+          messages.push({ role: 'user', content: note.trim() });
+        }
+      }
+
+      const params = {
+        model,
+        max_tokens: 32000,
+        thinking: { type: 'adaptive', display: 'summarized' },
+        output_config: { effort: EFFORT },
+        system: [{ type: 'text', text: liveArtistSystemPrompt, cache_control: { type: 'ephemeral' } }],
+        tools: [SETUP_TOOL, { ...PAINT_TOOL, cache_control: { type: 'ephemeral' } }],
+        messages: pruneForSend(messages),
+      };
+      const msg = await withRetry(async () => {
+        const s = client.messages.stream(params as any);
+        job.liveThinking = '';
+        const cap = (d: string) => {
+          job.liveThinking = (job.liveThinking + d).slice(-4000);
           job.updatedAt = Date.now();
-        },
-        status: (phase, message) => {
-          job.phase = phase === 'review' ? 'look' : phase;
-          job.statusMessage = message;
-          touch();
-        },
-        partial: (n, frame) => {
-          // Live row-by-row paint: update the current frame in memory only (no disk churn — this
-          // fires per row). The SSE tail streams it to the browser, which paints what's arrived.
-          job.latestFrame = frame;
-          job.gestures = n + 1;
-          job.phase = 'draw';
-          job.updatedAt = Date.now();
-        },
-        iteration: (n, frame) => {
-          job.gestures = n + 1;
-          job.latestFrame = frame;
-          job.frames.push(frame);
-          job.phase = 'draw';
-          job.statusMessage = `Draft ${n + 1}`;
-          pushFeed({ kind: 'gesture', text: `draft ${n + 1} — ${(frame as any).title ?? 'sketch'}`, gesture: n + 1, phase: 'draw' });
-        },
-        drainFeedback: () => {
-          if (!job.pendingFeedback?.length) return null;
-          const fb = job.pendingFeedback.join(' ');
-          job.pendingFeedback = [];
-          return fb;
-        },
-      },
-    });
+        };
+        (s as any).on('thinking', cap);
+        s.on('text', cap);
+        return s.finalMessage();
+      });
+      messages.push({ role: 'assistant', content: msg.content });
 
-    // Honor a pause/cancel that landed between drafts.
-    if (job.control === 'cancel') {
-      job.status = 'cancelled';
-      job.statusMessage = 'Cancelled';
-      pushFeed({ kind: 'done', text: 'Cancelled by user' });
-      return;
-    }
-    if (job.control === 'pause') {
-      job.status = 'paused';
-      job.statusMessage = 'Paused — resumable';
-      pushFeed({ kind: 'done', text: 'Paused — resumable' });
-      return;
+      const tool = msg.content.find((b): b is Anthropic.ToolUseBlock => b.type === 'tool_use');
+
+      // No tool call → the artist has declared the piece DONE.
+      if (!tool) {
+        if (!canvas) {
+          messages.push({ role: 'user', content: 'Use setup to create the canvas, then paint.' });
+          continue;
+        }
+        break;
+      }
+
+      if (tool.name === 'setup') {
+        if (canvas) {
+          messages.push({ role: 'user', content: [{ type: 'tool_result', tool_use_id: tool.id, content: 'Canvas already exists — do not call setup. Continue painting.' }] });
+          continue;
+        }
+        const input = tool.input as { title: string; cols: number; rows: number; palette: Record<string, string> };
+        const cols = Math.min(64, Math.max(8, Math.round(input.cols)));
+        const rows = Math.min(64, Math.max(8, Math.round(input.rows)));
+        const palette: Record<string, string> = { '.': BACKGROUND };
+        for (const [k, v] of Object.entries(input.palette || {})) {
+          if (k.length === 1 && /^#[0-9a-f]{6}$/.test(String(v).toLowerCase())) palette[k] = String(v).toLowerCase();
+        }
+        canvas = { title: input.title || 'piece', cols, rows, palette, grid: blankGrid(cols, rows) };
+        job.statusMessage = `Canvas ${cols}×${rows} — blocking in the shape`;
+        pushFeed({ kind: 'phase', text: `canvas ${cols}×${rows} — palette ready`, phase: 'paint' });
+        messages.push({
+          role: 'user',
+          content: [
+            {
+              type: 'tool_result',
+              tool_use_id: tool.id,
+              content: `Canvas ready: ${cols}×${rows}, all background. Palette: ${Object.entries(palette).filter(([k]) => k !== '.').map(([k, v]) => `${k}=${v}`).join(', ')}.\n\nNow paint, stroke by stroke. Block in the whole silhouette first, then build to detail, looking after each stroke.`,
+            },
+          ],
+        });
+        continue;
+      }
+
+      if (tool.name === 'paint') {
+        if (!canvas) {
+          messages.push({ role: 'user', content: [{ type: 'tool_result', tool_use_id: tool.id, content: 'Call setup first to create the canvas.' }] });
+          continue;
+        }
+        const input = tool.input as { note?: string; edits: { x: number; y: number; c: string }[] };
+        const issues: string[] = [];
+        let applied = 0;
+        for (const e of input.edits || []) {
+          if (!Number.isInteger(e.x) || !Number.isInteger(e.y) || e.x < 0 || e.x >= canvas.cols || e.y < 0 || e.y >= canvas.rows) {
+            if (issues.length < 4) issues.push(`(${e.x},${e.y}) out of bounds`);
+            continue;
+          }
+          if (e.c !== '.' && !(e.c in canvas.palette)) {
+            if (issues.length < 4) issues.push(`char "${e.c}" not in palette`);
+            continue;
+          }
+          canvas.grid[e.y][e.x] = e.c;
+          applied++;
+        }
+        job.gestures++;
+        const frame = canvasToFrame(canvas);
+        job.latestFrame = frame;
+        job.frames.push(frame);
+        job.phase = 'paint';
+        job.statusMessage = `Stroke ${job.gestures}${input.note ? ` — ${input.note}` : ''}`;
+        pushFeed({ kind: 'gesture', text: input.note ?? 'stroke', gesture: job.gestures, phase: 'paint' });
+
+        const png = frameToPngBase64(frame);
+        const overBudget = job.gestures >= MAX_GESTURES;
+        const text =
+          `Stroke ${job.gestures}: applied ${applied} edit(s)${issues.length ? `; skipped — ${issues.join('; ')}` : ''}.\n` +
+          `Canvas now (${canvas.cols}×${canvas.rows}). Exact char-map:\n${asciiView(canvas)}\n\n` +
+          `LOOK at the rendered image. Keep painting (block loosely → refine → erase misses). When it's genuinely production-ready, reply DONE.` +
+          (overBudget ? `\n\nNOTE: you have used many strokes; converge and finish (reply DONE) soon.` : '');
+
+        messages.push({
+          role: 'user',
+          content: [
+            { type: 'tool_result', tool_use_id: tool.id, content: [
+              { type: 'image', source: { type: 'base64', media_type: 'image/png', data: png } },
+              { type: 'text', text },
+            ] },
+          ],
+        });
+        if (overBudget) break;
+        continue;
+      }
+
+      // Unknown tool — nudge.
+      messages.push({ role: 'user', content: [{ type: 'tool_result', tool_use_id: tool.id, content: 'Use setup or paint.' }] });
     }
 
-    if (!drafts.length) {
+    if (!canvas) {
       job.status = 'error';
-      job.error = 'The artist did not produce a valid frame.';
+      job.error = 'The artist never set up a canvas.';
       touch();
       persist(job);
       return;
     }
-
-    // KEEP-BEST: render every draft, let an art director pick the strongest. Never ship a
-    // regression just because it was the latest pass.
-    job.phase = 'judge';
-    job.statusMessage = 'Keeping the best version…';
-    pushFeed({ kind: 'review', text: 'choosing the best draft', approved: true });
-    const best = await judgeBest(client, model, prompt, drafts);
-
-    job.frame = best;
-    job.latestFrame = best;
-    job.title = (best as any).title || job.title || prompt.slice(0, 40);
-    job.palette = paletteOf(best.cells);
-    job.cells = best.cells.length;
+    const frame = canvasToFrame(canvas);
+    job.frame = frame;
+    job.latestFrame = frame;
+    job.title = canvas.title;
+    job.palette = Object.entries(canvas.palette).filter(([k]) => k !== '.').map(([, v]) => v);
+    job.cells = frame.cells.length;
     job.phase = 'done';
     job.durationMs = Date.now() - job.startedAt;
     job.status = 'done';
     job.statusMessage = 'Done';
-    pushFeed({ kind: 'done', text: 'Finished — kept the best draft' });
+    pushFeed({ kind: 'done', text: 'Finished' });
   } catch (err) {
     job.status = 'error';
     job.error = err instanceof Error ? err.message : 'Generation failed';

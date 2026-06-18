@@ -40,6 +40,17 @@ export default function Studio({ children }: { children?: React.ReactNode }) {
   const genRunning = useGenJobsStore((s) => s.jobs.filter((j) => j.state === 'running').length);
   const stage = useCenterStage();
 
+  // Keep the live thinking + the studio feed scrolled to the latest as they stream in, so the
+  // user can actually follow the artist's reasoning and the stroke log without manual scrolling.
+  const stageThinkRef = useRef<HTMLDivElement>(null);
+  const stageFeedRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    stageThinkRef.current?.scrollTo({ top: stageThinkRef.current.scrollHeight });
+  }, [stage.thinking]);
+  useEffect(() => {
+    stageFeedRef.current?.scrollTo({ top: stageFeedRef.current.scrollHeight });
+  }, [stage.feed.length]);
+
   // Draggable width for the right AI panel.
   const [panelWidth, setPanelWidth] = useState(320);
   const panelWidthRef = useRef(320);
@@ -600,20 +611,20 @@ export default function Studio({ children }: { children?: React.ReactNode }) {
                   )}
                 </div>
 
-                {/* the artist's thoughts */}
+                {/* the artist's thoughts — readable + auto-following while it paints */}
                 {stage.status === 'running' && stage.thinking && (
                   <div className="max-w-2xl w-full rounded-lg border border-accent-purple/30 bg-accent-purple/5 px-3 py-2">
                     <div className="text-[9px] uppercase tracking-wider text-accent-purple mb-1 flex items-center gap-1">
                       <span className="w-1 h-1 rounded-full bg-accent-purple animate-pulse" /> thinking
                     </div>
-                    <div className="text-[11px] text-text-secondary italic leading-snug max-h-14 overflow-hidden">{stage.thinking}</div>
+                    <div ref={stageThinkRef} className="text-[11px] text-text-secondary italic leading-relaxed max-h-44 overflow-y-auto whitespace-pre-wrap">{stage.thinking}</div>
                   </div>
                 )}
 
-                {/* the workflow feed (gestures / reviews / phases) */}
+                {/* the studio feed — the persistent stroke-by-stroke transcript */}
                 {stage.feed.length > 0 && (
-                  <div className="max-w-2xl w-full rounded-lg border border-border bg-background-secondary/40 px-3 py-2 max-h-28 overflow-y-auto space-y-0.5">
-                    {stage.feed.slice(-9).map((f, i) => (
+                  <div ref={stageFeedRef} className="max-w-2xl w-full rounded-lg border border-border bg-background-secondary/40 px-3 py-2 max-h-56 overflow-y-auto space-y-0.5">
+                    {stage.feed.slice(-60).map((f, i) => (
                       <div key={i} className="text-[10px] leading-snug">
                         {f.kind === 'user' ? (
                           <span className="text-text-primary"><span className="text-primary font-semibold">you →</span> {f.text}</span>

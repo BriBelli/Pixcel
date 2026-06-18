@@ -32,7 +32,7 @@ export default function LiveArtisanPanel({ onGridUpdate }: Props) {
 
   const running = job?.status === 'running';
   const curFrame = job?.frame || job?.latestFrame;
-  const drafts = job?.gestures ?? 0;
+  const strokes = job?.gestures ?? 0;
   const mmss = `${String(Math.floor(elapsed / 60)).padStart(2, '0')}:${String(elapsed % 60).padStart(2, '0')}`;
 
   useEffect(() => {
@@ -116,7 +116,7 @@ export default function LiveArtisanPanel({ onGridUpdate }: Props) {
                 <span>
                   {running ? (
                     <span className="inline-flex items-center gap-1">
-                      <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" /> {drafts ? `draft ${drafts}` : 'starting…'} · {mmss}
+                      <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" /> {strokes ? `stroke ${strokes}` : 'starting…'} · {mmss}
                     </span>
                   ) : job?.status === 'done' ? (
                     <span className="text-accent-green">✓ done · {job?.cells} cells · {job?.durationMs ? `${(job.durationMs / 1000).toFixed(0)}s` : ''}</span>

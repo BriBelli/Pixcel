@@ -112,7 +112,7 @@ export const useLiveArtStore = create<LiveArtState>((set, get) => {
       phase: j.phase,
       gestures: j.gestures,
       shimmer: !f,
-      label: j.status === 'done' ? 'done' : j.gestures ? `draft ${j.gestures}` : (j.statusMessage || 'drawing…'),
+      label: j.status === 'done' ? 'done' : j.gestures ? `stroke ${j.gestures}` : (j.statusMessage || 'painting…'),
       thinking: j.liveThinking || '',
       feed: j.feed || [],
     });

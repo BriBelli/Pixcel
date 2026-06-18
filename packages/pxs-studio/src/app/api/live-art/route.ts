@@ -114,7 +114,7 @@ export async function GET(req: Request) {
             send(rest);
           }
           if (job.status !== 'running') break;
-          await new Promise((r) => setTimeout(r, 120));
+          await new Promise((r) => setTimeout(r, 200));
         }
         controller.close();
       },

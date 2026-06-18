@@ -1,4 +1,8 @@
-/* PERCEIVE harness for hand-authoring the T-rex: rasterize my hand-placed char-map to a PNG so I
+/* DEV SCRATCH — not product. One-off harness used to hand-author the trex-claudecode-32 gallery
+ * bar; kept only as a record of how that bar was made (see docs/PIXCEL-ART-ENGINE.md). Safe to
+ * delete. (Its sibling scratch — /tmp/trex/* — is gitignored throwaway and not in the repo.)
+ *
+ * PERCEIVE harness for hand-authoring the T-rex: rasterize my hand-placed char-map to a PNG so I
  * can look at it and fix. The ART is the GRID below (every cell my choice); this only renders +
  * validates row widths. `node` arg "save" also writes the gallery JSON from the same hand grid. */
 import fs from 'fs';

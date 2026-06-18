@@ -286,7 +286,7 @@ export const GALLERY_ENTRIES: GalleryEntry[] = [
     id: 'trex-claudecode-32',
     title: 'T-Rex (Claude Code)',
     prompt:
-      'a T-rex — hand-authored by Claude Code via the eyes-open artisan loop at full reasoning (5 drafts, 32²). The quality bar the in-app engine targets.',
+      'a T-rex — hand-authored by Claude Code via the eyes-open artisan loop at full reasoning (9 drafts, 32²). The quality bar the in-app engine targets.',
     promptBy: 'human',
     composedBy: 'human',
     frame: trexClaudeCode32 as PXSFrame,

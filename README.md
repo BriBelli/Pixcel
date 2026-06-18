@@ -300,6 +300,9 @@ Pure max reasoning + a perception loop — no templates, no upscaling, no brittl
 pipeline. Generation runs **async** (start a piece, keep working; it lands in the gallery when
 done). Compact char-map I/O unlocks 16²–64².
 
+- **[docs/PIXCEL-ART-ENGINE.md](docs/PIXCEL-ART-ENGINE.md)** — the single source of truth for
+  *how the engine makes art and why*: the artisan loop, the two loops (whole-frame redraw +
+  per-stroke), the Artist Persona / 96% bar, the cost model, the code map, and the roadmap.
 - **[docs/AGENTIC-ARTISAN-THESIS.md](docs/AGENTIC-ARTISAN-THESIS.md)** — the portable thesis:
   *why* this succeeded where months of agentic attempts failed. Lore. Copy it into other repos.
 - **[docs/AI-GALLERY.md](docs/AI-GALLERY.md)** — the pipeline architecture.

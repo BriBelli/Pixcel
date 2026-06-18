@@ -56,6 +56,11 @@ better than blind, but it is **not** eyes-open. Build toward eyes-open; do not s
    strongest form is **observe-as-you-paint**: perceive after *every stroke* on a persistent
    re-rendered canvas, not just review a finished draft. Reviewing the whole draft is *better
    than blind* but is **not** eyes-open; push to per-stroke perception, don't stop at review.
+   **Two loops, one method — choose by job, not religion:** per-stroke eyes-open is for *polish*
+   (and the live show), but it tends to lock into a bad early silhouette and nudge it forever; the
+   **whole-frame REDRAW loop** (draw whole → look at true scale → redraw whole → keep-best) is what
+   *escapes a wrong silhouette* — use it for silhouette / fit-to-size / redesign. Redraw is a
+   quality mechanism; it is NOT best-of-N (parallel drafts + a separate judge = machinery, clones).
 3. **Max reasoning. Never throttle effort for speed.** Reasoning is the craft, not overhead.
 4. **Subtract machinery — but know the soul from the scaffolding.** *Machinery* (default to
    removing): best-of-N, separate auditor/judge models, multi-phase gated cascades, recall

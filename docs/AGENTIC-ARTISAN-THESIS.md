@@ -51,6 +51,19 @@ this thread.
   so it never composes blind — the next frontier (and probably the real unlock for high
   resolution, where blind whole-canvas composition is hardest). A checkpoint-review loop is
   *better than blind*, but it is **not** "eyes open." Don't call it that.
+- **Two loops, one method — choose by job, not religion.** "Eyes-open per-stroke" is the right
+  tool for **polish** (and the live show). But the per-stroke painter is structurally prone to
+  **locking into a bad early silhouette and nudging it forever** — it rarely scraps and restarts.
+  The **whole-frame REDRAW loop** (draw the whole piece → look at true scale → *redraw the whole
+  thing* → keep-best) is what **escapes a wrong silhouette** (proven hand-authoring the T-rex bar:
+  bird → croc → big-headed full figure across 9 redraws). So: **whole-frame redraw for
+  silhouette / fit-to-size / redesign; per-stroke for polish.** Pick the loop by the job in front
+  of you. Two caveats that keep this honest: (a) whole-frame *redraw* (iterative, look each pass,
+  willing to fully redesign, keep-best) is a **quality mechanism** — it is NOT best-of-N (N
+  parallel drafts + a separate judge), which is machinery and yields near-identical clones;
+  (b) whole-frame review is still **intermittent sight**, not eyes-open — don't overclaim it as
+  per-stroke perception. (Full reconciliation + the cost model + the open architecture A/B:
+  `PIXCEL-ART-ENGINE.md`.)
 
 ### 3. Reasoning IS the quality — never trade it for speed
 - **Failure:** dialing down reasoning/effort to hit a latency target. Quality collapses.

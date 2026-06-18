@@ -13,18 +13,17 @@ interface Props {
 
 type ModelId = 'claude-opus-4-8' | 'claude-sonnet-4-6' | 'claude-haiku-4-5';
 const MODELS: { id: ModelId; label: string }[] = [
-  { id: 'claude-sonnet-4-6', label: 'Sonnet 4.6 · fast & affordable' },
-  { id: 'claude-opus-4-8', label: 'Opus 4.8 · top craft (premium)' },
+  { id: 'claude-opus-4-8', label: 'Opus 4.8 · top craft (default)' },
+  { id: 'claude-sonnet-4-6', label: 'Sonnet 4.6 · faster' },
   { id: 'claude-haiku-4-5', label: 'Haiku 4.5 · cheapest' },
 ];
 const SIZES = [16, 24, 32, 48, 64];
-const PHASES = ['shape', 'elements', 'refine', 'detail', 'polish', 'qa'];
 const SUGGESTIONS = ['a red apple', 'a snail', 'a teapot', 'a ladybug'];
 
 export default function LiveArtisanPanel({ onGridUpdate }: Props) {
   const [input, setInput] = useState('');
   const [size, setSize] = useState(24);
-  const [model, setModel] = useState<ModelId>('claude-sonnet-4-6');
+  const [model, setModel] = useState<ModelId>('claude-opus-4-8');
   const { jobId, job, startedAt, start, resume, control, feedback } = useLiveArtStore();
   const addPiece = useGalleryStore((s) => s.addPiece);
   const [elapsed, setElapsed] = useState(0);
@@ -33,7 +32,7 @@ export default function LiveArtisanPanel({ onGridUpdate }: Props) {
 
   const running = job?.status === 'running';
   const curFrame = job?.frame || job?.latestFrame;
-  const phaseIdx = PHASES.indexOf(job?.phase ?? '');
+  const drafts = job?.gestures ?? 0;
   const mmss = `${String(Math.floor(elapsed / 60)).padStart(2, '0')}:${String(elapsed % 60).padStart(2, '0')}`;
 
   useEffect(() => {
@@ -111,26 +110,13 @@ export default function LiveArtisanPanel({ onGridUpdate }: Props) {
             {/* Status + phase progress + controls (the canvas itself is on the center easel) */}
             <div className="rounded-lg border border-border bg-background-tertiary p-2.5 space-y-2.5">
               <div className="flex items-center gap-1.5 text-[10px] text-text-secondary">
-                <span className="text-accent-purple">✦</span> Sculpting on the canvas →
-              </div>
-              {/* phase progress */}
-              <div className="flex items-center gap-1">
-                {PHASES.map((p, i) => {
-                  const done = i < phaseIdx || job?.status === 'done';
-                  const cur = i === phaseIdx && running;
-                  return (
-                    <div key={p} className="flex-1 flex flex-col items-center gap-0.5">
-                      <div className={`h-1 w-full rounded-full ${done ? 'bg-accent-green' : cur ? 'bg-primary animate-pulse' : 'bg-border'}`} />
-                      <span className={`text-[7px] uppercase tracking-wide ${cur ? 'text-primary' : 'text-text-muted'}`}>{p}</span>
-                    </div>
-                  );
-                })}
+                <span className="text-accent-purple">✦</span> Drawing on the canvas → look &amp; refine until it&apos;s right
               </div>
               <div className="flex items-center justify-between text-[9px] text-text-muted font-mono">
                 <span>
                   {running ? (
                     <span className="inline-flex items-center gap-1">
-                      <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" /> g{job?.gestures ?? 0} · {mmss}
+                      <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" /> {drafts ? `draft ${drafts}` : 'starting…'} · {mmss}
                     </span>
                   ) : job?.status === 'done' ? (
                     <span className="text-accent-green">✓ done · {job?.cells} cells · {job?.durationMs ? `${(job.durationMs / 1000).toFixed(0)}s` : ''}</span>
@@ -177,7 +163,7 @@ export default function LiveArtisanPanel({ onGridUpdate }: Props) {
       <div className="border-t border-border p-2.5 space-y-2 shrink-0">
         {size >= 48 && (
           <p className="text-[9px] text-accent-yellow leading-snug">
-            {size}² is finer but noticeably slower &amp; pricier — 16²–32² are quick &amp; cheap.
+            {size}² is finer and takes a bit longer — still a handful of drafts, a few minutes.
           </p>
         )}
         <div className="flex items-center gap-2 text-[9px]">

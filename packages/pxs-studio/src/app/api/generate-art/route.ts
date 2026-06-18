@@ -17,8 +17,14 @@ export const maxDuration = 800;
 // look at the render, and fix — keeping the best draft. Quality lives in the reasoning
 // (max effort), full-resolution design, and the see-and-fix loop. The shared loop lives in
 // lib/artisan-loop.ts (the immutable core); this route just adapts its emit events onto SSE.
-const DRAW_DRAFTS_SMALL = 2; // 16²/24²: draw → see → fix
-const DRAW_DRAFTS_LARGE = 3; // 32²: one more look-and-fix pass
+//
+// These are HARD CAPS on look-and-fix passes, not targets: the artist exits early the moment it
+// replies DONE at the 96% bar (so simple pieces stay cheap), but it now has ROOM to actually
+// REDESIGN a wrong silhouette across several passes — not just polish 2–3 times. The cap is also
+// the runaway guardrail: "no early DONE" can never spend past maxDrafts. Cost scales with passes
+// taken, not the cap (target ~$1–5 @32; measured in the Phase-2 A/B). See docs/PIXCEL-ART-ENGINE.md.
+const DRAW_DRAFTS_SMALL = 5; // 16²/24²: cap on look-and-fix passes (early DONE is the norm)
+const DRAW_DRAFTS_LARGE = 6; // 32²+: more room to redesign the silhouette, not just polish
 
 type Send = (obj: unknown) => void;
 

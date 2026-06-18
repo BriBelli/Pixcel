@@ -330,7 +330,7 @@ async function runArtisan(job: LiveJob, apiKey: string, resumeFrame?: PXSFrame):
       if (job.pendingFeedback && job.pendingFeedback.length) {
         const fb = job.pendingFeedback.join(' ');
         job.pendingFeedback = [];
-        const note = `\n\n⚡ LIVE FEEDBACK FROM THE USER — incorporate this now (it overrides earlier intent if it conflicts): ${fb}`;
+        const note = `\n\n⚡ LIVE FEEDBACK FROM THE USER — incorporate this now (it overrides earlier intent if it conflicts), then keep raising the WHOLE piece past it: it's a FLOOR to build on, not a box to tick: ${fb}`;
         const last = messages[messages.length - 1];
         if (last && last.role === 'user' && Array.isArray(last.content)) {
           (last.content as any[]).push({ type: 'text', text: note });
@@ -444,8 +444,8 @@ async function runArtisan(job: LiveJob, apiKey: string, resumeFrame?: PXSFrame):
         const text =
           `Stroke ${job.gestures}: applied ${applied} edit(s)${issues.length ? `; skipped — ${issues.join('; ')}` : ''}.\n` +
           `Canvas now (${canvas.cols}×${canvas.rows}). Exact char-map:\n${asciiView(canvas)}\n\n` +
-          `Now LOOK at the rendered image like a stranger seeing it cold. Name the SINGLE biggest flaw you actually SEE right now — silhouette doesn't read as the subject / a part is detached, mis-placed or the wrong size / it's a flat blob with no shadow+highlight / it's asymmetric / muddy or stray cells / a missing identity cue — then fix EXACTLY that with your next stroke (erase freely). ` +
-          `Reply DONE only when you genuinely cannot find a real flaw: a 3-year-old instantly names it, full figure, real form (shadow + highlight), clean and crisp.` +
+          `Now LOOK at the rendered image like a stranger seeing it cold, against your bar at this true scale. Name the SINGLE biggest flaw you actually SEE right now — silhouette doesn't read as the subject / a part is detached, mis-placed or the wrong size / it's a flat blob with no shadow+highlight / it's asymmetric / muddy or stray cells / a missing identity cue — then fix EXACTLY that with your next stroke (erase freely). You may judge a flagged item a deliberate choice and keep it — the render decides, not the argument. ` +
+          `Reply DONE only when it clears your 96% bar: a 3-year-old instantly names it, full figure, real form (shadow + highlight), clean and crisp — ship at the bar, don't chase 100% (better than perfect makes it worse).` +
           (overBudget ? `\n\nNOTE: you have used many strokes; converge and finish (reply DONE) soon.` : '');
 
         messages.push({

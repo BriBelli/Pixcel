@@ -179,7 +179,7 @@ export async function artistLoop(opts: LoopOpts): Promise<PXSFrame[]> {
     emit?.status?.('review', 'Looking at the render…');
     const feedback = emit?.drainFeedback?.();
     const fbLine = feedback
-      ? `\n\n⚡ LIVE FEEDBACK FROM THE USER — fold this in now (it overrides earlier intent if it conflicts): ${feedback}`
+      ? `\n\n⚡ LIVE FEEDBACK FROM THE USER — fold this in now (it overrides earlier intent if it conflicts), then keep raising the WHOLE piece past it: treat it as a FLOOR to build on, not a box to tick: ${feedback}`
       : '';
     messages.push({
       role: 'user',
@@ -190,8 +190,11 @@ export async function artistLoop(opts: LoopOpts): Promise<PXSFrame[]> {
           content: [
             { type: 'image', source: { type: 'base64', media_type: 'image/png', data: png } },
             {
+              // The 96% bar is the STOP CONDITION (kills both early-DONE and chasing-100%). Rigor is
+              // a STANDARD, not a quota; the ground-truth anchor (this render vs the bar at true
+              // scale) is the safety, not self-debate. See docs/PIXCEL-ART-ENGINE.md.
               type: 'text',
-              text: `Here is your rendered ${candidate.cols}x${candidate.rows} draft. Judge it honestly against the bar — instantly recognizable, full figure, crisp, clean? If genuinely production-ready, reply with the single word DONE and make no tool call. Otherwise call submit_art again, improving exactly what you see.${fbLine}`,
+              text: `Here is your rendered ${candidate.cols}x${candidate.rows} draft at true scale. Look at it cold, as a stranger seeing it for the first time, and compare it to your bar — the render is the ground truth, not your memory of what you intended. Try to name 3+ things that fall below 96%: silhouette/fit-to-size, a mis-sized or detached part, a flat blob with no shadow+highlight, off-center or dead space, stray/muddy cells, a missing identity cue. (If you genuinely can't find a real one, that's fine — don't invent flaws.) You may judge a flagged item a deliberate choice and KEEP it — the render at true scale decides, not the argument. Then either: reply DONE (single word, no tool call) once it clears 96% — ship at the bar, don't chase 100%; or call submit_art again with a COMPLETE, clearly-better version that raises the WHOLE piece, not just a patch of the one flaw.${fbLine}`,
             },
           ],
         },
@@ -201,7 +204,17 @@ export async function artistLoop(opts: LoopOpts): Promise<PXSFrame[]> {
   return valids;
 }
 
-/** Best-of-N: render all candidates, show them to an art director, return the chosen one. */
+/**
+ * KEEP-BEST regression guard (thesis principle 6 — "ship the best, never blindly the last"), NOT
+ * best-of-N. The drafts here are the artist's own SEQUENTIAL refinements of one piece, not N
+ * parallel independent attempts (that machinery is deliberately absent). A refine pass can regress;
+ * this picks the strongest draft so a regression is never shipped — tie-breaking toward the LAST
+ * draft, since the artist saw each render and refined toward its final, at-bar word.
+ *
+ * DECISION (flag for the Phase-2 A/B, not a silent change): kept because keep-best needs a chooser
+ * and this is one cheap call — but the persona-isolation / architecture A/B should confirm it earns
+ * its place vs simply shipping the artist's DONE draft. Drop it if it doesn't move hit-rate.
+ */
 export async function judgeBest(
   client: Anthropic,
   model: string,
@@ -219,7 +232,7 @@ export async function judgeBest(
   });
   content.push({
     type: 'text',
-    text: `Subject: "${prompt}". Pick the SINGLE best option. Judge by, in order: (1) instantly recognizable as the subject — the child test; (2) clean and well-formed silhouette. A simple, clean, clearly-recognizable version BEATS a more detailed but muddy or mis-shapen one. Do not reward extra detail if it makes the shape worse. Return its index in "best".`,
+    text: `Subject: "${prompt}". These options are the artist's SEQUENTIAL refinements of one piece, in order (the last is its final word). Pick the SINGLE best. Judge by, in order: (1) instantly recognizable as the subject — the child test; (2) clean and well-formed silhouette that fits the size. A simple, clean, clearly-recognizable version BEATS a more detailed but muddy or mis-shapen one; don't reward extra detail that makes the shape worse. When options are roughly equal, PREFER the later (more-refined) one. Return its index in "best".`,
   });
   try {
     const s = client.messages.stream({

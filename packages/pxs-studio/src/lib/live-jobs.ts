@@ -5,7 +5,7 @@ import os from 'os';
 import type { PXSFrame } from '../store/pxs-store';
 import { charMapToFrame, type CharMap } from './pxs-frame-schema';
 import { frameToPngBase64 } from './render-frame';
-import { DEFAULT_MODEL } from './artisan-loop';
+import { DEFAULT_MODEL, DRAW_EFFORT } from './artisan-loop';
 import {
   liveArtistSystemPrompt,
   liveArtistUserMessage,
@@ -25,8 +25,13 @@ import {
  * endpoint and watches each stroke land. Pause/cancel/resume/live-feedback wrap AROUND the core.
  */
 
-const EFFORT = 'medium'; // adaptive thinking auto-scales; eyes-open perception carries the load,
-                         // so per-stroke reasoning needn't be maxed (keeps many calls fast/cool).
+// FULL effort, never throttled — the painter reasons at the SAME depth I do when I author the
+// owl/16² by hand in Claude Code. Throttling per-stroke reasoning to "keep calls cool" was the
+// bug: it ships flaws it can't perceive deeply enough to catch (garbled mouths, stray cells) AND
+// it costs MORE, because shallow strokes flail → more strokes → more re-sent history. Maxed
+// reasoning converges in fewer, more decisive strokes: better AND cheaper. Reasoning is the craft,
+// not overhead (docs/AGENTIC-ARTISAN-THESIS.md, principle 3). Shared with the whole-frame route.
+const EFFORT = DRAW_EFFORT;
 const MAX_GESTURES = 120; // safety cap against a runaway loop; real pieces finish well under this.
 const BACKGROUND = '#0d1117';
 

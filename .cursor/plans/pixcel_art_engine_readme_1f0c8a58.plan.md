@@ -192,3 +192,16 @@ Because the bar itself **varies** (point 4: Opus isn't deterministically perfect
 ## Execution note
 
 Switching to Agent mode is required to create `docs/PIXCEL-ART-ENGINE.md` and the doc edits. The engine wiring (Deliverable 3) and the A/B (Deliverable 4) should each be confirmed before running, since they change generation behavior and spend API budget.
+
+### Phase-2 env setup (single source of the API key — already scaffolded)
+
+The key lives in **ONE** place: `packages/pxs-studio/.env.local` (copy from `.env.local.example`,
+already present; `.env.local` is gitignored via the root `.gitignore`). That single file serves both
+A/B consumers, so there is no second place to keep in sync and the secret never enters a script:
+- **Studio route** (`/api/generate-art`) — Next.js auto-loads `.env.local`; just run `npm run studio:dev`.
+- **Standalone A/B harness** — run it with native env-file loading (Node 20.16 in this repo):
+  `node --env-file=packages/pxs-studio/.env.local <harness-script>` (or `tsx --env-file=...`).
+  Do NOT hardcode or `echo` the key; read it only via `process.env.ANTHROPIC_API_KEY`
+  (the `@anthropic-ai/sdk` client picks it up automatically).
+
+Presence check that never prints the value: `echo ${ANTHROPIC_API_KEY:+set}` → prints `set` or blank.

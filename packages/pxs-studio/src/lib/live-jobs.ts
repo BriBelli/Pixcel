@@ -30,6 +30,18 @@ const EFFORT = 'medium'; // adaptive thinking auto-scales; eyes-open perception 
 const MAX_GESTURES = 120; // safety cap against a runaway loop; real pieces finish well under this.
 const BACKGROUND = '#0d1117';
 
+// Per-MTok USD pricing (input / output; cache_read is the cheap re-use of the cached prompt).
+// Thinking tokens bill as output. Used to show the user the REAL running cost — no more guessing.
+const PRICING: Record<string, { in: number; out: number; cacheRead: number }> = {
+  'claude-opus-4-8': { in: 15, out: 75, cacheRead: 1.5 },
+  'claude-sonnet-4-6': { in: 3, out: 15, cacheRead: 0.3 },
+  'claude-haiku-4-5': { in: 1, out: 5, cacheRead: 0.1 },
+};
+function costUsd(model: string, u: { input: number; output: number; cacheRead: number }): number {
+  const p = PRICING[model] ?? PRICING['claude-sonnet-4-6'];
+  return (u.input * p.in + u.output * p.out + u.cacheRead * p.cacheRead) / 1_000_000;
+}
+
 const SETUP_TOOL = {
   name: 'setup',
   description: 'Set up the canvas ONCE before painting: title, dimensions, and palette. Call this first.',
@@ -112,31 +124,24 @@ function frameToCanvas(frame: PXSFrame, title: string): Canvas {
 }
 
 /**
- * COST CONTROL: the artist only needs to SEE the CURRENT canvas. Before each call we strip the
- * render image from every PRIOR stroke's tool_result (the latest char-map fully encodes state),
- * keeping only the LATEST render in context. Eyes-open is preserved; input stops climbing.
+ * COST CONTROL via PROMPT CACHING. The conversation is append-only (stable prefix), so we put a
+ * rolling cache breakpoint on the last block each turn: the whole prior conversation is re-read
+ * from cache (~10× cheaper than fresh input) instead of re-billed at full price every stroke.
+ * This is the real cost lever — the input is dominated by re-sent history, and switching models
+ * doesn't help (a cheaper model just thinks more verbosely). Caching needs a BYTE-STABLE prefix,
+ * which is why we no longer rewrite/prune old messages. Returns a copy; never mutates state.
  */
-function pruneForSend(messages: Anthropic.MessageParam[]): Anthropic.MessageParam[] {
-  let lastImgIdx = -1;
-  messages.forEach((m, i) => {
-    if (m.role === 'user' && Array.isArray(m.content)) {
-      for (const block of m.content as any[]) {
-        if (block.type === 'tool_result' && Array.isArray(block.content) && block.content.some((b: any) => b.type === 'image')) lastImgIdx = i;
-      }
-    }
-  });
-  return messages.map((m, i) => {
-    if (i === lastImgIdx || m.role !== 'user' || !Array.isArray(m.content)) return m;
-    const content = (m.content as any[]).map((block: any) => {
-      if (block.type === 'tool_result' && Array.isArray(block.content)) {
-        const txt = block.content.find((b: any) => b.type === 'text');
-        const firstLine = txt ? String(txt.text).split('\n')[0] : 'canvas updated';
-        return { ...block, content: `${firstLine} [earlier render omitted — see current canvas below]` };
-      }
-      return block;
-    });
-    return { ...m, content } as Anthropic.MessageParam;
-  });
+function withCacheBreakpoint(messages: Anthropic.MessageParam[]): Anthropic.MessageParam[] {
+  if (!messages.length) return messages;
+  const out = messages.slice();
+  const last = out[out.length - 1];
+  if (last && Array.isArray(last.content) && last.content.length) {
+    const blocks = (last.content as any[]).map((b, i) =>
+      i === (last.content as any[]).length - 1 ? { ...b, cache_control: { type: 'ephemeral' } } : b
+    );
+    out[out.length - 1] = { ...last, content: blocks } as Anthropic.MessageParam;
+  }
+  return out;
 }
 
 /** Retry with backoff — long detached jobs must survive transient API/network errors. */
@@ -175,6 +180,9 @@ export interface LiveJob {
   palette?: string[];
   cells?: number;
   durationMs?: number;
+  tokensIn?: number; // running token + cost accounting so the user can SEE the price live
+  tokensOut?: number;
+  costUsd?: number;
   error?: string;
   startedAt: number;
   updatedAt: number;
@@ -280,6 +288,7 @@ async function runArtisan(job: LiveJob, apiKey: string, resumeFrame?: PXSFrame):
   try {
     const messages: Anthropic.MessageParam[] = [];
     let canvas: Canvas | null = null;
+    let accIn = 0, accCacheRead = 0, accOut = 0; // running token tally → live cost
 
     if (resumeFrame) {
       canvas = frameToCanvas(resumeFrame, job.title || prompt);
@@ -334,7 +343,7 @@ async function runArtisan(job: LiveJob, apiKey: string, resumeFrame?: PXSFrame):
         output_config: { effort: EFFORT },
         system: [{ type: 'text', text: liveArtistSystemPrompt, cache_control: { type: 'ephemeral' } }],
         tools: [SETUP_TOOL, { ...PAINT_TOOL, cache_control: { type: 'ephemeral' } }],
-        messages: pruneForSend(messages),
+        messages: withCacheBreakpoint(messages),
       };
       const msg = await withRetry(async () => {
         const s = client.messages.stream(params as any);
@@ -348,6 +357,15 @@ async function runArtisan(job: LiveJob, apiKey: string, resumeFrame?: PXSFrame):
         return s.finalMessage();
       });
       messages.push({ role: 'assistant', content: msg.content });
+
+      // Running cost — accumulate token usage so the user can SEE the price as it climbs.
+      const u: any = (msg as any).usage || {};
+      accIn += (u.input_tokens || 0) + (u.cache_creation_input_tokens || 0);
+      accCacheRead += u.cache_read_input_tokens || 0;
+      accOut += u.output_tokens || 0;
+      job.tokensIn = accIn + accCacheRead;
+      job.tokensOut = accOut;
+      job.costUsd = costUsd(model, { input: accIn, output: accOut, cacheRead: accCacheRead });
 
       const tool = msg.content.find((b): b is Anthropic.ToolUseBlock => b.type === 'tool_use');
 
@@ -421,7 +439,8 @@ async function runArtisan(job: LiveJob, apiKey: string, resumeFrame?: PXSFrame):
         const text =
           `Stroke ${job.gestures}: applied ${applied} edit(s)${issues.length ? `; skipped — ${issues.join('; ')}` : ''}.\n` +
           `Canvas now (${canvas.cols}×${canvas.rows}). Exact char-map:\n${asciiView(canvas)}\n\n` +
-          `LOOK at the rendered image. Keep painting (block loosely → refine → erase misses). When it's genuinely production-ready, reply DONE.` +
+          `Now LOOK at the rendered image like a stranger seeing it cold. Name the SINGLE biggest flaw you actually SEE right now — silhouette doesn't read as the subject / a part is detached, mis-placed or the wrong size / it's a flat blob with no shadow+highlight / it's asymmetric / muddy or stray cells / a missing identity cue — then fix EXACTLY that with your next stroke (erase freely). ` +
+          `Reply DONE only when you genuinely cannot find a real flaw: a 3-year-old instantly names it, full figure, real form (shadow + highlight), clean and crisp.` +
           (overBudget ? `\n\nNOTE: you have used many strokes; converge and finish (reply DONE) soon.` : '');
 
         messages.push({

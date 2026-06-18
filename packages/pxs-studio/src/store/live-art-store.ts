@@ -33,6 +33,9 @@ export interface LiveJob {
   title?: string;
   cells?: number;
   durationMs?: number;
+  tokensIn?: number;
+  tokensOut?: number;
+  costUsd?: number;
   error?: string;
 }
 

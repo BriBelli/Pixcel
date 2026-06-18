@@ -116,10 +116,10 @@ export default function LiveArtisanPanel({ onGridUpdate }: Props) {
                 <span>
                   {running ? (
                     <span className="inline-flex items-center gap-1">
-                      <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" /> {strokes ? `stroke ${strokes}` : 'starting…'} · {mmss}
+                      <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" /> {strokes ? `stroke ${strokes}` : 'starting…'} · {mmss}{job?.costUsd ? ` · $${job.costUsd.toFixed(2)}` : ''}
                     </span>
                   ) : job?.status === 'done' ? (
-                    <span className="text-accent-green">✓ done · {job?.cells} cells · {job?.durationMs ? `${(job.durationMs / 1000).toFixed(0)}s` : ''}</span>
+                    <span className="text-accent-green">✓ done · {job?.cells} cells · {job?.durationMs ? `${(job.durationMs / 1000).toFixed(0)}s` : ''}{job?.costUsd ? ` · $${job.costUsd.toFixed(2)}` : ''}</span>
                   ) : job?.status === 'paused' ? (
                     <span className="text-accent-yellow">⏸ paused</span>
                   ) : (

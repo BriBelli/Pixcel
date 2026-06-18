@@ -105,7 +105,7 @@ export async function GET(req: Request) {
           // and the client keeps the last frame. Keeps the stream cheap.
           const f = job.latestFrame;
           const fsig = f ? `${f.cols}x${f.rows}:${f.cells.length}:${f.cells.reduce((h, c) => (h * 31 + c.x + c.y + c.color.charCodeAt(1)) | 0, 0)}` : 'none';
-          const metaSig = `${job.status}|${job.phase}|${job.gestures}|${job.statusMessage}|${job.liveThinking.length}|${job.feed.length}`;
+          const metaSig = `${job.status}|${job.phase}|${job.gestures}|${job.statusMessage}|${job.liveThinking.length}|${job.feed.length}|${job.costUsd ?? 0}`;
           const sig = `${metaSig}|${fsig}`;
           if (sig !== lastSig) {
             const frameChanged = lastSig.split('|').pop() !== fsig;

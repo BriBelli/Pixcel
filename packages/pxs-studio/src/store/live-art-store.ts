@@ -9,8 +9,8 @@ import { toastManager } from '../components/Toast';
 /**
  * LIVE ART STORE — owns the live-artisan job lifecycle on the client so the running piece can
  * be shown on the MAIN canvas (center easel) while the right panel is just controls + chat.
- * Polling lives here (not in a component), so the drawing keeps updating even if the panel is
- * closed or switched to Quick mode.
+ * The streaming tail lives here (not in a component), so the drawing keeps updating even if the
+ * panel is closed or switched to Quick mode.
  */
 
 export interface LiveFeedItem {
@@ -97,35 +97,72 @@ export const useLiveArtStore = create<LiveArtState>((set, get) => {
     }
   }
 
-  async function poll(id: string) {
+  /** Push one job snapshot to the store + the center easel. */
+  function applyJob(jIn: LiveJob) {
+    // The tail omits the heavy frame on metadata-only ticks (e.g. while thinking) — keep the last.
+    const prev = get().job;
+    const j: LiveJob = jIn.latestFrame ? jIn : { ...jIn, latestFrame: prev?.latestFrame };
+    set({ job: j });
+    const f = j.latestFrame || j.frame || null;
+    useCenterStage.getState().set({
+      active: true,
+      mode: 'sculpt',
+      frame: f,
+      status: j.status,
+      phase: j.phase,
+      gestures: j.gestures,
+      shimmer: !f,
+      label: j.status === 'done' ? 'done' : j.gestures ? `draft ${j.gestures}` : (j.statusMessage || 'drawing…'),
+      thinking: j.liveThinking || '',
+      feed: j.feed || [],
+    });
+  }
+
+  /**
+   * Tail the detached job over a single streaming connection (SSE-style ndjson). The server
+   * pushes a snapshot whenever the job changes — including the partial frame painted ROW BY ROW
+   * as the model writes the char-map, so the easel shows a real live scan-line reveal. The job
+   * runs detached, so closing this stream never stops it; we just reconnect to catch up.
+   */
+  async function streamTail(id: string) {
     if (get().jobId !== id) return;
     try {
-      const r = await fetch(`/api/live-art?id=${id}`);
-      const j: LiveJob = await r.json();
-      if (get().jobId !== id) return;
-      set({ job: j });
-      const f = j.latestFrame || j.frame || null;
-      useCenterStage.getState().set({
-        active: true,
-        mode: 'sculpt',
-        frame: f,
-        status: j.status,
-        phase: j.phase,
-        gestures: j.gestures,
-        shimmer: !f,
-        label: j.status === 'done' ? 'done' : j.gestures ? `draft ${j.gestures}` : (j.statusMessage || 'drawing…'),
-        thinking: j.liveThinking || '',
-        feed: j.feed || [],
-      });
-      if (j.status === 'done') {
-        await finalize(id);
-        return;
+      const res = await fetch(`/api/live-art?id=${id}&stream=1`);
+      if (!res.body) throw new Error('no stream body');
+      const reader = res.body.getReader();
+      const dec = new TextDecoder();
+      let buf = '';
+      while (true) {
+        const { value, done } = await reader.read();
+        if (done) break;
+        buf += dec.decode(value, { stream: true });
+        const lines = buf.split('\n');
+        buf = lines.pop() || '';
+        for (const line of lines) {
+          if (!line.trim()) continue;
+          let j: LiveJob & { error?: string };
+          try {
+            j = JSON.parse(line);
+          } catch {
+            continue;
+          }
+          if (get().jobId !== id) return; // user moved on
+          if ((j as any).error) continue;
+          applyJob(j);
+          if (j.status === 'done') {
+            await finalize(id);
+            return;
+          }
+          if (j.status === 'error' || j.status === 'paused' || j.status === 'cancelled') return;
+        }
       }
-      if (j.status === 'error' || j.status === 'paused' || j.status === 'cancelled') return;
     } catch {
-      /* transient */
+      /* stream dropped — reconnect below */
     }
-    setTimeout(() => poll(id), 2000);
+    // Ended without a terminal status (server restart / dropped connection): reconnect to catch up.
+    if (get().jobId === id && (get().job?.status ?? 'running') === 'running') {
+      setTimeout(() => streamTail(id), 1000);
+    }
   }
 
   return {
@@ -138,7 +175,7 @@ export const useLiveArtStore = create<LiveArtState>((set, get) => {
         savedFor = null;
         set({ jobId: j.jobId, job: null, startedAt: Date.now() });
         useCenterStage.getState().set({ active: true, mode: 'sculpt', frame: null, status: 'running', shimmer: true, label: 'setting up…' });
-        poll(j.jobId);
+        streamTail(j.jobId);
       } else {
         toastManager.error(j.error || 'Could not start the artist');
       }
@@ -150,7 +187,7 @@ export const useLiveArtStore = create<LiveArtState>((set, get) => {
       if (j.jobId) {
         savedFor = null;
         set({ jobId: j.jobId, startedAt: Date.now() });
-        poll(j.jobId);
+        streamTail(j.jobId);
         toastManager.success('Resuming where it left off');
       } else {
         toastManager.error(j.error || 'Could not resume');

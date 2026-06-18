@@ -63,6 +63,12 @@ async function withRetry<T>(fn: () => Promise<T>, tries = 4): Promise<T> {
 export interface ArtisanEmit {
   status?: (phase: string, message: string) => void;
   thinking?: (delta: string) => void;
+  /**
+   * A PARTIAL frame, emitted ROW BY ROW as the model literally writes the char-map. This is the
+   * real "watch it paint" signal — the actual generation stream, not a synthetic interpolation.
+   * Fires once per new grid row during a draft; the consumer paints exactly what has arrived.
+   */
+  partial?: (n: number, frame: PXSFrame) => void;
   iteration?: (n: number, frame: PXSFrame) => void;
   shouldStop?: () => boolean;
   /** Optional extra text appended to the next look-and-fix turn (e.g. live user feedback). */
@@ -110,6 +116,29 @@ export async function artistLoop(opts: LoopOpts): Promise<PXSFrame[]> {
       if (emit?.thinking) {
         (s as any).on('thinking', (d: string) => emit.thinking!(d));
         s.on('text', (d) => emit.thinking!(d));
+      }
+      // Paint the char-map LIVE: as the model streams the submit_art tool input, the grid rows
+      // arrive one at a time. Build a partial frame from the accumulating JSON snapshot and emit
+      // it whenever a new row lands — a real row-by-row reveal from the actual generation.
+      if (emit?.partial) {
+        let lastRows = -1;
+        s.on('inputJson', (_partial, snap: any) => {
+          if (!snap || typeof snap.cols !== 'number' || typeof snap.rows !== 'number') return;
+          const rowsSoFar = Array.isArray(snap.grid) ? snap.grid.length : 0;
+          if (rowsSoFar === lastRows) return; // only on a NEW row, not every char
+          lastRows = rowsSoFar;
+          try {
+            emit.partial!(draftN, charMapToFrame({
+              cols: snap.cols,
+              rows: snap.rows,
+              palette: snap.palette && typeof snap.palette === 'object' ? snap.palette : {},
+              grid: Array.isArray(snap.grid) ? snap.grid : [],
+              title: typeof snap.title === 'string' ? snap.title : undefined,
+            }));
+          } catch {
+            /* partial JSON mid-row — skip this tick */
+          }
+        });
       }
       return s.finalMessage();
     });

@@ -212,6 +212,14 @@ async function runArtisan(job: LiveJob, apiKey: string, resumeFrame?: PXSFrame):
           job.statusMessage = message;
           touch();
         },
+        partial: (n, frame) => {
+          // Live row-by-row paint: update the current frame in memory only (no disk churn — this
+          // fires per row). The SSE tail streams it to the browser, which paints what's arrived.
+          job.latestFrame = frame;
+          job.gestures = n + 1;
+          job.phase = 'draw';
+          job.updatedAt = Date.now();
+        },
         iteration: (n, frame) => {
           job.gestures = n + 1;
           job.latestFrame = frame;

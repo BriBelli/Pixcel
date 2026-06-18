@@ -15,7 +15,7 @@ function hexToRgb(hex: string): [number, number, number] {
  * vision. Each cell is scaled to a chunky block (~targetPx on the long edge) so
  * the render reads like a human looking at the piece, not a sub-pixel smear.
  */
-export function frameToPngBase64(frame: PXSFrame, targetPx = 384): string {
+export function frameToPngBase64(frame: PXSFrame, targetPx = 512): string {
   const scale = Math.max(6, Math.floor(targetPx / Math.max(frame.cols, frame.rows)));
   const width = frame.cols * scale;
   const height = frame.rows * scale;

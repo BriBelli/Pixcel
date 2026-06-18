@@ -25,6 +25,7 @@ import appleLive16 from './apple-live-16.json';
 import dragonLive48 from './dragon-live-48.json';
 import owlLive32 from './owl-live-32.json';
 import dragonLive48b from './dragon-live-48b.json';
+import trexClaudeCode32 from './trex-claudecode-32.json';
 
 export type { GalleryEntry };
 
@@ -278,6 +279,17 @@ export const GALLERY_ENTRIES: GalleryEntry[] = [
     promptBy: 'human',
     composedBy: 'ai-composer',
     frame: dragonLive48b as PXSFrame,
+    builtin: true,
+    model: 'claude-opus-4-8',
+  },
+  {
+    id: 'trex-claudecode-32',
+    title: 'T-Rex (Claude Code)',
+    prompt:
+      'a T-rex — hand-authored by Claude Code via the eyes-open artisan loop at full reasoning (5 drafts, 32²). The quality bar the in-app engine targets.',
+    promptBy: 'human',
+    composedBy: 'human',
+    frame: trexClaudeCode32 as PXSFrame,
     builtin: true,
     model: 'claude-opus-4-8',
   },

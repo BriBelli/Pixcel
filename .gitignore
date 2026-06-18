@@ -50,3 +50,10 @@ coverage/
 # Misc
 *.tgz
 .cache/
+
+# Pixcel A/B harness (dev scratch — not product)
+packages/pxs-studio/ab-harness.mjs
+packages/pxs-studio/ab-bundle.mjs
+packages/pxs-studio/ab-old-bundle.mjs
+packages/pxs-studio/ab-bundle-entry.ts
+packages/pxs-studio/ab-results/

@@ -119,12 +119,22 @@ forever.
 
 **Implementation note (proven levers vs voice).** TRUST as proven (don't re-litigate): full effort,
 true-scale perception, the anchored 96% bar, redesign-permission, enough passes, no exemplars.
-TREAT as plausible-but-unproven **voice**: the persona/confidence/keep-choice bundle — validate it
-in the A/B (one arm with it, one without), don't enshrine it. And **distill, don't paste:** this
-doc is the canon for *humans*; the system prompt must be a **tight distilled persona paragraph + a
-pointer to the rubric**, never a verbatim dump of these directives (stacking the full,
-partly-tensioned canon dilutes the proven levers and balloons per-turn cost — the exact thing the
-method kills).
+
+> **A/B RESULT (2026-06-18) — the persona VOICE was retired.** The persona-isolation A/B (whole-frame
+> arm WITH the persona paragraph vs WITHOUT it, t-rex + owl @ N=3, independent juror) found
+> persona-**OFF** *beat* persona-**ON**: 6/6 vs 5/6 hit-rate, owl 3/3 vs 2/3, and cheaper per piece.
+> The voice carried the burden of proof and earned nothing, so it is **no longer composed into the
+> system prompt** (`ARTIST_PERSONA` is kept defined but unused — see `ai-art-system-prompt.ts`). The
+> on-thesis win belongs to the **proven levers**, not the decoration. Caveat: both subjects are
+> silhouettes the model already knows, so this under-tests *redesign escaping a wrong shape* — the
+> finding is being re-checked at **N=5 on a hard subject** (one the model gets wrong on draft 1)
+> before it's universal. The 96% bar / redesign / keep-best levers the persona used to bundle live on
+> in METHOD + the turn prompts, untouched.
+
+And **distill, don't paste:** this doc is the canon for *humans*; the system prompt must be a **tight
+distilled set of levers + a pointer to the rubric**, never a verbatim dump of these directives
+(stacking the full, partly-tensioned canon dilutes the proven levers and balloons per-turn cost —
+the exact thing the method kills).
 
 ---
 
@@ -217,32 +227,40 @@ target the in-app engine must reliably match, no references.
   flattering-thumbnail bug) is in place.
 - Keep-best across drafts makes iteration free option value.
 - Whole-frame REDRAW escapes a wrong silhouette — *demonstrated* in hand-authoring (the 9-draft
-  Claude-Code t-rex); whether the *in-app engine* reliably does it is exactly what the A/B confirms.
+  Claude-Code t-rex). The Phase-2 A/B showed the in-app engine reaches the bar on *known* shapes
+  (t-rex/owl) across all arms; whether REDRAW reliably escapes a *wrong draft-1* silhouette awaits
+  the N=5 hard-subject run (see below).
 
-**Wired / to wire (the finite, known work — Phase 1, gated on owner go):**
+**Wired (Phase 1 — DONE):**
 
-- Raise `DRAW_DRAFTS_SMALL`/`_LARGE` (currently 2/3) toward 5/6 *until DONE, hard-capped*, so the
-  loop can actually redesign, not just polish.
-- Lead the METHOD block with a **distilled** Artist Persona (a tight paragraph + a rubric pointer —
-  never a verbatim paste).
-- Rewrite the look-and-fix turn around the **96% bar as the stop condition** (no early DONE, no
-  chasing 100%) + redesign-permission + the single-line keep-an-intentional-choice permission;
-  mirror in the per-stroke turn.
-- Fold the rubric **principles** (no exemplars) into the shared METHOD block.
-- Encode **feedback-is-a-floor** in the critic prompt and the live-feedback handler.
-- Decide whether to drop best-of-N from the Quick route (keep-best already prevents regressions).
+- Draft caps raised `2/3 → 5/6` (hard caps; early DONE is the norm) so the loop can redesign, not
+  just polish.
+- The look-and-fix turn (Quick) and per-stroke turn (Live) rewritten around the **96% bar as the
+  stop condition** + redesign-permission + the single-line keep-an-intentional-choice permission.
+- Rubric **principles** folded into the shared METHOD block (no exemplars).
+- **feedback-is-a-floor** encoded in the critic prompt and the live-feedback handler.
+- best-of-N reframed as a keep-best **regression guard** that runs *only* on the cap path; the
+  artist's at-bar DONE ships directly.
+- The distilled Artist Persona was wired, then **retired by the A/B** (see below) — `ARTIST_PERSONA`
+  is kept defined but no longer composed into the prompt.
 
-**The one experiment that settles it (Phase 2, gated on owner go + `ANTHROPIC_API_KEY` + a hard
-draft cap):** an in-app A/B that measures **hit-rate across N=3–5 samples** per subject per arm
-(Opus is *not* deterministically perfect — the bar itself varies, so a single shot proves nothing).
-Subjects: t-rex + owl @32 vs the saved bars (optionally dragon @48). Arms include
-whole-frame-many-drafts **vs** per-stroke (settles the architecture question) and
-**persona-isolation** (the proven-lever arm WITH vs WITHOUT the persona/confidence/keep-choice
-voice — validate the voice, don't enshrine it). The pass/fail-vs-bar verdict **must** come from an
-evaluator **independent of the generator** (the human, or a fresh-context call comparing to the
-reference at true scale) — the generating model grading itself re-imports the leniency bug at the
-eval layer. Record drafts, **$/generation**, and a true-scale pass/fail; report **hit-rate** and
-the **cost distribution**, then keep the arm with the best hit-rate at acceptable cost.
+**Phase 2 A/B — RUN (2026-06-18, $21.94, 24 generations).** 4 arms × {t-rex, owl} @32 × N=3, scored
+by an **independent fresh-context juror** anchored to the saved bars (never the generator). Headline
+results:
+
+- **Cut the persona voice.** persona-OFF beat persona-ON (6/6 vs 5/6; owl 3/3 vs 2/3; cheaper).
+  Done — see above.
+- **Two loops, one method, confirmed.** Per-stroke (eyes-open) cleared the harder owl silhouette
+  3/3 at ~$2.4/owl and produced the most characterful t-rexes → **Live = per-stroke**;
+  **Quick = whole-frame, persona-off**.
+- **"New wiring vs old" is under-tested, not settled.** t-rex and owl are both shapes the model
+  already knows, so redesign-escaping-a-wrong-silhouette never got exercised; new edged old only
+  marginally and cost more. Don't enshrine "marginal."
+- **Open follow-up — the real exam:** an **N=5 run on a hard subject** (one the model gets wrong on
+  draft 1) is what would actually separate new-vs-old and re-confirm the persona cut universally.
+  The juror was also upgraded to score the full 0–100 + an explicit `vsReference` (worse/matches/
+  beats) so it can rank a piece *above* the bar — the old "96 = clears" prompt had a ceiling artifact.
+  (Harness is dev-scratch, gitignored.)
 
 **Later milestone (out of scope here):** fine-tuning on these sessions — they are the trajectory
 data for an eventual own-model. No changes to the pxs-core renderer selection or data model are in

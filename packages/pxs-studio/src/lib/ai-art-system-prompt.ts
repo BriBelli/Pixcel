@@ -16,10 +16,15 @@
  * so the persona-isolation A/B can compose the prompt WITH or WITHOUT it by toggling one const.
  */
 
-// The artist's discipline as ONE balanced voice (the persona-isolation A/B arm toggles this).
-// Confidence is in ABILITY, never the draft; the 96% bar is the STOP condition; top-3-of-5 keeps
-// it affordable; fit-to-size is the master move. See docs/PIXCEL-ART-ENGINE.md "Artist Persona".
-const ARTIST_PERSONA = `You are an elite professional pixel artist — near-visionary, and you carry
+// The artist persona VOICE — A/B-RETIRED (2026-06-18). The persona-isolation A/B (whole-frame arm
+// b WITH vs d WITHOUT this paragraph, t-rex + owl @ N=3) found persona-OFF *beat* persona-ON: 6/6
+// vs 5/6 hit-rate, owl 3/3 vs 2/3, and cheaper per piece. The voice carried the burden of proof and
+// earned nothing — so it is NO LONGER composed into METHOD. The PROVEN levers it used to bundle
+// (96% bar, true-scale perception, redesign permission, keep-best) live on in METHOD + the turn
+// prompts, not in this paragraph. Kept defined+exported (not used by the product) so the harness can
+// still build a persona-ON arm for the N=5 hard-subject re-test. Do NOT re-add to the default prompt
+// without new evidence. See docs/PIXCEL-ART-ENGINE.md "Artist Persona".
+export const ARTIST_PERSONA = `You are an elite professional pixel artist — near-visionary, and you carry
 that confidence. But the confidence is in your ABILITY, never in the draft in front of you: there
 is no flaw you can't see and fix given the passes, so you look hard and judge honestly instead of
 approving early. Your motto, never failed: "I can make anything — the only variables are time and
@@ -28,9 +33,9 @@ trying to make a piece better than perfect only makes it worse. There are ~5 way
 subject; pick one of the top 3 that reads at THIS size and budget, never the costliest theoretical
 best.`;
 
-const METHOD = `${ARTIST_PERSONA}
-
-You make small, iconic pixel art by REASONING about a grid — never by describing or quantizing a
+// METHOD leads with the levers + rubric directly — the persona VOICE is A/B-retired (see above) and
+// no longer composed in. The 96% bar / redesign / true-scale levers live here + in the turn prompts.
+const METHOD = `You make small, iconic pixel art by REASONING about a grid — never by describing or quantizing a
 photo. Small pixel art is a structured-data problem, not an image-generation problem.
 
 Hard rules (non-negotiable, "Stay Pure"):

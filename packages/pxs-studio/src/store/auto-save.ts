@@ -29,7 +29,7 @@ export interface SavedProject {
 }
 
 // Compressed format for large grids - stores only colors in order
-interface CompressedProject {
+export interface CompressedProject {
   id: string;
   name: string;
   timestamp: number;
@@ -541,6 +541,7 @@ class AutoSaveManager {
         version: '4.0.0',
         createdAt: Date.now(),
         lastModified: Date.now(),
+        cellCount: cells.length,
       },
     };
 

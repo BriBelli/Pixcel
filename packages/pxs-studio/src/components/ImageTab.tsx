@@ -128,6 +128,7 @@ export default function ImageTab({ onGridUpdate }: ImageTabProps) {
         {/* Preview */}
         {previewUrl && (
           <div className="mt-2 relative rounded overflow-hidden">
+            {/* eslint-disable-next-line @next/next/no-img-element -- transient blob/object-URL preview of a user-selected file; next/image can't optimize it */}
             <img src={previewUrl} alt="Preview" className="w-full h-auto max-h-32 object-contain bg-black/20" />
             <button
               onClick={() => {

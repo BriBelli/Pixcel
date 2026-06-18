@@ -28,7 +28,7 @@
     "lint": {
       "executor": "nx:run-commands",
       "options": {
-        "command": "next lint",
+        "command": "eslint \"src/**/*.{ts,tsx,js,jsx}\" --max-warnings=0",
         "cwd": "packages/pxs-studio"
       }
     }

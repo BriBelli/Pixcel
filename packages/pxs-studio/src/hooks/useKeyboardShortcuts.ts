@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useCallback } from 'react';
+import { useEffect, useCallback, useRef } from 'react';
 import { usePXSStore } from '../store/pxs-store';
 import { useHistoryManager } from './useHistoryManager';
 import { useAutoSave } from './useAutoSave';
@@ -197,6 +197,11 @@ export function useKeyboardShortcuts() {
   ];
 
   // Handle keyboard events
+  // Keep the latest shortcuts in a ref so the keydown handler stays STABLE (no listener churn
+  // on every render) while always seeing the current action closures (store/history values).
+  const shortcutsRef = useRef(shortcuts);
+  shortcutsRef.current = shortcuts;
+
   const handleKeyDown = useCallback(
     (event: KeyboardEvent) => {
       // Don't trigger shortcuts when typing in input fields
@@ -208,7 +213,7 @@ export function useKeyboardShortcuts() {
         return;
       }
 
-      const matchedShortcut = shortcuts.find((shortcut) => {
+      const matchedShortcut = shortcutsRef.current.find((shortcut) => {
         const keyMatch = event.key.toLowerCase() === shortcut.key.toLowerCase() ||
                         event.key === shortcut.key;
         const ctrlMatch = shortcut.ctrl ? (event.ctrlKey || event.metaKey) : !(event.ctrlKey || event.metaKey);
@@ -223,7 +228,7 @@ export function useKeyboardShortcuts() {
         matchedShortcut.action();
       }
     },
-    [shortcuts]
+    []
   );
 
   // Register keyboard listener

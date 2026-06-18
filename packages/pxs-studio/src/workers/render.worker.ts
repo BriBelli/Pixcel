@@ -24,7 +24,10 @@ self.addEventListener('message', (e: MessageEvent) => {
 
   if (type === 'init') {
     try {
-      canvas = e.data.canvas;
+      canvas = e.data.canvas as OffscreenCanvas | null;
+      if (!canvas) {
+        throw new Error('No OffscreenCanvas provided to render worker');
+      }
       ctx = canvas.getContext('2d', {
         alpha: false,
         desynchronized: true,

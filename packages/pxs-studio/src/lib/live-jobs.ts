@@ -38,7 +38,7 @@ const BACKGROUND = '#0d1117';
 // Per-MTok USD pricing (input / output; cache_read is the cheap re-use of the cached prompt).
 // Thinking tokens bill as output. Used to show the user the REAL running cost — no more guessing.
 const PRICING: Record<string, { in: number; out: number; cacheRead: number }> = {
-  'claude-opus-4-8': { in: 15, out: 75, cacheRead: 1.5 },
+  'claude-opus-4-8': { in: 5, out: 25, cacheRead: 0.5 },
   'claude-sonnet-4-6': { in: 3, out: 15, cacheRead: 0.3 },
   'claude-haiku-4-5': { in: 1, out: 5, cacheRead: 0.1 },
 };

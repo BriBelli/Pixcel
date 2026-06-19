@@ -1,0 +1,67 @@
+{
+  "subject": "an owl",
+  "size": 32,
+  "model": "claude-opus-4-8",
+  "passes": [
+    {
+      "pass": 1,
+      "note": "block whole owl silhouette",
+      "applied": 288,
+      "costSoFar": 0.161
+    },
+    {
+      "pass": 2,
+      "note": "far-side shadow + chest highlight",
+      "applied": 82,
+      "costSoFar": 0.281
+    },
+    {
+      "pass": 3,
+      "note": "eyes, pupils, beak, feet",
+      "applied": 61,
+      "costSoFar": 0.356
+    },
+    {
+      "pass": 4,
+      "note": "eye highlights for life",
+      "applied": 2,
+      "costSoFar": 0.391
+    },
+    {
+      "pass": 5,
+      "note": "branch perch, talons, belly speckles, wing contour",
+      "applied": 75,
+      "costSoFar": 0.569
+    },
+    {
+      "pass": 6,
+      "note": "split into two taloned feet gripping branch",
+      "applied": 8,
+      "costSoFar": 0.651
+    }
+  ],
+  "audits": [
+    {
+      "afterPass": 4,
+      "approved": false,
+      "issues": [
+        "No perch/branch grounding the figure — owl floats with feet dangling, unlike reference's deliberate composition",
+        "Belly lacks the speckled feather detail/texture present in the reference, reading as a flat blob",
+        "Body shading is flatter — missing the darker wing-edge contouring and form modeling of the reference",
+        "Feet are tiny, simplistic stubs lacking the defined talon shape of the reference",
+        "Slightly off-center/asymmetric placement of facial features and ear tufts"
+      ]
+    },
+    {
+      "afterPass": 6,
+      "approved": true,
+      "issues": []
+    }
+  ],
+  "final": {
+    "title": "Owl",
+    "passes": 6,
+    "audits": 1,
+    "costUsd": 0.688
+  }
+}

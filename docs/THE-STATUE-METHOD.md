@@ -14,13 +14,21 @@ interactive — later).
 
 ## The phases (sculpting the statue)
 
-1. **SHAPE** — rough out the whole block. Step back, refine, repeat until the BASIC SHAPE / silhouette
-   reads. *(← Milestone 1 lands exactly here.)*
+1. **SHAPE** — rough out the whole block: silhouette, masses, form (base/shadow/highlight). Step
+   back, refine, repeat until the BASIC SHAPE reads. **Defer the fine DETAILS** — do *not* detail the
+   eye while the head is still being shaped. *(← Milestone 1 lands here.)*
 2. **LOCK + PROGRESS** — isolate the approved shapes, **lock them down**, progressively shape the
    whole block, refine. Approved shapes are not re-shaped.
 3. **ELEMENT REFINE** — the isolated, identity-defining elements refined more and more.
-4. **POLISH** — once the whole design is shaped + refined (but not polished): the icing. Crisp
-   highlights, clean edges. **NO going backwards (no reshaping).** The fun, easy part.
+4. **POLISH = COMPLETE the intended look** (NOT merely "shine"/icing; "micro-detail" / "refinement"
+   also fit). **It is strictly ON TOP of the locked shape — additive, NOT a re-evaluation of the
+   form.** You LOVE the shape now; you do *not* second-guess the silhouette — you **"look INWARD"** and
+   add the deliberately-deferred fine **DETAILS**: the eyes done properly, hair / feathers / clothing /
+   texture, every identity-completing touch you do *not* do while the masses are being shaped.
+   **NO reshaping the locked masses; the auditor ACCEPTS the shape and judges only the interior detail
+   work added on top** (this is what kills the oscillation). After *every* detail-touch, run a **LOCAL
+   steamroller on that exact spot** (re-look, fix that location) before moving on. The form is done;
+   this is the satisfying part — you complete and finesse the details.
 5. **QA — the steamroller** — final meticulous inspection, **top-to-bottom, left-to-right**, like
    inspecting a finished car. Catch every miss → fix by **MICRO refinement/polish only (NO
    reshaping).** A QA finding may trigger a small **recall** (touch-up / patch / adjustment) →

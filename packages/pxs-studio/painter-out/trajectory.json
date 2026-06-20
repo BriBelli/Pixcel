@@ -5,63 +5,64 @@
   "passes": [
     {
       "pass": 1,
-      "note": "block whole owl silhouette",
-      "applied": 288,
-      "costSoFar": 0.161
+      "note": "block egg-shaped body + ear tufts",
+      "applied": 498,
+      "costSoFar": 0.339
     },
     {
       "pass": 2,
-      "note": "far-side shadow + chest highlight",
-      "applied": 82,
-      "costSoFar": 0.281
+      "note": "cream facial discs + belly, dark wings, branch, feet, connect tufts",
+      "applied": 275,
+      "costSoFar": 0.596
     },
     {
       "pass": 3,
-      "note": "eyes, pupils, beak, feet",
-      "applied": 61,
-      "costSoFar": 0.356
+      "note": "eyes with pupils, beak, belly flecks, fix feet",
+      "applied": 109,
+      "costSoFar": 0.775
     },
     {
       "pass": 4,
-      "note": "eye highlights for life",
-      "applied": 2,
-      "costSoFar": 0.391
+      "note": "split feet into two, add toe grip on branch",
+      "applied": 6,
+      "costSoFar": 0.848
     },
     {
       "pass": 5,
-      "note": "branch perch, talons, belly speckles, wing contour",
-      "applied": 75,
-      "costSoFar": 0.569
-    },
-    {
-      "pass": 6,
-      "note": "split into two taloned feet gripping branch",
-      "applied": 8,
-      "costSoFar": 0.651
+      "note": "clean belly into tidy symmetric V-flecks",
+      "applied": 24,
+      "costSoFar": 0.959
     }
   ],
+  "spec": "# Pixcel \"Owl\" — Committed Design Brief\n\n**Subject:** A round, front-facing owl perched, full body filling the canvas, grounded on a branch.\n\n**Pose/Composition:** Symmetrical, plump egg-shaped body, head merged into body (no neck). Two big eyes dominate the upper half. Tiny feet grip a horizontal branch at bottom row. Two ear tufts poke up at top corners.\n\n**Silhouette:** Wide rounded dome top with two pointed ear-tufts; bulging body tapering slightly to feet. Instantly \"owl\" by the two tufts + giant eyes.\n\n**Palette (5 colors):**\n- **Warm Brown (#8A5A2B)** — base body/feathers.\n- **Dark Brown (#4A2F18)** — shadow, outline, wing edges, ear tufts.\n- **Cream (#F2E2C2)** — belly patch, facial disc rings around eyes.\n- **White (#FFFFFF)** — large eye whites.\n- **Black (#1A1208)** — big round pupils.\n- **Amber-Orange (#E59428)** — small triangular beak + feet (accent).\n\n**Identity Features:**\n- **Huge eyes:** two big cream-ringed circles with white + fat black pupils, centered upper face — reads as \"owl/awake\" instantly.\n- **Tiny orange triangle beak** between/below eyes.\n- **Two ear tufts** at top — the key owl tell.\n- **Cream belly** with simple dark V-feather flecks for texture.\n- **Folded wings:** darker brown vertical bands hugging each side.\n- **Orange feet** clutching brown branch on bottom rows.\n\n**Read at 32px:** Round + two tufts + two giant eyes = owl at a glance.",
   "audits": [
     {
+      "phase": "shape",
       "afterPass": 4,
-      "approved": false,
+      "approved": true,
       "issues": [
-        "No perch/branch grounding the figure — owl floats with feet dangling, unlike reference's deliberate composition",
-        "Belly lacks the speckled feather detail/texture present in the reference, reading as a flat blob",
-        "Body shading is flatter — missing the darker wing-edge contouring and form modeling of the reference",
-        "Feet are tiny, simplistic stubs lacking the defined talon shape of the reference",
-        "Slightly off-center/asymmetric placement of facial features and ear tufts"
+        "Ear tufts are very thin/subtle — could read slightly stronger",
+        "Cream belly has a somewhat skull-like flecking pattern; consider simpler V-flecks in polish",
+        "Branch is faint — barely reads as a perch at the bottom"
       ]
     },
     {
-      "afterPass": 6,
+      "phase": "polish",
+      "afterPass": 5,
+      "approved": true,
+      "issues": []
+    },
+    {
+      "phase": "qa",
+      "afterPass": 5,
       "approved": true,
       "issues": []
     }
   ],
   "final": {
-    "title": "Owl",
-    "passes": 6,
-    "audits": 1,
-    "costUsd": 0.688
+    "title": "an owl",
+    "passes": 5,
+    "lastPhase": "qa",
+    "costUsd": 1.053
   }
 }

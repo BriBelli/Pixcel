@@ -14,9 +14,23 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const MODEL = 'claude-opus-4-8';
 const SIZE = 32;
 const SUBJECT = process.argv[2] || 'an owl';
-const MAX_PASSES = 12;           // a handful of passes (+room for auditor-driven fixes)
-const COST_CAP = 3;             // hard ceiling
-const MAX_AUDITS = 4;           // auditor reject→fix rounds before we stop (anti-churn vs the old cascade)
+const MAX_PASSES = 8;            // default ~6 passes; hard ceiling 8 (keep-best + read-level gate converge fast, no churn)
+const COST_CAP = 3;             // hard ceiling (no-churn target lands well under)
+// STATUE PHASES (corrected). SHAPE = masses/form, DEFER fine detail → POLISH = complete the deferred
+// details ON TOP of the LOCKED shape (auditor ACCEPTS the shape, never re-opens it; judge at READ
+// level, not sub-pixel) → QA = whole-piece read-level check. keep-best ships the last APPROVED state,
+// never a churned one. Tight reject caps + read-level judging = no churn, ~6 passes.
+const PHASES = [
+  { key:'shape', cap:3,
+    drawer:'block the whole figure — silhouette, masses, and form (base + one shadow + one highlight), filling the canvas as a deliberate FULL composition. Place features as simple BLOCKS so it reads (a plain eye blob is fine) — do NOT render fine detail yet; that is the polish phase',
+    bar:'the masses, silhouette, form and composition are right and the figure reads as the subject in BLOCK form (features placed as simple blocks is fine). Foundational SHAPE only — do NOT demand finished eyes / texture / fine detail yet (that is polish). Approve once the SHAPE is loved.' },
+  { key:'polish', cap:2,
+    drawer:'PHASE: POLISH — the shape is LOCKED and loved; do NOT reshape, move, or re-block anything. Look INWARD and COMPLETE the deferred details ON TOP: render the eyes properly per the brief, add texture / feather / identity touches. After each detail, re-look at THAT spot and fix it locally',
+    bar:'ACCEPT the locked shape — do NOT re-evaluate the silhouette / composition / proportions (that is settled and loved). Judge ONLY the interior DETAIL added on top: do the eyes / texture / identity touches READ well per the brief? Approve once the details READ well.' },
+  { key:'qa', cap:2,
+    drawer:'PHASE: QA — reply DONE to request the final read-level sweep; if the art director flags a real blemish, fix EXACTLY it with a micro edit (no reshaping), then reply DONE again',
+    bar:'FINAL QA: step back and read the WHOLE piece at true display scale. Does it INSTANTLY read as the subject (child test), full form, clean, grounded, at the 96% hero bar? Approve on a clean READ-level pass; flag ONLY a real blemish that genuinely breaks the read.' },
+];
 const BG = '#0d1117';
 const OUT = path.join(__dirname, 'painter-out');
 fs.mkdirSync(OUT, { recursive: true });
@@ -87,28 +101,43 @@ const AUDIT_MODEL = 'claude-opus-4-8'; // same key; swap to Fable 5 / cross-vend
 const REF_FILES = { 'an owl': 'ab-results/ref-owl.png', 'a t-rex': 'ab-results/ref-t-rex.png' };
 let REF_B64 = null;
 try { const rf = REF_FILES[SUBJECT]; if (rf && fs.existsSync(path.join(__dirname, rf))) REF_B64 = fs.readFileSync(path.join(__dirname, rf)).toString('base64'); } catch {}
+let DESIGN_SPEC = ''; // the Michelangelo step — the committed iconic design brief; the drawer executes it, the auditor judges fidelity to it (kills per-run gamble + detail oscillation)
 const AUDIT_SCHEMA = { type:'object', additionalProperties:false, properties:{ approved:{type:'boolean'}, issues:{type:'array', items:{type:'string'}} }, required:['approved','issues'] };
 const AUDITOR_SYSTEM = `You are an exacting, INDEPENDENT pixel-art art director. You did NOT draw this. ${REF_B64?'You are shown a REFERENCE that defines the hero quality bar, then a CANDIDATE to judge against it':'You judge the CANDIDATE against the hero bar described below'}, at true display scale. Review like a STEAMROLLER: scan methodically top-to-bottom. Checklist — does it INSTANTLY read as "${SUBJECT}" (the child test)? Is it the FULL figure FILLING the canvas (NOT a floating bust, no dead space) and composed/grounded deliberately? Real FORM (base + shadow + highlight, not a flat blob)? Identity-defining details present? Eyes/expression alive? CLEAN (no stray/jagged/muddy cells; symmetric where it should be)? APPROVE ONLY on a clean pass at a 96%+ hero standard${REF_B64?' equal to the REFERENCE':''}. If you can name ANY real flaw, do NOT approve — list specific, fixable issues (most important first). Default to NOT approved. Detail never excuses a broken silhouette or a bust that fails to fill the canvas.`;
-async function audit(candB64) {
+async function audit(candB64, phaseKey, phaseBar) {
+  const sys = `You are an exacting but FAIR, INDEPENDENT pixel-art art director judging the "${phaseKey.toUpperCase()}" phase of "${SUBJECT}". You did NOT draw it. The piece must realize this COMMITTED DESIGN BRIEF (judge fidelity to IT; do NOT invent new preferences mid-way):\n${DESIGN_SPEC}\n\n${REF_B64?'You are also shown a REFERENCE for the quality bar, then the CANDIDATE':'Judge the CANDIDATE'}, at true display scale.\nTHE BAR FOR THIS PHASE: ${phaseBar}\nJUDGE AT THE READ LEVEL for a 32×32 grid: features are only a few pixels — do NOT demand sub-pixel perfection or perfect symmetry, and do NOT churn on tiny nitpicks that don't change how it reads ("better than perfect makes it worse"). Approve as soon as this phase's bar genuinely READS as met; withhold approval only for a REAL flaw, and then list specific, fixable issues (most important first).`;
   const content = [];
   if (REF_B64) { content.push({type:'text',text:'REFERENCE (the hero bar):'}); content.push({type:'image',source:{type:'base64',media_type:'image/png',data:REF_B64}}); }
-  content.push({type:'text',text:'CANDIDATE (judge this against the bar):'}); content.push({type:'image',source:{type:'base64',media_type:'image/png',data:candB64}});
-  content.push({type:'text',text:'Judge the CANDIDATE. Return approved + the specific issues.'});
+  content.push({type:'text',text:'CANDIDATE (judge this for the current phase):'}); content.push({type:'image',source:{type:'base64',media_type:'image/png',data:candB64}});
+  content.push({type:'text',text:'Judge the CANDIDATE for the current phase. Return approved + the specific issues.'});
   try {
-    const s = client.messages.stream({ model:AUDIT_MODEL, max_tokens:1500, system:AUDITOR_SYSTEM, output_config:{ format:{type:'json_schema', schema:AUDIT_SCHEMA} }, messages:[{role:'user',content}] });
+    const s = client.messages.stream({ model:AUDIT_MODEL, max_tokens:1500, system:sys, output_config:{ format:{type:'json_schema', schema:AUDIT_SCHEMA} }, messages:[{role:'user',content}] });
     const msg = await s.finalMessage(); addCost(msg.usage||{});
     const raw = msg.content.filter(b=>b.type==='text').map(b=>b.text).join('');
     const p = JSON.parse(raw); return { approved: !!p.approved, issues: Array.isArray(p.issues)?p.issues.slice(0,5):[] };
   } catch(e){ return { approved:false, issues:[`auditor error: ${e.message}`] }; }
 }
 
+// ---- THE MICHELANGELO STEP: commit the iconic design BEFORE carving (reduces the per-run gamble) ----
+async function designVision(subject) {
+  const sys = `You are Pixcel's lead pixel-art designer. For a ${SIZE}×${SIZE} grid, design the ONE most ICONIC, instantly-recognizable Pixcel version of the subject — the definitive blend a 3-year-old names at a glance. Decide it FULLY and decisively (NO options, NO hedging): the composition/pose (a FULL figure filling the canvas, grounded), the silhouette, a deliberate 4–6 color palette (name each color + its role: base/shadow/highlight/features), and the SPECIFIC identity-defining features (and how each reads at this size). This is the COMMITTED design — the artist executes it EXACTLY and the art director judges fidelity to it. Invent the definitive design from principles; do NOT imitate any reference. Output a tight design brief (8–14 short lines).`;
+  const s = client.messages.stream({ model: MODEL, max_tokens: 2000, thinking:{type:'adaptive',display:'summarized'}, output_config:{effort:'high'}, system: sys, messages:[{ role:'user', content:`Design the iconic Pixcel "${subject}" for a ${SIZE}×${SIZE} grid. Output the committed design brief.` }] });
+  const msg = await s.finalMessage(); addCost(msg.usage||{});
+  return msg.content.filter(b=>b.type==='text').map(b=>b.text).join('').trim();
+}
+
 const blank = (cols, rows) => Array.from({length:rows}, () => Array.from({length:cols}, () => '.'));
+const cloneCanvas = (c) => ({ title:c.title, cols:c.cols, rows:c.rows, palette:{...c.palette}, grid:c.grid.map(r=>[...r]) });
 
 async function run() {
-  const messages = [{ role:'user', content: `Paint a ${SIZE}x${SIZE} pixel-art piece of: "${SUBJECT}". Call setup first (dimensions + palette), then paint it in a few coarse→fine passes — silhouette, then form, then identity details — looking at the render after each pass, until it clears your 96% bar. Then reply DONE.` }];
-  let canvas = null, passes = 0, auditsUsed = 0;
   const traj = { subject: SUBJECT, size: SIZE, model: MODEL, passes: [] };
-  console.log(`[$${spent.toFixed(2)}] painting "${SUBJECT}" @${SIZE}² (cap $${COST_CAP}, ≤${MAX_PASSES} passes)`);
+  console.log(`[$${spent.toFixed(2)}] VISION — designing the iconic Pixcel "${SUBJECT}" (the Michelangelo step)…`);
+  DESIGN_SPEC = await designVision(SUBJECT);
+  traj.spec = DESIGN_SPEC;
+  console.log(`[$${spent.toFixed(2)}] committed design brief:\n${DESIGN_SPEC.split('\n').map(l=>'   '+l).join('\n')}\n`);
+  const messages = [{ role:'user', content: `Paint a ${SIZE}x${SIZE} pixel-art "${SUBJECT}", executing this COMMITTED design brief EXACTLY — do NOT improvise a different design:\n\n${DESIGN_SPEC}\n\nCall setup first (use the brief's palette), then paint in coarse→fine passes — silhouette → form → the brief's identity details — looking at the render after each pass. Reply DONE when the SHAPE matches the brief.` }];
+  let canvas = null, passes = 0, phaseIdx = 0, phaseRejects = 0, bestCanvas = null, finished = false;
+  console.log(`[$${spent.toFixed(2)}] carving @${SIZE}² (cap $${COST_CAP}, ≤${MAX_PASSES} passes)`);
 
   for (let turn = 0; turn < MAX_PASSES + 4; turn++) {
     if (spent >= COST_CAP) { console.log(`[$${spent.toFixed(2)}] COST CAP — pausing (below bar, your call)`); break; }
@@ -118,15 +147,33 @@ async function run() {
     const tool = msg.content.find(b => b.type === 'tool_use');
     if (!tool) {
       if (!canvas) { messages.push({role:'user', content:'Use setup first, then paint.'}); continue; }
-      const verdict = await audit(renderPng(canvas));
-      (traj.audits = traj.audits || []).push({ afterPass: passes, approved: verdict.approved, issues: verdict.issues });
-      if (verdict.approved) { console.log(`[$${spent.toFixed(2)}] DONE @${passes} — AUDITOR APPROVED ✓`); break; }
-      if (auditsUsed >= MAX_AUDITS) { console.log(`[$${spent.toFixed(2)}] DONE @${passes} — audit cap (still below bar): ${verdict.issues.slice(0,2).join('; ')}`); break; }
-      auditsUsed++;
-      console.log(`[$${spent.toFixed(2)}] DONE @${passes} → AUDITOR rejected #${auditsUsed}: ${verdict.issues.slice(0,2).join('; ')}`);
+      const ph = PHASES[phaseIdx];
+      const verdict = await audit(renderPng(canvas), ph.key, ph.bar);
+      (traj.audits = traj.audits || []).push({ phase: ph.key, afterPass: passes, approved: verdict.approved, issues: verdict.issues });
+      if (verdict.approved) {
+        bestCanvas = cloneCanvas(canvas); // keep-best: snapshot every APPROVED state
+        console.log(`[$${spent.toFixed(2)}] ${ph.key.toUpperCase()} approved ✓ (after ${passes} passes)`);
+        if (phaseIdx >= PHASES.length - 1) { finished = true; console.log(`[$${spent.toFixed(2)}] FINAL DONE — shape→polish→QA all passed`); break; }
+        phaseIdx++; phaseRejects = 0;
+        const next = PHASES[phaseIdx];
+        messages.push({ role:'user', content:[
+          { type:'image', source:{ type:'base64', media_type:'image/png', data: renderPng(canvas) }},
+          { type:'text', text: `✅ The ${ph.key.toUpperCase()} phase is APPROVED and LOCKED.\n\nNow → ${next.drawer}.\nWork in batches with the paint tool; reply DONE when this phase is complete.` }
+        ] });
+        continue;
+      }
+      phaseRejects++;
+      if (phaseRejects > ph.cap) {
+        console.log(`[$${spent.toFixed(2)}] ${ph.key} review cap — advancing (residual: ${(verdict.issues[0]||'').slice(0,50)})`);
+        if (phaseIdx >= PHASES.length - 1) break;
+        phaseIdx++; phaseRejects = 0;
+        messages.push({ role:'user', content:[{ type:'text', text: `Moving on. Now → ${PHASES[phaseIdx].drawer}. Reply DONE when complete.` }] });
+        continue;
+      }
+      console.log(`[$${spent.toFixed(2)}] ${ph.key} review #${phaseRejects}: ${verdict.issues.slice(0,2).join('; ')}`);
       messages.push({ role:'user', content:[
-        { type:'image', source:{ type:'base64', media_type:'image/png', data: renderPng(canvas) } },
-        { type:'text', text: `ART DIRECTOR REVIEW — NOT at the bar yet. Fix these specific issues, then reply DONE only once they're resolved:\n- ${verdict.issues.join('\n- ')}\nKeep what works; raise the WHOLE piece.` }
+        { type:'image', source:{ type:'base64', media_type:'image/png', data: renderPng(canvas) }},
+        { type:'text', text: `ART DIRECTOR — ${ph.key.toUpperCase()} phase NOT approved. Fix exactly these, then reply DONE:\n- ${verdict.issues.join('\n- ')}` }
       ] });
       continue;
     }
@@ -165,9 +212,10 @@ async function run() {
   }
 
   if (canvas) {
+    if (!finished && bestCanvas) { canvas = bestCanvas; console.log(`[$${spent.toFixed(2)}] keep-best: shipping the last APPROVED state, not the churned latest`); }
     fs.writeFileSync(path.join(OUT, 'final.png'), Buffer.from(renderPng(canvas),'base64'));
     fs.writeFileSync(path.join(OUT, 'final-canvas.json'), JSON.stringify({ cols:canvas.cols, rows:canvas.rows, palette:canvas.palette, grid:canvas.grid.map(r=>r.join('')) }, null, 2));
-    traj.final = { title: canvas.title, passes, audits: auditsUsed, costUsd: +spent.toFixed(3) };
+    traj.final = { title: canvas.title, passes, lastPhase: PHASES[phaseIdx].key, costUsd: +spent.toFixed(3) };
     fs.writeFileSync(path.join(OUT, 'trajectory.json'), JSON.stringify(traj, null, 2));
     console.log(`\nDONE. ${passes} passes · $${spent.toFixed(2)} · → painter-out/final.png`);
   } else {

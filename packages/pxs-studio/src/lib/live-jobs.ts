@@ -203,15 +203,23 @@ function withCacheBreakpoint(messages: Anthropic.MessageParam[]): Anthropic.Mess
   return out;
 }
 
-/** Retry with backoff — long detached jobs must survive transient API/network errors. */
-async function withRetry<T>(fn: () => Promise<T>, tries = 4): Promise<T> {
+/**
+ * Retry with exponential backoff + jitter — long detached jobs MUST ride out transient API
+ * weather (overloaded_error / 529, 429, 5xx, network blips). Anthropic overload events can last
+ * tens of seconds, so we back off 2→4→8→16→30→30s (~90s of patience) before giving up. Every
+ * model call site (vision, drawer, auditor) goes through this — a single 529 should never kill a
+ * run that's already cost real money and is watchable live.
+ */
+async function withRetry<T>(fn: () => Promise<T>, tries = 6): Promise<T> {
   let lastErr: unknown;
   for (let i = 0; i < tries; i++) {
     try {
       return await fn();
     } catch (e) {
       lastErr = e;
-      await new Promise((r) => setTimeout(r, 1500 * (i + 1)));
+      if (i === tries - 1) break;
+      const backoff = Math.min(30000, 2000 * 2 ** i) + Math.floor(Math.random() * 1000);
+      await new Promise((r) => setTimeout(r, backoff));
     }
   }
   throw lastErr;
@@ -327,14 +335,18 @@ export function startLiveJob(opts: {
 }): string {
   const id = (globalThis.crypto as Crypto).randomUUID();
   const size = opts.size;
+  // On resume, re-enter at the stage the job left off (default POLISH) — not always the start.
+  const resumeStage = opts.resumeFrame
+    ? (['shape', 'polish', 'qa'].includes(opts.resumePhase || '') ? (opts.resumePhase as string) : 'polish')
+    : 'vision';
   const job: LiveJob = {
     id,
     prompt: opts.prompt,
     size,
     model: opts.model || DEFAULT_MODEL,
     status: 'running',
-    stage: opts.resumeFrame ? 'polish' : 'vision',
-    phase: opts.resumeFrame ? 'polish' : 'vision',
+    stage: resumeStage,
+    phase: resumeStage,
     phaseIndex: 0,
     brief: opts.brief,
     stagesPassed: [],
@@ -439,19 +451,21 @@ async function runStatueEngine(job: LiveJob, apiKey: string, resumeFrame?: PXSFr
 
   // ---- THE MICHELANGELO STEP: commit the iconic design BEFORE carving ----
   const designVision = async (): Promise<string> => {
-    const s = client.messages.stream({
-      model,
-      max_tokens: 2000,
-      thinking: { type: 'adaptive', display: 'summarized' },
-      output_config: { effort: 'high' },
-      system: statueVisionSystemPrompt(size),
-      messages: [{ role: 'user', content: statueVisionUserMessage(subject, size) }],
-    } as any);
-    job.liveThinking = '';
-    const cap = (d: string) => { job.liveThinking = (job.liveThinking + d).slice(-4000); job.updatedAt = Date.now(); };
-    (s as any).on('thinking', cap);
-    s.on('text', cap);
-    const msg = await s.finalMessage();
+    const msg = await withRetry(async () => {
+      const s = client.messages.stream({
+        model,
+        max_tokens: 2000,
+        thinking: { type: 'adaptive', display: 'summarized' },
+        output_config: { effort: 'high' },
+        system: statueVisionSystemPrompt(size),
+        messages: [{ role: 'user', content: statueVisionUserMessage(subject, size) }],
+      } as any);
+      job.liveThinking = '';
+      const cap = (d: string) => { job.liveThinking = (job.liveThinking + d).slice(-4000); job.updatedAt = Date.now(); };
+      (s as any).on('thinking', cap);
+      s.on('text', cap);
+      return s.finalMessage();
+    });
     accrue((msg as any).usage || {});
     emitCost();
     return msg.content.filter((b): b is Anthropic.TextBlock => b.type === 'text').map((b) => b.text).join('').trim();
@@ -466,8 +480,10 @@ async function runStatueEngine(job: LiveJob, apiKey: string, resumeFrame?: PXSFr
       { type: 'text', text: 'Judge the CANDIDATE for the current phase. Return approved + the specific issues.' },
     ];
     try {
-      const s = client.messages.stream({ model, max_tokens: 1500, system: sys, output_config: { format: { type: 'json_schema', schema: AUDIT_SCHEMA } }, messages: [{ role: 'user', content }] } as any);
-      const msg = await s.finalMessage();
+      const msg = await withRetry(async () => {
+        const s = client.messages.stream({ model, max_tokens: 1500, system: sys, output_config: { format: { type: 'json_schema', schema: AUDIT_SCHEMA } }, messages: [{ role: 'user', content }] } as any);
+        return s.finalMessage();
+      });
       accrue((msg as any).usage || {});
       emitCost();
       const raw = msg.content.filter((b): b is Anthropic.TextBlock => b.type === 'text').map((b) => b.text).join('');
@@ -492,20 +508,23 @@ async function runStatueEngine(job: LiveJob, apiKey: string, resumeFrame?: PXSFr
     let finished = false;
 
     if (resumeFrame) {
-      // RESUME: treat the saved frame as the LOCKED shape — re-enter at POLISH (finish the piece).
+      // RESUME: treat the saved frame as the work-in-progress and re-enter at the stage it left
+      // off (job.stage, set from the saved phase) — default POLISH if unknown.
       canvas = frameToCanvas(resumeFrame, job.title || subject);
       bestCanvas = cloneCanvas(canvas);
-      phaseIdx = 1; // polish
+      const idx = PHASES.findIndex((p) => p.key === job.stage);
+      phaseIdx = idx >= 0 ? idx : 1; // default polish
       job.brief = job.brief || `(resumed work-in-progress of "${subject}" — finish it to the committed Pixcel standard)`;
       traj.spec = job.brief;
       traj.resumed = true;
       const f0 = canvasToFrame(canvas);
       job.latestFrame = f0;
       job.frames.push(f0);
-      job.stage = job.phase = 'polish';
+      const resumeKey = PHASES[phaseIdx].key;
+      job.stage = job.phase = resumeKey;
       const paletteStr = Object.entries(canvas.palette).filter(([k]) => k !== '.').map(([k, v]) => `${k}=${v}`).join(', ');
       emit('vision.committed', { brief: job.brief });
-      emit('stage.enter', { stage: 'polish', goal: PHASES[1].goal });
+      emit('stage.enter', { stage: resumeKey, goal: PHASES[phaseIdx].goal });
       messages.push({
         role: 'user',
         content: [

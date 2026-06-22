@@ -11,6 +11,56 @@ a balloon-racket anyway. **The judge said "good" when it wasn't.** That is an **
 a scheduling one. No amount of budget/round tuning fixes a broken judge. *(We anticipated needing this —
 the "another-LLM-as-the-gate / forum" idea. The tennis player makes it required, not optional.)*
 
+## This is a RECOVERY, not an invention (the real history — Brian's correction)
+**The strict independent reviewer is PROVEN — it made the cascade DRAGON and OWL.** Rigor was never
+the problem; it was the *solution*. The mistake that buried it was **calling the LLM per stroke** — that
+gave the ~80-iteration, ~$80 dragon. (It almost certainly came from chasing the live show — "watch
+every stroke" → one call per gesture. Documented lesson: **never per-stroke calls.**)
+
+**Granularity and rigor are SEPARABLE** — don't trade one for the other:
+| granularity | review rigor | result |
+|---|---|---|
+| per-**stroke** | strict | perfect art, absurd cost ← the old mistake |
+| per-**pass** (batched) | lenient | cheap, ships garbage ← the tennis player, now |
+| **per-pass (batched)** | **strict** | **both — the target** |
+
+**The throttle is already done.** The statue **"pass" = many gestures batched into one call** = exactly
+the debounce Brian describes. We are NOT calling per-stroke. So the *only* thing that regressed between
+the cascade heroes and the tennis player is **review rigor**, not call count.
+
+→ Therefore the Evaluator is **recovering the cascade's strict reviewer and running it on the
+batched-pass cadence we already have** (+ one final fresh-eyes gate). **Strict review AND few calls — we
+don't choose.** Don't reinvent a system; don't go per-stroke.
+
+**Watchability is decoupled from calls:** the Matrix reveal streams the **batched passes** over SSE
+(docs/PIXCEL-LIVE-SSE.md) — you watch it paint stroke-by-stroke *visually* with zero per-stroke LLM
+calls. The live-show desire never required per-stroke generation. Don't forget this again.
+
+## But the reviewer isn't the only lever — the DRAWER (Brian's catch)
+**A reviewer can only REJECT; it cannot DRAW.** Adding Gemini / an MCP forum makes the *judgment*
+better — it makes the *hand* zero better. So a **weak drawer + a great forum = rounds of rejection =
+"slow blob evolution" = the 80-round trap.** Brian is right: more reviewers alone can make cost *worse*,
+not the art better.
+
+Quality + cost depend on **three levers, not one:**
+1. **Feasible VISION (design fit-to-size — rubric #1).** 80 rounds is a *signal the design was
+   infeasible* for 32² + this drawer, not a signal to add rounds. A 32px tennis racket may need a
+   **simplified, iconic** form the drawer can nail — not a realistic one it can't. Detect
+   non-convergence → **re-VISION simpler**, don't grind a blob.
+2. **Drawer execution.** Ceiling = model + effort (Opus 4.8 high = the drawer's ceiling; `claude-fable-5`
+   to exceed). For hard subjects, **best-of-N FRESH attempts** beat iterating one canvas — fresh draws
+   escape the local-minimum blob; the evaluator picks the best.
+3. **EDITOR, not just evaluator.** This is the highest-leverage fix for a modest drawer. A pure
+   evaluator says *pass/fail* → weak drawer flails → many rounds. An **editor gives the prescription**
+   ("draw the racket as an oval frame, string grid inside, 3px handle into the hand, gray not red") →
+   the drawer executes a concrete instruction → **converges in FEW rounds.** *(Brian originally said it:
+   "the real editor AND evaluator.")*
+
+**So the forum's right place:** the **final gate** (consensus catches what one judge misses) on the
+**complex/advanced tier** — NOT gating every pass (that multiplies calls against a weak drawer = the
+80 rounds). And the more interesting multi-LLM move is **alternate DRAWERS** (best-of-N across models
+for hard subjects), not just more reviewers.
+
 ## Why today's auditor let it through
 **It is coupled to the making.** The per-phase auditor watches the piece built pass by pass — it *saw*
 "racket strings cross" get painted — so it **rationalizes** ("that's the racket"). Anyone who watches a

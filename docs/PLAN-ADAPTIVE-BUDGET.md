@@ -6,7 +6,7 @@
 >
 > **⚠️ This is the SUPPORTING guard, not the real fix.** The tennis player *converged* (all phases
 > approved) on garbage — an **evaluation** failure, not a scheduling one. The real fix is an independent
-> Evaluator → **docs/PLAN-EVALUATOR.md**. This doc's job: once the Evaluator defines "done," the
+> Evaluator → **docs/PLAN-QUALITY-ENGINE.md**. This doc's job: once the Evaluator defines "done," the
 > complexity estimate sets the **cost ceiling** (seatbelt), nothing more.
 
 ## The two problems this failure exposed

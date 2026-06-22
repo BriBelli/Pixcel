@@ -1,4 +1,8 @@
-# Plan (DEFERRED) — The Evaluator (the real fix)
+# Plan — The Pixcel Quality Engine (BUILD-READY)
+
+*The complete quality fix: feasible VISION → hot-potato (one capable artist that judges + fixes with
+fresh eyes) → best-of-N for hard subjects → forum as the final gate. "The Evaluator" was the entry
+point; this is the whole engine. Start at "Build order — START HERE".*
 
 > **Status: NOT STARTED — captured for later.** The "Tennis Player" failure (figure holding a
 > **balloon** instead of a racket — **approved by every phase**) proved this. Re-validate against the
@@ -116,6 +120,63 @@ Guardrails (or it churns): each turn sees a **fresh-ish context** ({brief + curr
 full build narrative); **keep-best**; **read-level** judging; bounded by the **complexity ceiling**;
 **batched passes** (never per-stroke).
 
+## The loop, concretely (pseudocode for the build thread)
+> JS-ish; map onto the current `runStatueEngine` in `lib/live-jobs.ts`. A **"pass" = one batched call**
+> (the debounce — NEVER per stroke). Each pass runs on a **fresh context** (only `{brief + render}`) —
+> that freshness IS the hot-potato.
+
+```js
+const CEILINGS = {            // cost seatbelt, NOT a target (see PLAN-ADAPTIVE-BUDGET.md)
+  simple:   { passes: 3 },
+  moderate: { passes: 6 },
+  complex:  { passes: 9,  forum: true },
+  advanced: { passes: 12, forum: true },
+}
+
+async function paint(subject, opts) {
+  // 1) VISION — commit a FEASIBLE, fit-to-size design + palette + complexity.
+  //    (optional attached image = INTENT only; read here, never shown to the fix step — PLAN-IMAGE-INTENT.md)
+  const { brief, palette, complexity } = await vision(subject, opts.imageIntent)
+  emit('vision.committed', { brief, palette, complexity })
+  const cap = CEILINGS[complexity]
+
+  let canvas = blank(32, 32), best = null
+
+  // 2) HOT-POTATO loop — one capable artist, FRESH EYES each pass, FIXES directly.
+  for (let pass = 1; pass <= cap.passes; pass++) {
+    const render = renderPng(canvas)                 // true-scale perception
+    // fresh context: sees ONLY {brief + render}, NOT the build history → it can't rationalize.
+    const turn = await freshEyes({ brief, palette, render, prompt: TURN_PROMPT })
+    //   → { approved:bool, flaw:string, edits:[{x,y,c}], redesign:bool }
+
+    if (turn.redesign) {                             // design infeasible at 32² → re-VISION simpler
+      ({ brief, palette } = await vision(subject, opts.imageIntent, { simplerThan: brief }))
+      canvas = blank(32, 32); best = null; continue
+    }
+    if (turn.approved) { best = clone(canvas); emit('stage.approved'); break }   // converged
+
+    canvas = apply(canvas, turn.edits)               // the batched fix = the pass (the debounce)
+    best = best ?? clone(canvas)
+    emit('pass.done', { pass, flaw: turn.flaw, frame: canvas })   // SSE streams the batch = watchability
+  }
+
+  // 3) FINAL GATE — forum/consensus only on complex/advanced; else the in-loop approval is enough.
+  if (cap.forum) { const v = await forumConsensus(brief, best ?? canvas); if (!v.pass) /* one more pass or ship best */ }
+  return best ?? canvas    // keep-best: ship last APPROVED state, never a churned pass
+}
+```
+**`TURN_PROMPT`** (one fresh-eyes call that JUDGES, then FIXES — *the editor IS the drawer*):
+> "You are a master pixel artist seeing this canvas **COLD**. Brief: `<brief>`. Read the render: does it
+> **instantly read as `<subject>`** (child test)? **Name each major element — does each read as the RIGHT
+> object?** (a racket must read as a racket, not a balloon). Judge at **READ level, not sub-pixel.** If
+> it's there → `approved:true`. Otherwise name the **single highest-value flaw** and **apply the fix
+> yourself** as a batch of cell edits (don't reshape what already reads well). If the design simply can't
+> work at 32² → `redesign:true`."
+
+**Decisions baked in / to tune:** one call per pass *judges + fixes* (cheap, fresh-eyes from the fresh
+context). For the **final gate** on hard pieces, optionally split into judge-then-fix or a forum vote
+(stricter, more calls). `REQUIRED_CLEAN` consecutive approvals before ship if you want extra safety.
+
 ## Why today's auditor let it through
 **It is coupled to the making.** The per-phase auditor watches the piece built pass by pass — it *saw*
 "racket strings cross" get painted — so it **rationalizes** ("that's the racket"). Anyone who watches a
@@ -171,6 +232,44 @@ Properties:
 2. **Owl (M2 hero)** → still passes first time, ~$1, zero churn (no new churn from the evaluator).
 3. A deliberately bad piece → caught and reworked, not shipped.
 4. `cd packages/pxs-studio && tsc --noEmit`.
+
+## Current code + what to touch (re-validate — another thread is editing these)
+- **Engine:** `packages/pxs-studio/src/lib/live-jobs.ts` → `runStatueEngine`. Refactor the per-phase
+  drawer+audit into the **hot-potato loop** above.
+- **Prompts:** `lib/ai-art-system-prompt.ts` (`statueVision*`, `statueDrawer*`, `statueAudit*`) → VISION
+  emits a **feasible, fit-to-size** design + `complexity`; replace the audit prompt with the fresh-eyes
+  **`TURN_PROMPT`** (judge + fix in one).
+- **Budget:** replace the fixed `PHASES[].cap` with `CEILINGS[complexity]` (a seatbelt). See
+  `docs/PLAN-ADAPTIVE-BUDGET.md`.
+- **Reference (proven — don't break):** `packages/pxs-studio/art-engine/painter.mjs`. SSE contract:
+  `docs/PIXCEL-LIVE-SSE.md`. Craft bar: `docs/PIXCEL-CRAFT-RUBRIC.md`. Image-intent (separate feature):
+  `docs/PLAN-IMAGE-INTENT.md`.
+- ⚠️ **Another thread is actively editing `live-jobs.ts` — pull + re-validate against current code first.**
+
+## Build-thread kickoff (paste this)
+```
+Build the Pixcel quality engine per docs/PLAN-QUALITY-ENGINE.md. Read first: that doc (esp.
+"Build order — START HERE", "The hot-potato model", and the pseudocode), docs/PLAN-ADAPTIVE-BUDGET.md,
+docs/PIXCEL-LIVE-SSE.md, docs/PIXCEL-CRAFT-RUBRIC.md, packages/pxs-studio/art-engine/painter.mjs
+(the proven reference), and your memory files.
+
+Implement in leverage order, validating after EACH step:
+  1. Hot-potato loop — one fresh-eyes call per pass that JUDGES then FIXES directly (the editor IS the
+     drawer; fresh context = only {brief + render}). keep-best on approve.
+  2. Feasible VISION + a complexity estimate → adaptive CEILING (cost seatbelt, not a target);
+     REDESIGN escape when a 32² design is infeasible.
+  3. Best-of-N drawers for the complex/advanced tier (alternate attempts, gate picks best).
+  4. Forum/Gemini ONLY as the final gate on hard pieces.
+
+PRESERVE (do not regress M2): batched passes (NEVER per-stroke), read-level / object-identity judging
+(not sub-pixel), keep-best, NO exemplars to the generator (an image is intent/convert only).
+
+VALIDATE for ~$2-3: re-run "tennis player" (the racket must read as a racket, or trigger REDESIGN)
+and "owl" (must still pass first-try, ~$1, zero churn).
+
+Another thread is editing lib/live-jobs.ts — pull + re-validate before starting. Flag every
+API-spend step before running it.
+```
 
 ## One-line truth
 *The tennis player converged on garbage — which means the judge, not the schedule, is what failed. The

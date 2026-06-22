@@ -16,6 +16,8 @@ Two maintained docs, kept honest and current:
   AND the deeper Statue-Method-as-a-pattern layer, the real moat, and the honest constraints.
 - **[USE-CASES.md](USE-CASES.md)** — what it's for, immediate → long-term, obvious → extreme niche,
   plus the cross-domain "bigger statue" expansions.
+- **[PLATFORM-VISION.md](PLATFORM-VISION.md)** — the merge thesis: weaving the multi-LLM + image/video
+  project together with the Statue Method, on the shared media-as-JSON primitive. Pixel art = vertical #1.
 
 ## How to use
 When the conversation is about *strategy/direction* (not building a feature, not making art), read the

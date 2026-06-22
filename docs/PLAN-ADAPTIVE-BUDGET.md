@@ -3,6 +3,11 @@
 > **Status: NOT STARTED — captured for later.** Triggered by the "Tennis Player" failure (figure
 > holding a red **balloon** instead of a racket — *approved by all phases*). Another thread is editing
 > the engine; **re-validate against current `lib/live-jobs.ts` before building.**
+>
+> **⚠️ This is the SUPPORTING guard, not the real fix.** The tennis player *converged* (all phases
+> approved) on garbage — an **evaluation** failure, not a scheduling one. The real fix is an independent
+> Evaluator → **docs/PLAN-EVALUATOR.md**. This doc's job: once the Evaluator defines "done," the
+> complexity estimate sets the **cost ceiling** (seatbelt), nothing more.
 
 ## The two problems this failure exposed
 The job log read: SHAPE ✓ → POLISH ✓ → QA ✓ → Finished. **It converged — it did not run out of passes.**

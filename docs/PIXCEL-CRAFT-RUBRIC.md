@@ -45,6 +45,13 @@ and the real artistry.
   shade (highlight), so shapes read at small sizes.
 - **Form, not a flat blob** — build volume with solid-color shading; add depth by shadowing the
   far element (e.g. the far leg).
+- **Directional light, NEVER a flat mirror.** Even a symmetric subject is lit from ONE direction —
+  one side catches more light, the other falls into shadow. That asymmetric lighting *is* the form,
+  depth, and life (the 3D-esque feel). Keep the STRUCTURE symmetric where the subject is (both
+  eyes/headlights the same size + place), but reason the SHADING raw and directional. **NEVER perfectly
+  mirror the two halves** — a perfect mirror is flat and dead and throws away the unique shadows /
+  highlights that make it real. The art is RAW, not a mirror trick. (Engine guardrail: do NOT give the
+  artist an auto-mirror/symmetrize tool — it would reach for it every time and homogenize the work.)
 - **Clean** — no jaggies, no stray/floating cells; symmetric where the subject is symmetric.
 
 ## 3. Forbidden (incompatible with Stay Pure + hardware targets like LED displays)

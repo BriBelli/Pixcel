@@ -18,6 +18,9 @@ const MODELS: { id: ModelId; label: string }[] = [
   { id: 'claude-haiku-4-5', label: 'Haiku 4.5 · cheapest' },
 ];
 const SIZES = [16, 24, 32, 48, 64];
+// The hidden pass CEILING per complexity tier (mirrors live-jobs CEILINGS) — shown to the USER as the
+// max-rounds cap; it stays hidden from the AI (which approves on quality). Auto → the top of the range.
+const PASS_CAPS: Record<string, number> = { simple: 4, moderate: 6, complex: 9, advanced: 12 };
 const SUGGESTIONS = ['a red apple', 'a snail', 'a teapot', 'a ladybug'];
 
 export default function LiveArtisanPanel({ onGridUpdate }: Props) {
@@ -35,6 +38,8 @@ export default function LiveArtisanPanel({ onGridUpdate }: Props) {
   const [complexity, setComplexity] = useState<string>('auto');
   // Dims to send: only in manual mode (auto omits cols/rows so VISION decides the aspect ratio).
   const dims = aspect === 'manual' ? { cols: manualW, rows: manualH } : {};
+  // The effective max-rounds cap shown to the user (Auto → top of the range). Stays hidden from the AI.
+  const passCap = complexity === 'auto' ? 12 : (PASS_CAPS[complexity] ?? 12);
   const startArgs = (prompt: string) => ({
     prompt, size, model, ...dims,
     passes: passes === '' ? undefined : passes,
@@ -241,13 +246,14 @@ export default function LiveArtisanPanel({ onGridUpdate }: Props) {
           </p>
         )}
         <div className="flex items-center gap-2 text-[9px]">
+          <span className="uppercase tracking-wider text-text-muted" title="The artwork's PIXEL resolution — the grid size on its longest edge, not a zoom level. In Auto, the short edge is fitted to the subject (a wide car → 32×15).">Size</span>
           {aspect === 'auto' ? (
             <div className="flex items-center gap-0.5 rounded-md border border-border bg-background-tertiary p-0.5">
               {SIZES.map((s) => (
                 <button
                   key={s}
                   onClick={() => setSize(s)}
-                  title={s >= 48 ? `${s} — finer, slower & pricier` : `${s} — quick & cheap`}
+                  title={s >= 48 ? `${s}px grid — finer, slower & pricier` : `${s}px grid — quick & cheap`}
                   className={`px-1.5 py-0.5 rounded transition-colors ${
                     size === s
                       ? s >= 48
@@ -302,12 +308,13 @@ export default function LiveArtisanPanel({ onGridUpdate }: Props) {
 
         {/* 2.1 passes (hidden budget) + 2.2 complexity — the interactive controls. */}
         <div className="flex items-center gap-2 text-[9px] text-text-muted">
-          <label className="flex items-center gap-1" title="How many refine passes the artist may take before it must ship — a HIDDEN budget the AI never sees (it approves on quality; only nudged near the end). Blank = auto by complexity. Up to 90.">
-            <span className="uppercase tracking-wider">Passes</span>
+          <label className="flex items-center gap-1" title="The MAX number of refine rounds before it must ship — your cost seatbelt, HIDDEN from the AI (it approves on quality, never to fill a budget). Blank = the cap for the chosen Detail tier (shown in the box); type a number to override, up to 90.">
+            <span className="uppercase tracking-wider">Max rounds</span>
             <input
               type="number" min={1} max={90} value={passes}
-              placeholder="auto"
+              placeholder={String(passCap)}
               onChange={(e) => setPasses(e.target.value === '' ? '' : Math.min(90, Math.max(1, Math.round(+e.target.value || 1))))}
+              title={`default cap for ${complexity === 'auto' ? 'the estimated tier' : complexity} = ${passCap}`}
               className="w-12 rounded-md border border-border bg-background-tertiary px-1 py-0.5 text-center text-text-primary placeholder:text-text-muted focus:outline-none focus:border-border-hover"
             />
           </label>
@@ -326,7 +333,7 @@ export default function LiveArtisanPanel({ onGridUpdate }: Props) {
             </select>
           </label>
           {passes !== '' && passes >= 24 && (
-            <span className="ml-auto text-accent-yellow/80" title="More passes = more spend (each pass is one model call).">~{passes} passes · higher cost</span>
+            <span className="ml-auto text-accent-yellow/80" title="More rounds = more spend (each round is one model call).">~{passes} rounds · higher cost</span>
           )}
         </div>
         <div className="flex items-end gap-1.5">

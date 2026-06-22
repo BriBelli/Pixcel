@@ -33,6 +33,9 @@ export default function LiveArtisanPanel({ onGridUpdate }: Props) {
   const running = job?.status === 'running';
   const curFrame = job?.frame || job?.latestFrame;
   const strokes = job?.gestures ?? 0;
+  const [briefOpen, setBriefOpen] = useState(false);
+  const STAGES = ['vision', 'shape', 'polish', 'qa'] as const;
+  const stage = job?.stage ?? 'vision';
   const mmss = `${String(Math.floor(elapsed / 60)).padStart(2, '0')}:${String(elapsed % 60).padStart(2, '0')}`;
 
   useEffect(() => {
@@ -116,7 +119,7 @@ export default function LiveArtisanPanel({ onGridUpdate }: Props) {
                 <span>
                   {running ? (
                     <span className="inline-flex items-center gap-1">
-                      <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" /> {strokes ? `stroke ${strokes}` : 'starting…'} · {mmss}{job?.costUsd ? ` · $${job.costUsd.toFixed(2)}` : ''}
+                      <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" /> {stage.toUpperCase()}{strokes ? ` · pass ${strokes}` : ''} · {mmss}{job?.costUsd ? ` · $${job.costUsd.toFixed(2)}` : ''}
                     </span>
                   ) : job?.status === 'done' ? (
                     <span className="text-accent-green">✓ done · {job?.cells} cells · {job?.durationMs ? `${(job.durationMs / 1000).toFixed(0)}s` : ''}{job?.costUsd ? ` · $${job.costUsd.toFixed(2)}` : ''}</span>
@@ -147,9 +150,44 @@ export default function LiveArtisanPanel({ onGridUpdate }: Props) {
                   </>
                 )}
               </div>
+              {/* Statue-stage progress — VISION → SHAPE → POLISH → QA */}
+              <div className="flex items-center gap-1 text-[8px] font-mono">
+                {STAGES.map((s, i) => {
+                  const done = job?.stagesPassed?.includes(s) || (stage === 'done');
+                  const active = stage === s && running;
+                  return (
+                    <span key={s} className="inline-flex items-center gap-1">
+                      <span
+                        className={`px-1.5 py-0.5 rounded ${
+                          done ? 'bg-accent-green/20 text-accent-green' : active ? 'bg-primary/20 text-primary' : 'bg-background-overlay text-text-muted'
+                        }`}
+                      >
+                        {done ? '✓ ' : ''}{s.toUpperCase()}
+                      </span>
+                      {i < STAGES.length - 1 && <span className="text-text-muted">›</span>}
+                    </span>
+                  );
+                })}
+              </div>
               {job?.status === 'paused' && <div className="text-[9px] text-accent-yellow">⏸ Paused — checkpointed and resumable.</div>}
               {job?.error && <div className="text-[9px] text-accent-red">{job.error}</div>}
             </div>
+
+            {/* The committed VISION design brief — read-only (the intent the whole reveal builds toward) */}
+            {job?.brief && (
+              <div className="rounded-lg border border-border bg-background-tertiary p-2.5">
+                <button
+                  onClick={() => setBriefOpen((o) => !o)}
+                  className="flex items-center justify-between w-full text-[10px] text-text-secondary hover:text-text-primary"
+                >
+                  <span className="inline-flex items-center gap-1.5"><span className="text-accent-purple">◆</span> Design brief <span className="text-text-muted">(the committed vision)</span></span>
+                  <span className="text-text-muted">{briefOpen ? '▾' : '▸'}</span>
+                </button>
+                {briefOpen && (
+                  <pre className="mt-2 whitespace-pre-wrap text-[9px] leading-relaxed text-text-muted font-mono max-h-48 overflow-y-auto">{job.brief}</pre>
+                )}
+              </div>
+            )}
 
             {/* The artist's thinking + the studio feed live on the CANVAS now, not here. */}
             <p className="text-[10px] text-text-muted leading-snug">

@@ -25,6 +25,7 @@ export interface LiveJob {
   stage: string; // vision | shape | polish | qa | done
   phase: string; // mirror of stage (back-compat)
   brief?: string; // the committed VISION design brief (shown read-only)
+  subjectClass?: string; // iconic | figure | action | scene (sets review rigor)
   stagesPassed: string[];
   gestures: number; // passes painted
   statusMessage: string;
@@ -73,7 +74,8 @@ function reduceEvent(prev: LiveJob | null, e: LiveEvent): LiveJob {
       return j;
     case 'vision.committed':
       j.brief = e.brief ?? j.brief;
-      pushFeed({ kind: 'phase', text: 'VISION committed — design locked', phase: 'vision' });
+      if (e.subjectClass) j.subjectClass = e.subjectClass;
+      pushFeed({ kind: 'phase', text: `VISION committed — design locked${e.subjectClass ? ` (${e.subjectClass})` : ''}`, phase: 'vision' });
       return j;
     case 'stage.enter':
       j.stage = j.phase = e.stage;

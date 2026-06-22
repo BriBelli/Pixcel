@@ -12,6 +12,9 @@ import {
   statueVisionUserMessage,
   statueDrawerUserMessage,
   statueAuditSystemPrompt,
+  statueClassifySystem,
+  statueClassifyUserMessage,
+  STATUE_CLASSIFY_SCHEMA,
   liveResumeUserMessage,
 } from './ai-art-system-prompt';
 
@@ -245,6 +248,8 @@ export interface LiveJob {
   phase: string; // mirror of stage (back-compat with older clients)
   phaseIndex: number;
   brief?: string; // the committed VISION design brief (read-only control point in the UI)
+  subjectClass?: string; // iconic | figure | action | scene — sets auditor rigor
+  auditChecks?: string[]; // subject-specific must-verify items for the auditor
   stagesPassed: string[];
   gestures: number; // number of passes painted
   statusMessage: string;
@@ -489,9 +494,27 @@ async function runStatueEngine(job: LiveJob, apiKey: string, resumeFrame?: PXSFr
     return msg.content.filter((b): b is Anthropic.TextBlock => b.type === 'text').map((b) => b.text).join('').trim();
   };
 
-  // ---- the recovered cascade AUDITOR (independent art director; bar-anchored; read-level) ----
+  // ---- DIFFICULTY CLASSIFIER — sets auditor rigor (iconic = lenient/read-level; figure/action/
+  // scene = strict, default-to-reject, with subject-specific structural checks) ----
+  const classify = async (brief: string): Promise<{ subjectClass: string; checks: string[] }> => {
+    try {
+      const msg = await withRetry(async () => {
+        const s = client.messages.stream({ model, max_tokens: 600, system: statueClassifySystem, output_config: { format: { type: 'json_schema', schema: STATUE_CLASSIFY_SCHEMA } }, messages: [{ role: 'user', content: statueClassifyUserMessage(subject, brief) }] } as any);
+        return s.finalMessage();
+      });
+      accrue((msg as any).usage || {});
+      emitCost();
+      const raw = msg.content.filter((b): b is Anthropic.TextBlock => b.type === 'text').map((b) => b.text).join('');
+      const p = JSON.parse(raw);
+      return { subjectClass: p.subjectClass || 'iconic', checks: Array.isArray(p.checks) ? p.checks.slice(0, 5) : [] };
+    } catch {
+      return { subjectClass: 'iconic', checks: [] }; // safe default: the proven lenient path
+    }
+  };
+
+  // ---- the recovered cascade AUDITOR (independent art director; bar-anchored; class-aware) ----
   const audit = async (candB64: string, phase: Phase, brief: string): Promise<{ approved: boolean; issues: string[] }> => {
-    const sys = statueAuditSystemPrompt({ subject, phaseKey: phase.key, phaseBar: phase.bar, brief, size });
+    const sys = statueAuditSystemPrompt({ subject, phaseKey: phase.key, phaseBar: phase.bar, brief, size, subjectClass: job.subjectClass, checks: job.auditChecks });
     const content = [
       { type: 'text', text: 'CANDIDATE (judge this for the current phase):' },
       { type: 'image', source: { type: 'base64', media_type: 'image/png', data: candB64 } },
@@ -558,7 +581,13 @@ async function runStatueEngine(job: LiveJob, apiKey: string, resumeFrame?: PXSFr
       const brief = await designVision();
       job.brief = brief;
       traj.spec = brief;
-      emit('vision.committed', { brief });
+      // Classify difficulty → set auditor rigor for the whole run.
+      const cls = await classify(brief);
+      job.subjectClass = cls.subjectClass;
+      job.auditChecks = cls.checks;
+      traj.subjectClass = cls.subjectClass;
+      traj.auditChecks = cls.checks;
+      emit('vision.committed', { brief, subjectClass: cls.subjectClass, checks: cls.checks });
 
       // SHAPE — open the first carving phase.
       job.stage = job.phase = 'shape';
@@ -649,9 +678,13 @@ async function runStatueEngine(job: LiveJob, apiKey: string, resumeFrame?: PXSFr
           continue;
         }
 
-        // Rejected — bounded retries, then advance (read-level caps prevent churn).
+        // Rejected — bounded retries, then advance (read-level caps prevent churn). HARD subjects
+        // (figure/action/scene) get more SHAPE attempts + explicit whole-figure REDRAW permission —
+        // a broken pose/proportion must be re-blocked, never polished forward.
+        const isHard = job.subjectClass === 'figure' || job.subjectClass === 'action' || job.subjectClass === 'scene';
+        const effCap = ph.key === 'shape' && isHard ? ph.cap + 2 : ph.cap;
         phaseRejects++;
-        if (phaseRejects > ph.cap) {
+        if (phaseRejects > effCap) {
           if (phaseIdx >= PHASES.length - 1) break;
           phaseIdx++;
           phaseRejects = 0;
@@ -662,11 +695,14 @@ async function runStatueEngine(job: LiveJob, apiKey: string, resumeFrame?: PXSFr
           messages.push({ role: 'user', content: [{ type: 'text', text: `Moving on. Now → ${next.drawer}. Reply DONE when complete.` }] });
           continue;
         }
+        const redraw = ph.key === 'shape' && isHard
+          ? `\n\nThe STRUCTURE is the problem, not the polish. If the pose / proportions / limb-attachment are fundamentally off, ERASE the whole figure and RE-BLOCK it from scratch in a better pose — do NOT nudge a broken shape. Build it as ONE connected body: torso first, then attach each limb chain to it, then the prop sized correctly. Reply DONE when the shape is genuinely right.`
+          : '';
         messages.push({
           role: 'user',
           content: [
             { type: 'image', source: { type: 'base64', media_type: 'image/png', data: frameToPngBase64(canvasToFrame(canvas)) } },
-            { type: 'text', text: `ART DIRECTOR — ${ph.key.toUpperCase()} phase NOT approved. Fix exactly these, then reply DONE:\n- ${verdict.issues.join('\n- ')}` },
+            { type: 'text', text: `ART DIRECTOR — ${ph.key.toUpperCase()} phase NOT approved. Fix exactly these, then reply DONE:\n- ${verdict.issues.join('\n- ')}${redraw}` },
           ],
         });
         continue;

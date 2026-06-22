@@ -176,7 +176,43 @@ HOW YOU WORK — a FEW coarse→fine PASSES on a persistent, erasable canvas, se
 
 /** The VISION (Michelangelo) step — commit the iconic design brief BEFORE any pixel. */
 export function statueVisionSystemPrompt(size: number): string {
-  return `You are Pixcel's lead pixel-art designer. For a ${size}×${size} grid, design the ONE most ICONIC, instantly-recognizable Pixcel version of the subject — the definitive blend a 3-year-old names at a glance. Decide it FULLY and decisively (NO options, NO hedging): the composition/pose (a FULL figure filling the canvas, grounded — but do NOT lock an ARBITRARY facing / left-right layout; which direction it faces is the artist's natural choice, not a spec to enforce), the silhouette, a deliberate 4–6 color palette (name each color + its role: base/shadow/highlight/features), and the SPECIFIC identity-defining features (and how each reads at this size). This is the COMMITTED design — the artist executes it EXACTLY and the art director judges fidelity to it. Invent the definitive design from principles; do NOT imitate any reference. Output a tight design brief (8–14 short lines).`;
+  return `You are Pixcel's lead pixel-art designer. For a ${size}×${size} grid, design the ONE most ICONIC, instantly-recognizable Pixcel version of the subject — the definitive blend a 3-year-old names at a glance. Decide it FULLY and decisively (NO options, NO hedging): the composition/pose (a FULL figure filling the canvas, grounded — but do NOT lock an ARBITRARY facing / left-right layout; which direction it faces is the artist's natural choice, not a spec to enforce), the silhouette, a deliberate 4–6 color palette (name each color + its role: base/shadow/highlight/features), and the SPECIFIC identity-defining features (and how each reads at this size).
+
+DECIDE PROPORTIONS EXPLICITLY — this is where pieces fail. Commit the relative sizes (e.g. head:body ratio) and, if there is a PROP/object the subject holds or uses, its scale relative to the body part holding it (a tennis racket head is about the size of the figure's head — NOT a balloon).
+
+IF THE SUBJECT IS A FIGURE or an ACTION POSE: commit a clear LINE OF ACTION (the gesture/motion the pose expresses), and state HOW EACH LIMB ATTACHES to the torso (shoulder→arm→hand as one connected chain; hip→leg→foot). A figure MUST read as ONE connected body in a believable pose — never floating or detached parts, never a stiff mannequin when motion is intended. If it's an action (swinging, running, throwing), the pose must visibly express that motion.
+
+This is the COMMITTED design — the artist executes it EXACTLY and the art director judges fidelity to it. Invent the definitive design from principles; do NOT imitate any reference. Output a tight design brief (8–16 short lines).`;
+}
+
+/**
+ * The DIFFICULTY CLASSIFIER — runs after VISION. Classifies the subject and emits the SPECIFIC
+ * structural checks the auditor must verify. Iconic single subjects (owl, apple) use the proven
+ * read-level leniency; figures / action poses / scenes are HARD (limb attachment, proportion, pose
+ * believability) and get a stricter, default-to-reject auditor lens driven by these checks.
+ */
+export const statueClassifySystem = `You classify a pixel-art subject by structural difficulty and list the specific things an art director must verify, so review rigor matches the subject.
+
+Classes:
+- "iconic": ONE single creature or object, holistic gestalt (owl, apple, mushroom, cat, t-rex). Easiest — reads as a whole.
+- "figure": a humanoid/articulated figure in a STATIC pose (standing knight, a person facing forward). Multi-part — limbs must attach and proportion must hold.
+- "action": a figure (or creature) in a DYNAMIC pose / mid-motion, often with a prop (tennis player mid-swing, someone throwing). HARDEST — pose believability + limb attachment + prop scale.
+- "scene": multiple subjects or a composed environment.
+
+Return the class and 3–5 SHORT, concrete, checkable verification items the art director must confirm for THIS subject (most important first). For figure/action, ALWAYS include limb-attachment, proportion, and (if a pose/prop) pose-believability / prop-scale checks.`;
+
+export const STATUE_CLASSIFY_SCHEMA = {
+  type: 'object',
+  additionalProperties: false,
+  properties: {
+    subjectClass: { type: 'string', enum: ['iconic', 'figure', 'action', 'scene'] },
+    checks: { type: 'array', items: { type: 'string' } },
+  },
+  required: ['subjectClass', 'checks'],
+} as const;
+
+export function statueClassifyUserMessage(subject: string, brief: string): string {
+  return `Subject: "${subject}".\nCommitted design brief:\n${brief}\n\nClassify the subject and list the art director's must-verify checks.`;
 }
 
 export function statueVisionUserMessage(subject: string, size: number): string {
@@ -192,21 +228,29 @@ ${brief}
 Call setup first (use the brief's palette), then paint in coarse→fine passes — silhouette → form → the brief's identity details — looking at the render after each pass. Reply DONE when the SHAPE matches the brief.`;
 }
 
-/** The AUDITOR's per-phase system prompt — the recovered cascade art director, judging fidelity to the committed brief at read-level. */
+/** The AUDITOR's per-phase system prompt — the recovered cascade art director, judging fidelity to the committed brief at read-level. Class-aware: strict on figures/action/scenes. */
 export function statueAuditSystemPrompt(opts: {
   subject: string;
   phaseKey: string;
   phaseBar: string;
   brief: string;
   size: number;
+  subjectClass?: string;
+  checks?: string[];
 }): string {
-  const { subject, phaseKey, phaseBar, brief, size } = opts;
+  const { subject, phaseKey, phaseBar, brief, size, subjectClass, checks } = opts;
+  const hard = subjectClass === 'figure' || subjectClass === 'action' || subjectClass === 'scene';
+  const checkList = checks && checks.length ? `\n\nFor THIS subject you MUST explicitly verify each of these (most important first):\n- ${checks.join('\n- ')}` : '';
+  const hardBlock = hard
+    ? `\n\n⚠ THIS IS A HARD ${String(subjectClass).toUpperCase()} (multi-part — the failure mode is broken structure, not missing polish). Be STRICT and DEFAULT TO REJECT until the structure is genuinely right. Read-level leniency does NOT excuse: a detached / floating / mis-attached limb; wrong proportion (a head, prop, or limb the wrong size relative to the body); a stiff mannequin pose when motion/action was intended; parts that don't connect into one believable body. These are REAL flaws even at small scale — reject and name the exact fix. (Still don't churn on sub-pixel symmetry — judge STRUCTURE, not pixels.)${checkList}`
+    : `\n\nJUDGE AT THE READ LEVEL for a ${size}×${size} grid: features are only a few pixels — do NOT demand sub-pixel perfection or perfect symmetry, and do NOT churn on tiny nitpicks that don't change how it reads ("better than perfect makes it worse").${checkList}`;
   return `You are an exacting but FAIR, INDEPENDENT pixel-art art director judging the "${phaseKey.toUpperCase()}" phase of "${subject}". You did NOT draw it. The piece must realize this COMMITTED DESIGN BRIEF (judge fidelity to IT; do NOT invent new preferences mid-way):
 ${brief}
 
 Judge the CANDIDATE at true display scale.
-THE BAR FOR THIS PHASE: ${phaseBar}
-JUDGE AT THE READ LEVEL for a ${size}×${size} grid: features are only a few pixels — do NOT demand sub-pixel perfection or perfect symmetry, and do NOT churn on tiny nitpicks that don't change how it reads ("better than perfect makes it worse"). Approve as soon as this phase's bar genuinely READS as met; withhold approval only for a REAL flaw, and then list specific, fixable issues (most important first).`;
+THE BAR FOR THIS PHASE: ${phaseBar}${hardBlock}
+
+Approve as soon as this phase's bar genuinely reads as met; withhold approval only for a REAL flaw, and then list specific, fixable issues (most important first).`;
 }
 
 /** Seed message when RESUMING a saved work-in-progress (artist returning to the easel). */

@@ -4,10 +4,21 @@
 fresh eyes) → best-of-N for hard subjects → forum as the final gate. "The Evaluator" was the entry
 point; this is the whole engine. Start at "Build order — START HERE".*
 
-> **Status: NOT STARTED — captured for later.** The "Tennis Player" failure (figure holding a
-> **balloon** instead of a racket — **approved by every phase**) proved this. Re-validate against the
-> current engine before building. The complexity-adaptive budget (docs/PLAN-ADAPTIVE-BUDGET.md) is a
-> **supporting guard** — *this* is the real fix.
+> **Status: BUILT + VALIDATED (2026-06-22).** Steps 1+2 shipped in `lib/live-jobs.ts` `runStatueEngine`
+> (the hot-potato loop) + `lib/ai-art-system-prompt.ts` (feasible VISION w/ complexity, the fresh-eyes
+> TURN_PROMPT). Validation (~$2.15): **owl** first-try, $0.34, zero churn; **tennis player** — before the
+> fix it ground 9 passes and shipped a balloon-racket *unapproved*; after the read-scale-prop +
+> convergence-pressure fix it **converged in 3 passes ($0.39), racket reads as a racket, approved.** The
+> original bug (every phase approving a balloon) is dead: the fresh-eyes judge rejected the balloon on
+> all 9 passes. **Steps 3 (best-of-N) + 4 (forum) NOT built — proven unnecessary for the core** (Claude
+> alone, fresh-eyes, converged). Headless validation harness: `art-engine/run-hotpotato.sh`.
+>
+> **The two gaps the first tennis run exposed (and how they were fixed):** (a) the judge over-specified
+> into infeasibility — it demanded a 6px "cross-hatch string grid" (sub-pixel churn). Fix: VISION + TURN
+> judge objects by SHAPE + connection to the body, NEVER internal texture finer than ~2px (a racket =
+> oval head + handle gripped by the hand reads without strings). (b) the REDESIGN escape never
+> self-fired during a grind. Fix: engine-level CONVERGENCE PRESSURE after 3 fix passes without approval
+> → force a decisive simplify-or-redesign instead of grinding to the ceiling.
 
 ## Build order — START HERE (the complete picture)
 The fix is **not one component** — it's a system, in leverage order:

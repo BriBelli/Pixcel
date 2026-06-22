@@ -5,6 +5,28 @@
 > current engine before building. The complexity-adaptive budget (docs/PLAN-ADAPTIVE-BUDGET.md) is a
 > **supporting guard** — *this* is the real fix.
 
+## Build order — START HERE (the complete picture)
+The fix is **not one component** — it's a system, in leverage order:
+1. **EDITOR over evaluator — and let it FIX directly, not just prescribe (the HOT-POTATO).** The
+   reviewer is the **same caliber model as the drawer** (both Claude) — so the critic can *paint the
+   correction itself*, collapsing the prescribe→execute gap that causes blob evolution. Alternate who
+   holds the canvas → **fresh eyes every pass.** *Highest leverage.* See "The hot-potato model" below.
+2. **Feasible VISION** — design fit-to-size (rubric #1) + a complexity estimate. If it's not converging
+   in a few rounds, **re-VISION simpler — don't grind a blob.** (Budget ceiling = a cost seatbelt →
+   docs/PLAN-ADAPTIVE-BUDGET.md.)
+3. **Best-of-N drawers** for the complex/advanced tier — fresh attempts escape the local-minimum blob;
+   the gate picks the best. (The interesting multi-LLM move: alternate *drawers*, not more reviewers.)
+4. **Strict independent EVALUATOR as the gate** (recovered cascade rigor, on the batched-pass cadence) +
+   an optional **forum** only on the FINAL gate of hard pieces. This *defines "done."*
+
+**Always keep:** batched passes (**never per-stroke**), read-level/object-identity judging (not
+sub-pixel), **keep-best**, and watchability via SSE (stream batched passes — no per-stroke calls).
+
+**Validation — proves the whole theory for ~$2–3:** implement #1 (+#2), then re-run **two** subjects —
+the **tennis player** (the racket must read as a racket, or get re-designed) and the **owl** (must still
+pass first-try, ~$1, zero churn). Both hold → ship the order above. This is the next real step once the
+engine code is free + spend is approved.
+
 ## The diagnosis (why budget tuning is not the fix)
 The tennis player did **not** run out of passes. It **converged** — SHAPE ✓ POLISH ✓ QA ✓ — and shipped
 a balloon-racket anyway. **The judge said "good" when it wasn't.** That is an **evaluation failure**, not
@@ -60,6 +82,39 @@ Quality + cost depend on **three levers, not one:**
 **complex/advanced tier** — NOT gating every pass (that multiplies calls against a weak drawer = the
 80 rounds). And the more interesting multi-LLM move is **alternate DRAWERS** (best-of-N across models
 for hard subjects), not just more reviewers.
+
+## The hot-potato model (Brian) — the cleanest version of the fix
+**Key realization: the "weak drawer" was never inherently weak — it's Claude, the SAME model as the
+editor.** So there is no reason to make the critic *only prescribe* and force a separate, lesser hand to
+execute. **Let whoever holds the canvas FIX it directly.** Then the roles aren't fixed — they alternate,
+hot-potato:
+
+```
+A draws a pass ─▶ hand canvas to B
+B (fresh eyes, only {brief + render}): is it done?
+   ├─ no → B makes the highest-value FIX itself ─▶ hand back to A
+   └─ yes → ship
+… repeat until the holder (fresh eyes) cannot find a real flaw …
+```
+
+Why this is better than "editor prescribes, drawer executes":
+- **Collapses the prescribe→execute gap** — the source of blob evolution. The capable hand that *sees*
+  the flaw is the one that *fixes* it. No "weak drawer fails to execute the prescription."
+- **Forces fresh eyes every pass** — each turn the holder picks up a canvas it did NOT just make, so it
+  re-perceives *cold* instead of rationalizing its own work. That's the tennis-player root cause
+  (the coupled, self-approving judge) fixed *for free*, structurally.
+- **Simplifies the architecture** — not three fixed roles (drawer / editor / evaluator), but **one
+  capable artist looping: re-perceive cold → judge → fix → pass.** keep-best + feasible VISION +
+  complexity ceiling keep it from churning.
+
+This dissolves the "drawer isn't talented → 80 rounds" worry: the talent was always there (same model);
+the failure was role-fixing (drawer never re-judges fresh) + coupling (it rationalized). Hot-potato
+removes both. **No second LLM is required** for this — it's one model in two alternating turns. A
+forum/Gemini stays optional: only the FINAL gate on hard pieces.
+
+Guardrails (or it churns): each turn sees a **fresh-ish context** ({brief + current render}, not the
+full build narrative); **keep-best**; **read-level** judging; bounded by the **complexity ceiling**;
+**batched passes** (never per-stroke).
 
 ## Why today's auditor let it through
 **It is coupled to the making.** The per-phase auditor watches the piece built pass by pass — it *saw*

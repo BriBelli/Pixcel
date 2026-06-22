@@ -72,6 +72,28 @@ PRIMITIVE  Media-as-JSON — the shared contract every surface serializes into
            (PXSFrame · image-as-JSON · video-as-JSON · edit-as-JSON). The moat + the seam.
 ```
 
+## Input images — two paths, one seam (the exemplar line holds)
+Brian **already ported this engine's image→JSON conversion into the sister project** — it instantly
+turns image files into PXSFrame JSON records in the DB. `[proven]` That confirms the seam is real and
+two-way. There are **two legitimate image paths, and one forbidden one:**
+
+1. **Mechanical convert** — `ImageHelpers.loadImage()` faithfully quantizes an image → PXSFrame. No
+   LLM, deterministic, instant. The **storage/digitize** path (the sister project's "image file → JSON
+   record"). No exemplar issue — it's format conversion. ✅
+2. **Image as intent → VISION** — the user attaches an image as the *subject*; the **VISION step reads
+   it** and commits an *original* design brief; the drawer paints from reasoning. "Make pixel art OF
+   this." ✅ on-method.
+   ```
+   attach image ─▶ VISION (Claude vision: read subject, salient features, pose)
+                    ─▶ commit ORIGINAL brief + palette ─▶ SHAPE→POLISH→QA (paint from reasoning)
+   ```
+3. **Image as style exemplar to the drawer** — "imitate these sprites." ❌ A/B-proven harm
+   (homogenizes, caps the ceiling). Same for Tavily/internet *reference images*.
+
+**The line:** an image may define **WHAT** to depict, or be **digitized faithfully** — it must never be
+the **style the drawer copies**. Tavily belongs to the platform's research-agent layer, not the
+drawer's eyes. See [[feedback_no-exemplars-pure-reasoning]] + docs/PIXCEL-CRAFT-RUBRIC.md.
+
 ## The honest risks
 - **Scope explosion / lost focus.** Merging two apps + multi-LLM + image + video + autonomous
   workflows is enormous. The Statue Method's own lesson — *commit a vision, don't sprawl* — applies to

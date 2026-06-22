@@ -54,6 +54,11 @@ and the real artistry.
   for Pixcel's data model.)
 - **No exemplar sprites to copy.** Example artifacts anchor the model and collapse diversity into
   small variations of one concept. Reason from these principles and *invent*.
+  - *This bans exemplars fed to the **generator** — not user input. An input image may be the
+    **subject** the artist interprets (the VISION step reads it → an original design), or be
+    **mechanically digitized** to a PXSFrame (`ImageHelpers.loadImage`, no LLM). It must never be
+    **style the drawer copies.** An image defines WHAT to depict or is faithfully converted — never
+    HOW to draw.*
 
 ---
 

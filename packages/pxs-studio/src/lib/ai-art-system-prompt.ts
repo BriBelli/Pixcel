@@ -201,6 +201,10 @@ DECIDE PROPORTIONS EXPLICITLY — this is where pieces fail. Commit the relative
 
 IF THE SUBJECT IS A FIGURE or an ACTION POSE: commit a clear LINE OF ACTION (the gesture/motion the pose expresses), and state HOW EACH LIMB ATTACHES to the torso (shoulder→arm→hand as one connected chain; hip→leg→foot). Limbs have real VOLUME — at least 2–3px thick, never 1px stick-figure lines. A figure MUST read as ONE connected body in a believable pose — never floating or detached parts, never a stiff mannequin when motion is intended. If it's an action (swinging, running, throwing), the pose must visibly express that motion.
 
+IF THE SUBJECT IS A VEHICLE or MACHINE (car, robot, ship): commit the signature STANCE and proportion that NAMES it — a supercar is LOW, WIDE and planted (a bold ground-hugging wedge, not a tall blob); state the wedge/profile explicitly. Commit the identity features (headlight shape, grille / air-intake shapes, the canopy/greenhouse) and a SHADING PLAN that gives it volume + sheen: lighter upper/hood surfaces catching light, darker flanks and underside, a bright highlight edge along the top of the bodywork, a ground shadow. Panels are clean SOLID-SHADE regions, never noise.
+
+IF THE COMPOSITION IS BILATERALLY SYMMETRIC (a FRONT or REAR view of a vehicle, a front-facing face, a symmetric object): CENTER it exactly on the vertical axis and design it to MIRROR about that centerline — every feature has an identical twin at the same height on the other side (both headlights identical, both intakes identical). A front-view car whose two sides don't match reads as broken — clean symmetry is most of what makes it look designed. Set \`symmetric\`:true (and \`symmetric\`:false for anything NOT left-right symmetric — a side view, a 3/4 pose, an asymmetric creature).
+
 ${forcedComplexity
     ? `COMPLEXITY IS FIXED at "${forcedComplexity}" — the user chose this tier. Design at that level of ambition and output \`complexity\`:"${forcedComplexity}". Do NOT deliberate the tier.`
     : `ESTIMATE COMPLEXITY honestly (this sets the cost ceiling, NOT the quality bar). Complexity is the number of interacting parts the design commits to — it is INDEPENDENT of the canvas size:
@@ -210,7 +214,7 @@ ${forcedComplexity
 - "advanced": dense, many interacting elements (a busy scene, a heavily mechanical subject).
 Pick the tier that matches the design you actually committed.`}${redesign}
 
-This is the COMMITTED design — the artist executes it EXACTLY and judges fidelity to it. Invent the definitive design from principles; do NOT imitate any reference. Fill the structured output: \`cols\` + \`rows\` (the chosen aspect ratio), a tight \`brief\` (8–16 short lines), the \`palette\` (char/hex/role per color), and the \`complexity\` tier.`;
+This is the COMMITTED design — the artist executes it EXACTLY and judges fidelity to it. Invent the definitive design from principles; do NOT imitate any reference. Fill the structured output: \`cols\` + \`rows\` (the chosen aspect ratio), a tight \`brief\` (8–16 short lines), the \`palette\` (char/hex/role per color), the \`complexity\` tier, and \`symmetric\` (true for a bilaterally symmetric composition).`;
 }
 
 /** Structured VISION output — the committed brief, the palette (char→hex+role), and the complexity tier. */
@@ -236,8 +240,9 @@ export const STATUE_VISION_SCHEMA = {
       },
     },
     complexity: { type: 'string', enum: ['simple', 'moderate', 'complex', 'advanced'] },
+    symmetric: { type: 'boolean', description: 'true if the committed design is bilaterally (left-right) symmetric — a front/rear view of a vehicle, a front-facing face, a symmetric object — centered on the vertical axis.' },
   },
-  required: ['cols', 'rows', 'brief', 'palette', 'complexity'],
+  required: ['cols', 'rows', 'brief', 'palette', 'complexity', 'symmetric'],
 } as const;
 
 /**
@@ -294,12 +299,15 @@ Call setup first (use the brief's palette), then paint in coarse→fine passes �
 // ============================================================================
 
 /** The fresh-eyes turn's system prompt — judge at read/object-identity level, then fix directly. */
-export function statueHotPotatoSystemPrompt(cols: number, rows: number): string {
+export function statueHotPotatoSystemPrompt(cols: number, rows: number, symmetric = false): string {
+  const sym = symmetric
+    ? `\n\nTHIS SUBJECT IS BILATERALLY SYMMETRIC (a front/rear view). Both halves MUST match: every feature has an identical twin at the same height on the other side (both headlights, both intakes the same size + shape). GROSS left-right mismatch is a REAL read-breaking flaw — catch it and fix it (this is the ONE place symmetry matters; still ignore 1px sub-pixel jitter). The CHEAPEST clean fix: perfect the LEFT half, put your edits on the LEFT, and set \`symmetrize\`:true — the engine mirrors your left half onto the right, giving perfect symmetry for free. Reach for that instead of hand-matching both sides.`
+    : '';
   return `You are a MASTER pixel artist working on a ${cols}×${rows} Pixcel grid (${cols} wide, ${rows} tall). You both JUDGE and FIX in one move, and you see each canvas COLD — you did NOT make it and have no memory of how it was built, only what is in front of you RIGHT NOW. Fresh eyes: judge the render that exists, never the intention behind it.
 
 Stay Pure: exactly one solid color per cell — NO gradients, anti-aliasing, dithering, or hue-shift. Background is #0d1117. Lowercase hex. Coordinates: x = column 0..${cols - 1} (left→right), y = row 0..${rows - 1} (top→bottom).
 
-Fit the design to the canvas (rule #1): the form must be ICONIC and READ at a glance, filling this ${cols}×${rows} frame deliberately (no floating in dead space; fill ≠ distort — never warp true proportions to reach the edges). Build form with a base + one shadow + one highlight; give creatures life (an eye with a 1px highlight).
+Fit the design to the canvas (rule #1): the form must be ICONIC and READ at a glance, filling this ${cols}×${rows} frame deliberately (no floating in dead space; fill ≠ distort — never warp true proportions to reach the edges). Build form with a base + one shadow + one highlight; give creatures life (an eye with a 1px highlight).${sym}
 
 EVERY reply is a single structured assessment of the CURRENT canvas against the committed brief:
 1. Read it COLD at true display scale. Does it INSTANTLY read as the subject — the 3-year-old test? NAME each major element to yourself: does each read as the RIGHT object? (a tennis racket must read as a racket — a round/oval head on a handle GRIPPED BY THE HAND — NOT a balloon, lollipop, or crosshair.) A gross object-identity failure is a REAL flaw even if the piece is "clean."
@@ -319,6 +327,7 @@ export const STATUE_TURN_SCHEMA = {
     approved: { type: 'boolean', description: 'true ONLY if the canvas clears the 96% bar and reads instantly as the subject.' },
     flaw: { type: 'string', description: 'the single highest-value flaw you are fixing (or why it needs a redesign); "" if approved.' },
     redesign: { type: 'boolean', description: 'true if the design cannot read at this size and must be re-visioned simpler.' },
+    symmetrize: { type: 'boolean', description: 'ONLY for a bilaterally symmetric subject: true to mirror the LEFT half onto the right for perfect symmetry (apply your edits to the left half). false otherwise.' },
     edits: {
       type: 'array',
       description: 'the batch of cell edits that applies your fix. Empty if approved or redesign.',
@@ -334,7 +343,7 @@ export const STATUE_TURN_SCHEMA = {
       },
     },
   },
-  required: ['approved', 'flaw', 'redesign', 'edits'],
+  required: ['approved', 'flaw', 'redesign', 'symmetrize', 'edits'],
 } as const;
 
 /** First pass — block the WHOLE committed design onto a blank canvas (the opening draw). */

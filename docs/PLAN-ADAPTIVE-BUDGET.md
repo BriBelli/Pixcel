@@ -33,16 +33,29 @@ Replace `done = fixed N passes` with two independent dials:
   leave it as an afterthought.
 
 ### B. Complexity-driven ceiling (Brian's "estimate" — replaces the fixed cap)
-- The **VISION step returns a complexity estimate** alongside the brief — e.g. a structured field:
-  `complexity: 'simple' | 'moderate' | 'complex'` (or an element inventory / 1–5 score). VISION already
-  designs the piece, so it's the natural place to assess difficulty.
-- Map the estimate → **per-phase pass CEILINGS** (the anti-runaway guard, not a target):
-  | estimate | example | shape | polish | qa |
+**Core principle: complexity is independent of resolution.** Resolution is **locked at 32² (the
+ceiling — not changing).** At a fixed 32², a mushroom is *one simple idea*; a dragon is *a dozen
+interacting parts*. Same 1024 cells, ~10× the design decisions. So the budget keys off the subject's
+**intrinsic complexity — NEVER the grid size.** With size constant, complexity is the *only* variable
+to budget for.
+
+- The **VISION step returns a complexity estimate** alongside the brief — a structured field:
+  `complexity: 'simple' | 'moderate' | 'complex' | 'advanced'` (+ an element inventory / count as the
+  rationale). VISION already designs the piece, so it's the natural place — it *knows* how many parts
+  it just committed.
+- Map the estimate → **per-phase pass CEILINGS** (anti-runaway guard, NOT a target). Calibration
+  anchors from real subjects:
+  | estimate | calibration subjects | shape | polish | qa |
   |---|---|---|---|---|
-  | simple | heart, star, single icon | 1–2 | 1 | 1 |
-  | moderate | sitting cat, mushroom | 2–3 | 2 | 1 |
-  | complex | tennis player (figure+prop), mech subjects | 4–5 | 3 | 2 |
-- Simple subjects finish fast (converge early); complex subjects get runway *without* a fixed wall.
+  | **simple** | heart, star, **mushroom**, apple, single icon | 1–2 | 1 | 1 |
+  | **moderate** | sitting cat, **owl** (M2 hero ~5 passes), banana | 2 | 2 | 1 |
+  | **complex** | **dragon, unicorn, race car, tennis player** (figure+prop, multi-part, mechanical) | 4–5 | 3 | 2 |
+  | **advanced** | "super advanced" future requests — dense, many interacting elements (still 32²) | 6+ | 4 | 2 |
+- Simple subjects converge fast (no wasted rounds); complex/advanced get runway *without* a fixed wall.
+- **The complex/advanced tiers are where the engine's known weak spot lives** (figures-with-props +
+  mechanical subjects — the race car AND the tennis player both failed there). The generous ceiling +
+  VISION prop-discipline + the stricter read test are all aimed at exactly this band — treat it as the
+  first-class hardening target when building.
 
 ### Keep M2's anti-churn safeguards (do NOT regress these)
 - **keep-best** (ship last approved, never a churned pass), **read-level** judging (a 5px eye isn't

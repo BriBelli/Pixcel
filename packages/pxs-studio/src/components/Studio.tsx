@@ -22,6 +22,7 @@ import { useGenJobsStore } from '../store/gen-jobs-store';
 import { useCenterStage } from '../store/center-stage-store';
 import DiffusionShimmer from './DiffusionShimmer';
 import MaterializeFrame from './MaterializeFrame';
+import MatrixArtStage from './MatrixArtStage';
 import { applyGalleryFrame } from '../lib/apply-gallery-frame';
 
 export default function Studio({ children }: { children?: React.ReactNode }) {
@@ -585,12 +586,11 @@ export default function Studio({ children }: { children?: React.ReactNode }) {
                 </button>
 
                 <div className="rounded-xl border border-border bg-background-secondary/40 p-4 shadow-2xl shadow-black/40">
-                  {stage.frame && !stage.shimmer ? (
-                    stage.mode === 'sketch' ? (
-                      <MaterializeFrame frame={stage.frame} size={Math.min(400, (grid?.cols ?? 32) * 12)} />
-                    ) : (
-                      <FramePreview frame={stage.frame} size={Math.min(400, (grid?.cols ?? 32) * 12)} />
-                    )
+                  {stage.mode === 'sculpt' ? (
+                    // THE MATRIX LIVE SHOW — glyph-rain → color-lock off the real stream.
+                    <MatrixArtStage maxEdge={460} />
+                  ) : stage.frame && !stage.shimmer ? (
+                    <MaterializeFrame frame={stage.frame} size={Math.min(400, (grid?.cols ?? 32) * 12)} />
                   ) : (
                     <DiffusionShimmer size={Math.min(360, (grid?.cols ?? 32) * 11)} />
                   )}

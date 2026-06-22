@@ -224,6 +224,12 @@ export interface LiveJob {
   critiques: { phase: string; approved: boolean }[];
   audits: { stage: string; pass: number; approved: boolean; issues: string[] }[];
   latestFrame?: PXSFrame;
+  // ---- Matrix live-show render hints (CLIENT-side; set by the stream reducer, not the server) ----
+  dims?: { cols: number; rows: number }; // canvas dimensions, known from vision.committed
+  paletteHexes?: string[]; // the committed palette colors (for the glyph-rain tint)
+  pendingReveal?: { x: number; y: number; color: string }[]; // the latest pass.delta batch to lock
+  revealSeq?: number; // bumps each pass.delta so the reveal component enqueues exactly-once
+  lastVerdict?: { approved: boolean; flaw: string }; // the art director's latest call (the drama)
   frames: PXSFrame[]; // every pass frame (for the progression view; omitted from disk)
   frame?: PXSFrame; // final
   title?: string;
@@ -660,8 +666,10 @@ async function runStatueEngine(job: LiveJob, apiKey: string, resumeFrame?: PXSFr
       traj.audits.push({ stage: 'refine', afterPass: job.gestures, approved: false, issues: [note] });
       traj.passes.push({ pass: job.gestures, stage: 'refine', note, applied: applied.length, skipped: issues, costUsd: +(job.costUsd ?? 0).toFixed(3) });
       // The flaw it named (the JUDGMENT) → critique feed; the batch (the FIX) → the live reveal.
+      // Resolve each delta cell's color so the Matrix reveal can lock glyph→color with no palette map.
+      const deltaCells = applied.map((a) => ({ x: a.x, y: a.y, c: a.c, color: canvas.palette[a.c] ?? BACKGROUND }));
       emit('audit.verdict', { stage: 'refine', approved: false, issues: [note], pass: job.gestures });
-      emit('pass.delta', { stage: 'refine', pass: job.gestures, cells: applied });
+      emit('pass.delta', { stage: 'refine', pass: job.gestures, cells: deltaCells });
       emit('pass.done', { stage: 'refine', pass: job.gestures, cellsApplied: applied.length, note, frame });
     }
 

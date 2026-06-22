@@ -36,6 +36,13 @@ export interface LiveJob {
   frame?: PXSFrame;
   title?: string;
   cells?: number;
+  size?: number; // long-edge budget (for the rain field before dims are known)
+  // ---- Matrix live-show render hints (set by the reducer off the stream) ----
+  dims?: { cols: number; rows: number };
+  paletteHexes?: string[];
+  pendingReveal?: { x: number; y: number; color: string }[];
+  revealSeq?: number;
+  lastVerdict?: { approved: boolean; flaw: string };
   durationMs?: number;
   tokensIn?: number;
   tokensOut?: number;
@@ -61,7 +68,7 @@ function reduceEvent(prev: LiveJob | null, e: LiveEvent): LiveJob {
   if (typeof e.costUsd === 'number') j.costUsd = e.costUsd;
   switch (e.type) {
     case 'job.started':
-      return { ...j, status: 'running', stage: 'vision', phase: 'vision', statusMessage: 'Designing the vision…' };
+      return { ...j, status: 'running', stage: 'vision', phase: 'vision', statusMessage: 'Designing the vision…', size: typeof e.size === 'number' ? e.size : j.size };
     case 'cost.update':
       j.tokensIn = e.tokensIn ?? j.tokensIn;
       j.tokensOut = e.tokensOut ?? j.tokensOut;
@@ -75,7 +82,9 @@ function reduceEvent(prev: LiveJob | null, e: LiveEvent): LiveJob {
     case 'vision.committed':
       j.brief = e.brief ?? j.brief;
       if (e.subjectClass) j.subjectClass = e.subjectClass;
-      pushFeed({ kind: 'phase', text: `VISION committed — design locked${e.subjectClass ? ` (${e.subjectClass})` : ''}`, phase: 'vision' });
+      if (typeof e.cols === 'number' && typeof e.rows === 'number') j.dims = { cols: e.cols, rows: e.rows };
+      if (Array.isArray(e.palette)) j.paletteHexes = (e.palette as { hex?: string }[]).map((p) => p.hex || '').filter(Boolean);
+      pushFeed({ kind: 'phase', text: `VISION committed — design locked${e.complexity ? ` · ${e.complexity}` : ''}${j.dims ? ` · ${j.dims.cols}×${j.dims.rows}` : ''}`, phase: 'vision' });
       return j;
     case 'stage.enter':
       j.stage = j.phase = e.stage;
@@ -84,6 +93,13 @@ function reduceEvent(prev: LiveJob | null, e: LiveEvent): LiveJob {
       return j;
     case 'pass.start':
       j.statusMessage = `Painting pass ${e.pass}${e.note ? ` — ${e.note}` : ''}…`;
+      return j;
+    case 'pass.delta':
+      // The model's actual cell stream → drives the Matrix glyph→color lock (the real reveal).
+      if (Array.isArray(e.cells)) {
+        j.pendingReveal = e.cells as { x: number; y: number; color: string }[];
+        j.revealSeq = (j.revealSeq ?? 0) + 1;
+      }
       return j;
     case 'pass.done':
       j.gestures = e.pass ?? j.gestures + 1;
@@ -96,6 +112,7 @@ function reduceEvent(prev: LiveJob | null, e: LiveEvent): LiveJob {
       return j;
     case 'audit.verdict':
       j.critiques = [...j.critiques, { phase: e.stage, approved: !!e.approved }];
+      j.lastVerdict = { approved: !!e.approved, flaw: (e.issues || []).join('; ') };
       pushFeed({ kind: 'review', text: e.approved ? `${String(e.stage).toUpperCase()} approved` : (e.issues || []).join('; '), approved: !!e.approved, phase: e.stage });
       return j;
     case 'stage.approved':

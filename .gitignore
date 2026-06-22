@@ -60,3 +60,5 @@ packages/pxs-studio/ab-results/
 
 # Painter dev-scratch run output (regenerated each run)
 packages/pxs-studio/painter-out/
+
+packages/pxs-studio/art-engine/runs/

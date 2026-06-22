@@ -23,7 +23,7 @@ const COST_CAP = 3;             // hard ceiling (no-churn target lands well unde
 const PHASES = [
   { key:'shape', cap:3,
     drawer:'block the whole figure — silhouette, masses, and form (base + one shadow + one highlight), filling the canvas as a deliberate FULL composition. Place features as simple BLOCKS so it reads (a plain eye blob is fine) — do NOT render fine detail yet; that is the polish phase',
-    bar:'the masses, silhouette, form and composition are right and the figure reads as the subject in BLOCK form (features placed as simple blocks is fine). Foundational SHAPE only — do NOT demand finished eyes / texture / fine detail yet (that is polish). Approve once the SHAPE is loved.' },
+    bar:'the masses, silhouette, form and composition are right and the figure reads as the subject in BLOCK form (features placed as simple blocks is fine). Foundational SHAPE only — do NOT demand finished eyes / texture / fine detail yet (that is polish). ORIENTATION-AGNOSTIC: a valid figure facing EITHER direction is fine — NEVER reject for facing a different way than the brief imagined (that is churn on an arbitrary choice). Approve once the SHAPE is loved.' },
   { key:'polish', cap:2,
     drawer:'PHASE: POLISH — the shape is LOCKED and loved; do NOT reshape, move, or re-block anything. Look INWARD and COMPLETE the deferred details ON TOP: render the eyes properly per the brief, add texture / feather / identity touches. After each detail, re-look at THAT spot and fix it locally',
     bar:'ACCEPT the locked shape — do NOT re-evaluate the silhouette / composition / proportions (that is settled and loved). Judge ONLY the interior DETAIL added on top: do the eyes / texture / identity touches READ well per the brief? Approve once the details READ well.' },
@@ -32,7 +32,7 @@ const PHASES = [
     bar:'FINAL QA: step back and read the WHOLE piece at true display scale. Does it INSTANTLY read as the subject (child test), full form, clean, grounded, at the 96% hero bar? Approve on a clean READ-level pass; flag ONLY a real blemish that genuinely breaks the read.' },
 ];
 const BG = '#0d1117';
-const OUT = path.join(__dirname, 'painter-out');
+const OUT = process.env.PAINTER_OUT ? path.resolve(process.env.PAINTER_OUT) : path.join(__dirname, 'runs');
 fs.mkdirSync(OUT, { recursive: true });
 
 const apiKey = process.env.ANTHROPIC_API_KEY;
@@ -98,7 +98,7 @@ async function call(messages) {
 
 // ---- the recovered AUDITOR (independent art director: steamroller rigor + specific issues, bar-anchored) ----
 const AUDIT_MODEL = 'claude-opus-4-8'; // same key; swap to Fable 5 / cross-vendor for more independence
-const REF_FILES = { 'an owl': 'ab-results/ref-owl.png', 'a t-rex': 'ab-results/ref-t-rex.png' };
+const REF_FILES = { 'an owl': 'bars/ref-owl.png', 'a t-rex': 'bars/ref-t-rex.png' };
 let REF_B64 = null;
 try { const rf = REF_FILES[SUBJECT]; if (rf && fs.existsSync(path.join(__dirname, rf))) REF_B64 = fs.readFileSync(path.join(__dirname, rf)).toString('base64'); } catch {}
 let DESIGN_SPEC = ''; // the Michelangelo step — the committed iconic design brief; the drawer executes it, the auditor judges fidelity to it (kills per-run gamble + detail oscillation)
@@ -120,7 +120,7 @@ async function audit(candB64, phaseKey, phaseBar) {
 
 // ---- THE MICHELANGELO STEP: commit the iconic design BEFORE carving (reduces the per-run gamble) ----
 async function designVision(subject) {
-  const sys = `You are Pixcel's lead pixel-art designer. For a ${SIZE}×${SIZE} grid, design the ONE most ICONIC, instantly-recognizable Pixcel version of the subject — the definitive blend a 3-year-old names at a glance. Decide it FULLY and decisively (NO options, NO hedging): the composition/pose (a FULL figure filling the canvas, grounded), the silhouette, a deliberate 4–6 color palette (name each color + its role: base/shadow/highlight/features), and the SPECIFIC identity-defining features (and how each reads at this size). This is the COMMITTED design — the artist executes it EXACTLY and the art director judges fidelity to it. Invent the definitive design from principles; do NOT imitate any reference. Output a tight design brief (8–14 short lines).`;
+  const sys = `You are Pixcel's lead pixel-art designer. For a ${SIZE}×${SIZE} grid, design the ONE most ICONIC, instantly-recognizable Pixcel version of the subject — the definitive blend a 3-year-old names at a glance. Decide it FULLY and decisively (NO options, NO hedging): the composition/pose (a FULL figure filling the canvas, grounded — but do NOT lock an ARBITRARY facing / left-right layout; which direction it faces is the artist's natural choice, not a spec to enforce), the silhouette, a deliberate 4–6 color palette (name each color + its role: base/shadow/highlight/features), and the SPECIFIC identity-defining features (and how each reads at this size). This is the COMMITTED design — the artist executes it EXACTLY and the art director judges fidelity to it. Invent the definitive design from principles; do NOT imitate any reference. Output a tight design brief (8–14 short lines).`;
   const s = client.messages.stream({ model: MODEL, max_tokens: 2000, thinking:{type:'adaptive',display:'summarized'}, output_config:{effort:'high'}, system: sys, messages:[{ role:'user', content:`Design the iconic Pixcel "${subject}" for a ${SIZE}×${SIZE} grid. Output the committed design brief.` }] });
   const msg = await s.finalMessage(); addCost(msg.usage||{});
   return msg.content.filter(b=>b.type==='text').map(b=>b.text).join('').trim();

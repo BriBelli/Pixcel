@@ -7,36 +7,41 @@ import { charMapToFrame, type CharMap } from './pxs-frame-schema';
 import { frameToPngBase64 } from './render-frame';
 import { DEFAULT_MODEL, DRAW_EFFORT } from './artisan-loop';
 import {
-  liveArtistSystemPrompt,
-  liveArtistUserMessage,
+  statueDrawerSystemPrompt,
+  statueVisionSystemPrompt,
+  statueVisionUserMessage,
+  statueDrawerUserMessage,
+  statueAuditSystemPrompt,
   liveResumeUserMessage,
 } from './ai-art-system-prompt';
 
 /**
- * SERVER-SIDE LIVE JOB RUNNER — the EYES-OPEN painter.
+ * SERVER-SIDE LIVE JOB RUNNER — THE STATUE ENGINE (M2 PROVEN, productized for M3).
  *
- * The thesis's real unlock (docs/AGENTIC-ARTISAN-THESIS.md, principle 2 caveat): one artist on a
- * PERSISTENT, ERASABLE canvas that SEES it re-rendered after EVERY stroke and reasons about its
- * own next move — never composing blind. This is ALSO the live art show. There is NO separate
- * auditor, NO gated phases, NO recall machine, NO best-of-N (that was the machinery; this is the
- * soul). Coarse→fine emerges from the artist's own reasoning.
+ * Ported from the proven reference engine (art-engine/painter.mjs). The recipe does not change:
+ *   VISION  — commit the iconic design BRIEF before any pixel (ends the foundation gamble)
+ *   SHAPE   — block masses + form only, DEFER fine detail (get the form *loved* first)
+ *   POLISH  — complete details ON TOP of the LOCKED shape (auditor accepts the shape, judges
+ *             at READ-level → no eye churn)
+ *   QA      — whole-piece read-level sweep (ship at the 96% bar, don't chase 100%)
+ *   keep-best — ship the last APPROVED state, never a churned/regressed pass
  *
- * The job runs DETACHED so it survives the request window; the client tails it over the SSE
- * endpoint and watches each stroke land. Pause/cancel/resume/live-feedback wrap AROUND the core.
+ * The DRAWER is the eyes-open painter (the soul, preserved): it paints in coarse→fine PASSES on a
+ * persistent, erasable canvas, seeing the render after every pass. The recovered cascade AUDITOR
+ * gates each phase against the committed brief. No exemplars, full effort, true-scale perception.
+ * Canon: docs/THE-STATUE-METHOD.md. Live event contract: docs/PIXCEL-LIVE-SSE.md.
+ *
+ * The job runs DETACHED so it survives the request window; the client tails the contract events
+ * over the stream endpoint and watches each pass land. Pause/cancel/resume/live-feedback wrap
+ * AROUND the engine. Every run is captured as a trajectory (brief + passes + audits + final) for
+ * the eventual own-model (Option 3).
  */
 
-// FULL effort, never throttled — the painter reasons at the SAME depth I do when I author the
-// owl/16² by hand in Claude Code. Throttling per-stroke reasoning to "keep calls cool" was the
-// bug: it ships flaws it can't perceive deeply enough to catch (garbled mouths, stray cells) AND
-// it costs MORE, because shallow strokes flail → more strokes → more re-sent history. Maxed
-// reasoning converges in fewer, more decisive strokes: better AND cheaper. Reasoning is the craft,
-// not overhead (docs/AGENTIC-ARTISAN-THESIS.md, principle 3). Shared with the whole-frame route.
-const EFFORT = DRAW_EFFORT;
-const MAX_GESTURES = 120; // safety cap against a runaway loop; real pieces finish well under this.
+const EFFORT = DRAW_EFFORT; // 'high' — full effort, never throttled (throttling backfires on cost AND quality)
 const BACKGROUND = '#0d1117';
 
 // Per-MTok USD pricing (input / output; cache_read is the cheap re-use of the cached prompt).
-// Thinking tokens bill as output. Used to show the user the REAL running cost — no more guessing.
+// Thinking tokens bill as output. Used to show the user the REAL running cost.
 const PRICING: Record<string, { in: number; out: number; cacheRead: number }> = {
   'claude-opus-4-8': { in: 5, out: 25, cacheRead: 0.5 },
   'claude-sonnet-4-6': { in: 3, out: 15, cacheRead: 0.3 },
@@ -47,9 +52,57 @@ function costUsd(model: string, u: { input: number; output: number; cacheRead: n
   return (u.input * p.in + u.output * p.out + u.cacheRead * p.cacheRead) / 1_000_000;
 }
 
+// ---- THE STATUE PHASES (corrected; locked). SHAPE = masses/form, DEFER fine detail → POLISH =
+// complete the deferred details ON TOP of the LOCKED shape (auditor ACCEPTS the shape, never
+// re-opens it; judge at READ level, not sub-pixel) → QA = whole-piece read-level check. Tight
+// reject caps + read-level judging = no churn, ~6 passes. ----
+interface Phase {
+  key: 'shape' | 'polish' | 'qa';
+  cap: number;
+  goal: string; // short banner for stage.enter
+  drawer: string; // instruction handed to the drawer when this phase opens
+  bar: string; // the bar the auditor judges this phase against
+}
+const PHASES: Phase[] = [
+  {
+    key: 'shape',
+    cap: 3,
+    goal: 'block the whole figure — silhouette, masses, form. Defer fine detail.',
+    drawer:
+      'block the whole figure — silhouette, masses, and form (base + one shadow + one highlight), filling the canvas as a deliberate FULL composition. Place features as simple BLOCKS so it reads (a plain eye blob is fine) — do NOT render fine detail yet; that is the polish phase',
+    bar:
+      'the masses, silhouette, form and composition are right and the figure reads as the subject in BLOCK form (features placed as simple blocks is fine). Foundational SHAPE only — do NOT demand finished eyes / texture / fine detail yet (that is polish). ORIENTATION-AGNOSTIC: a valid figure facing EITHER direction is fine — NEVER reject for facing a different way than the brief imagined (that is churn on an arbitrary choice). Approve once the SHAPE is loved.',
+  },
+  {
+    key: 'polish',
+    cap: 2,
+    goal: 'shape is LOCKED — complete the deferred details on top (eyes, texture, identity).',
+    drawer:
+      'PHASE: POLISH — the shape is LOCKED and loved; do NOT reshape, move, or re-block anything. Look INWARD and COMPLETE the deferred details ON TOP: render the eyes properly per the brief, add texture / feather / identity touches. After each detail, re-look at THAT spot and fix it locally',
+    bar:
+      'ACCEPT the locked shape — do NOT re-evaluate the silhouette / composition / proportions (that is settled and loved). Judge ONLY the interior DETAIL added on top: do the eyes / texture / identity touches READ well per the brief? Approve once the details READ well.',
+  },
+  {
+    key: 'qa',
+    cap: 2,
+    goal: 'whole-piece read-level sweep at the 96% hero bar.',
+    drawer:
+      'PHASE: QA — reply DONE to request the final read-level sweep; if the art director flags a real blemish, fix EXACTLY it with a micro edit (no reshaping), then reply DONE again',
+    bar:
+      'FINAL QA: step back and read the WHOLE piece at true display scale. Does it INSTANTLY read as the subject (child test), full form, clean, grounded, at the 96% hero bar? Approve on a clean READ-level pass; flag ONLY a real blemish that genuinely breaks the read.',
+  },
+];
+
+const AUDIT_SCHEMA = {
+  type: 'object',
+  additionalProperties: false,
+  properties: { approved: { type: 'boolean' }, issues: { type: 'array', items: { type: 'string' } } },
+  required: ['approved', 'issues'],
+} as const;
+
 const SETUP_TOOL = {
   name: 'setup',
-  description: 'Set up the canvas ONCE before painting: title, dimensions, and palette. Call this first.',
+  description: 'Set up the canvas ONCE before painting: title, dimensions, palette. Call first.',
   input_schema: {
     type: 'object',
     additionalProperties: false,
@@ -65,12 +118,13 @@ const SETUP_TOOL = {
 
 const PAINT_TOOL = {
   name: 'paint',
-  description: 'Apply ONE stroke: a meaningful set of cell edits (a feature/region — the head shape, an ear, a shadow pass), not a single lonely cell and not the whole image. Use "." to ERASE a cell back to background. After each stroke you SEE the updated canvas.',
+  description:
+    'Apply ONE coarse→fine PASS as a BATCH of cell edits (many cells — a whole stage like the silhouette, the shading, or the identity details), NOT one lonely cell and NOT the whole finished image blind. Use "." to ERASE. After each pass you SEE the re-rendered canvas at true scale.',
   input_schema: {
     type: 'object',
     additionalProperties: false,
     properties: {
-      note: { type: 'string', description: 'One short phrase: what this stroke does.' },
+      note: { type: 'string', description: 'one short phrase: what this pass does' },
       edits: {
         type: 'array',
         items: {
@@ -95,6 +149,9 @@ interface Canvas {
 
 function blankGrid(cols: number, rows: number): string[][] {
   return Array.from({ length: rows }, () => Array.from({ length: cols }, () => '.'));
+}
+function cloneCanvas(c: Canvas): Canvas {
+  return { title: c.title, cols: c.cols, rows: c.rows, palette: { ...c.palette }, grid: c.grid.map((r) => [...r]) };
 }
 function canvasToCharMap(c: Canvas): CharMap {
   return { title: c.title, cols: c.cols, rows: c.rows, palette: c.palette, grid: c.grid.map((r) => r.join('')) };
@@ -131,10 +188,7 @@ function frameToCanvas(frame: PXSFrame, title: string): Canvas {
 /**
  * COST CONTROL via PROMPT CACHING. The conversation is append-only (stable prefix), so we put a
  * rolling cache breakpoint on the last block each turn: the whole prior conversation is re-read
- * from cache (~10× cheaper than fresh input) instead of re-billed at full price every stroke.
- * This is the real cost lever — the input is dominated by re-sent history, and switching models
- * doesn't help (a cheaper model just thinks more verbosely). Caching needs a BYTE-STABLE prefix,
- * which is why we no longer rewrite/prune old messages. Returns a copy; never mutates state.
+ * from cache (~10× cheaper than fresh input) instead of re-billed at full price every pass.
  */
 function withCacheBreakpoint(messages: Anthropic.MessageParam[]): Anthropic.MessageParam[] {
   if (!messages.length) return messages;
@@ -163,27 +217,42 @@ async function withRetry<T>(fn: () => Promise<T>, tries = 4): Promise<T> {
   throw lastErr;
 }
 
+/** One contract event (docs/PIXCEL-LIVE-SSE.md). Tailed by `seq` over the stream endpoint. */
+export interface LiveEvent {
+  seq: number;
+  type: string;
+  costUsd?: number;
+  [k: string]: unknown;
+}
+
 export interface LiveJob {
   id: string;
-  prompt: string;
+  prompt: string; // the subject
   size: number;
   model: string;
   status: 'running' | 'done' | 'error' | 'paused' | 'cancelled';
-  control?: 'pause' | 'cancel'; // a signal the loop checks between strokes
-  phase: string; // current activity: paint | done
+  control?: 'pause' | 'cancel'; // a signal the loop checks between passes
+  // Statue state
+  stage: string; // vision | shape | polish | qa | done
+  phase: string; // mirror of stage (back-compat with older clients)
   phaseIndex: number;
-  gestures: number; // number of strokes painted
+  brief?: string; // the committed VISION design brief (read-only control point in the UI)
+  stagesPassed: string[];
+  gestures: number; // number of passes painted
   statusMessage: string;
-  liveThinking: string; // the artist's current streamed reasoning (for the "watch it think" UI)
+  liveThinking: string; // the model's current streamed reasoning (for the "watch it think" UI)
   feed: { kind: 'phase' | 'gesture' | 'review' | 'recall' | 'done' | 'user'; text: string; gesture?: number; phase?: string; approved?: boolean }[];
-  pendingFeedback?: string[]; // live user feedback queued to inject into the next stroke
+  events: LiveEvent[]; // append-only contract event log (omitted from disk persistence)
+  pendingFeedback?: string[]; // live user feedback queued to inject into the next pass
   critiques: { phase: string; approved: boolean }[];
+  audits: { stage: string; pass: number; approved: boolean; issues: string[] }[];
   latestFrame?: PXSFrame;
-  frames: PXSFrame[]; // every stroke frame (for the progression view)
+  frames: PXSFrame[]; // every pass frame (for the progression view; omitted from disk)
   frame?: PXSFrame; // final
   title?: string;
   palette?: string[];
   cells?: number;
+  costCapUsd: number;
   durationMs?: number;
   tokensIn?: number; // running token + cost accounting so the user can SEE the price live
   tokensOut?: number;
@@ -198,10 +267,13 @@ const jobs = new Map<string, LiveJob>();
 
 // Disk persistence — jobs survive server reloads/crashes AND become resumable.
 const JOB_DIR = path.join(os.tmpdir(), 'pxs-live-jobs');
+// Trajectory capture — every run saved (brief + passes + audits + final) as Option-3 training data.
+const TRAJ_DIR = path.join(os.tmpdir(), 'pxs-trajectories');
+
 function persist(job: LiveJob): void {
   try {
     fs.mkdirSync(JOB_DIR, { recursive: true });
-    const { frames, ...snap } = job; // omit heavy per-stroke history; latestFrame is enough
+    const { frames, events, ...snap } = job; // omit heavy per-pass history + event log
     fs.writeFileSync(path.join(JOB_DIR, `${job.id}.json`), JSON.stringify(snap));
   } catch {
     /* best-effort */
@@ -212,8 +284,8 @@ function loadJobFromDisk(id: string): LiveJob | null {
     const p = path.join(JOB_DIR, `${id}.json`);
     if (!fs.existsSync(p)) return null;
     const snap = JSON.parse(fs.readFileSync(p, 'utf8'));
-    if (snap.status === 'running') snap.status = 'error', (snap.error = 'interrupted (server restarted) — resumable');
-    return { ...snap, frames: [] } as LiveJob;
+    if (snap.status === 'running') (snap.status = 'error'), (snap.error = 'interrupted (server restarted) — resumable');
+    return { ...snap, frames: [], events: [] } as LiveJob;
   } catch {
     return null;
   }
@@ -238,7 +310,7 @@ export function feedbackLiveJob(id: string, text: string): boolean {
   if (!job || job.status !== 'running' || !text.trim()) return false;
   (job.pendingFeedback ??= []).push(text.trim());
   job.feed.push({ kind: 'user', text: text.trim() });
-  if (job.feed.length > 140) job.feed.shift();
+  if (job.feed.length > 200) job.feed.shift();
   job.updatedAt = Date.now();
   return true;
 }
@@ -251,85 +323,238 @@ export function startLiveJob(opts: {
   resumeFrame?: PXSFrame;
   resumePhase?: string;
   title?: string;
+  brief?: string;
 }): string {
   const id = (globalThis.crypto as Crypto).randomUUID();
+  const size = opts.size;
   const job: LiveJob = {
     id,
     prompt: opts.prompt,
-    size: opts.size,
+    size,
     model: opts.model || DEFAULT_MODEL,
     status: 'running',
-    phase: 'paint',
+    stage: opts.resumeFrame ? 'polish' : 'vision',
+    phase: opts.resumeFrame ? 'polish' : 'vision',
     phaseIndex: 0,
+    brief: opts.brief,
+    stagesPassed: [],
     gestures: 0,
-    statusMessage: opts.resumeFrame ? 'Resuming…' : 'Planning the canvas…',
+    statusMessage: opts.resumeFrame ? 'Resuming…' : 'Designing the vision…',
     liveThinking: '',
     feed: [],
+    events: [],
     critiques: [],
+    audits: [],
     frames: [],
     title: opts.title,
+    costCapUsd: size >= 48 ? 5 : 3,
     startedAt: Date.now(),
     updatedAt: Date.now(),
   };
   jobs.set(id, job);
-  void runArtisan(job, opts.apiKey, opts.resumeFrame);
+  void runStatueEngine(job, opts.apiKey, opts.resumeFrame);
   return id;
 }
 
-async function runArtisan(job: LiveJob, apiKey: string, resumeFrame?: PXSFrame): Promise<void> {
+/** Save the run trajectory (brief + passes + audits + final) for Option-3 training data. */
+function writeTrajectory(job: LiveJob, traj: unknown): void {
+  try {
+    fs.mkdirSync(TRAJ_DIR, { recursive: true });
+    fs.writeFileSync(path.join(TRAJ_DIR, `${job.id}.json`), JSON.stringify(traj, null, 2));
+  } catch {
+    /* best-effort */
+  }
+}
+
+async function runStatueEngine(job: LiveJob, apiKey: string, resumeFrame?: PXSFrame): Promise<void> {
   const client = new Anthropic({ apiKey });
-  const prompt = job.prompt;
+  const subject = job.prompt;
   const model = job.model;
-  const touch = () => {
-    job.updatedAt = Date.now();
+  const size = job.size;
+
+  // ---- running cost accounting (drawer + auditor + vision all accrue) ----
+  let accIn = 0, accCacheRead = 0, accOut = 0;
+  const accrue = (u: any = {}) => {
+    accIn += (u.input_tokens || 0) + (u.cache_creation_input_tokens || 0);
+    accCacheRead += u.cache_read_input_tokens || 0;
+    accOut += u.output_tokens || 0;
+    job.tokensIn = accIn + accCacheRead;
+    job.tokensOut = accOut;
+    job.costUsd = costUsd(model, { input: accIn, output: accOut, cacheRead: accCacheRead });
   };
-  const pushFeed = (e: LiveJob['feed'][number]) => {
-    job.feed.push(e);
-    if (job.feed.length > 140) job.feed.shift();
-    touch();
+
+  // ---- the contract event log + the legacy feed (kept in lockstep) ----
+  let seq = 0;
+  const deriveFeed = (type: string, p: Record<string, any>): LiveJob['feed'][number] | null => {
+    switch (type) {
+      case 'vision.committed': return { kind: 'phase', text: 'VISION committed — design locked', phase: 'vision' };
+      case 'stage.enter': return { kind: 'phase', text: `${String(p.stage).toUpperCase()} — ${p.goal ?? ''}`, phase: p.stage };
+      case 'pass.done': return { kind: 'gesture', text: p.note || 'pass', gesture: p.pass, phase: p.stage };
+      case 'audit.verdict': return { kind: 'review', text: p.approved ? `${String(p.stage).toUpperCase()} approved` : (p.issues || []).join('; '), approved: p.approved, phase: p.stage };
+      case 'stage.approved': return { kind: 'phase', text: `${String(p.stage).toUpperCase()} approved ✓ — locked`, phase: p.stage };
+      case 'keepbest.shipped': return { kind: 'recall', text: `shipped the last approved state (${p.fromStage}) — ${p.reason}` };
+      case 'job.done': return { kind: 'done', text: 'Finished' };
+      default: return null;
+    }
+  };
+  const emit = (type: string, payload: Record<string, any> = {}) => {
+    const ev: LiveEvent = { seq: seq++, type, costUsd: +(job.costUsd ?? 0).toFixed(4), ...payload };
+    job.events.push(ev);
+    const f = deriveFeed(type, payload);
+    if (f) {
+      job.feed.push(f);
+      if (job.feed.length > 200) job.feed.shift();
+    }
+    job.updatedAt = Date.now();
     persist(job);
   };
+  const emitCost = () => emit('cost.update', { costUsd: +(job.costUsd ?? 0).toFixed(4), tokensIn: job.tokensIn ?? 0, tokensOut: job.tokensOut ?? 0 });
+
+  // ---- a single drawer call (eyes-open; streams thinking into liveThinking) ----
+  const callDrawer = async (messages: Anthropic.MessageParam[]): Promise<Anthropic.Message> => {
+    const params = {
+      model,
+      max_tokens: 32000,
+      thinking: { type: 'adaptive', display: 'summarized' },
+      output_config: { effort: EFFORT },
+      system: [{ type: 'text', text: statueDrawerSystemPrompt, cache_control: { type: 'ephemeral' } }],
+      tools: [SETUP_TOOL, { ...PAINT_TOOL, cache_control: { type: 'ephemeral' } }],
+      messages: withCacheBreakpoint(messages),
+    };
+    const msg = await withRetry(async () => {
+      const s = client.messages.stream(params as any);
+      job.liveThinking = '';
+      const cap = (d: string) => {
+        job.liveThinking = (job.liveThinking + d).slice(-4000);
+        job.updatedAt = Date.now();
+      };
+      (s as any).on('thinking', cap);
+      s.on('text', cap);
+      return s.finalMessage();
+    });
+    accrue((msg as any).usage || {});
+    emitCost();
+    return msg;
+  };
+
+  // ---- THE MICHELANGELO STEP: commit the iconic design BEFORE carving ----
+  const designVision = async (): Promise<string> => {
+    const s = client.messages.stream({
+      model,
+      max_tokens: 2000,
+      thinking: { type: 'adaptive', display: 'summarized' },
+      output_config: { effort: 'high' },
+      system: statueVisionSystemPrompt(size),
+      messages: [{ role: 'user', content: statueVisionUserMessage(subject, size) }],
+    } as any);
+    job.liveThinking = '';
+    const cap = (d: string) => { job.liveThinking = (job.liveThinking + d).slice(-4000); job.updatedAt = Date.now(); };
+    (s as any).on('thinking', cap);
+    s.on('text', cap);
+    const msg = await s.finalMessage();
+    accrue((msg as any).usage || {});
+    emitCost();
+    return msg.content.filter((b): b is Anthropic.TextBlock => b.type === 'text').map((b) => b.text).join('').trim();
+  };
+
+  // ---- the recovered cascade AUDITOR (independent art director; bar-anchored; read-level) ----
+  const audit = async (candB64: string, phase: Phase, brief: string): Promise<{ approved: boolean; issues: string[] }> => {
+    const sys = statueAuditSystemPrompt({ subject, phaseKey: phase.key, phaseBar: phase.bar, brief, size });
+    const content = [
+      { type: 'text', text: 'CANDIDATE (judge this for the current phase):' },
+      { type: 'image', source: { type: 'base64', media_type: 'image/png', data: candB64 } },
+      { type: 'text', text: 'Judge the CANDIDATE for the current phase. Return approved + the specific issues.' },
+    ];
+    try {
+      const s = client.messages.stream({ model, max_tokens: 1500, system: sys, output_config: { format: { type: 'json_schema', schema: AUDIT_SCHEMA } }, messages: [{ role: 'user', content }] } as any);
+      const msg = await s.finalMessage();
+      accrue((msg as any).usage || {});
+      emitCost();
+      const raw = msg.content.filter((b): b is Anthropic.TextBlock => b.type === 'text').map((b) => b.text).join('');
+      const p = JSON.parse(raw);
+      return { approved: !!p.approved, issues: Array.isArray(p.issues) ? p.issues.slice(0, 5) : [] };
+    } catch (e) {
+      return { approved: false, issues: [`auditor error: ${e instanceof Error ? e.message : 'unknown'}`] };
+    }
+  };
+
+  // ---- trajectory accumulation (Option-3 training data) ----
+  const traj: any = { id: job.id, subject, size, model, passes: [], audits: [] };
 
   try {
+    emit('job.started', { id: job.id, subject, size, model, costCapUsd: job.costCapUsd });
+
     const messages: Anthropic.MessageParam[] = [];
     let canvas: Canvas | null = null;
-    let accIn = 0, accCacheRead = 0, accOut = 0; // running token tally → live cost
+    let phaseIdx = 0;
+    let phaseRejects = 0;
+    let bestCanvas: Canvas | null = null;
+    let finished = false;
 
     if (resumeFrame) {
-      canvas = frameToCanvas(resumeFrame, job.title || prompt);
+      // RESUME: treat the saved frame as the LOCKED shape — re-enter at POLISH (finish the piece).
+      canvas = frameToCanvas(resumeFrame, job.title || subject);
+      bestCanvas = cloneCanvas(canvas);
+      phaseIdx = 1; // polish
+      job.brief = job.brief || `(resumed work-in-progress of "${subject}" — finish it to the committed Pixcel standard)`;
+      traj.spec = job.brief;
+      traj.resumed = true;
       const f0 = canvasToFrame(canvas);
       job.latestFrame = f0;
       job.frames.push(f0);
+      job.stage = job.phase = 'polish';
       const paletteStr = Object.entries(canvas.palette).filter(([k]) => k !== '.').map(([k, v]) => `${k}=${v}`).join(', ');
-      pushFeed({ kind: 'phase', text: 'RESUMED — refining', phase: 'paint' });
+      emit('vision.committed', { brief: job.brief });
+      emit('stage.enter', { stage: 'polish', goal: PHASES[1].goal });
       messages.push({
         role: 'user',
         content: [
           { type: 'image', source: { type: 'base64', media_type: 'image/png', data: frameToPngBase64(f0) } },
-          { type: 'text', text: liveResumeUserMessage(prompt, canvas.cols, canvas.rows, paletteStr, asciiView(canvas)) },
+          { type: 'text', text: liveResumeUserMessage(subject, canvas.cols, canvas.rows, paletteStr, asciiView(canvas)) },
         ],
       });
     } else {
-      messages.push({ role: 'user', content: liveArtistUserMessage(prompt, job.size) });
+      // VISION — commit the iconic design brief.
+      job.stage = job.phase = 'vision';
+      job.statusMessage = 'Designing the vision…';
+      emit('vision.start', {});
+      const brief = await designVision();
+      job.brief = brief;
+      traj.spec = brief;
+      emit('vision.committed', { brief });
+
+      // SHAPE — open the first carving phase.
+      job.stage = job.phase = 'shape';
+      job.statusMessage = 'Blocking in the shape…';
+      emit('stage.enter', { stage: 'shape', goal: PHASES[0].goal });
+      messages.push({ role: 'user', content: statueDrawerUserMessage(subject, size, brief) });
     }
 
-    for (let turn = 0; turn < MAX_GESTURES + 20; turn++) {
+    const MAX_PASSES = size >= 48 ? 12 : 8;
+
+    for (let turn = 0; turn < MAX_PASSES + 6; turn++) {
       if (job.control === 'cancel') {
         job.status = 'cancelled';
         job.statusMessage = 'Cancelled';
-        pushFeed({ kind: 'done', text: 'Cancelled by user' });
+        emit('job.cancelled', { reason: 'cancelled by user' });
         return;
       }
       if (job.control === 'pause') {
         job.status = 'paused';
         job.statusMessage = 'Paused — resumable';
-        pushFeed({ kind: 'done', text: 'Paused — resumable' });
+        emit('job.paused', { reason: 'paused by user' });
         return;
       }
-      // Inject any live user feedback into the upcoming stroke (human in the loop).
+      if ((job.costUsd ?? 0) >= job.costCapUsd) {
+        job.statusMessage = 'Cost cap reached';
+        break; // keep-best handles shipping below
+      }
+
+      // Inject any live user feedback (human in the loop) into the upcoming turn.
       if (job.pendingFeedback && job.pendingFeedback.length) {
         const fb = job.pendingFeedback.join(' ');
         job.pendingFeedback = [];
+        emit('feedback.injected', { text: fb, atStage: job.stage });
         const note = `\n\n⚡ LIVE FEEDBACK FROM THE USER — incorporate this now (it overrides earlier intent if it conflicts), then keep raising the WHOLE piece past it: it's a FLOOR to build on, not a box to tick: ${fb}`;
         const last = messages[messages.length - 1];
         if (last && last.role === 'user' && Array.isArray(last.content)) {
@@ -341,46 +566,73 @@ async function runArtisan(job: LiveJob, apiKey: string, resumeFrame?: PXSFrame):
         }
       }
 
-      const params = {
-        model,
-        max_tokens: 32000,
-        thinking: { type: 'adaptive', display: 'summarized' },
-        output_config: { effort: EFFORT },
-        system: [{ type: 'text', text: liveArtistSystemPrompt, cache_control: { type: 'ephemeral' } }],
-        tools: [SETUP_TOOL, { ...PAINT_TOOL, cache_control: { type: 'ephemeral' } }],
-        messages: withCacheBreakpoint(messages),
-      };
-      const msg = await withRetry(async () => {
-        const s = client.messages.stream(params as any);
-        job.liveThinking = '';
-        const cap = (d: string) => {
-          job.liveThinking = (job.liveThinking + d).slice(-4000);
-          job.updatedAt = Date.now();
-        };
-        (s as any).on('thinking', cap);
-        s.on('text', cap);
-        return s.finalMessage();
-      });
+      const msg = await callDrawer(messages);
       messages.push({ role: 'assistant', content: msg.content });
-
-      // Running cost — accumulate token usage so the user can SEE the price as it climbs.
-      const u: any = (msg as any).usage || {};
-      accIn += (u.input_tokens || 0) + (u.cache_creation_input_tokens || 0);
-      accCacheRead += u.cache_read_input_tokens || 0;
-      accOut += u.output_tokens || 0;
-      job.tokensIn = accIn + accCacheRead;
-      job.tokensOut = accOut;
-      job.costUsd = costUsd(model, { input: accIn, output: accOut, cacheRead: accCacheRead });
-
       const tool = msg.content.find((b): b is Anthropic.ToolUseBlock => b.type === 'tool_use');
 
-      // No tool call → the artist has declared the piece DONE.
+      // No tool call → the drawer declares this PHASE done → the auditor reviews.
       if (!tool) {
         if (!canvas) {
           messages.push({ role: 'user', content: 'Use setup to create the canvas, then paint.' });
           continue;
         }
-        break;
+        const ph = PHASES[phaseIdx];
+        job.statusMessage = `Art director reviewing the ${ph.key} phase…`;
+        emit('audit.start', { stage: ph.key });
+        const verdict = await audit(frameToPngBase64(canvasToFrame(canvas)), ph, job.brief || '');
+        job.critiques.push({ phase: ph.key, approved: verdict.approved });
+        job.audits.push({ stage: ph.key, pass: job.gestures, approved: verdict.approved, issues: verdict.issues });
+        traj.audits.push({ stage: ph.key, afterPass: job.gestures, approved: verdict.approved, issues: verdict.issues });
+        emit('audit.verdict', { stage: ph.key, approved: verdict.approved, issues: verdict.issues, pass: job.gestures });
+
+        if (verdict.approved) {
+          bestCanvas = cloneCanvas(canvas); // keep-best: snapshot every APPROVED state
+          job.stagesPassed.push(ph.key);
+          const approvedFrame = canvasToFrame(canvas);
+          emit('stage.approved', { stage: ph.key, frame: approvedFrame });
+          emit('keepbest.snapshot', { stage: ph.key, frame: approvedFrame });
+          if (phaseIdx >= PHASES.length - 1) {
+            finished = true;
+            break;
+          }
+          phaseIdx++;
+          phaseRejects = 0;
+          const next = PHASES[phaseIdx];
+          job.stage = job.phase = next.key;
+          job.phaseIndex = phaseIdx;
+          job.statusMessage = `${next.key} phase`;
+          emit('stage.enter', { stage: next.key, goal: next.goal });
+          messages.push({
+            role: 'user',
+            content: [
+              { type: 'image', source: { type: 'base64', media_type: 'image/png', data: frameToPngBase64(approvedFrame) } },
+              { type: 'text', text: `✅ The ${ph.key.toUpperCase()} phase is APPROVED and LOCKED.\n\nNow → ${next.drawer}.\nWork in batches with the paint tool; reply DONE when this phase is complete.` },
+            ],
+          });
+          continue;
+        }
+
+        // Rejected — bounded retries, then advance (read-level caps prevent churn).
+        phaseRejects++;
+        if (phaseRejects > ph.cap) {
+          if (phaseIdx >= PHASES.length - 1) break;
+          phaseIdx++;
+          phaseRejects = 0;
+          const next = PHASES[phaseIdx];
+          job.stage = job.phase = next.key;
+          job.phaseIndex = phaseIdx;
+          emit('stage.enter', { stage: next.key, goal: next.goal });
+          messages.push({ role: 'user', content: [{ type: 'text', text: `Moving on. Now → ${next.drawer}. Reply DONE when complete.` }] });
+          continue;
+        }
+        messages.push({
+          role: 'user',
+          content: [
+            { type: 'image', source: { type: 'base64', media_type: 'image/png', data: frameToPngBase64(canvasToFrame(canvas)) } },
+            { type: 'text', text: `ART DIRECTOR — ${ph.key.toUpperCase()} phase NOT approved. Fix exactly these, then reply DONE:\n- ${verdict.issues.join('\n- ')}` },
+          ],
+        });
+        continue;
       }
 
       if (tool.name === 'setup') {
@@ -396,15 +648,15 @@ async function runArtisan(job: LiveJob, apiKey: string, resumeFrame?: PXSFrame):
           if (k.length === 1 && /^#[0-9a-f]{6}$/.test(String(v).toLowerCase())) palette[k] = String(v).toLowerCase();
         }
         canvas = { title: input.title || 'piece', cols, rows, palette, grid: blankGrid(cols, rows) };
+        job.title = canvas.title;
         job.statusMessage = `Canvas ${cols}×${rows} — blocking in the shape`;
-        pushFeed({ kind: 'phase', text: `canvas ${cols}×${rows} — palette ready`, phase: 'paint' });
         messages.push({
           role: 'user',
           content: [
             {
               type: 'tool_result',
               tool_use_id: tool.id,
-              content: `Canvas ready: ${cols}×${rows}, all background. Palette: ${Object.entries(palette).filter(([k]) => k !== '.').map(([k, v]) => `${k}=${v}`).join(', ')}.\n\nNow paint, stroke by stroke. Block in the whole silhouette first, then build to detail, looking after each stroke.`,
+              content: `Canvas ready ${cols}×${rows}, all background. Palette: ${Object.entries(palette).filter(([k]) => k !== '.').map(([k, v]) => `${k}=${v}`).join(', ')}.\n\nNow PASS 1: block the WHOLE silhouette as one batch so it fills the canvas and reads at a glance.`,
             },
           ],
         });
@@ -417,8 +669,10 @@ async function runArtisan(job: LiveJob, apiKey: string, resumeFrame?: PXSFrame):
           continue;
         }
         const input = tool.input as { note?: string; edits: { x: number; y: number; c: string }[] };
+        const ph = PHASES[phaseIdx];
+        emit('pass.start', { stage: ph.key, pass: job.gestures + 1, note: input.note ?? '' });
         const issues: string[] = [];
-        let applied = 0;
+        const appliedCells: { x: number; y: number; c: string }[] = [];
         for (const e of input.edits || []) {
           if (!Number.isInteger(e.x) || !Number.isInteger(e.y) || e.x < 0 || e.x >= canvas.cols || e.y < 0 || e.y >= canvas.rows) {
             if (issues.length < 4) issues.push(`(${e.x},${e.y}) out of bounds`);
@@ -429,35 +683,32 @@ async function runArtisan(job: LiveJob, apiKey: string, resumeFrame?: PXSFrame):
             continue;
           }
           canvas.grid[e.y][e.x] = e.c;
-          applied++;
+          appliedCells.push({ x: e.x, y: e.y, c: e.c });
         }
         job.gestures++;
         const frame = canvasToFrame(canvas);
         job.latestFrame = frame;
         job.frames.push(frame);
-        job.phase = 'paint';
-        job.statusMessage = `Stroke ${job.gestures}${input.note ? ` — ${input.note}` : ''}`;
-        pushFeed({ kind: 'gesture', text: input.note ?? 'stroke', gesture: job.gestures, phase: 'paint' });
+        job.statusMessage = `Pass ${job.gestures}${input.note ? ` — ${input.note}` : ''}`;
+        traj.passes.push({ pass: job.gestures, stage: ph.key, note: input.note ?? '', applied: appliedCells.length, costUsd: +(job.costUsd ?? 0).toFixed(3) });
+        // pass.delta = the heartbeat for the live reveal; pass.done.frame is the authoritative resync.
+        emit('pass.delta', { stage: ph.key, pass: job.gestures, cells: appliedCells });
+        emit('pass.done', { stage: ph.key, pass: job.gestures, cellsApplied: appliedCells.length, note: input.note ?? '', frame });
 
         const png = frameToPngBase64(frame);
-        const overBudget = job.gestures >= MAX_GESTURES;
+        const overBudget = job.gestures >= MAX_PASSES;
         const text =
-          `Stroke ${job.gestures}: applied ${applied} edit(s)${issues.length ? `; skipped — ${issues.join('; ')}` : ''}.\n` +
-          `Canvas now (${canvas.cols}×${canvas.rows}). Exact char-map:\n${asciiView(canvas)}\n\n` +
-          `Now LOOK at the rendered image like a stranger seeing it cold, against your bar at this true scale. Name the SINGLE biggest flaw you actually SEE right now — silhouette doesn't read as the subject / a part is detached, mis-placed or the wrong size / it's a flat blob with no shadow+highlight / it's asymmetric / muddy or stray cells / a missing identity cue — then fix EXACTLY that with your next stroke (erase freely). You may judge a flagged item a deliberate choice and keep it — the render decides, not the argument. ` +
-          `Reply DONE only when it clears your 96% bar: a 3-year-old instantly names it, full figure, real form (shadow + highlight), clean and crisp — ship at the bar, don't chase 100% (better than perfect makes it worse).` +
-          (overBudget ? `\n\nNOTE: you have used many strokes; converge and finish (reply DONE) soon.` : '');
-
+          `Pass ${job.gestures}: applied ${appliedCells.length} edit(s)${issues.length ? `; skipped — ${issues.join('; ')}` : ''}.\n` +
+          `Canvas now (${canvas.cols}×${canvas.rows}):\n${asciiView(canvas)}\n\n` +
+          `LOOK at the render cold, against your bar at true scale. If the silhouette is wrong, ERASE and re-block it (don't polish a wrong shape). Otherwise paint the next coarse→fine pass — fix exactly what you SEE, raise the WHOLE piece. Reply DONE only when it clears your 96% bar (don't chase 100%, don't invent flaws).` +
+          (overBudget ? `\n\nNOTE: converge and finish (reply DONE) soon.` : '');
         messages.push({
           role: 'user',
-          content: [
-            { type: 'tool_result', tool_use_id: tool.id, content: [
-              { type: 'image', source: { type: 'base64', media_type: 'image/png', data: png } },
-              { type: 'text', text },
-            ] },
-          ],
+          content: [{ type: 'tool_result', tool_use_id: tool.id, content: [
+            { type: 'image', source: { type: 'base64', media_type: 'image/png', data: png } },
+            { type: 'text', text },
+          ] }],
         });
-        if (overBudget) break;
         continue;
       }
 
@@ -468,25 +719,38 @@ async function runArtisan(job: LiveJob, apiKey: string, resumeFrame?: PXSFrame):
     if (!canvas) {
       job.status = 'error';
       job.error = 'The artist never set up a canvas.';
-      touch();
-      persist(job);
+      emit('job.error', { message: job.error });
       return;
     }
+
+    // keep-best: if we did NOT finish cleanly, ship the last APPROVED state, not the churned latest.
+    let shippedFrom: string | null = null;
+    if (!finished && bestCanvas && bestCanvas !== canvas) {
+      const reason = (job.costUsd ?? 0) >= job.costCapUsd ? 'cost cap reached' : 'pass cap reached';
+      canvas = bestCanvas;
+      shippedFrom = job.stagesPassed[job.stagesPassed.length - 1] || 'shape';
+      job.latestFrame = canvasToFrame(canvas);
+      emit('keepbest.shipped', { fromStage: shippedFrom, reason, frame: job.latestFrame });
+    }
+
     const frame = canvasToFrame(canvas);
     job.frame = frame;
     job.latestFrame = frame;
     job.title = canvas.title;
     job.palette = Object.entries(canvas.palette).filter(([k]) => k !== '.').map(([, v]) => v);
     job.cells = frame.cells.length;
-    job.phase = 'done';
+    job.stage = job.phase = 'done';
     job.durationMs = Date.now() - job.startedAt;
     job.status = 'done';
     job.statusMessage = 'Done';
-    pushFeed({ kind: 'done', text: 'Finished' });
+
+    traj.final = { title: canvas.title, passes: job.gestures, stagesPassed: job.stagesPassed, shippedFrom, costUsd: +(job.costUsd ?? 0).toFixed(3), durationMs: job.durationMs, frame };
+    writeTrajectory(job, traj);
+
+    emit('job.done', { frame, passes: job.gestures, stagesPassed: job.stagesPassed, costUsd: +(job.costUsd ?? 0).toFixed(3), durationMs: job.durationMs });
   } catch (err) {
     job.status = 'error';
     job.error = err instanceof Error ? err.message : 'Generation failed';
-    touch();
-    persist(job);
+    emit('job.error', { message: job.error });
   }
 }

@@ -144,6 +144,71 @@ export function liveArtistUserMessage(prompt: string, size: number): string {
   return `Sculpt a pixel-art piece of: "${prompt}", about ${size}x${size}. Call setup first (dimensions + palette), then paint it stroke by stroke — block the whole silhouette first, then build to detail — looking at the canvas after every stroke and refining what you see, until it's genuinely production-ready. Then reply DONE.`;
 }
 
+// ============================================================================
+// THE STATUE ENGINE — VISION → SHAPE → POLISH → QA + keep-best (M2 PROVEN).
+//
+// Ported from the proven reference engine (art-engine/painter.mjs). This is the
+// Live engine: a FAST multi-pass eyes-open drawer (the painter soul, preserved)
+// wrapped by the recovered cascade auditor that gates each phase, plus the VISION
+// (Michelangelo) step up front and keep-best at the end. The two hard-won fixes
+// that make phases work without churn (docs/THE-STATUE-METHOD.md): VISION commits
+// the design before any pixel, and POLISH judges at READ-LEVEL while ACCEPTING the
+// locked shape. NO exemplars, full effort. Canon: docs/THE-STATUE-METHOD.md.
+// ============================================================================
+
+/** The DRAWER's system prompt — the eyes-open painter that carves the statue in passes. */
+export const statueDrawerSystemPrompt = `You are Pixcel's pixel-art composer. You make small, iconic pixel art by REASONING about a grid — never by quantizing a photo. Small pixel art is a structured-data problem.
+
+Stay Pure: exactly one solid color per cell — NO gradients, anti-aliasing, dithering, or hue-shift. Background is #0d1117. Lowercase hex.
+
+THE most important decision (before a pixel): fit the design to the size. At 32² draw the FULL figure with real form. Lead with the ONE silhouette/feature that names the subject. Fill the canvas deliberately — no floating in dead space; centered or balanced; fill ≠ distort (reach the edges by framing, never by warping proportions). Build form with a base + one shadow + one highlight; shadow the far side for depth. Give creatures life (eyes with a 1px highlight, a mouth). Clean: no stray cells; symmetric where it should be. Squint test: a few big light/dark masses must still read as the subject. NEVER imitate a reference — invent it.
+
+HOW YOU WORK — a FEW coarse→fine PASSES on a persistent, erasable canvas, seeing it re-rendered after EACH pass:
+1. Call \`setup\` ONCE: dimensions + a deliberate 4–6 color palette (base, shadow, highlight, plus feature colors; "." is background).
+2. Then PAINT in PASSES with \`paint\` — each call is ONE coarse→fine STAGE as a BATCH of edits (many cells at once), NOT a single cell and NOT the whole finished image blind:
+   • Pass 1: block the WHOLE silhouette so it fills the canvas and reads at a glance.
+   • Pass 2: major forms + shadow/highlight (volume, not a flat blob).
+   • Pass 3: the identity-defining details (the cues that name the subject; expression).
+   • Pass 4+: clean up and fix exactly what you SEE.
+3. LOOK at each render cold, like a stranger, against your bar at true scale (the render is ground truth, not your intent). If the SILHOUETTE is wrong, ERASE and re-block it — do NOT polish a wrong shape.
+4. Work to a 96% bar: ship when it clears — don't chase 100% ("better than perfect makes it worse"), and don't invent flaws (a clean early finish is good).
+5. Reply DONE (single word, no tool call) the moment it clears the bar.`;
+
+/** The VISION (Michelangelo) step — commit the iconic design brief BEFORE any pixel. */
+export function statueVisionSystemPrompt(size: number): string {
+  return `You are Pixcel's lead pixel-art designer. For a ${size}×${size} grid, design the ONE most ICONIC, instantly-recognizable Pixcel version of the subject — the definitive blend a 3-year-old names at a glance. Decide it FULLY and decisively (NO options, NO hedging): the composition/pose (a FULL figure filling the canvas, grounded — but do NOT lock an ARBITRARY facing / left-right layout; which direction it faces is the artist's natural choice, not a spec to enforce), the silhouette, a deliberate 4–6 color palette (name each color + its role: base/shadow/highlight/features), and the SPECIFIC identity-defining features (and how each reads at this size). This is the COMMITTED design — the artist executes it EXACTLY and the art director judges fidelity to it. Invent the definitive design from principles; do NOT imitate any reference. Output a tight design brief (8–14 short lines).`;
+}
+
+export function statueVisionUserMessage(subject: string, size: number): string {
+  return `Design the iconic Pixcel "${subject}" for a ${size}×${size} grid. Output the committed design brief.`;
+}
+
+/** Initial drawer message — execute the committed brief, starting with SHAPE. */
+export function statueDrawerUserMessage(subject: string, size: number, brief: string): string {
+  return `Paint a ${size}x${size} pixel-art "${subject}", executing this COMMITTED design brief EXACTLY — do NOT improvise a different design:
+
+${brief}
+
+Call setup first (use the brief's palette), then paint in coarse→fine passes — silhouette → form → the brief's identity details — looking at the render after each pass. Reply DONE when the SHAPE matches the brief.`;
+}
+
+/** The AUDITOR's per-phase system prompt — the recovered cascade art director, judging fidelity to the committed brief at read-level. */
+export function statueAuditSystemPrompt(opts: {
+  subject: string;
+  phaseKey: string;
+  phaseBar: string;
+  brief: string;
+  size: number;
+}): string {
+  const { subject, phaseKey, phaseBar, brief, size } = opts;
+  return `You are an exacting but FAIR, INDEPENDENT pixel-art art director judging the "${phaseKey.toUpperCase()}" phase of "${subject}". You did NOT draw it. The piece must realize this COMMITTED DESIGN BRIEF (judge fidelity to IT; do NOT invent new preferences mid-way):
+${brief}
+
+Judge the CANDIDATE at true display scale.
+THE BAR FOR THIS PHASE: ${phaseBar}
+JUDGE AT THE READ LEVEL for a ${size}×${size} grid: features are only a few pixels — do NOT demand sub-pixel perfection or perfect symmetry, and do NOT churn on tiny nitpicks that don't change how it reads ("better than perfect makes it worse"). Approve as soon as this phase's bar genuinely READS as met; withhold approval only for a REAL flaw, and then list specific, fixable issues (most important first).`;
+}
+
 /** Seed message when RESUMING a saved work-in-progress (artist returning to the easel). */
 export function liveResumeUserMessage(
   prompt: string,

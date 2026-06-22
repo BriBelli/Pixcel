@@ -200,7 +200,9 @@ export interface LiveEvent {
 export interface LiveJob {
   id: string;
   prompt: string; // the subject
-  size: number;
+  size: number; // the LONGEST-edge budget (auto mode) / the cost-cap key
+  manualCols?: number; // user-chosen width — when set (with manualRows), canvas is fixed (manual mode)
+  manualRows?: number; // user-chosen height — else VISION chooses the aspect ratio (auto mode)
   model: string;
   status: 'running' | 'done' | 'error' | 'paused' | 'cancelled';
   control?: 'pause' | 'cancel'; // a signal the loop checks between passes
@@ -295,6 +297,8 @@ export function startLiveJob(opts: {
   size: number;
   model: string;
   apiKey: string;
+  cols?: number; // manual dimensions — when both are set the canvas is FIXED (manual mode);
+  rows?: number; // otherwise VISION chooses the aspect ratio for the subject (auto mode).
   resumeFrame?: PXSFrame;
   resumePhase?: string;
   title?: string;
@@ -310,6 +314,8 @@ export function startLiveJob(opts: {
     id,
     prompt: opts.prompt,
     size,
+    manualCols: opts.cols && opts.rows ? Math.min(64, Math.max(8, Math.round(opts.cols))) : undefined,
+    manualRows: opts.cols && opts.rows ? Math.min(64, Math.max(8, Math.round(opts.rows))) : undefined,
     model: opts.model || DEFAULT_MODEL,
     status: 'running',
     stage: resumeStage,
@@ -410,7 +416,14 @@ async function runStatueEngine(job: LiveJob, apiKey: string, resumeFrame?: PXSFr
   // ---- VISION (the Michelangelo step) — commit a FEASIBLE design + palette + complexity. Structured
   // output so the engine OWNS the palette (no setup tool) and gets the complexity ceiling. Pass
   // `simplerThan` to RE-VISION simpler when a design proved infeasible at this size. ----
-  type Vision = { brief: string; palette: { char: string; hex: string; role: string }[]; complexity: Complexity };
+  // Manual dimensions: if the request fixed cols/rows, the canvas is NOT square and VISION designs to
+  // fill them; otherwise VISION CHOOSES the aspect ratio for the subject (auto — `size` = the long edge).
+  const clampDim = (n: unknown): number => Math.min(size, Math.max(8, Math.round(Number(n) || size)));
+  const fixedDims = job.manualCols && job.manualRows
+    ? { cols: clampDim(job.manualCols), rows: clampDim(job.manualRows) }
+    : undefined;
+
+  type Vision = { brief: string; palette: { char: string; hex: string; role: string }[]; complexity: Complexity; cols: number; rows: number };
   const designVision = async (simplerThan?: string): Promise<Vision> => {
     const msg = await withRetry(async () => {
       const s = client.messages.stream({
@@ -418,7 +431,7 @@ async function runStatueEngine(job: LiveJob, apiKey: string, resumeFrame?: PXSFr
         max_tokens: 4000,
         thinking: { type: 'adaptive', display: 'summarized' },
         output_config: { effort: 'high', format: { type: 'json_schema', schema: STATUE_VISION_SCHEMA } },
-        system: statueVisionSystemPrompt(size, simplerThan),
+        system: statueVisionSystemPrompt(size, simplerThan, fixedDims),
         messages: [{ role: 'user', content: statueVisionUserMessage(subject, size) }],
       } as any);
       job.liveThinking = '';
@@ -433,13 +446,16 @@ async function runStatueEngine(job: LiveJob, apiKey: string, resumeFrame?: PXSFr
     const p = JSON.parse(raw);
     const palette = Array.isArray(p.palette) ? p.palette : [];
     const complexity: Complexity = (['simple', 'moderate', 'complex', 'advanced'] as const).includes(p.complexity) ? p.complexity : 'moderate';
-    return { brief: String(p.brief || '').trim(), palette, complexity };
+    // Manual dims win; else use VISION's chosen aspect (clamped to the size budget).
+    const cols = fixedDims ? fixedDims.cols : clampDim(p.cols);
+    const rows = fixedDims ? fixedDims.rows : clampDim(p.rows);
+    return { brief: String(p.brief || '').trim(), palette, complexity, cols, rows };
   };
 
   // ---- ONE fresh-eyes hot-potato turn: judge the CURRENT render COLD against {brief}, then either
   // approve or apply the highest-value FIX itself (structured output: {approved, flaw, redesign,
   // edits}). FRESH context every call (no message history) — that freshness IS the hot-potato. ----
-  const turnSystem = statueHotPotatoSystemPrompt(size);
+  let turnSystem = ''; // set once the canvas dimensions are known (after VISION / on resume / on redesign)
   type Turn = { approved: boolean; flaw: string; redesign: boolean; edits: { x: number; y: number; c: string }[] };
   const callTurn = async (content: any): Promise<Turn> => {
     const msg = await withRetry(async () => {
@@ -468,15 +484,16 @@ async function runStatueEngine(job: LiveJob, apiKey: string, resumeFrame?: PXSFr
     }
   };
 
-  // Build the working canvas from the committed VISION palette (the engine owns it — no setup tool).
-  const buildCanvas = (pal: Vision['palette'], title: string): Canvas => {
+  // Build the working canvas from the committed VISION palette + chosen dimensions (the engine owns
+  // both — no setup tool). Dimensions are VISION's aspect choice (auto) or the user's (manual).
+  const buildCanvas = (pal: Vision['palette'], title: string, cols: number, rows: number): Canvas => {
     const palette: Record<string, string> = { '.': BACKGROUND };
     for (const e of pal) {
       const ch = String(e.char || '').slice(0, 1);
       const hex = String(e.hex || '').toLowerCase();
       if (ch && ch !== '.' && HEX_RE.test(hex)) palette[ch] = hex;
     }
-    return { title, cols: size, rows: size, palette, grid: blankGrid(size, size) };
+    return { title, cols, rows, palette, grid: blankGrid(cols, rows) };
   };
   const paletteStr = (c: Canvas): string =>
     Object.entries(c.palette).filter(([k]) => k !== '.').map(([k, v]) => `${k}=${v}`).join(', ');
@@ -505,11 +522,12 @@ async function runStatueEngine(job: LiveJob, apiKey: string, resumeFrame?: PXSFr
       const f0 = canvasToFrame(canvas);
       job.latestFrame = f0;
       job.frames.push(f0);
+      turnSystem = statueHotPotatoSystemPrompt(canvas.cols, canvas.rows);
       job.stage = job.phase = 'refine';
-      emit('vision.committed', { brief });
+      emit('vision.committed', { brief, cols: canvas.cols, rows: canvas.rows });
       emit('stage.enter', { stage: 'refine', goal: 'finish the piece — fresh-eyes judge + fix each pass' });
     } else {
-      // VISION — commit the feasible, fit-to-size design + palette + complexity.
+      // VISION — commit the feasible, fit-to-size design + aspect ratio + palette + complexity.
       job.stage = job.phase = 'vision';
       job.statusMessage = 'Designing the vision…';
       emit('vision.start', {});
@@ -521,12 +539,14 @@ async function runStatueEngine(job: LiveJob, apiKey: string, resumeFrame?: PXSFr
       traj.spec = brief;
       traj.complexity = complexity;
       traj.palette = v.palette;
-      canvas = buildCanvas(v.palette, subject);
+      traj.dims = { cols: v.cols, rows: v.rows };
+      canvas = buildCanvas(v.palette, subject, v.cols, v.rows);
+      turnSystem = statueHotPotatoSystemPrompt(canvas.cols, canvas.rows);
       job.title = canvas.title;
-      emit('vision.committed', { brief, palette: v.palette, complexity });
+      emit('vision.committed', { brief, palette: v.palette, complexity, cols: v.cols, rows: v.rows });
       job.stage = job.phase = 'refine';
       job.statusMessage = 'Blocking in the composition…';
-      emit('stage.enter', { stage: 'refine', goal: `hot-potato — fresh-eyes judge + fix each pass (complexity: ${complexity})` });
+      emit('stage.enter', { stage: 'refine', goal: `hot-potato — fresh-eyes judge + fix each pass (${canvas.cols}×${canvas.rows}, complexity: ${complexity})` });
     }
 
     const maxPasses = CEILINGS[complexity].passes;
@@ -570,19 +590,19 @@ async function runStatueEngine(job: LiveJob, apiKey: string, resumeFrame?: PXSFr
         // Opening pass — block the whole committed design onto the blank canvas (no render to show).
         job.statusMessage = 'Blocking in the composition…';
         emit('pass.start', { stage: 'refine', pass: job.gestures + 1, note: 'block-in' });
-        content = [{ type: 'text', text: statueFirstDrawUserMessage(subject, size, brief, paletteStr(canvas)) + feedbackLine }];
+        content = [{ type: 'text', text: statueFirstDrawUserMessage(subject, canvas.cols, canvas.rows, brief, paletteStr(canvas)) + feedbackLine }];
       } else {
         // Fresh-eyes turn — judge the current render cold, then approve or fix. After several fix
         // passes without converging, add CONVERGENCE PRESSURE: it's almost certainly chasing detail
         // that can't render at this size, so force a decisive simplify-or-redesign (kills the grind).
         const pressureLine = fixPasses >= CONVERGE_PRESSURE_AT
-          ? `\n\n⚠ CONVERGENCE PRESSURE — this piece has been reworked ${fixPasses} times without clearing the bar. You are almost certainly chasing internal detail that CANNOT render at ${size}². STOP refining the same way. THIS pass: take any element that still won't read and REPLACE it with its SIMPLEST solid iconic form (e.g. a racket = a solid oval/round head + a straight handle joined to the hand — NO internal strings), then judge it on SHAPE alone — if the shape reads, APPROVE. If the piece as a WHOLE genuinely cannot read at this size, set redesign:true. Do NOT produce another near-identical rework.`
+          ? `\n\n⚠ CONVERGENCE PRESSURE — this piece has been reworked ${fixPasses} times without clearing the bar. You are almost certainly chasing internal detail that CANNOT render at ${canvas.cols}×${canvas.rows}. STOP refining the same way. THIS pass: take any element that still won't read and REPLACE it with its SIMPLEST solid iconic form (e.g. a racket = a solid oval/round head + a straight handle joined to the hand — NO internal strings), then judge it on SHAPE alone — if the shape reads, APPROVE. If the piece as a WHOLE genuinely cannot read at this size, set redesign:true. Do NOT produce another near-identical rework.`
           : '';
         job.statusMessage = fixPasses >= CONVERGE_PRESSURE_AT ? 'Forcing convergence…' : 'Fresh-eyes review…';
         emit('pass.start', { stage: 'refine', pass: job.gestures + 1 });
         content = [
           { type: 'image', source: { type: 'base64', media_type: 'image/png', data: frameToPngBase64(canvasToFrame(canvas)) } },
-          { type: 'text', text: statueTurnUserMessage(subject, size, brief, paletteStr(canvas)) + feedbackLine + pressureLine },
+          { type: 'text', text: statueTurnUserMessage(subject, canvas.cols, canvas.rows, brief, paletteStr(canvas)) + feedbackLine + pressureLine },
         ];
       }
 
@@ -601,11 +621,12 @@ async function runStatueEngine(job: LiveJob, apiKey: string, resumeFrame?: PXSFr
         job.brief = brief;
         job.complexity = complexity;
         traj.spec = brief;
-        canvas = buildCanvas(v.palette, subject);
+        canvas = buildCanvas(v.palette, subject, v.cols, v.rows);
+        turnSystem = statueHotPotatoSystemPrompt(canvas.cols, canvas.rows);
         bestCanvas = null;
         fixPasses = 0; // fresh design → reset the convergence-pressure counter
-        emit('vision.committed', { brief, palette: v.palette, complexity });
-        emit('stage.enter', { stage: 'refine', goal: `re-visioned simpler (complexity: ${complexity})` });
+        emit('vision.committed', { brief, palette: v.palette, complexity, cols: v.cols, rows: v.rows });
+        emit('stage.enter', { stage: 'refine', goal: `re-visioned simpler (${canvas.cols}×${canvas.rows}, complexity: ${complexity})` });
         continue; // next pass redraws the simpler design from a blank canvas
       }
 

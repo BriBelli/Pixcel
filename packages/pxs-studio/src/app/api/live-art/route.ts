@@ -21,6 +21,8 @@ export async function POST(req: Request) {
   let body: {
     prompt?: string;
     size?: number;
+    cols?: number;
+    rows?: number;
     model?: string;
     resume?: string;
     resumeFrame?: PXSFrame;
@@ -62,6 +64,13 @@ export async function POST(req: Request) {
   let resumePhase = body.resumePhase;
   let title = body.title;
   let size = Math.min(64, Math.max(8, Math.round(body.size ?? 24)));
+  // Manual dimensions (auto vs manual): when BOTH cols+rows are given the canvas is fixed and
+  // non-square; otherwise VISION chooses the aspect ratio (auto), using `size` as the long-edge budget.
+  const manualCols = Number.isFinite(body.cols) ? Math.min(64, Math.max(8, Math.round(body.cols as number))) : undefined;
+  const manualRows = Number.isFinite(body.rows) ? Math.min(64, Math.max(8, Math.round(body.rows as number))) : undefined;
+  const cols = manualCols && manualRows ? manualCols : undefined;
+  const rows = manualCols && manualRows ? manualRows : undefined;
+  if (cols && rows) size = Math.max(cols, rows); // cost cap keys off the long edge in manual mode
 
   // Resume a saved/interrupted job by id.
   let brief: string | undefined;
@@ -81,7 +90,7 @@ export async function POST(req: Request) {
   if (resumeFrame) size = resumeFrame.cols;
   if (!prompt) return Response.json({ error: 'prompt is required' }, { status: 400 });
 
-  const id = startLiveJob({ prompt, size, model, apiKey, resumeFrame, resumePhase, title, brief });
+  const id = startLiveJob({ prompt, size, cols, rows, model, apiKey, resumeFrame, resumePhase, title, brief });
   return Response.json({ jobId: id, resumed: !!resumeFrame });
 }
 

@@ -174,14 +174,22 @@ HOW YOU WORK — a FEW coarse→fine PASSES on a persistent, erasable canvas, se
 4. Work to a 96% bar: ship when it clears — don't chase 100% ("better than perfect makes it worse"), and don't invent flaws (a clean early finish is good).
 5. Reply DONE (single word, no tool call) the moment it clears the bar.`;
 
-/** The VISION (Michelangelo) step — commit a FEASIBLE, fit-to-size design + complexity BEFORE any pixel. */
-export function statueVisionSystemPrompt(size: number, simplerThan?: string): string {
+/** The VISION (Michelangelo) step — commit a FEASIBLE, fit-to-size design + aspect ratio + complexity.
+ *  `fixed` = the user manually chose the canvas dimensions; VISION designs to fill them instead of
+ *  choosing the aspect ratio itself. */
+export function statueVisionSystemPrompt(size: number, simplerThan?: string, fixed?: { cols: number; rows: number }): string {
   const redesign = simplerThan
-    ? `\n\n⚠ REDESIGN — a PREVIOUS design for this subject could NOT be made to read at ${size}²; it was too complex/realistic for the medium. Design a SIMPLER, MORE ICONIC version that CAN read at this size: subtract elements, reduce to the single most identity-bearing view, enlarge the recognition cue, drop or radically simplify any prop. The previous (too-hard) design was:\n"""${simplerThan}"""\nDo NOT repeat its mistakes — commit to something genuinely simpler and DROP a complexity tier if you can.`
+    ? `\n\n⚠ REDESIGN — a PREVIOUS design for this subject could NOT be made to read at this size; it was too complex/realistic for the medium. Design a SIMPLER, MORE ICONIC version that CAN read: subtract elements, reduce to the single most identity-bearing view, enlarge the recognition cue, drop or radically simplify any prop. The previous (too-hard) design was:\n"""${simplerThan}"""\nDo NOT repeat its mistakes — commit to something genuinely simpler and DROP a complexity tier if you can.`
     : '';
-  return `You are Pixcel's lead pixel-art designer. For a ${size}×${size} grid, design the ONE most ICONIC, instantly-recognizable Pixcel version of the subject — the definitive blend a 3-year-old names at a glance. Decide it FULLY and decisively (NO options, NO hedging): the composition/pose (a FULL figure filling the canvas, grounded — but do NOT lock an ARBITRARY facing / left-right layout; which direction it faces is the artist's natural choice, not a spec to enforce), the silhouette, a deliberate 4–6 color palette (each color → a single-char symbol + lowercase #rrggbb hex + its role: base/shadow/highlight/feature), and the SPECIFIC identity-defining features (and how each reads at this size).
+  const longest = fixed ? Math.max(fixed.cols, fixed.rows) : size;
+  const aspect = fixed
+    ? `THE CANVAS IS FIXED at ${fixed.cols}×${fixed.rows} (${fixed.cols} wide, ${fixed.rows} tall) — the user chose these dimensions. Design the subject to FILL this exact frame deliberately (no dead space, no distortion). Output \`cols\`:${fixed.cols} and \`rows\`:${fixed.rows} unchanged.`
+    : `CHOOSE THE CANVAS ASPECT RATIO to fit the subject — this is part of fitting the design to the size, and the canvas is NOT forced square. Output \`cols\` (width) and \`rows\` (height): the LONGEST edge should be about ${size}; the other edge is whatever the subject's natural proportion needs, so the subject FILLS the frame without distortion. A low sports car is WIDE and short (e.g. ${size}×${Math.round(size * 0.5)}); a standing figure or a tower is TALL (e.g. ${Math.round(size * 0.6)}×${size}); a creature/face is roughly SQUARE (${size}×${size}). Both edges between 8 and ${size}. Picking the wrong shape (cramming a wide car into a square) is the #1 way the piece reads wrong — get it right here.`;
+  return `You are Pixcel's lead pixel-art designer. On a grid up to ${longest} cells on its LONGEST edge, design the ONE most ICONIC, instantly-recognizable Pixcel version of the subject — the definitive blend a 3-year-old names at a glance. Decide it FULLY and decisively (NO options, NO hedging): the composition/pose (a FULL figure filling the canvas, grounded — but do NOT lock an ARBITRARY facing / left-right layout; which direction it faces is the artist's natural choice, not a spec to enforce), the silhouette, a deliberate 4–6 color palette (each color → a single-char symbol + lowercase #rrggbb hex + its role: base/shadow/highlight/feature), and the SPECIFIC identity-defining features (and how each reads at this size).
 
-FEASIBILITY IS RULE #1 — fit the design to the size. The design MUST be drawable so it READS at ${size}² in this pure, one-color-per-cell medium. Before committing, ask: can a few-dozen-pixel form actually carry this? If the literal/realistic subject can NOT read at ${size}² (too many parts, too fine, too photographic), commit a SIMPLER, more ICONIC framing that CAN (a strong crop, an exaggerated cue, a stylized pose) — never a faithful-but-illegible one. A design that can't read at this size is a FAILED design, no matter how accurate.
+${aspect}
+
+FEASIBILITY IS RULE #1 — fit the design to the size. The design MUST be drawable so it READS at this size in this pure, one-color-per-cell medium. Before committing, ask: can a few-dozen-pixel form actually carry this? If the literal/realistic subject can NOT read at this size (too many parts, too fine, too photographic), commit a SIMPLER, more ICONIC framing that CAN (a strong crop, an exaggerated cue, a stylized pose) — never a faithful-but-illegible one. A design that can't read at this size is a FAILED design, no matter how accurate.
 
 DESIGN EVERYTHING AT READ-SCALE — objects read from their SHAPE/silhouette, NOT from fine internal texture. NEVER specify internal detail finer than ~2px: it cannot render in this medium and chasing it causes endless churn. A small object becomes its bold solid iconic form — e.g. a tennis racket = a solid oval/round head + a straight handle gripped by the hand (do NOT call for a "string grid" / cross-hatch on a ~6px head — it's infeasible and unnecessary; the oval-on-a-handle shape, connected to the hand, IS what reads as a racket). Same for clock faces (no numerals), keyboards (no keys), etc. Commit the recognizable SHAPE, not the texture.
 
@@ -189,14 +197,14 @@ DECIDE PROPORTIONS EXPLICITLY — this is where pieces fail. Commit the relative
 
 IF THE SUBJECT IS A FIGURE or an ACTION POSE: commit a clear LINE OF ACTION (the gesture/motion the pose expresses), and state HOW EACH LIMB ATTACHES to the torso (shoulder→arm→hand as one connected chain; hip→leg→foot). Limbs have real VOLUME — at least 2–3px thick, never 1px stick-figure lines. A figure MUST read as ONE connected body in a believable pose — never floating or detached parts, never a stiff mannequin when motion is intended. If it's an action (swinging, running, throwing), the pose must visibly express that motion.
 
-ESTIMATE COMPLEXITY honestly (this sets the cost ceiling, NOT the quality bar). Complexity is the number of interacting parts the design commits to — it is INDEPENDENT of the grid size (which is fixed at ${size}²):
+ESTIMATE COMPLEXITY honestly (this sets the cost ceiling, NOT the quality bar). Complexity is the number of interacting parts the design commits to — it is INDEPENDENT of the canvas size:
 - "simple": ONE iconic mass, no articulation (heart, apple, star, mushroom, single icon).
 - "moderate": one creature/object with a few features (owl, sitting cat, banana).
 - "complex": a figure + prop, or a multi-part / mechanical subject (tennis player, dragon, race car, unicorn).
 - "advanced": dense, many interacting elements (a busy scene, a heavily mechanical subject).
 Pick the tier that matches the design you actually committed.${redesign}
 
-This is the COMMITTED design — the artist executes it EXACTLY and judges fidelity to it. Invent the definitive design from principles; do NOT imitate any reference. Fill the structured output: a tight \`brief\` (8–16 short lines), the \`palette\` (char/hex/role per color), and the \`complexity\` tier.`;
+This is the COMMITTED design — the artist executes it EXACTLY and judges fidelity to it. Invent the definitive design from principles; do NOT imitate any reference. Fill the structured output: \`cols\` + \`rows\` (the chosen aspect ratio), a tight \`brief\` (8–16 short lines), the \`palette\` (char/hex/role per color), and the \`complexity\` tier.`;
 }
 
 /** Structured VISION output — the committed brief, the palette (char→hex+role), and the complexity tier. */
@@ -204,6 +212,8 @@ export const STATUE_VISION_SCHEMA = {
   type: 'object',
   additionalProperties: false,
   properties: {
+    cols: { type: 'integer', description: 'canvas width in cells (8..size); the longest edge ≈ size.' },
+    rows: { type: 'integer', description: 'canvas height in cells (8..size); the longest edge ≈ size.' },
     brief: { type: 'string', description: 'The committed design brief (8–16 short lines).' },
     palette: {
       type: 'array',
@@ -221,7 +231,7 @@ export const STATUE_VISION_SCHEMA = {
     },
     complexity: { type: 'string', enum: ['simple', 'moderate', 'complex', 'advanced'] },
   },
-  required: ['brief', 'palette', 'complexity'],
+  required: ['cols', 'rows', 'brief', 'palette', 'complexity'],
 } as const;
 
 /**
@@ -278,20 +288,19 @@ Call setup first (use the brief's palette), then paint in coarse→fine passes �
 // ============================================================================
 
 /** The fresh-eyes turn's system prompt — judge at read/object-identity level, then fix directly. */
-export function statueHotPotatoSystemPrompt(size: number): string {
-  const max = size - 1;
-  return `You are a MASTER pixel artist working on a ${size}×${size} Pixcel grid. You both JUDGE and FIX in one move, and you see each canvas COLD — you did NOT make it and have no memory of how it was built, only what is in front of you RIGHT NOW. Fresh eyes: judge the render that exists, never the intention behind it.
+export function statueHotPotatoSystemPrompt(cols: number, rows: number): string {
+  return `You are a MASTER pixel artist working on a ${cols}×${rows} Pixcel grid (${cols} wide, ${rows} tall). You both JUDGE and FIX in one move, and you see each canvas COLD — you did NOT make it and have no memory of how it was built, only what is in front of you RIGHT NOW. Fresh eyes: judge the render that exists, never the intention behind it.
 
-Stay Pure: exactly one solid color per cell — NO gradients, anti-aliasing, dithering, or hue-shift. Background is #0d1117. Lowercase hex. Coordinates: x = column 0..${max} (left→right), y = row 0..${max} (top→bottom).
+Stay Pure: exactly one solid color per cell — NO gradients, anti-aliasing, dithering, or hue-shift. Background is #0d1117. Lowercase hex. Coordinates: x = column 0..${cols - 1} (left→right), y = row 0..${rows - 1} (top→bottom).
 
-Fit the design to the size (rule #1): at ${size}² the form must be ICONIC and READ at a glance, filling the canvas deliberately (no floating in dead space; fill ≠ distort — never warp true proportions to reach the edges). Build form with a base + one shadow + one highlight; give creatures life (an eye with a 1px highlight).
+Fit the design to the canvas (rule #1): the form must be ICONIC and READ at a glance, filling this ${cols}×${rows} frame deliberately (no floating in dead space; fill ≠ distort — never warp true proportions to reach the edges). Build form with a base + one shadow + one highlight; give creatures life (an eye with a 1px highlight).
 
 EVERY reply is a single structured assessment of the CURRENT canvas against the committed brief:
 1. Read it COLD at true display scale. Does it INSTANTLY read as the subject — the 3-year-old test? NAME each major element to yourself: does each read as the RIGHT object? (a tennis racket must read as a racket — a round/oval head on a handle GRIPPED BY THE HAND — NOT a balloon, lollipop, or crosshair.) A gross object-identity failure is a REAL flaw even if the piece is "clean."
 2. Judge objects by their SHAPE + how they CONNECT to the body — NOT by fine internal texture. At this size a racket reads from its oval head + handle joined to the hand; it does NOT need internal "strings" (those can't render at ~6px and demanding them is exactly the sub-pixel churn that never converges). The same goes for clock numerals, keyboard keys, etc.: if the SHAPE and connection read, the object reads — APPROVE it. Judge at the READ level, NOT sub-pixel: a few-pixel eye is fine; do NOT nitpick symmetry or chase 100% ("better than perfect makes it worse"); do NOT reshape what already reads well.
 3. If it genuinely clears the 96% hero bar → \`approved\`:true, \`edits\`:[] (do not gild it).
 4. Otherwise → \`approved\`:false, name the SINGLE highest-value flaw in \`flaw\`, and APPLY the fix yourself as a BATCH of cell edits — many cells, a whole region or correction at once (NEVER one lonely cell, NEVER a timid tweak). Use "." to ERASE. If the structure is fundamentally wrong (broken pose, mis-attached limb, wrong silhouette), ERASE that region and RE-BLOCK it — do not nudge a broken shape.
-5. If the design simply CANNOT read at ${size}² (it was conceived too complex/realistic for this medium) → \`redesign\`:true, explain why in \`flaw\`, leave \`edits\`:[].
+5. If the design simply CANNOT read at this ${cols}×${rows} size (it was conceived too complex/realistic for this medium) → \`redesign\`:true, explain why in \`flaw\`, leave \`edits\`:[].
 
 You may introduce a new color by giving its #rrggbb hex directly as a cell's \`c\` value; otherwise use a palette char. Return ONLY the structured object {approved, flaw, redesign, edits}.`;
 }
@@ -323,19 +332,19 @@ export const STATUE_TURN_SCHEMA = {
 } as const;
 
 /** First pass — block the WHOLE committed design onto a blank canvas (the opening draw). */
-export function statueFirstDrawUserMessage(subject: string, size: number, brief: string, paletteStr: string): string {
-  return `COMMITTED design brief for "${subject}" (${size}×${size}):
+export function statueFirstDrawUserMessage(subject: string, cols: number, rows: number, brief: string, paletteStr: string): string {
+  return `COMMITTED design brief for "${subject}" (${cols}×${rows} — ${cols} wide, ${rows} tall):
 ${brief}
 
 Palette (use these chars; add a #rrggbb hex only if you truly need a new shade):
 ${paletteStr}
 
-The canvas is currently BLANK (all background). BLOCK THE WHOLE PIECE now in ONE pass: lay down the full silhouette, masses, and basic form (base + shadow + highlight) as a large BATCH of edits so it fills the canvas and reads at a glance. Defer fine interior detail to later passes. Set approved:false, redesign:false, flaw:"initial block-in", and put the whole composition in \`edits\`.`;
+The canvas is currently BLANK (all background). BLOCK THE WHOLE PIECE now in ONE pass: lay down the full silhouette, masses, and basic form (base + shadow + highlight) as a large BATCH of edits so it fills this ${cols}×${rows} frame and reads at a glance. Defer fine interior detail to later passes. Set approved:false, redesign:false, flaw:"initial block-in", and put the whole composition in \`edits\`.`;
 }
 
 /** Every subsequent pass — the fresh-eyes turn (render attached as an image above this text). */
-export function statueTurnUserMessage(subject: string, size: number, brief: string, paletteStr: string): string {
-  return `COMMITTED design brief for "${subject}" (${size}×${size}):
+export function statueTurnUserMessage(subject: string, cols: number, rows: number, brief: string, paletteStr: string): string {
+  return `COMMITTED design brief for "${subject}" (${cols}×${rows} — ${cols} wide, ${rows} tall):
 ${brief}
 
 Palette: ${paletteStr}

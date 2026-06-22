@@ -143,7 +143,7 @@ interface LiveArtState {
   startedAt: number;
   reviewing: boolean; // job finished, awaiting the HUMAN keep/reject verdict (no auto-save)
   accepted: boolean; // the human kept it → saved to the gallery
-  start: (o: { prompt: string; size: number; model: string }) => Promise<void>;
+  start: (o: { prompt: string; size: number; model: string; cols?: number; rows?: number }) => Promise<void>;
   resume: () => Promise<void>;
   control: (a: 'pause' | 'cancel') => Promise<void>;
   feedback: (text: string) => Promise<void>;
@@ -281,8 +281,8 @@ export const useLiveArtStore = create<LiveArtState>((set, get) => {
     startedAt: 0,
     reviewing: false,
     accepted: false,
-    start: async ({ prompt, size, model }) => {
-      const j = await post({ prompt, size, model });
+    start: async ({ prompt, size, model, cols, rows }) => {
+      const j = await post({ prompt, size, model, cols, rows });
       if (j.jobId) {
         savedFor = null;
         set({ jobId: j.jobId, job: null, startedAt: Date.now(), reviewing: false, accepted: false });

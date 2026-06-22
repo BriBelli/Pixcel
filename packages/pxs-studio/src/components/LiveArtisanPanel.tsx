@@ -24,6 +24,14 @@ export default function LiveArtisanPanel({ onGridUpdate }: Props) {
   const [input, setInput] = useState('');
   const [size, setSize] = useState(24);
   const [model, setModel] = useState<ModelId>('claude-opus-4-8');
+  // Aspect: 'auto' lets the designer choose the canvas shape for the subject (wide car, tall tower);
+  // 'manual' uses the W×H the user sets. See the quality engine (non-square canvas).
+  const [aspect, setAspect] = useState<'auto' | 'manual'>('auto');
+  const [manualW, setManualW] = useState(32);
+  const [manualH, setManualH] = useState(20);
+  // Dims to send: only in manual mode (auto omits cols/rows so VISION decides the aspect ratio).
+  const dims = aspect === 'manual' ? { cols: manualW, rows: manualH } : {};
+  const startArgs = (prompt: string) => ({ prompt, size, model, ...dims });
   const { jobId, job, startedAt, reviewing, accepted, start, resume, control, feedback, accept, reject } = useLiveArtStore();
   const addPiece = useGalleryStore((s) => s.addPiece);
   const [elapsed, setElapsed] = useState(0);
@@ -54,7 +62,7 @@ export default function LiveArtisanPanel({ onGridUpdate }: Props) {
     const p = input.trim();
     if (!p) return;
     if (running) feedback(p);
-    else start({ prompt: p, size, model });
+    else start(startArgs(p));
     setInput('');
   }
   function saveCurrent() {
@@ -103,7 +111,7 @@ export default function LiveArtisanPanel({ onGridUpdate }: Props) {
               {SUGGESTIONS.map((s) => (
                 <button
                   key={s}
-                  onClick={() => start({ prompt: s, size, model })}
+                  onClick={() => start(startArgs(s))}
                   className="px-2 py-1 rounded-md border border-border bg-background-tertiary text-[10px] text-text-secondary hover:border-border-hover hover:text-text-primary transition-colors"
                 >
                   {s}
@@ -221,28 +229,58 @@ export default function LiveArtisanPanel({ onGridUpdate }: Props) {
       <div className="border-t border-border p-2.5 space-y-2 shrink-0">
         {size >= 48 && (
           <p className="text-[9px] text-accent-yellow leading-snug">
-            {size}² is finer and takes a bit longer — still a handful of drafts, a few minutes.
+            {size}px is finer and takes a bit longer — still a handful of drafts, a few minutes.
           </p>
         )}
         <div className="flex items-center gap-2 text-[9px]">
-          <div className="flex items-center gap-0.5 rounded-md border border-border bg-background-tertiary p-0.5">
-            {SIZES.map((s) => (
-              <button
-                key={s}
-                onClick={() => setSize(s)}
-                title={s >= 48 ? `${s}² — finer, slower & pricier` : `${s}² — quick & cheap`}
-                className={`px-1.5 py-0.5 rounded transition-colors ${
-                  size === s
-                    ? s >= 48
-                      ? 'bg-accent-yellow/80 text-background-primary'
-                      : 'bg-primary text-white'
-                    : 'text-text-muted hover:text-text-primary'
-                }`}
-              >
-                {s}²
-              </button>
-            ))}
-          </div>
+          {aspect === 'auto' ? (
+            <div className="flex items-center gap-0.5 rounded-md border border-border bg-background-tertiary p-0.5">
+              {SIZES.map((s) => (
+                <button
+                  key={s}
+                  onClick={() => setSize(s)}
+                  title={s >= 48 ? `${s} — finer, slower & pricier` : `${s} — quick & cheap`}
+                  className={`px-1.5 py-0.5 rounded transition-colors ${
+                    size === s
+                      ? s >= 48
+                        ? 'bg-accent-yellow/80 text-background-primary'
+                        : 'bg-primary text-white'
+                      : 'text-text-muted hover:text-text-primary'
+                  }`}
+                >
+                  {s}
+                </button>
+              ))}
+            </div>
+          ) : (
+            <div className="flex items-center gap-1 rounded-md border border-border bg-background-tertiary px-1.5 py-0.5 text-text-secondary">
+              <input
+                type="number" min={8} max={64} value={manualW}
+                onChange={(e) => setManualW(Math.min(64, Math.max(8, Math.round(+e.target.value || 8))))}
+                title="width (cells)"
+                className="w-8 bg-transparent text-center text-text-primary focus:outline-none"
+              />
+              <span className="text-text-muted">×</span>
+              <input
+                type="number" min={8} max={64} value={manualH}
+                onChange={(e) => setManualH(Math.min(64, Math.max(8, Math.round(+e.target.value || 8))))}
+                title="height (cells)"
+                className="w-8 bg-transparent text-center text-text-primary focus:outline-none"
+              />
+            </div>
+          )}
+          {/* Auto = the designer picks the canvas shape for the subject (wide car, tall tower); Manual = your W×H. */}
+          <button
+            onClick={() => setAspect((a) => (a === 'auto' ? 'manual' : 'auto'))}
+            title={aspect === 'auto' ? 'Auto: the designer fits the canvas shape to the subject. Click to set dimensions manually.' : 'Manual: your chosen width × height. Click for auto aspect.'}
+            className={`px-1.5 py-0.5 rounded border transition-colors ${
+              aspect === 'auto'
+                ? 'border-primary/50 bg-primary/15 text-primary'
+                : 'border-border bg-background-tertiary text-text-secondary hover:text-text-primary'
+            }`}
+          >
+            {aspect === 'auto' ? '◇ Auto size' : '▦ Manual'}
+          </button>
           <select
             value={model}
             onChange={(e) => setModel(e.target.value as ModelId)}

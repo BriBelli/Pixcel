@@ -10,6 +10,19 @@
 > the foundation gamble), and **POLISH judges at READ-LEVEL while ACCEPTING the locked shape** (kills the
 > eye-oscillation that churned earlier runs to $2–4). **Locked; does not change.**
 
+## The 5 stages (canonical)
+
+| stage | does | the rule that makes it work |
+|---|---|---|
+| **VISION** | commits the iconic design **brief** before any pixel | a stable target → **no foundation gamble** |
+| **SHAPE** | masses + form only, **defers fine detail** | get the form *loved* before detailing |
+| **POLISH** | completes details **on top of the LOCKED shape** | auditor **accepts the shape** + judges at **read-level** → **no eye churn** |
+| **QA** | whole-piece **read-level** sweep (no pixel-peeping) | ship at the **96% bar**, don't chase 100% |
+| **keep-best** | ships the **last *approved* state** | **never** ship a churned/regressed pass |
+
+→ Per-stage live **event contract** for the UI: [PIXCEL-LIVE-SSE.md](PIXCEL-LIVE-SSE.md).
+→ The watchable **Matrix-style live show**: [MATRIX-LIVE-SHOW.md](MATRIX-LIVE-SHOW.md).
+
 ## The meta-pattern (it generalizes beyond pixel art)
 
 This is not just an artisan agent — it's **an autonomous problem-solving agent pattern**: one that

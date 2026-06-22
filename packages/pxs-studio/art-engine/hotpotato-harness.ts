@@ -17,14 +17,15 @@ const apiKey = process.env.ANTHROPIC_API_KEY;
 if (!apiKey) { console.error('No ANTHROPIC_API_KEY (use --env-file)'); process.exit(1); }
 
 const slug = subject.replace(/[^a-z0-9]+/gi, '-').replace(/^-|-$/g, '').slice(0, 40).toLowerCase();
-const OUT = path.join(__dirname, 'hotpotato-runs', slug);
+// run-hotpotato.sh cd's to packages/pxs-studio, so resolve output relative to cwd (ESM has no __dirname).
+const OUT = path.join(process.cwd(), 'art-engine', 'hotpotato-runs', slug);
 fs.mkdirSync(OUT, { recursive: true });
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 async function main() {
   console.log(`\n=== HOT-POTATO ENGINE · "${subject}" @ ${size}² ===`);
-  const id = startLiveJob({ prompt: subject, size, model: 'claude-opus-4-8', apiKey });
+  const id = startLiveJob({ prompt: subject, size, model: 'claude-opus-4-8', apiKey: apiKey! });
   let lastSeq = -1;
   for (let tick = 0; tick < 12000; tick++) {
     const job = getLiveJob(id);

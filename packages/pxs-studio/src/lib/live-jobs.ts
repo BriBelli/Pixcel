@@ -73,6 +73,10 @@ const CEILINGS: Record<Complexity, Ceiling> = {
   advanced: { passes: 12, forum: true },
 };
 const MAX_REDESIGNS = 2; // re-VISION simpler at most this many times before committing to refine
+// After this many fix passes without an approval the engine applies CONVERGENCE PRESSURE: the turn is
+// almost certainly chasing internal detail that can't render at this size (the tennis-racket grind), so
+// we force a drastic simplify-or-redesign instead of letting it churn to the ceiling.
+const CONVERGE_PRESSURE_AT = 3;
 
 // Char pool for auto-assigning a symbol when a turn introduces a brand-new #rrggbb color mid-fix.
 const PAINT_CHARS = 'abcdefghijklmnopqrstuvwxyz0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ#@$%&*+=';
@@ -531,6 +535,7 @@ async function runStatueEngine(job: LiveJob, apiKey: string, resumeFrame?: PXSFr
     // stroke). Each turn sees ONLY {brief + current render}. Approve → ship; else apply the fix; the
     // ceiling is a cost seatbelt, not the stop condition. ----
     let pass = 0;
+    let fixPasses = 0; // fix passes since the last (re)design — drives CONVERGENCE PRESSURE
     while (pass < maxPasses) {
       if (job.control === 'cancel') {
         job.status = 'cancelled';
@@ -567,12 +572,17 @@ async function runStatueEngine(job: LiveJob, apiKey: string, resumeFrame?: PXSFr
         emit('pass.start', { stage: 'refine', pass: job.gestures + 1, note: 'block-in' });
         content = [{ type: 'text', text: statueFirstDrawUserMessage(subject, size, brief, paletteStr(canvas)) + feedbackLine }];
       } else {
-        // Fresh-eyes turn — judge the current render cold, then approve or fix.
-        job.statusMessage = 'Fresh-eyes review…';
+        // Fresh-eyes turn — judge the current render cold, then approve or fix. After several fix
+        // passes without converging, add CONVERGENCE PRESSURE: it's almost certainly chasing detail
+        // that can't render at this size, so force a decisive simplify-or-redesign (kills the grind).
+        const pressureLine = fixPasses >= CONVERGE_PRESSURE_AT
+          ? `\n\n⚠ CONVERGENCE PRESSURE — this piece has been reworked ${fixPasses} times without clearing the bar. You are almost certainly chasing internal detail that CANNOT render at ${size}². STOP refining the same way. THIS pass: take any element that still won't read and REPLACE it with its SIMPLEST solid iconic form (e.g. a racket = a solid oval/round head + a straight handle joined to the hand — NO internal strings), then judge it on SHAPE alone — if the shape reads, APPROVE. If the piece as a WHOLE genuinely cannot read at this size, set redesign:true. Do NOT produce another near-identical rework.`
+          : '';
+        job.statusMessage = fixPasses >= CONVERGE_PRESSURE_AT ? 'Forcing convergence…' : 'Fresh-eyes review…';
         emit('pass.start', { stage: 'refine', pass: job.gestures + 1 });
         content = [
           { type: 'image', source: { type: 'base64', media_type: 'image/png', data: frameToPngBase64(canvasToFrame(canvas)) } },
-          { type: 'text', text: statueTurnUserMessage(subject, size, brief, paletteStr(canvas)) + feedbackLine },
+          { type: 'text', text: statueTurnUserMessage(subject, size, brief, paletteStr(canvas)) + feedbackLine + pressureLine },
         ];
       }
 
@@ -593,6 +603,7 @@ async function runStatueEngine(job: LiveJob, apiKey: string, resumeFrame?: PXSFr
         traj.spec = brief;
         canvas = buildCanvas(v.palette, subject);
         bestCanvas = null;
+        fixPasses = 0; // fresh design → reset the convergence-pressure counter
         emit('vision.committed', { brief, palette: v.palette, complexity });
         emit('stage.enter', { stage: 'refine', goal: `re-visioned simpler (complexity: ${complexity})` });
         continue; // next pass redraws the simpler design from a blank canvas
@@ -616,6 +627,7 @@ async function runStatueEngine(job: LiveJob, apiKey: string, resumeFrame?: PXSFr
       // Otherwise the turn APPLIES the highest-value fix — the batched edits ARE this pass (the
       // judgment → critique feed; the fix → canvas reveal). This is the hot-potato fix in one call.
       const { applied, issues } = applyEdits(canvas, turn.edits);
+      if (!blank) fixPasses++; // a real refinement (not the opening block-in) → counts toward pressure
       job.gestures++;
       const frame = canvasToFrame(canvas);
       job.latestFrame = frame;

@@ -587,7 +587,7 @@ export default function Studio({ children }: { children?: React.ReactNode }) {
 
                 <div className="rounded-xl border border-border bg-background-secondary/40 p-4 shadow-2xl shadow-black/40">
                   {stage.mode === 'sculpt' ? (
-                    // THE MATRIX LIVE SHOW — glyph-rain → color-lock off the real stream.
+                    // THE LIVE SHOW — real char-map written → cascaded to color, + a live data stream.
                     <MatrixArtStage maxEdge={460} />
                   ) : stage.frame && !stage.shimmer ? (
                     <MaterializeFrame frame={stage.frame} size={Math.min(400, (grid?.cols ?? 32) * 12)} />

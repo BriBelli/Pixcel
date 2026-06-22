@@ -4,118 +4,146 @@ import { useEffect, useMemo, useRef } from 'react';
 import { useLiveArtStore } from '../store/live-art-store';
 
 /**
- * THE MATRIX LIVE SHOW (docs/MATRIX-LIVE-SHOW.md) — the epic "watch the AI paint" reveal.
+ * THE PIXCEL LIVE SHOW — the REAL char-map, written then resolved (docs/MATRIX-LIVE-SHOW.md).
  *
- * The art IS a color-key grid, so the Matrix conceit is literal: the canvas starts as raining
- * palette glyphs over #0d1117, and as the model emits each cell (the REAL `pass.delta` stream —
- * never synthetic tweening) that cell LOCKS from a flickering glyph into its solid color with a
- * flash. Phase beats (VISION typing → masses lock → the art director's verdict drama → a QA
- * scan-line sweep → a final bloom) give the fast stream meaning. Pure client-side rendering off the
- * stream — zero extra API cost.
+ * The art IS a palette-indexed character grid, so the show is literal and DATA-true:
+ *   1. WRITE  — the model's actual cells stream in (pass.delta, writing order) and fill the grid with
+ *               their REAL palette characters (`r`,`w`,`c`… — NOT fake katakana rain). You watch the
+ *               char-map get typed, pass by pass, as the hot-potato refines it.
+ *   2. CASCADE — when the piece resolves, a diagonal wave converts each character into its solid
+ *               color, materialising the final pixel image.
+ *   3. DATA   — a live column streams every SSE log line as it lands (the "everything is data" feel).
  *
- * Driven by the live-art store: `dims` + `paletteHexes` (vision.committed), `pendingReveal`/
- * `revealSeq` (pass.delta), `lastVerdict` (audit.verdict), reconciled to the final frame on done.
+ * Pure client-side off the real stream — zero extra API cost, no synthetic tweening.
  */
 
-const RAIN_GLYPHS = '01<>[]{}/\\|=+*#%&xXoØ▚▜▘APSアイウエカキ'.split('');
-const FLASH_MS = 320;
-const SWEEP_MS = 900;
-
 const BG = '#0d1117';
+const PHOS = '125,255,176'; // phosphor green (rgb)
+const CASCADE_MS = 1100;
+const REVEAL_FLASH = 480;
 
-export default function MatrixArtStage({ maxEdge = 480 }: { maxEdge?: number }) {
+export default function MatrixArtStage({ maxEdge = 460 }: { maxEdge?: number }) {
   const job = useLiveArtStore((s) => s.job);
   const reviewing = useLiveArtStore((s) => s.reviewing);
 
-  const dims = job?.dims || (job?.latestFrame ? { cols: job.latestFrame.cols, rows: job.latestFrame.rows } : null) || (job?.frame ? { cols: job.frame.cols, rows: job.frame.rows } : null) || { cols: job?.size || 32, rows: job?.size || 32 };
+  const dims =
+    job?.dims ||
+    (job?.latestFrame ? { cols: job.latestFrame.cols, rows: job.latestFrame.rows } : null) ||
+    (job?.frame ? { cols: job.frame.cols, rows: job.frame.rows } : null) ||
+    { cols: job?.size || 32, rows: job?.size || 32 };
   const cols = dims.cols;
   const rows = dims.rows;
   const status = job?.status || 'running';
-  const phase = job?.stage || 'vision';
   const done = status === 'done';
+  const phase = job?.stage || 'vision';
 
-  const palette = useMemo(() => {
-    const fromVision = job?.paletteHexes && job.paletteHexes.length ? job.paletteHexes : null;
-    const fromFrame = job?.latestFrame ? Array.from(new Set(job.latestFrame.cells.map((c) => c.color).filter((c) => c !== BG))).slice(0, 12) : [];
-    return (fromVision || fromFrame || []) as string[];
-  }, [job?.paletteHexes, job?.latestFrame]);
+  // hex → the REAL palette char (from vision.committed); unknown shades get a stable fallback char.
+  const paletteMap = job?.paletteMap || null;
+  const idleAlphabet = useMemo(() => {
+    const fromMap = paletteMap ? Object.values(paletteMap) : [];
+    return (fromMap.length ? fromMap : ['#', '*', '+', '=', 'o', 'x', '%', '&']) as string[];
+  }, [paletteMap]);
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  // Per-cell render state, kept in refs so the rAF loop never triggers React re-renders.
-  const stateRef = useRef({
+  const st = useRef({
     sig: '',
-    colors: new Array<string | null>(0), // locked color per cell index (null = still raining)
-    flash: new Float64Array(0), // lock timestamp per cell (for the flash)
-    queue: [] as { idx: number; color: string }[],
+    char: [] as (string | null)[], // palette char per cell (null = empty)
+    color: [] as (string | null)[], // real color per cell (revealed only via cascade)
+    revealAt: new Float64Array(0),
+    queue: [] as { idx: number; char: string; color: string | null }[],
     consumedSeq: -1,
-    lastIdx: -1, // the cursor (most recently locked cell)
-    rainTick: 0,
-    sweepStart: 0,
-    sweptForDone: false,
+    lastIdx: -1,
+    cascadeStart: 0, // 0 = not started, -1 = pending (queue draining), >0 = running
+    fallback: new Map<string, string>(),
+    poolNext: 0,
   });
 
-  // Enqueue each new pass.delta batch exactly once (drives the lock animation in writing order).
+  const charFor = (color: string): string => {
+    const s = st.current;
+    const key = color.toLowerCase();
+    if (paletteMap && paletteMap[key]) return paletteMap[key];
+    if (s.fallback.has(key)) return s.fallback.get(key)!;
+    const pool = 'abcdefghkmnpqrstuvwxyz23456789';
+    const ch = pool[s.poolNext++ % pool.length];
+    s.fallback.set(key, ch);
+    return ch;
+  };
+
+  // (re)initialise the grid when dimensions change
   useEffect(() => {
-    const st = stateRef.current;
+    const s = st.current;
     const sig = `${cols}x${rows}`;
-    if (st.sig !== sig) {
-      st.sig = sig;
-      st.colors = new Array(cols * rows).fill(null);
-      st.flash = new Float64Array(cols * rows);
-      st.queue = [];
-      st.consumedSeq = -1;
-      st.lastIdx = -1;
-      st.sweptForDone = false;
-      st.sweepStart = 0;
+    if (s.sig !== sig) {
+      s.sig = sig;
+      s.char = new Array(cols * rows).fill(null);
+      s.color = new Array(cols * rows).fill(null);
+      s.revealAt = new Float64Array(cols * rows);
+      s.queue = [];
+      s.consumedSeq = -1;
+      s.lastIdx = -1;
+      s.cascadeStart = 0;
     }
+  }, [cols, rows]);
+
+  // enqueue each pass.delta batch exactly once (the model's writing order drives the fill)
+  useEffect(() => {
+    const s = st.current;
     const seq = job?.revealSeq ?? -1;
-    if (seq > st.consumedSeq && job?.pendingReveal) {
-      st.consumedSeq = seq;
+    if (seq > s.consumedSeq && job?.pendingReveal) {
+      s.consumedSeq = seq;
       for (const c of job.pendingReveal) {
         if (c.x < 0 || c.x >= cols || c.y < 0 || c.y >= rows) continue;
-        st.queue.push({ idx: c.y * cols + c.x, color: c.color });
+        const idx = c.y * cols + c.x;
+        const isBg = c.color.toLowerCase() === BG;
+        s.queue.push({ idx, char: isBg ? '' : charFor(c.color), color: isBg ? null : c.color });
       }
     }
-  }, [job?.revealSeq, job?.pendingReveal, cols, rows]);
+  }, [job?.revealSeq, job?.pendingReveal, cols, rows]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // On the final frame, reconcile: enqueue any painted cell not yet locked (covers dropped deltas).
+  // reconcile to the final/last frame (covers any dropped deltas) — enqueue anything not yet written
   useEffect(() => {
-    const st = stateRef.current;
+    const s = st.current;
     const frame = job?.frame || (done ? job?.latestFrame : null);
     if (!frame || frame.cols !== cols || frame.rows !== rows) return;
     for (const c of frame.cells) {
-      if (c.color === BG) continue;
+      if (c.color.toLowerCase() === BG) continue;
       const idx = c.y * cols + c.x;
-      if (st.colors[idx] == null && !st.queue.some((q) => q.idx === idx)) st.queue.push({ idx, color: c.color });
+      if (s.char[idx] == null && !s.queue.some((q) => q.idx === idx)) s.queue.push({ idx, char: charFor(c.color), color: c.color });
     }
-  }, [job?.frame, done, cols, rows]);
+  }, [job?.frame, done, cols, rows]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // The render loop — drain the reveal queue, paint rain + locks + flash + the QA sweep.
+  // arm the cascade once the run resolves (it fires after the write queue drains)
+  useEffect(() => {
+    if ((done || reviewing) && st.current.cascadeStart === 0) st.current.cascadeStart = -1;
+  }, [done, reviewing]);
+
+  // the render loop
   useEffect(() => {
     const cv = canvasRef.current;
     if (!cv) return;
     const ctx = cv.getContext('2d');
     if (!ctx) return;
-    const px = Math.max(6, Math.min(24, Math.floor(maxEdge / Math.max(cols, rows))));
+    const px = Math.max(7, Math.min(22, Math.floor(maxEdge / Math.max(cols, rows))));
     cv.width = cols * px;
     cv.height = rows * px;
-    const font = `${Math.max(7, Math.floor(px * 0.82))}px ui-monospace, monospace`;
-    const pal = palette.length ? palette : ['#7dffb0'];
+    const font = `${Math.max(7, Math.floor(px * 0.8))}px ui-monospace, SFMono-Regular, monospace`;
+    const maxDiag = cols + rows || 1;
     let raf = 0;
-    let lastRain = 0;
+    let tick = 0;
 
     const draw = (now: number) => {
-      const st = stateRef.current;
-      // Drain: reveal a batch each frame so a pass locks over ~0.6–1s (deliberate, not instant).
-      const perFrame = Math.max(2, Math.ceil(st.queue.length / 40));
-      for (let i = 0; i < perFrame && st.queue.length; i++) {
-        const { idx, color } = st.queue.shift()!;
-        st.colors[idx] = color;
-        st.flash[idx] = now;
-        st.lastIdx = idx;
+      const s = st.current;
+      tick++;
+      // drain the write queue (a few cells/frame → a pass types over ~0.5–1s, deliberate not instant)
+      const perFrame = Math.max(2, Math.ceil(s.queue.length / 36));
+      for (let i = 0; i < perFrame && s.queue.length; i++) {
+        const { idx, char, color } = s.queue.shift()!;
+        if (char === '') { s.char[idx] = null; s.color[idx] = null; }
+        else { s.char[idx] = char; s.color[idx] = color; s.revealAt[idx] = now; s.lastIdx = idx; }
       }
-      const refreshRain = now - lastRain > 70;
-      if (refreshRain) { lastRain = now; st.rainTick++; }
+      if (s.cascadeStart === -1 && s.queue.length === 0) s.cascadeStart = now; // queue drained → cascade
+      const cascading = s.cascadeStart > 0;
+      const front = cascading ? Math.min(1, (now - s.cascadeStart) / CASCADE_MS) * maxDiag : 0;
 
       ctx.fillStyle = BG;
       ctx.fillRect(0, 0, cv.width, cv.height);
@@ -123,94 +151,104 @@ export default function MatrixArtStage({ maxEdge = 480 }: { maxEdge?: number }) 
       ctx.textBaseline = 'middle';
       ctx.font = font;
 
-      const settling = done || reviewing;
       for (let y = 0; y < rows; y++) {
         for (let x = 0; x < cols; x++) {
           const idx = y * cols + x;
-          const cx = x * px, cy = y * px;
-          const color = st.colors[idx];
-          if (color) {
-            ctx.fillStyle = color;
+          const cx = x * px;
+          const cy = y * px;
+          const ch = s.char[idx];
+          const colr = s.color[idx];
+          if (cascading && colr && x + y <= front) {
+            // resolved → solid color block (the final image)
+            ctx.fillStyle = colr;
             ctx.fillRect(cx, cy, px, px);
-            const age = now - st.flash[idx];
-            if (age < FLASH_MS && !settling) {
-              const a = 1 - age / FLASH_MS;
-              ctx.fillStyle = `rgba(255,255,255,${0.85 * a})`;
-              ctx.fillRect(cx, cy, px, px);
-            }
-          } else if (!settling) {
-            // Raining glyph (not-yet-emitted cell): green-tinted code awaiting its color.
-            const seed = (x * 73856093) ^ (y * 19349663) ^ (st.rainTick * 83492791);
-            const g = RAIN_GLYPHS[Math.abs(seed) % RAIN_GLYPHS.length];
-            const bright = Math.abs(seed >> 5) % 17 === 0;
-            // Bright glyphs flash in the piece's OWN palette (the code hinting at the art to come);
-            // the rest are dim Matrix-green code awaiting their color.
-            ctx.fillStyle = bright ? pal[Math.abs(seed >> 11) % pal.length] : `rgba(40,150,90,${0.18 + (Math.abs(seed >> 9) % 30) / 120})`;
-            ctx.fillText(g, cx + px / 2, cy + px / 2 + 0.5);
+            if (x + y > front - 1.4) { ctx.fillStyle = `rgba(${PHOS},0.5)`; ctx.fillRect(cx, cy, px, px); } // bright front
+          } else if (ch) {
+            // a written char — phosphor green, brighter just after it lands
+            const fresh = Math.max(0, 1 - (now - s.revealAt[idx]) / REVEAL_FLASH);
+            ctx.fillStyle = `rgba(${PHOS},${0.55 + 0.45 * fresh})`;
+            ctx.fillText(ch, cx + px / 2, cy + px / 2 + 0.5);
+          } else if (!done && !cascading) {
+            // empty cell — a very faint, slowly-shifting char from the piece's OWN alphabet (alive, not random rain)
+            const seed = (x * 73856093) ^ (y * 19349663) ^ ((tick >> 3) * 83492791);
+            ctx.fillStyle = `rgba(${PHOS},0.06)`;
+            ctx.fillText(idleAlphabet[Math.abs(seed) % idleAlphabet.length], cx + px / 2, cy + px / 2 + 0.5);
           }
         }
       }
 
-      // The cursor — a bright marker on the most-recently locked cell (the "typing" head).
-      if (!settling && st.lastIdx >= 0 && st.queue.length) {
-        const x = st.lastIdx % cols, y = Math.floor(st.lastIdx / cols);
-        ctx.strokeStyle = 'rgba(140,255,180,0.9)';
-        ctx.lineWidth = Math.max(1, px / 8);
+      // typing cursor on the most-recently written cell
+      if (!cascading && s.lastIdx >= 0 && s.queue.length) {
+        const x = s.lastIdx % cols;
+        const y = Math.floor(s.lastIdx / cols);
+        ctx.strokeStyle = `rgba(${PHOS},0.9)`;
+        ctx.lineWidth = Math.max(1, px / 9);
         ctx.strokeRect(x * px + 0.5, y * px + 0.5, px - 1, px - 1);
-      }
-
-      // QA scan-line sweep on done — a single bright line confirms the piece, then it settles.
-      if (settling) {
-        if (!st.sweptForDone) { st.sweepStart = st.sweepStart || now; }
-        const p = st.sweepStart ? Math.min(1, (now - st.sweepStart) / SWEEP_MS) : 0;
-        if (p < 1) {
-          const ly = p * cv.height;
-          const grad = ctx.createLinearGradient(0, ly - px * 1.5, 0, ly + px * 1.5);
-          grad.addColorStop(0, 'rgba(120,255,170,0)');
-          grad.addColorStop(0.5, 'rgba(160,255,200,0.55)');
-          grad.addColorStop(1, 'rgba(120,255,170,0)');
-          ctx.fillStyle = grad;
-          ctx.fillRect(0, ly - px * 1.5, cv.width, px * 3);
-        } else {
-          st.sweptForDone = true;
-        }
       }
 
       raf = requestAnimationFrame(draw);
     };
     raf = requestAnimationFrame(draw);
     return () => cancelAnimationFrame(raf);
-  }, [cols, rows, maxEdge, done, reviewing, palette]);
+  }, [cols, rows, maxEdge, done, idleAlphabet]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // ---- the live data column ----
+  const feed = job?.feed || [];
+  const shown = feed.slice(-16);
   const verdict = job?.lastVerdict;
   const costUsd = job?.costUsd ?? 0;
-  const phaseLabel = done ? 'COMPLETE' : phase === 'vision' ? 'VISION' : phase === 'refine' ? 'PAINTING' : String(phase).toUpperCase();
+  const phaseLabel = done ? 'RESOLVED' : phase === 'vision' ? 'VISION' : 'WRITING';
 
   return (
-    <div className="relative inline-block rounded-lg overflow-hidden" style={{ background: BG, boxShadow: '0 0 0 1px rgba(120,255,170,0.18), 0 0 40px rgba(20,120,70,0.25)' }}>
-      <canvas ref={canvasRef} className="block" style={{ width: Math.min(maxEdge, cols * 24), imageRendering: 'pixelated' }} />
-
-      {/* CRT skin — scanlines + vignette + a faint green glow sell the "generating live" vibe. */}
-      <div className="pointer-events-none absolute inset-0" style={{ backgroundImage: 'repeating-linear-gradient(to bottom, rgba(0,0,0,0.18) 0px, rgba(0,0,0,0.18) 1px, transparent 1px, transparent 3px)', mixBlendMode: 'multiply' }} />
-      <div className="pointer-events-none absolute inset-0" style={{ boxShadow: 'inset 0 0 60px rgba(0,0,0,0.55)' }} />
-
-      {/* Top HUD — phase / pass / live cost. */}
-      <div className="pointer-events-none absolute top-0 inset-x-0 flex items-center justify-between px-2 py-1 text-[10px] font-mono">
-        <span className="px-1.5 py-0.5 rounded bg-black/55 text-[#7dffb0] tracking-widest">{phaseLabel}{!done && <span className="ml-0.5 animate-pulse">▮</span>}</span>
-        <span className="px-1.5 py-0.5 rounded bg-black/55 text-[#7dffb0]/80">{job?.gestures ? `pass ${job.gestures}` : '—'} · ${costUsd.toFixed(2)}</span>
+    <div className="flex gap-3 items-stretch">
+      {/* the grid — real char-map written, then cascaded to color */}
+      <div
+        className="relative inline-block self-start overflow-hidden rounded-lg"
+        style={{ background: BG, boxShadow: '0 0 0 1px rgba(125,255,176,0.16), 0 0 36px rgba(20,120,70,0.22)' }}
+      >
+        <canvas ref={canvasRef} className="block" style={{ width: Math.min(maxEdge, cols * 22), imageRendering: 'pixelated' }} />
+        <div
+          className="pointer-events-none absolute inset-0"
+          style={{ backgroundImage: 'repeating-linear-gradient(to bottom, rgba(0,0,0,0.16) 0px, rgba(0,0,0,0.16) 1px, transparent 1px, transparent 3px)', mixBlendMode: 'multiply' }}
+        />
+        <div className="pointer-events-none absolute inset-x-0 top-0 flex items-center justify-between px-2 py-1 font-mono text-[10px]">
+          <span className="rounded bg-black/55 px-1.5 py-0.5 tracking-widest text-[#7dffb0]">
+            {phaseLabel}
+            {!done && <span className="ml-0.5 animate-pulse">▮</span>}
+          </span>
+          <span className="rounded bg-black/55 px-1.5 py-0.5 text-[#7dffb0]/80">{job?.gestures ? `pass ${job.gestures}` : '—'} · ${costUsd.toFixed(2)}</span>
+        </div>
+        {verdict && !done && (
+          <div className={`pointer-events-none absolute inset-x-0 bottom-0 px-2 py-1 font-mono text-[10px] backdrop-blur-sm ${verdict.approved ? 'bg-[#0a2a18]/80 text-[#7dffb0]' : 'bg-[#2a0f0f]/80 text-[#ff9a9a]'}`}>
+            {verdict.approved ? '✓ approved' : `✦ ${verdict.flaw}`}
+          </div>
+        )}
+        {done && (
+          <div className="pointer-events-none absolute inset-x-0 bottom-0 px-2 py-1 text-center font-mono text-[10px] tracking-wider bg-[#0a2a18]/85 text-[#7dffb0]">✓ resolved — keep it or push back →</div>
+        )}
       </div>
 
-      {/* The art director's drama — green ✓ on approve, red flaw on a reject. */}
-      {verdict && !done && (
-        <div className={`pointer-events-none absolute bottom-0 inset-x-0 px-2 py-1 text-[10px] font-mono backdrop-blur-sm ${verdict.approved ? 'bg-[#0a2a18]/80 text-[#7dffb0]' : 'bg-[#2a0f0f]/80 text-[#ff9a9a]'}`}>
-          {verdict.approved ? '✓ approved' : `✦ ${verdict.flaw}`}
+      {/* the live data stream — every SSE log line as it lands */}
+      <div className="hidden w-44 flex-col overflow-hidden rounded-lg border border-[#7dffb0]/15 bg-black/30 p-2 font-mono text-[9px] sm:flex">
+        <div className="mb-1 flex items-center gap-1 text-[8px] uppercase tracking-widest text-[#7dffb0]/70">
+          <span className="h-1 w-1 animate-pulse rounded-full bg-[#7dffb0]" /> live · data
         </div>
-      )}
-      {done && (
-        <div className="pointer-events-none absolute bottom-0 inset-x-0 px-2 py-1 text-[10px] font-mono bg-[#0a2a18]/85 text-[#7dffb0] text-center tracking-wider">
-          ✓ the artist signs off — keep it or push back →
+        <div className="flex flex-1 flex-col justify-end gap-0.5 overflow-hidden">
+          {shown.map((f, i) => (
+            <div
+              key={feed.length - shown.length + i}
+              className="leading-tight"
+              style={{
+                animation: 'pxsFadeUp 0.3s ease-out',
+                color: f.kind === 'review' ? (f.approved ? '#7dffb0' : '#ff9a9a') : f.kind === 'phase' ? '#9ad0ff' : 'rgba(125,255,176,0.6)',
+              }}
+            >
+              <span className="opacity-40">{f.kind === 'review' ? (f.approved ? '✓' : '✦') : f.kind === 'phase' ? '◆' : '·'}</span> {f.text}
+            </div>
+          ))}
         </div>
-      )}
+        <style>{`@keyframes pxsFadeUp{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}`}</style>
+      </div>
     </div>
   );
 }

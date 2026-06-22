@@ -40,6 +40,7 @@ export interface LiveJob {
   // ---- Matrix live-show render hints (set by the reducer off the stream) ----
   dims?: { cols: number; rows: number };
   paletteHexes?: string[];
+  paletteMap?: Record<string, string>; // hex(lowercase) → the REAL design char, for the ASCII reveal
   pendingReveal?: { x: number; y: number; color: string }[];
   revealSeq?: number;
   lastVerdict?: { approved: boolean; flaw: string };
@@ -83,7 +84,13 @@ function reduceEvent(prev: LiveJob | null, e: LiveEvent): LiveJob {
       j.brief = e.brief ?? j.brief;
       if (e.subjectClass) j.subjectClass = e.subjectClass;
       if (typeof e.cols === 'number' && typeof e.rows === 'number') j.dims = { cols: e.cols, rows: e.rows };
-      if (Array.isArray(e.palette)) j.paletteHexes = (e.palette as { hex?: string }[]).map((p) => p.hex || '').filter(Boolean);
+      if (Array.isArray(e.palette)) {
+        const pal = e.palette as { hex?: string; char?: string }[];
+        j.paletteHexes = pal.map((p) => p.hex || '').filter(Boolean);
+        j.paletteMap = Object.fromEntries(
+          pal.filter((p) => p.hex && p.char).map((p) => [String(p.hex).toLowerCase(), String(p.char)]),
+        );
+      }
       pushFeed({ kind: 'phase', text: `VISION committed — design locked${e.complexity ? ` · ${e.complexity}` : ''}${j.dims ? ` · ${j.dims.cols}×${j.dims.rows}` : ''}`, phase: 'vision' });
       return j;
     case 'stage.enter':

@@ -177,15 +177,19 @@ HOW YOU WORK — a FEW coarse→fine PASSES on a persistent, erasable canvas, se
 /** The VISION (Michelangelo) step — commit a FEASIBLE, fit-to-size design + aspect ratio + complexity.
  *  `fixed` = the user manually chose the canvas dimensions; VISION designs to fill them instead of
  *  choosing the aspect ratio itself. */
-export function statueVisionSystemPrompt(size: number, simplerThan?: string, fixed?: { cols: number; rows: number }): string {
+export function statueVisionSystemPrompt(size: number, simplerThan?: string, fixed?: { cols: number; rows: number }, forcedComplexity?: string): string {
   const redesign = simplerThan
     ? `\n\n⚠ REDESIGN — a PREVIOUS design for this subject could NOT be made to read at this size; it was too complex/realistic for the medium. Design a SIMPLER, MORE ICONIC version that CAN read: subtract elements, reduce to the single most identity-bearing view, enlarge the recognition cue, drop or radically simplify any prop. The previous (too-hard) design was:\n"""${simplerThan}"""\nDo NOT repeat its mistakes — commit to something genuinely simpler and DROP a complexity tier if you can.`
     : '';
   const longest = fixed ? Math.max(fixed.cols, fixed.rows) : size;
+  // Palette scales with the canvas: lean for tiny readable icons, RICH at larger sizes so the artist
+  // can build real form with multiple shadow/highlight STEPS + sheen (still one solid color per cell).
+  const palLo = longest <= 24 ? 4 : longest <= 40 ? 6 : longest <= 56 ? 8 : 10;
+  const palHi = longest <= 24 ? 7 : longest <= 40 ? 12 : longest <= 56 ? 16 : 20;
   const aspect = fixed
     ? `THE CANVAS IS FIXED at ${fixed.cols}×${fixed.rows} (${fixed.cols} wide, ${fixed.rows} tall) — the user chose these dimensions. Design the subject to FILL this exact frame deliberately (no dead space, no distortion). Output \`cols\`:${fixed.cols} and \`rows\`:${fixed.rows} unchanged.`
     : `CHOOSE THE CANVAS ASPECT RATIO to fit the subject — this is part of fitting the design to the size, and the canvas is NOT forced square. Output \`cols\` (width) and \`rows\` (height): the LONGEST edge should be about ${size}; the other edge is whatever the subject's natural proportion needs, so the subject FILLS the frame without distortion. A low sports car is WIDE and short (e.g. ${size}×${Math.round(size * 0.5)}); a standing figure or a tower is TALL (e.g. ${Math.round(size * 0.6)}×${size}); a creature/face is roughly SQUARE (${size}×${size}). Both edges between 8 and ${size}. Picking the wrong shape (cramming a wide car into a square) is the #1 way the piece reads wrong — get it right here.`;
-  return `You are Pixcel's lead pixel-art designer. On a grid up to ${longest} cells on its LONGEST edge, design the ONE most ICONIC, instantly-recognizable Pixcel version of the subject — the definitive blend a 3-year-old names at a glance. Decide it FULLY and decisively (NO options, NO hedging): the composition/pose (a FULL figure filling the canvas, grounded — but do NOT lock an ARBITRARY facing / left-right layout; which direction it faces is the artist's natural choice, not a spec to enforce), the silhouette, a deliberate 4–6 color palette (each color → a single-char symbol + lowercase #rrggbb hex + its role: base/shadow/highlight/feature), and the SPECIFIC identity-defining features (and how each reads at this size).
+  return `You are Pixcel's lead pixel-art designer. On a grid up to ${longest} cells on its LONGEST edge, design the ONE most ICONIC, instantly-recognizable Pixcel version of the subject — the definitive blend a 3-year-old names at a glance, executed to a HERO bar: a piece someone would proudly keep, with a strong silhouette, believable FORM (multiple shadow + highlight steps, not a flat blob), the key identity details, and — at larger sizes — finer richness (panel lines, sheen/reflections, depth). Decide it FULLY and decisively (NO options, NO hedging): the composition/pose (a FULL figure filling the canvas, grounded — but do NOT lock an ARBITRARY facing / left-right layout; which direction it faces is the artist's natural choice, not a spec to enforce), the silhouette, a deliberate palette of about ${palLo}–${palHi} colors sized to this canvas (each color → a single-char symbol + lowercase #rrggbb hex + its role: base/shadow steps/highlight steps/feature — enough steps to build real volume and sheen, still ONE solid color per cell: Stay Pure, NO gradient/AA/dither within a cell), and the SPECIFIC identity-defining features (and how each reads at this size).
 
 ${aspect}
 
@@ -197,12 +201,14 @@ DECIDE PROPORTIONS EXPLICITLY — this is where pieces fail. Commit the relative
 
 IF THE SUBJECT IS A FIGURE or an ACTION POSE: commit a clear LINE OF ACTION (the gesture/motion the pose expresses), and state HOW EACH LIMB ATTACHES to the torso (shoulder→arm→hand as one connected chain; hip→leg→foot). Limbs have real VOLUME — at least 2–3px thick, never 1px stick-figure lines. A figure MUST read as ONE connected body in a believable pose — never floating or detached parts, never a stiff mannequin when motion is intended. If it's an action (swinging, running, throwing), the pose must visibly express that motion.
 
-ESTIMATE COMPLEXITY honestly (this sets the cost ceiling, NOT the quality bar). Complexity is the number of interacting parts the design commits to — it is INDEPENDENT of the canvas size:
+${forcedComplexity
+    ? `COMPLEXITY IS FIXED at "${forcedComplexity}" — the user chose this tier. Design at that level of ambition and output \`complexity\`:"${forcedComplexity}". Do NOT deliberate the tier.`
+    : `ESTIMATE COMPLEXITY honestly (this sets the cost ceiling, NOT the quality bar). Complexity is the number of interacting parts the design commits to — it is INDEPENDENT of the canvas size:
 - "simple": ONE iconic mass, no articulation (heart, apple, star, mushroom, single icon).
 - "moderate": one creature/object with a few features (owl, sitting cat, banana).
 - "complex": a figure + prop, or a multi-part / mechanical subject (tennis player, dragon, race car, unicorn).
 - "advanced": dense, many interacting elements (a busy scene, a heavily mechanical subject).
-Pick the tier that matches the design you actually committed.${redesign}
+Pick the tier that matches the design you actually committed.`}${redesign}
 
 This is the COMMITTED design — the artist executes it EXACTLY and judges fidelity to it. Invent the definitive design from principles; do NOT imitate any reference. Fill the structured output: \`cols\` + \`rows\` (the chosen aspect ratio), a tight \`brief\` (8–16 short lines), the \`palette\` (char/hex/role per color), and the \`complexity\` tier.`;
 }

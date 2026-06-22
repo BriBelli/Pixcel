@@ -29,9 +29,17 @@ export default function LiveArtisanPanel({ onGridUpdate }: Props) {
   const [aspect, setAspect] = useState<'auto' | 'manual'>('auto');
   const [manualW, setManualW] = useState(32);
   const [manualH, setManualH] = useState(20);
+  // 2.1 — HIDDEN pass budget (the AI never sees it; '' = auto by complexity, up to 90).
+  const [passes, setPasses] = useState<number | ''>('');
+  // 2.2 — complexity: 'auto' lets VISION estimate; else the user forces the tier (simplifies the AI).
+  const [complexity, setComplexity] = useState<string>('auto');
   // Dims to send: only in manual mode (auto omits cols/rows so VISION decides the aspect ratio).
   const dims = aspect === 'manual' ? { cols: manualW, rows: manualH } : {};
-  const startArgs = (prompt: string) => ({ prompt, size, model, ...dims });
+  const startArgs = (prompt: string) => ({
+    prompt, size, model, ...dims,
+    passes: passes === '' ? undefined : passes,
+    complexity: complexity === 'auto' ? undefined : complexity,
+  });
   const { jobId, job, startedAt, reviewing, accepted, start, resume, control, feedback, accept, reject } = useLiveArtStore();
   const addPiece = useGalleryStore((s) => s.addPiece);
   const [elapsed, setElapsed] = useState(0);
@@ -290,6 +298,36 @@ export default function LiveArtisanPanel({ onGridUpdate }: Props) {
               <option key={m.id} value={m.id}>{m.label}</option>
             ))}
           </select>
+        </div>
+
+        {/* 2.1 passes (hidden budget) + 2.2 complexity — the interactive controls. */}
+        <div className="flex items-center gap-2 text-[9px] text-text-muted">
+          <label className="flex items-center gap-1" title="How many refine passes the artist may take before it must ship — a HIDDEN budget the AI never sees (it approves on quality; only nudged near the end). Blank = auto by complexity. Up to 90.">
+            <span className="uppercase tracking-wider">Passes</span>
+            <input
+              type="number" min={1} max={90} value={passes}
+              placeholder="auto"
+              onChange={(e) => setPasses(e.target.value === '' ? '' : Math.min(90, Math.max(1, Math.round(+e.target.value || 1))))}
+              className="w-12 rounded-md border border-border bg-background-tertiary px-1 py-0.5 text-center text-text-primary placeholder:text-text-muted focus:outline-none focus:border-border-hover"
+            />
+          </label>
+          <label className="flex items-center gap-1" title="Detail/complexity tier. Auto lets the designer estimate it; pick one to set it yourself.">
+            <span className="uppercase tracking-wider">Detail</span>
+            <select
+              value={complexity}
+              onChange={(e) => setComplexity(e.target.value)}
+              className="rounded-md border border-border bg-background-tertiary px-1.5 py-0.5 text-text-secondary focus:outline-none focus:border-border-hover"
+            >
+              <option value="auto">Auto</option>
+              <option value="simple">Simple</option>
+              <option value="moderate">Moderate</option>
+              <option value="complex">Complex</option>
+              <option value="advanced">Advanced</option>
+            </select>
+          </label>
+          {passes !== '' && passes >= 24 && (
+            <span className="ml-auto text-accent-yellow/80" title="More passes = more spend (each pass is one model call).">~{passes} passes · higher cost</span>
+          )}
         </div>
         <div className="flex items-end gap-1.5">
           <textarea

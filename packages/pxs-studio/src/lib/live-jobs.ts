@@ -73,10 +73,24 @@ const CEILINGS: Record<Complexity, Ceiling> = {
   advanced: { passes: 12, forum: true },
 };
 const MAX_REDESIGNS = 2; // re-VISION simpler at most this many times before committing to refine
-// After this many fix passes without an approval the engine applies CONVERGENCE PRESSURE: the turn is
-// almost certainly chasing internal detail that can't render at this size (the tennis-racket grind), so
-// we force a drastic simplify-or-redesign instead of letting it churn to the ceiling.
-const CONVERGE_PRESSURE_AT = 3;
+// CONVERGENCE GUARDS — kept INDEPENDENT of the (user-set, hidden) pass ceiling, so the AI approves on
+// quality, not on a count (the user's principle). STUCK = this many consecutive fix passes naming the
+// SAME element ⇒ it's chasing detail that can't render (the racket grind) → force a simplify/redesign.
+// NEAR_LIMIT = the AI is told to wrap up ONLY within this many passes of the hidden ceiling (the sole
+// budget signal it ever hears) — so a large budget means honest, unhurried work.
+const STUCK_REPEATS = 2;
+const NEAR_LIMIT_NUDGE = 2;
+// Stuck detection: do two flaw notes describe the SAME element? (token overlap, ignoring short words)
+function flawWords(s: string): Set<string> {
+  return new Set(s.toLowerCase().replace(/[^a-z0-9 ]/g, ' ').split(/\s+/).filter((w) => w.length > 3));
+}
+function sameFlaw(a: string, b: string): boolean {
+  const A = flawWords(a), B = flawWords(b);
+  if (!A.size || !B.size) return false;
+  let inter = 0;
+  for (const w of A) if (B.has(w)) inter++;
+  return inter / Math.min(A.size, B.size) >= 0.4;
+}
 
 // Char pool for auto-assigning a symbol when a turn introduces a brand-new #rrggbb color mid-fix.
 const PAINT_CHARS = 'abcdefghijklmnopqrstuvwxyz0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ#@$%&*+=';
@@ -203,6 +217,9 @@ export interface LiveJob {
   size: number; // the LONGEST-edge budget (auto mode) / the cost-cap key
   manualCols?: number; // user-chosen width — when set (with manualRows), canvas is fixed (manual mode)
   manualRows?: number; // user-chosen height — else VISION chooses the aspect ratio (auto mode)
+  maxPasses?: number; // user-set HIDDEN pass ceiling (cost seatbelt); the AI never sees it — it
+  // approves on quality and is only nudged to converge in the final passes. Else CEILINGS[complexity].
+  manualComplexity?: string; // user-forced complexity tier (else VISION estimates it)
   model: string;
   status: 'running' | 'done' | 'error' | 'paused' | 'cancelled';
   control?: 'pause' | 'cancel'; // a signal the loop checks between passes
@@ -305,6 +322,8 @@ export function startLiveJob(opts: {
   apiKey: string;
   cols?: number; // manual dimensions — when both are set the canvas is FIXED (manual mode);
   rows?: number; // otherwise VISION chooses the aspect ratio for the subject (auto mode).
+  passes?: number; // user-set HIDDEN pass ceiling (cost seatbelt); else CEILINGS[complexity].
+  complexity?: string; // user-forced complexity tier (else VISION estimates).
   resumeFrame?: PXSFrame;
   resumePhase?: string;
   title?: string;
@@ -322,6 +341,8 @@ export function startLiveJob(opts: {
     size,
     manualCols: opts.cols && opts.rows ? Math.min(64, Math.max(8, Math.round(opts.cols))) : undefined,
     manualRows: opts.cols && opts.rows ? Math.min(64, Math.max(8, Math.round(opts.rows))) : undefined,
+    maxPasses: opts.passes ? Math.min(90, Math.max(1, Math.round(opts.passes))) : undefined,
+    manualComplexity: ['simple', 'moderate', 'complex', 'advanced'].includes(opts.complexity || '') ? opts.complexity : undefined,
     model: opts.model || DEFAULT_MODEL,
     status: 'running',
     stage: resumeStage,
@@ -338,7 +359,11 @@ export function startLiveJob(opts: {
     audits: [],
     frames: [],
     title: opts.title,
-    costCapUsd: size >= 48 ? 5 : 3,
+    // The cost cap scales with the user's chosen pass budget (they opt into more passes = more spend),
+    // clamped to a sane hard ceiling. Auto (no pass override) keeps the proven small cap.
+    costCapUsd: opts.passes
+      ? Math.min(30, Math.max(3, Math.round(Math.min(90, Math.max(1, opts.passes)) * 0.25) + (size >= 48 ? 2 : 1)))
+      : size >= 48 ? 5 : 3,
     startedAt: Date.now(),
     updatedAt: Date.now(),
   };
@@ -437,7 +462,7 @@ async function runStatueEngine(job: LiveJob, apiKey: string, resumeFrame?: PXSFr
         max_tokens: 4000,
         thinking: { type: 'adaptive', display: 'summarized' },
         output_config: { effort: 'high', format: { type: 'json_schema', schema: STATUE_VISION_SCHEMA } },
-        system: statueVisionSystemPrompt(size, simplerThan, fixedDims),
+        system: statueVisionSystemPrompt(size, simplerThan, fixedDims, job.manualComplexity),
         messages: [{ role: 'user', content: statueVisionUserMessage(subject, size) }],
       } as any);
       job.liveThinking = '';
@@ -451,7 +476,10 @@ async function runStatueEngine(job: LiveJob, apiKey: string, resumeFrame?: PXSFr
     const raw = msg.content.filter((b): b is Anthropic.TextBlock => b.type === 'text').map((b) => b.text).join('');
     const p = JSON.parse(raw);
     const palette = Array.isArray(p.palette) ? p.palette : [];
-    const complexity: Complexity = (['simple', 'moderate', 'complex', 'advanced'] as const).includes(p.complexity) ? p.complexity : 'moderate';
+    // User-forced complexity wins (2.2 — simplify the AI's decision); else VISION's estimate.
+    const complexity: Complexity = (['simple', 'moderate', 'complex', 'advanced'] as const).includes(job.manualComplexity as Complexity)
+      ? (job.manualComplexity as Complexity)
+      : (['simple', 'moderate', 'complex', 'advanced'] as const).includes(p.complexity) ? p.complexity : 'moderate';
     // Manual dims win; else use VISION's chosen aspect (clamped to the size budget).
     const cols = fixedDims ? fixedDims.cols : clampDim(p.cols);
     const rows = fixedDims ? fixedDims.rows : clampDim(p.rows);
@@ -555,13 +583,15 @@ async function runStatueEngine(job: LiveJob, apiKey: string, resumeFrame?: PXSFr
       emit('stage.enter', { stage: 'refine', goal: `hot-potato — fresh-eyes judge + fix each pass (${canvas.cols}×${canvas.rows}, complexity: ${complexity})` });
     }
 
-    const maxPasses = CEILINGS[complexity].passes;
+    // The pass ceiling is the user's HIDDEN seatbelt (default = the complexity tier's). The AI never
+    // sees it — it approves on quality and is only nudged in the final NEAR_LIMIT_NUDGE passes.
+    const maxPasses = job.maxPasses ?? CEILINGS[complexity].passes;
 
     // ---- THE HOT-POTATO LOOP: a "pass" = one batched fresh-eyes turn (the debounce — NEVER per
     // stroke). Each turn sees ONLY {brief + current render}. Approve → ship; else apply the fix; the
     // ceiling is a cost seatbelt, not the stop condition. ----
     let pass = 0;
-    let fixPasses = 0; // fix passes since the last (re)design — drives CONVERGENCE PRESSURE
+    const recentFlaws: string[] = []; // for STUCK detection (same element reworked repeatedly)
     while (pass < maxPasses) {
       if (job.control === 'cancel') {
         job.status = 'cancelled';
@@ -601,14 +631,25 @@ async function runStatueEngine(job: LiveJob, apiKey: string, resumeFrame?: PXSFr
         // Fresh-eyes turn — judge the current render cold, then approve or fix. After several fix
         // passes without converging, add CONVERGENCE PRESSURE: it's almost certainly chasing detail
         // that can't render at this size, so force a decisive simplify-or-redesign (kills the grind).
-        const pressureLine = fixPasses >= CONVERGE_PRESSURE_AT
-          ? `\n\n⚠ CONVERGENCE PRESSURE — this piece has been reworked ${fixPasses} times without clearing the bar. You are almost certainly chasing internal detail that CANNOT render at ${canvas.cols}×${canvas.rows}. STOP refining the same way. THIS pass: take any element that still won't read and REPLACE it with its SIMPLEST solid iconic form (e.g. a racket = a solid oval/round head + a straight handle joined to the hand — NO internal strings), then judge it on SHAPE alone — if the shape reads, APPROVE. If the piece as a WHOLE genuinely cannot read at this size, set redesign:true. Do NOT produce another near-identical rework.`
+        // STUCK guard (limit-independent): if the last STUCK_REPEATS fix notes name the SAME element,
+        // it's chasing detail that can't render here → force a decisive simplify/redesign of THAT thing.
+        let stuckRun = 0;
+        const lastFlaw = recentFlaws[recentFlaws.length - 1];
+        if (lastFlaw) for (let i = recentFlaws.length - 1; i >= 0 && sameFlaw(recentFlaws[i], lastFlaw); i--) stuckRun++;
+        const stuck = stuckRun >= STUCK_REPEATS;
+        const stuckLine = stuck
+          ? `\n\n⚠ You have reworked the SAME element ${stuckRun} times without it reading. It almost certainly CANNOT render at ${canvas.cols}×${canvas.rows} as drawn. STOP repeating the fix: REPLACE that element with its SIMPLEST solid iconic form THIS pass (e.g. a racket = a solid oval head + a straight handle into the hand — NO internal strings), judge it on SHAPE alone, and if it then reads, APPROVE. If the whole piece can't work at this size, set redesign:true.`
           : '';
-        job.statusMessage = fixPasses >= CONVERGE_PRESSURE_AT ? 'Forcing convergence…' : 'Fresh-eyes review…';
+        // NEAR-LIMIT nudge: the ONLY budget signal the AI ever gets — and only in the final passes.
+        const remaining = maxPasses - pass;
+        const limitLine = remaining <= NEAR_LIMIT_NUDGE
+          ? `\n\n(You are near the end of the working budget. If the piece already reads well, APPROVE it now; otherwise make your most decisive final fixes this pass. This is the only budget signal — otherwise you would keep working to your true bar.)`
+          : '';
+        job.statusMessage = stuck ? 'Breaking a loop — simplifying…' : remaining <= NEAR_LIMIT_NUDGE ? 'Final passes…' : 'Fresh-eyes review…';
         emit('pass.start', { stage: 'refine', pass: job.gestures + 1 });
         content = [
           { type: 'image', source: { type: 'base64', media_type: 'image/png', data: frameToPngBase64(canvasToFrame(canvas)) } },
-          { type: 'text', text: statueTurnUserMessage(subject, canvas.cols, canvas.rows, brief, paletteStr(canvas)) + feedbackLine + pressureLine },
+          { type: 'text', text: statueTurnUserMessage(subject, canvas.cols, canvas.rows, brief, paletteStr(canvas)) + feedbackLine + stuckLine + limitLine },
         ];
       }
 
@@ -630,7 +671,7 @@ async function runStatueEngine(job: LiveJob, apiKey: string, resumeFrame?: PXSFr
         canvas = buildCanvas(v.palette, subject, v.cols, v.rows);
         turnSystem = statueHotPotatoSystemPrompt(canvas.cols, canvas.rows);
         bestCanvas = null;
-        fixPasses = 0; // fresh design → reset the convergence-pressure counter
+        recentFlaws.length = 0; // fresh design → reset the stuck detector
         emit('vision.committed', { brief, palette: v.palette, complexity, cols: v.cols, rows: v.rows });
         emit('stage.enter', { stage: 'refine', goal: `re-visioned simpler (${canvas.cols}×${canvas.rows}, complexity: ${complexity})` });
         continue; // next pass redraws the simpler design from a blank canvas
@@ -654,12 +695,12 @@ async function runStatueEngine(job: LiveJob, apiKey: string, resumeFrame?: PXSFr
       // Otherwise the turn APPLIES the highest-value fix — the batched edits ARE this pass (the
       // judgment → critique feed; the fix → canvas reveal). This is the hot-potato fix in one call.
       const { applied, issues } = applyEdits(canvas, turn.edits);
-      if (!blank) fixPasses++; // a real refinement (not the opening block-in) → counts toward pressure
       job.gestures++;
       const frame = canvasToFrame(canvas);
       job.latestFrame = frame;
       job.frames.push(frame);
       const note = turn.flaw || (blank ? 'block-in' : 'refine');
+      if (!blank) recentFlaws.push(note); // feed the stuck detector (block-in isn't a "fix")
       job.statusMessage = `Pass ${job.gestures} — ${note}`;
       job.critiques.push({ phase: 'refine', approved: false });
       job.audits.push({ stage: 'refine', pass: job.gestures, approved: false, issues: [note] });

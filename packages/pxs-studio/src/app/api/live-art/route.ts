@@ -23,6 +23,8 @@ export async function POST(req: Request) {
     size?: number;
     cols?: number;
     rows?: number;
+    passes?: number;
+    complexity?: string;
     model?: string;
     resume?: string;
     resumeFrame?: PXSFrame;
@@ -71,6 +73,9 @@ export async function POST(req: Request) {
   const cols = manualCols && manualRows ? manualCols : undefined;
   const rows = manualCols && manualRows ? manualRows : undefined;
   if (cols && rows) size = Math.max(cols, rows); // cost cap keys off the long edge in manual mode
+  // 2.1 — user-set HIDDEN pass ceiling (1–90); 2.2 — user-forced complexity (else auto/VISION).
+  const passes = Number.isFinite(body.passes) ? Math.min(90, Math.max(1, Math.round(body.passes as number))) : undefined;
+  const complexity = ['simple', 'moderate', 'complex', 'advanced'].includes(body.complexity || '') ? body.complexity : undefined;
 
   // Resume a saved/interrupted job by id.
   let brief: string | undefined;
@@ -90,7 +95,7 @@ export async function POST(req: Request) {
   if (resumeFrame) size = resumeFrame.cols;
   if (!prompt) return Response.json({ error: 'prompt is required' }, { status: 400 });
 
-  const id = startLiveJob({ prompt, size, cols, rows, model, apiKey, resumeFrame, resumePhase, title, brief });
+  const id = startLiveJob({ prompt, size, cols, rows, passes, complexity, model, apiKey, resumeFrame, resumePhase, title, brief });
   return Response.json({ jobId: id, resumed: !!resumeFrame });
 }
 

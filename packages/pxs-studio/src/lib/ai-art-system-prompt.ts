@@ -303,17 +303,14 @@ Call setup first (use the brief's palette), then paint in coarse→fine passes �
 // ============================================================================
 
 /** The fresh-eyes turn's system prompt — judge at read/object-identity level, then fix directly. */
-export function statueHotPotatoSystemPrompt(cols: number, rows: number, symmetric = false): string {
-  const sym = symmetric
-    ? `\n\nTHIS SUBJECT IS BILATERALLY SYMMETRIC (a front/rear view). Both halves MUST match: every feature has an identical twin at the same height on the other side (both headlights, both intakes the same size + shape). GROSS left-right mismatch is a REAL read-breaking flaw — catch it and fix it (this is the ONE place symmetry matters; still ignore 1px sub-pixel jitter). The CHEAPEST clean fix: perfect the LEFT half, put your edits on the LEFT, and set \`symmetrize\`:true — the engine mirrors your left half onto the right, giving perfect symmetry for free. Reach for that instead of hand-matching both sides.`
-    : '';
+export function statueHotPotatoSystemPrompt(cols: number, rows: number): string {
   return `You are a MASTER pixel artist working on a ${cols}×${rows} Pixcel grid (${cols} wide, ${rows} tall). You both JUDGE and FIX in one move, and you see each canvas COLD — you did NOT make it and have no memory of how it was built, only what is in front of you RIGHT NOW. Fresh eyes: judge the render that exists, never the intention behind it.
 
 Stay Pure: exactly one solid color per cell — NO gradients, anti-aliasing, dithering, or hue-shift. Background is #0d1117. Lowercase hex. Coordinates: x = column 0..${cols - 1} (left→right), y = row 0..${rows - 1} (top→bottom).
 
 Fit the design to the canvas (rule #1): the form must be ICONIC and READ at a glance, filling this ${cols}×${rows} frame deliberately (no floating in dead space; fill ≠ distort — never warp true proportions to reach the edges). Build form with a base + one shadow + one highlight; give creatures life (an eye with a 1px highlight).
 
-PIXEL CRAFT — use every cell DELIBERATELY; this is pixel ART, not a loose blob. Shade in COHERENT regions and bands (a clean lit plane, a clean mid plane, a clean shadow plane) — NEVER scattered single cells (salt-and-pepper shading reads as dirt, not form). Keep silhouette and interior edges CLEAN: smooth pixel steps, no jagged stair-noise, no stray or floating cells. Define the real PLANES of the form as clean shapes — for a car: a clean hood line, cabin, window, door/sill, wheel arch — not crude undifferentiated rectangles. If the canvas reads as a NOISY or CRUDE blob (scattered shading, jagged edges, blocky undifferentiated masses, stray cells), that is a REAL flaw: name it and RE-BLOCK that region CLEANLY — erase the noise and lay down coherent planes. A piece that looks like a "blob made of cells" has NOT cleared the bar even if you can tell what it is.${sym}
+PIXEL CRAFT — use every cell DELIBERATELY; this is pixel ART, not a loose blob. Shade in COHERENT regions and bands (a clean lit plane, a clean mid plane, a clean shadow plane) — NEVER scattered single cells (salt-and-pepper shading reads as dirt, not form). Keep silhouette and interior edges CLEAN: smooth pixel steps, no jagged stair-noise, no stray or floating cells. Define the real PLANES of the form as clean shapes — for a car: a clean hood line, cabin, window, door/sill, wheel arch — not crude undifferentiated rectangles. If the canvas reads as a NOISY or CRUDE blob (scattered shading, jagged edges, blocky undifferentiated masses, stray cells), that is a REAL flaw: name it and RE-BLOCK that region CLEANLY — erase the noise and lay down coherent planes. A piece that looks like a "blob made of cells" has NOT cleared the bar even if you can tell what it is.
 
 EVERY reply is a single structured assessment of the CURRENT canvas against the committed brief:
 1. Read it COLD at true display scale. Does it INSTANTLY read as the subject — the 3-year-old test? NAME each major element to yourself: does each read as the RIGHT object? (a tennis racket must read as a racket — a round/oval head on a handle GRIPPED BY THE HAND — NOT a balloon, lollipop, or crosshair.) A gross object-identity failure is a REAL flaw even if the piece is "clean."
@@ -333,7 +330,6 @@ export const STATUE_TURN_SCHEMA = {
     approved: { type: 'boolean', description: 'true ONLY if the canvas clears the 96% bar and reads instantly as the subject.' },
     flaw: { type: 'string', description: 'the single highest-value flaw you are fixing (or why it needs a redesign); "" if approved.' },
     redesign: { type: 'boolean', description: 'true if the design cannot read at this size and must be re-visioned simpler.' },
-    symmetrize: { type: 'boolean', description: 'ONLY for a bilaterally symmetric subject: true to mirror the LEFT half onto the right for perfect symmetry (apply your edits to the left half). false otherwise.' },
     edits: {
       type: 'array',
       description: 'the batch of cell edits that applies your fix. Empty if approved or redesign.',
@@ -349,7 +345,7 @@ export const STATUE_TURN_SCHEMA = {
       },
     },
   },
-  required: ['approved', 'flaw', 'redesign', 'symmetrize', 'edits'],
+  required: ['approved', 'flaw', 'redesign', 'edits'],
 } as const;
 
 /** First pass — block the WHOLE committed design onto a blank canvas (the opening draw). */

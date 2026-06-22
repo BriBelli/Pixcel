@@ -454,7 +454,7 @@ async function runStatueEngine(job: LiveJob, apiKey: string, resumeFrame?: PXSFr
     ? { cols: clampDim(job.manualCols), rows: clampDim(job.manualRows) }
     : undefined;
 
-  type Vision = { brief: string; palette: { char: string; hex: string; role: string }[]; complexity: Complexity; cols: number; rows: number; symmetric: boolean };
+  type Vision = { brief: string; palette: { char: string; hex: string; role: string }[]; complexity: Complexity; cols: number; rows: number };
   const designVision = async (simplerThan?: string): Promise<Vision> => {
     const msg = await withRetry(async () => {
       const s = client.messages.stream({
@@ -483,14 +483,14 @@ async function runStatueEngine(job: LiveJob, apiKey: string, resumeFrame?: PXSFr
     // Manual dims win; else use VISION's chosen aspect (clamped to the size budget).
     const cols = fixedDims ? fixedDims.cols : clampDim(p.cols);
     const rows = fixedDims ? fixedDims.rows : clampDim(p.rows);
-    return { brief: String(p.brief || '').trim(), palette, complexity, cols, rows, symmetric: p.symmetric === true };
+    return { brief: String(p.brief || '').trim(), palette, complexity, cols, rows };
   };
 
   // ---- ONE fresh-eyes hot-potato turn: judge the CURRENT render COLD against {brief}, then either
   // approve or apply the highest-value FIX itself (structured output: {approved, flaw, redesign,
   // edits}). FRESH context every call (no message history) — that freshness IS the hot-potato. ----
   let turnSystem = ''; // set once the canvas dimensions are known (after VISION / on resume / on redesign)
-  type Turn = { approved: boolean; flaw: string; redesign: boolean; symmetrize?: boolean; edits: { x: number; y: number; c: string }[] };
+  type Turn = { approved: boolean; flaw: string; redesign: boolean; edits: { x: number; y: number; c: string }[] };
   const callTurn = async (content: any): Promise<Turn> => {
     const msg = await withRetry(async () => {
       const s = client.messages.stream({
@@ -544,7 +544,6 @@ async function runStatueEngine(job: LiveJob, apiKey: string, resumeFrame?: PXSFr
     let bestCanvas: Canvas | null = null; // the last APPROVED snapshot (keep-best)
     let finished = false;
     let redesigns = 0;
-    let symmetric = false; // VISION flags a bilaterally-symmetric composition → enables the mirror op
 
     if (resumeFrame) {
       // RESUME: the saved frame IS the work-in-progress; re-enter the hot-potato loop on it (the
@@ -557,7 +556,7 @@ async function runStatueEngine(job: LiveJob, apiKey: string, resumeFrame?: PXSFr
       const f0 = canvasToFrame(canvas);
       job.latestFrame = f0;
       job.frames.push(f0);
-      turnSystem = statueHotPotatoSystemPrompt(canvas.cols, canvas.rows, symmetric);
+      turnSystem = statueHotPotatoSystemPrompt(canvas.cols, canvas.rows);
       job.stage = job.phase = 'refine';
       emit('vision.committed', { brief, cols: canvas.cols, rows: canvas.rows });
       emit('stage.enter', { stage: 'refine', goal: 'finish the piece — fresh-eyes judge + fix each pass' });
@@ -569,7 +568,6 @@ async function runStatueEngine(job: LiveJob, apiKey: string, resumeFrame?: PXSFr
       const v = await designVision();
       brief = v.brief;
       complexity = v.complexity;
-      symmetric = v.symmetric;
       job.brief = brief;
       job.complexity = complexity;
       traj.spec = brief;
@@ -577,7 +575,7 @@ async function runStatueEngine(job: LiveJob, apiKey: string, resumeFrame?: PXSFr
       traj.palette = v.palette;
       traj.dims = { cols: v.cols, rows: v.rows };
       canvas = buildCanvas(v.palette, subject, v.cols, v.rows);
-      turnSystem = statueHotPotatoSystemPrompt(canvas.cols, canvas.rows, symmetric);
+      turnSystem = statueHotPotatoSystemPrompt(canvas.cols, canvas.rows);
       job.title = canvas.title;
       emit('vision.committed', { brief, palette: v.palette, complexity, cols: v.cols, rows: v.rows });
       job.stage = job.phase = 'refine';
@@ -667,12 +665,11 @@ async function runStatueEngine(job: LiveJob, apiKey: string, resumeFrame?: PXSFr
         const v = await designVision(brief);
         brief = v.brief;
         complexity = v.complexity;
-        symmetric = v.symmetric;
         job.brief = brief;
         job.complexity = complexity;
         traj.spec = brief;
         canvas = buildCanvas(v.palette, subject, v.cols, v.rows);
-        turnSystem = statueHotPotatoSystemPrompt(canvas.cols, canvas.rows, symmetric);
+        turnSystem = statueHotPotatoSystemPrompt(canvas.cols, canvas.rows);
         bestCanvas = null;
         recentFlaws.length = 0; // fresh design → reset the stuck detector
         emit('vision.committed', { brief, palette: v.palette, complexity, cols: v.cols, rows: v.rows });
@@ -698,14 +695,6 @@ async function runStatueEngine(job: LiveJob, apiKey: string, resumeFrame?: PXSFr
       // Otherwise the turn APPLIES the highest-value fix — the batched edits ARE this pass (the
       // judgment → critique feed; the fix → canvas reveal). This is the hot-potato fix in one call.
       const { applied, issues } = applyEdits(canvas, turn.edits);
-      // SYMMETRY MECHANISM — for a bilaterally-symmetric subject, mirror the LEFT half onto the right
-      // on request → perfect symmetry for free. Pairs the stricter symmetry judging with an easy way to
-      // ACHIEVE it (so the judge's demand never causes hand-matching churn). Guarded: only when VISION
-      // flagged the composition symmetric AND the turn opted in. keep-best bounds any bad mirror.
-      if (turn.symmetrize && symmetric) {
-        const half = Math.floor(canvas.cols / 2);
-        for (let y = 0; y < canvas.rows; y++) for (let x = 0; x < half; x++) canvas.grid[y][canvas.cols - 1 - x] = canvas.grid[y][x];
-      }
       job.gestures++;
       const frame = canvasToFrame(canvas);
       job.latestFrame = frame;

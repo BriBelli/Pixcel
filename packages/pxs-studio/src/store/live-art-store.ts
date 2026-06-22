@@ -22,8 +22,11 @@ export interface LiveFeedItem {
 }
 export interface LiveJob {
   status: 'running' | 'done' | 'error' | 'paused' | 'cancelled';
-  phase: string;
-  gestures: number;
+  stage: string; // vision | shape | polish | qa | done
+  phase: string; // mirror of stage (back-compat)
+  brief?: string; // the committed VISION design brief (shown read-only)
+  stagesPassed: string[];
+  gestures: number; // passes painted
   statusMessage: string;
   liveThinking: string;
   feed: LiveFeedItem[];
@@ -37,6 +40,99 @@ export interface LiveJob {
   tokensOut?: number;
   costUsd?: number;
   error?: string;
+}
+
+/** One contract event (docs/PIXCEL-LIVE-SSE.md). */
+interface LiveEvent {
+  type: string;
+  [k: string]: any;
+}
+
+/** Fold one contract event into the running view-model (the reducer keyed by `type`). */
+function reduceEvent(prev: LiveJob | null, e: LiveEvent): LiveJob {
+  const j: LiveJob = prev
+    ? { ...prev, feed: prev.feed, stagesPassed: prev.stagesPassed, critiques: prev.critiques }
+    : { status: 'running', stage: 'vision', phase: 'vision', stagesPassed: [], gestures: 0, statusMessage: 'Starting…', liveThinking: '', feed: [], critiques: [] };
+  const pushFeed = (f: LiveFeedItem) => {
+    j.feed = [...j.feed, f];
+    if (j.feed.length > 200) j.feed = j.feed.slice(-200);
+  };
+  if (typeof e.costUsd === 'number') j.costUsd = e.costUsd;
+  switch (e.type) {
+    case 'job.started':
+      return { ...j, status: 'running', stage: 'vision', phase: 'vision', statusMessage: 'Designing the vision…' };
+    case 'cost.update':
+      j.tokensIn = e.tokensIn ?? j.tokensIn;
+      j.tokensOut = e.tokensOut ?? j.tokensOut;
+      return j;
+    case 'thinking.delta':
+      j.liveThinking = e.text ?? '';
+      return j;
+    case 'vision.start':
+      j.statusMessage = 'Designing the vision…';
+      return j;
+    case 'vision.committed':
+      j.brief = e.brief ?? j.brief;
+      pushFeed({ kind: 'phase', text: 'VISION committed — design locked', phase: 'vision' });
+      return j;
+    case 'stage.enter':
+      j.stage = j.phase = e.stage;
+      j.statusMessage = `${String(e.stage).toUpperCase()} — ${e.goal ?? ''}`;
+      pushFeed({ kind: 'phase', text: `${String(e.stage).toUpperCase()} — ${e.goal ?? ''}`, phase: e.stage });
+      return j;
+    case 'pass.start':
+      j.statusMessage = `Painting pass ${e.pass}${e.note ? ` — ${e.note}` : ''}…`;
+      return j;
+    case 'pass.done':
+      j.gestures = e.pass ?? j.gestures + 1;
+      if (e.frame) j.latestFrame = e.frame;
+      j.statusMessage = `Pass ${e.pass}${e.note ? ` — ${e.note}` : ''}`;
+      pushFeed({ kind: 'gesture', text: e.note || 'pass', gesture: e.pass, phase: e.stage });
+      return j;
+    case 'audit.start':
+      j.statusMessage = `Art director reviewing the ${e.stage} phase…`;
+      return j;
+    case 'audit.verdict':
+      j.critiques = [...j.critiques, { phase: e.stage, approved: !!e.approved }];
+      pushFeed({ kind: 'review', text: e.approved ? `${String(e.stage).toUpperCase()} approved` : (e.issues || []).join('; '), approved: !!e.approved, phase: e.stage });
+      return j;
+    case 'stage.approved':
+      j.stagesPassed = j.stagesPassed.includes(e.stage) ? j.stagesPassed : [...j.stagesPassed, e.stage];
+      if (e.frame) j.latestFrame = e.frame;
+      pushFeed({ kind: 'phase', text: `${String(e.stage).toUpperCase()} approved ✓ — locked`, phase: e.stage });
+      return j;
+    case 'keepbest.shipped':
+      if (e.frame) j.latestFrame = e.frame;
+      pushFeed({ kind: 'recall', text: `shipped the last approved state (${e.fromStage}) — ${e.reason}` });
+      return j;
+    case 'feedback.injected':
+      return j; // the user's line is already shown locally on send
+    case 'job.done':
+      j.status = 'done';
+      j.stage = j.phase = 'done';
+      if (e.frame) { j.frame = e.frame; j.latestFrame = e.frame; j.cells = e.frame.cells?.length; }
+      j.gestures = e.passes ?? j.gestures;
+      j.durationMs = e.durationMs ?? j.durationMs;
+      j.statusMessage = 'Done';
+      pushFeed({ kind: 'done', text: 'Finished' });
+      return j;
+    case 'job.paused':
+      j.status = 'paused';
+      j.statusMessage = 'Paused — resumable';
+      pushFeed({ kind: 'done', text: 'Paused — resumable' });
+      return j;
+    case 'job.cancelled':
+      j.status = 'cancelled';
+      j.statusMessage = 'Cancelled';
+      pushFeed({ kind: 'done', text: 'Cancelled by user' });
+      return j;
+    case 'job.error':
+      j.status = 'error';
+      j.error = e.message ?? 'Generation failed';
+      return j;
+    default:
+      return j;
+  }
 }
 
 interface LiveArtState {
@@ -100,13 +196,11 @@ export const useLiveArtStore = create<LiveArtState>((set, get) => {
     }
   }
 
-  /** Push one job snapshot to the store + the center easel. */
-  function applyJob(jIn: LiveJob) {
-    // The tail omits the heavy frame on metadata-only ticks (e.g. while thinking) — keep the last.
-    const prev = get().job;
-    const j: LiveJob = jIn.latestFrame ? jIn : { ...jIn, latestFrame: prev?.latestFrame };
+  /** Push the current view-model to the store + the center easel. */
+  function applyJob(j: LiveJob) {
     set({ job: j });
     const f = j.latestFrame || j.frame || null;
+    const stageLabel = j.stage && j.stage !== 'done' ? j.stage.toUpperCase() : '';
     useCenterStage.getState().set({
       active: true,
       mode: 'sculpt',
@@ -115,20 +209,23 @@ export const useLiveArtStore = create<LiveArtState>((set, get) => {
       phase: j.phase,
       gestures: j.gestures,
       shimmer: !f,
-      label: j.status === 'done' ? 'done' : j.gestures ? `stroke ${j.gestures}` : (j.statusMessage || 'painting…'),
+      label: j.status === 'done' ? 'done' : j.gestures ? `${stageLabel ? stageLabel + ' · ' : ''}pass ${j.gestures}` : (j.statusMessage || 'painting…'),
       thinking: j.liveThinking || '',
       feed: j.feed || [],
     });
   }
 
   /**
-   * Tail the detached job over a single streaming connection (SSE-style ndjson). The server
-   * pushes a snapshot whenever the job changes — including the partial frame painted ROW BY ROW
-   * as the model writes the char-map, so the easel shows a real live scan-line reveal. The job
-   * runs detached, so closing this stream never stops it; we just reconnect to catch up.
+   * Tail the detached job over a single streaming connection (NDJSON contract events,
+   * docs/PIXCEL-LIVE-SSE.md). Each line is one event; a reducer keyed by `type` folds the stream
+   * into the view-model (canvas from pass.done.frame, banner from stage.enter/approved, feed from
+   * audit.verdict, think pane from thinking.delta, cost from cost.update). A fresh connection
+   * replays from seq 0, so the reducer rebuilds the view; the job runs detached, so closing this
+   * stream never stops it — we just reconnect to catch up. Idempotent on `frame`.
    */
   async function streamTail(id: string) {
     if (get().jobId !== id) return;
+    let view: LiveJob | null = null; // fresh accumulation per connection (replay rebuilds it)
     try {
       const res = await fetch(`/api/live-art?id=${id}&stream=1`);
       if (!res.body) throw new Error('no stream body');
@@ -143,20 +240,20 @@ export const useLiveArtStore = create<LiveArtState>((set, get) => {
         buf = lines.pop() || '';
         for (const line of lines) {
           if (!line.trim()) continue;
-          let j: LiveJob & { error?: string };
+          let ev: LiveEvent;
           try {
-            j = JSON.parse(line);
+            ev = JSON.parse(line);
           } catch {
             continue;
           }
           if (get().jobId !== id) return; // user moved on
-          if ((j as any).error) continue;
-          applyJob(j);
-          if (j.status === 'done') {
+          view = reduceEvent(view, ev);
+          applyJob(view);
+          if (view.status === 'done') {
             await finalize(id);
             return;
           }
-          if (j.status === 'error' || j.status === 'paused' || j.status === 'cancelled') return;
+          if (view.status === 'error' || view.status === 'paused' || view.status === 'cancelled') return;
         }
       }
     } catch {

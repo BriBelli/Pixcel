@@ -56,6 +56,7 @@ export async function POST(req: Request) {
   let size = Math.min(64, Math.max(8, Math.round(body.size ?? 24)));
 
   // Resume a saved/interrupted job by id.
+  let brief: string | undefined;
   if (body.resume) {
     const prev = getLiveJob(body.resume);
     if (!prev || !prev.latestFrame) {
@@ -66,12 +67,13 @@ export async function POST(req: Request) {
     title = title || prev.title;
     if (!prompt) prompt = prev.prompt;
     size = prev.size;
+    brief = prev.brief; // carry the committed VISION brief into the resumed run
   }
 
   if (resumeFrame) size = resumeFrame.cols;
   if (!prompt) return Response.json({ error: 'prompt is required' }, { status: 400 });
 
-  const id = startLiveJob({ prompt, size, model, apiKey, resumeFrame, resumePhase, title });
+  const id = startLiveJob({ prompt, size, model, apiKey, resumeFrame, resumePhase, title, brief });
   return Response.json({ jobId: id, resumed: !!resumeFrame });
 }
 
@@ -80,38 +82,52 @@ export async function GET(req: Request) {
   const id = url.searchParams.get('id');
   if (!id) return Response.json({ error: 'id is required' }, { status: 400 });
 
-  // STREAM TAIL — the live art show. The job runs DETACHED (keeping pause/feedback/resume/
-  // background); this endpoint tails its in-memory state and pushes an update whenever it
-  // changes — including the partial frame painted ROW BY ROW as the model writes the char-map.
-  // The browser paints exactly what's arrived: a real scan-line reveal from the real stream.
-  // Disconnecting stops the tail, NOT the job — reopen to catch up. Heavy frames[] is omitted.
+  // STREAM TAIL — the live art show (docs/PIXCEL-LIVE-SSE.md). The job runs DETACHED (keeping
+  // pause/feedback/resume/background); this endpoint tails its append-only CONTRACT EVENT LOG by
+  // `seq` — one JSON event per line — so the client reducer can drive every panel (canvas from
+  // pass.done.frame, phase banner from stage.enter/approved, critique feed from audit.verdict,
+  // think pane from thinking.delta, cost meter from cost.update). A fresh connection replays from
+  // seq 0 (catch-up); reconnecting after a drop resyncs from the next pass.done.frame.
+  // Disconnecting stops the tail, NOT the job. The heavy frames[] history is never shipped.
   if (url.searchParams.get('stream') === '1') {
     const encoder = new TextEncoder();
     const stream = new ReadableStream({
       async start(controller) {
         const send = (obj: unknown) => controller.enqueue(encoder.encode(JSON.stringify(obj) + '\n'));
-        let lastSig = '';
-        // Safety bound: a job can't outrun this (a 64² piece is minutes). ~20 min at 120ms.
+        let lastSeq = -1; // highest event seq already sent
+        let lastThinkLen = -1; // last thinking length we flushed (thinking is a tail-side heartbeat)
+        // Safety bound: a job can't outrun this (a 64² piece is minutes). ~33 min at 200ms.
         for (let tick = 0; tick < 10000; tick++) {
           if (req.signal.aborted) break;
           const job = getLiveJob(id);
           if (!job) {
-            send({ error: 'job not found' });
+            send({ type: 'job.error', message: 'job not found' });
             break;
           }
-          const { frames, ...rest } = job;
-          // Only push when something the client cares about actually changed; and only ship the
-          // (heavy) frame when the FRAME itself changed — during thinking we send light metadata
-          // and the client keeps the last frame. Keeps the stream cheap.
-          const f = job.latestFrame;
-          const fsig = f ? `${f.cols}x${f.rows}:${f.cells.length}:${f.cells.reduce((h, c) => (h * 31 + c.x + c.y + c.color.charCodeAt(1)) | 0, 0)}` : 'none';
-          const metaSig = `${job.status}|${job.phase}|${job.gestures}|${job.statusMessage}|${job.liveThinking.length}|${job.feed.length}|${job.costUsd ?? 0}`;
-          const sig = `${metaSig}|${fsig}`;
-          if (sig !== lastSig) {
-            const frameChanged = lastSig.split('|').pop() !== fsig;
-            lastSig = sig;
-            if (!frameChanged) delete (rest as { latestFrame?: unknown }).latestFrame;
-            send(rest);
+          // Drain any new contract events (in seq order).
+          const fresh = job.events.filter((e) => e.seq > lastSeq);
+          for (const ev of fresh) {
+            send(ev);
+            lastSeq = ev.seq;
+          }
+          // Reloaded-from-disk jobs lose their in-memory event log — synthesize a terminal event
+          // from the snapshot so a late connection still resolves to the result.
+          if (!job.events.length && job.status !== 'running' && lastSeq < 0) {
+            if (job.status === 'done' && job.frame) {
+              send({ type: 'vision.committed', brief: job.brief ?? '' });
+              send({ type: 'job.done', frame: job.frame, passes: job.gestures, stagesPassed: job.stagesPassed ?? [], costUsd: job.costUsd ?? 0, durationMs: job.durationMs ?? 0 });
+            } else if (job.status === 'error') {
+              send({ type: 'job.error', message: job.error ?? 'failed' });
+            } else {
+              send({ type: 'job.paused', reason: job.statusMessage });
+            }
+            lastSeq = 0;
+          }
+          // Thinking heartbeat — high-frequency, NOT stored in the event log; emitted tail-side
+          // from the live buffer (client replaces, not appends).
+          if (job.liveThinking.length !== lastThinkLen) {
+            lastThinkLen = job.liveThinking.length;
+            send({ type: 'thinking.delta', stage: job.stage, text: job.liveThinking });
           }
           if (job.status !== 'running') break;
           await new Promise((r) => setTimeout(r, 200));
@@ -128,6 +144,6 @@ export async function GET(req: Request) {
   if (!job) return Response.json({ error: 'job not found' }, { status: 404 });
 
   const full = url.searchParams.get('full') === '1';
-  const { frames, ...rest } = job;
-  return Response.json(full ? job : { ...rest, gestureFrames: frames.length });
+  const { frames, events, ...rest } = job;
+  return Response.json(full ? { ...job, events: undefined } : { ...rest, gestureFrames: frames.length });
 }

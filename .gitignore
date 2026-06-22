@@ -57,3 +57,6 @@ packages/pxs-studio/ab-bundle.mjs
 packages/pxs-studio/ab-old-bundle.mjs
 packages/pxs-studio/ab-bundle-entry.ts
 packages/pxs-studio/ab-results/
+
+# Painter dev-scratch run output (regenerated each run)
+packages/pxs-studio/painter-out/

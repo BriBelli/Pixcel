@@ -7,37 +7,38 @@ import { charMapToFrame, type CharMap } from './pxs-frame-schema';
 import { frameToPngBase64 } from './render-frame';
 import { DEFAULT_MODEL, DRAW_EFFORT } from './artisan-loop';
 import {
-  statueDrawerSystemPrompt,
   statueVisionSystemPrompt,
   statueVisionUserMessage,
-  statueDrawerUserMessage,
-  statueAuditSystemPrompt,
-  statueClassifySystem,
-  statueClassifyUserMessage,
-  STATUE_CLASSIFY_SCHEMA,
-  liveResumeUserMessage,
+  STATUE_VISION_SCHEMA,
+  statueHotPotatoSystemPrompt,
+  STATUE_TURN_SCHEMA,
+  statueFirstDrawUserMessage,
+  statueTurnUserMessage,
 } from './ai-art-system-prompt';
 
 /**
- * SERVER-SIDE LIVE JOB RUNNER — THE STATUE ENGINE (M2 PROVEN, productized for M3).
+ * SERVER-SIDE LIVE JOB RUNNER — THE QUALITY ENGINE (the hot-potato model; docs/PLAN-QUALITY-ENGINE.md).
  *
- * Ported from the proven reference engine (art-engine/painter.mjs). The recipe does not change:
- *   VISION  — commit the iconic design BRIEF before any pixel (ends the foundation gamble)
- *   SHAPE   — block masses + form only, DEFER fine detail (get the form *loved* first)
- *   POLISH  — complete details ON TOP of the LOCKED shape (auditor accepts the shape, judges
- *             at READ-level → no eye churn)
- *   QA      — whole-piece read-level sweep (ship at the 96% bar, don't chase 100%)
- *   keep-best — ship the last APPROVED state, never a churned/regressed pass
+ * Why this replaced the per-phase drawer+auditor: the old engine shipped a "tennis player" holding a
+ * BALLOON instead of a racket — and every phase APPROVED it. That was an EVALUATION failure (a judge
+ * coupled to the making rationalizes its own work), not a scheduling one. The fix is structural:
  *
- * The DRAWER is the eyes-open painter (the soul, preserved): it paints in coarse→fine PASSES on a
- * persistent, erasable canvas, seeing the render after every pass. The recovered cascade AUDITOR
- * gates each phase against the committed brief. No exemplars, full effort, true-scale perception.
- * Canon: docs/THE-STATUE-METHOD.md. Live event contract: docs/PIXCEL-LIVE-SSE.md.
+ *   VISION       — commit a FEASIBLE, fit-to-size design BRIEF + palette + a complexity estimate
+ *                  (the complexity sets a cost CEILING, a seatbelt — not the quality bar).
+ *   HOT-POTATO   — ONE capable artist loops, FRESH EYES every pass: it sees ONLY {brief + the current
+ *                  render} (never the build history), JUDGES the canvas cold, and if it isn't done it
+ *                  applies the highest-value FIX itself as a BATCH of edits (the editor IS the drawer —
+ *                  collapsing the prescribe→execute gap). Approve → ship.
+ *   REDESIGN     — if the design can't read at this size, re-VISION simpler instead of grinding a blob.
+ *   keep-best    — ship the last APPROVED state, never a churned pass.
+ *
+ * Preserved from the M2 win: BATCHED passes (NEVER per-stroke calls — that was the ~80-round dragon),
+ * READ-level / object-identity judging (not sub-pixel nitpicking), keep-best, NO exemplars, full
+ * effort, true-scale perception, and watchability (the batched passes stream over SSE).
  *
  * The job runs DETACHED so it survives the request window; the client tails the contract events
- * over the stream endpoint and watches each pass land. Pause/cancel/resume/live-feedback wrap
- * AROUND the engine. Every run is captured as a trajectory (brief + passes + audits + final) for
- * the eventual own-model (Option 3).
+ * (docs/PIXCEL-LIVE-SSE.md) over the stream endpoint and watches each pass land. Pause/cancel/resume/
+ * live-feedback wrap AROUND the engine. Every run is captured as a trajectory for the own-model (Option 3).
  */
 
 const EFFORT = DRAW_EFFORT; // 'high' — full effort, never throttled (throttling backfires on cost AND quality)
@@ -55,92 +56,30 @@ function costUsd(model: string, u: { input: number; output: number; cacheRead: n
   return (u.input * p.in + u.output * p.out + u.cacheRead * p.cacheRead) / 1_000_000;
 }
 
-// ---- THE STATUE PHASES (corrected; locked). SHAPE = masses/form, DEFER fine detail → POLISH =
-// complete the deferred details ON TOP of the LOCKED shape (auditor ACCEPTS the shape, never
-// re-opens it; judge at READ level, not sub-pixel) → QA = whole-piece read-level check. Tight
-// reject caps + read-level judging = no churn, ~6 passes. ----
-interface Phase {
-  key: 'shape' | 'polish' | 'qa';
-  cap: number;
-  goal: string; // short banner for stage.enter
-  drawer: string; // instruction handed to the drawer when this phase opens
-  bar: string; // the bar the auditor judges this phase against
+// ---- THE COMPLEXITY CEILINGS — a cost SEATBELT, NOT a target (docs/PLAN-ADAPTIVE-BUDGET.md). The
+// VISION step estimates complexity (independent of the fixed 32² size); that maps to a max number of
+// hot-potato passes before we ship keep-best. `done` is quality-driven (the fresh-eyes turn approves);
+// this ceiling only bounds runaway. The complex/advanced tiers flag `forum` for the optional final
+// gate (added in the leverage order once the core holds). ----
+type Complexity = 'simple' | 'moderate' | 'complex' | 'advanced';
+interface Ceiling {
+  passes: number; // max hot-potato passes (incl. the opening block-in)
+  forum: boolean; // run the second-LLM/consensus final gate on hard pieces
 }
-const PHASES: Phase[] = [
-  {
-    key: 'shape',
-    cap: 3,
-    goal: 'block the whole figure — silhouette, masses, form. Defer fine detail.',
-    drawer:
-      'block the whole figure — silhouette, masses, and form (base + one shadow + one highlight), filling the canvas as a deliberate FULL composition. Place features as simple BLOCKS so it reads (a plain eye blob is fine) — do NOT render fine detail yet; that is the polish phase',
-    bar:
-      'the masses, silhouette, form and composition are right and the figure reads as the subject in BLOCK form (features placed as simple blocks is fine). Foundational SHAPE only — do NOT demand finished eyes / texture / fine detail yet (that is polish). ORIENTATION-AGNOSTIC: a valid figure facing EITHER direction is fine — NEVER reject for facing a different way than the brief imagined (that is churn on an arbitrary choice). Approve once the SHAPE is loved.',
-  },
-  {
-    key: 'polish',
-    cap: 2,
-    goal: 'shape is LOCKED — complete the deferred details on top (eyes, texture, identity).',
-    drawer:
-      'PHASE: POLISH — the shape is LOCKED and loved; do NOT reshape, move, or re-block anything. Look INWARD and COMPLETE the deferred details ON TOP: render the eyes properly per the brief, add texture / feather / identity touches. After each detail, re-look at THAT spot and fix it locally',
-    bar:
-      'ACCEPT the locked shape — do NOT re-evaluate the silhouette / composition / proportions (that is settled and loved). Judge ONLY the interior DETAIL added on top: do the eyes / texture / identity touches READ well per the brief? Approve once the details READ well.',
-  },
-  {
-    key: 'qa',
-    cap: 2,
-    goal: 'whole-piece read-level sweep at the 96% hero bar.',
-    drawer:
-      'PHASE: QA — reply DONE to request the final read-level sweep; if the art director flags a real blemish, fix EXACTLY it with a micro edit (no reshaping), then reply DONE again',
-    bar:
-      'FINAL QA: step back and read the WHOLE piece at true display scale. Does it INSTANTLY read as the subject (child test), full form, clean, grounded, at the 96% hero bar? Approve on a clean READ-level pass; flag ONLY a real blemish that genuinely breaks the read.',
-  },
-];
-
-const AUDIT_SCHEMA = {
-  type: 'object',
-  additionalProperties: false,
-  properties: { approved: { type: 'boolean' }, issues: { type: 'array', items: { type: 'string' } } },
-  required: ['approved', 'issues'],
-} as const;
-
-const SETUP_TOOL = {
-  name: 'setup',
-  description: 'Set up the canvas ONCE before painting: title, dimensions, palette. Call first.',
-  input_schema: {
-    type: 'object',
-    additionalProperties: false,
-    properties: {
-      title: { type: 'string', description: 'Short 1–3 word name for the piece.' },
-      cols: { type: 'integer' },
-      rows: { type: 'integer' },
-      palette: { type: 'object', description: 'Single-character symbol → lowercase #rrggbb. "." is reserved for background.', additionalProperties: { type: 'string' } },
-    },
-    required: ['title', 'cols', 'rows', 'palette'],
-  },
+const CEILINGS: Record<Complexity, Ceiling> = {
+  simple: { passes: 4, forum: false },
+  moderate: { passes: 6, forum: false },
+  complex: { passes: 9, forum: true },
+  advanced: { passes: 12, forum: true },
 };
+const MAX_REDESIGNS = 2; // re-VISION simpler at most this many times before committing to refine
 
-const PAINT_TOOL = {
-  name: 'paint',
-  description:
-    'Apply ONE coarse→fine PASS as a BATCH of cell edits (many cells — a whole stage like the silhouette, the shading, or the identity details), NOT one lonely cell and NOT the whole finished image blind. Use "." to ERASE. After each pass you SEE the re-rendered canvas at true scale.',
-  input_schema: {
-    type: 'object',
-    additionalProperties: false,
-    properties: {
-      note: { type: 'string', description: 'one short phrase: what this pass does' },
-      edits: {
-        type: 'array',
-        items: {
-          type: 'object',
-          additionalProperties: false,
-          properties: { x: { type: 'integer' }, y: { type: 'integer' }, c: { type: 'string', description: 'palette char, or "." to erase' } },
-          required: ['x', 'y', 'c'],
-        },
-      },
-    },
-    required: ['edits'],
-  },
-};
+// Char pool for auto-assigning a symbol when a turn introduces a brand-new #rrggbb color mid-fix.
+const PAINT_CHARS = 'abcdefghijklmnopqrstuvwxyz0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ#@$%&*+=';
+function nextPaintChar(palette: Record<string, string>): string | null {
+  for (const ch of PAINT_CHARS) if (!(ch in palette)) return ch;
+  return null;
+}
 
 interface Canvas {
   title: string;
@@ -162,10 +101,46 @@ function canvasToCharMap(c: Canvas): CharMap {
 function canvasToFrame(c: Canvas): PXSFrame {
   return charMapToFrame(canvasToCharMap(c));
 }
-function asciiView(c: Canvas): string {
-  const header = '   ' + Array.from({ length: c.cols }, (_, x) => (x % 10).toString()).join('');
-  const body = c.grid.map((r, y) => `${String(y).padStart(2, ' ')} ${r.join('')}`).join('\n');
-  return `${header}\n${body}`;
+const HEX_RE = /^#[0-9a-f]{6}$/;
+/**
+ * Apply ONE batched pass of cell edits to the canvas in place (the hot-potato fix = the pass = the
+ * debounce; NEVER per-stroke). A `c` may be a palette char, "." to erase, or a raw #rrggbb hex — a
+ * hex maps to its existing palette char or auto-registers a new one, so a fresh-eyes turn is never
+ * dead-ended for want of a shade the committed palette didn't pre-declare. Out-of-bounds / unknown
+ * symbols are skipped and reported. Returns the cells actually applied (for the SSE pass.delta).
+ */
+function applyEdits(
+  canvas: Canvas,
+  edits: { x: number; y: number; c: string }[]
+): { applied: { x: number; y: number; c: string }[]; issues: string[] } {
+  const applied: { x: number; y: number; c: string }[] = [];
+  const issues: string[] = [];
+  for (const e of edits || []) {
+    if (!Number.isInteger(e.x) || !Number.isInteger(e.y) || e.x < 0 || e.x >= canvas.cols || e.y < 0 || e.y >= canvas.rows) {
+      if (issues.length < 4) issues.push(`(${e.x},${e.y}) out of bounds`);
+      continue;
+    }
+    let c = String(e.c);
+    if (c !== '.' && !(c in canvas.palette)) {
+      const lc = c.toLowerCase();
+      if (HEX_RE.test(lc)) {
+        let ch = Object.keys(canvas.palette).find((k) => canvas.palette[k] === lc);
+        if (!ch) {
+          const fresh = nextPaintChar(canvas.palette);
+          if (!fresh) { if (issues.length < 4) issues.push(`palette full — dropped ${lc}`); continue; }
+          canvas.palette[fresh] = lc;
+          ch = fresh;
+        }
+        c = ch;
+      } else {
+        if (issues.length < 4) issues.push(`char "${c}" not in palette`);
+        continue;
+      }
+    }
+    canvas.grid[e.y][e.x] = c;
+    applied.push({ x: e.x, y: e.y, c });
+  }
+  return { applied, issues };
 }
 
 /** Reconstruct an editable Canvas from a saved dense frame — for RESUME. */
@@ -186,24 +161,6 @@ function frameToCanvas(frame: PXSFrame, title: string): Canvas {
     if (c.y >= 0 && c.y < frame.rows && c.x >= 0 && c.x < frame.cols) grid[c.y][c.x] = inv[color];
   }
   return { title, cols: frame.cols, rows: frame.rows, palette, grid };
-}
-
-/**
- * COST CONTROL via PROMPT CACHING. The conversation is append-only (stable prefix), so we put a
- * rolling cache breakpoint on the last block each turn: the whole prior conversation is re-read
- * from cache (~10× cheaper than fresh input) instead of re-billed at full price every pass.
- */
-function withCacheBreakpoint(messages: Anthropic.MessageParam[]): Anthropic.MessageParam[] {
-  if (!messages.length) return messages;
-  const out = messages.slice();
-  const last = out[out.length - 1];
-  if (last && Array.isArray(last.content) && last.content.length) {
-    const blocks = (last.content as any[]).map((b, i) =>
-      i === (last.content as any[]).length - 1 ? { ...b, cache_control: { type: 'ephemeral' } } : b
-    );
-    out[out.length - 1] = { ...last, content: blocks } as Anthropic.MessageParam;
-  }
-  return out;
 }
 
 /**
@@ -248,8 +205,9 @@ export interface LiveJob {
   phase: string; // mirror of stage (back-compat with older clients)
   phaseIndex: number;
   brief?: string; // the committed VISION design brief (read-only control point in the UI)
-  subjectClass?: string; // iconic | figure | action | scene — sets auditor rigor
-  auditChecks?: string[]; // subject-specific must-verify items for the auditor
+  complexity?: string; // simple | moderate | complex | advanced — VISION's estimate → the pass CEILING
+  subjectClass?: string; // (legacy) iconic | figure | action | scene
+  auditChecks?: string[]; // (legacy) subject-specific must-verify items
   stagesPassed: string[];
   gestures: number; // number of passes painted
   statusMessage: string;
@@ -445,42 +403,18 @@ async function runStatueEngine(job: LiveJob, apiKey: string, resumeFrame?: PXSFr
   };
   const emitCost = () => emit('cost.update', { costUsd: +(job.costUsd ?? 0).toFixed(4), tokensIn: job.tokensIn ?? 0, tokensOut: job.tokensOut ?? 0 });
 
-  // ---- a single drawer call (eyes-open; streams thinking into liveThinking) ----
-  const callDrawer = async (messages: Anthropic.MessageParam[]): Promise<Anthropic.Message> => {
-    const params = {
-      model,
-      max_tokens: 32000,
-      thinking: { type: 'adaptive', display: 'summarized' },
-      output_config: { effort: EFFORT },
-      system: [{ type: 'text', text: statueDrawerSystemPrompt, cache_control: { type: 'ephemeral' } }],
-      tools: [SETUP_TOOL, { ...PAINT_TOOL, cache_control: { type: 'ephemeral' } }],
-      messages: withCacheBreakpoint(messages),
-    };
-    const msg = await withRetry(async () => {
-      const s = client.messages.stream(params as any);
-      job.liveThinking = '';
-      const cap = (d: string) => {
-        job.liveThinking = (job.liveThinking + d).slice(-4000);
-        job.updatedAt = Date.now();
-      };
-      (s as any).on('thinking', cap);
-      s.on('text', cap);
-      return s.finalMessage();
-    });
-    accrue((msg as any).usage || {});
-    emitCost();
-    return msg;
-  };
-
-  // ---- THE MICHELANGELO STEP: commit the iconic design BEFORE carving ----
-  const designVision = async (): Promise<string> => {
+  // ---- VISION (the Michelangelo step) — commit a FEASIBLE design + palette + complexity. Structured
+  // output so the engine OWNS the palette (no setup tool) and gets the complexity ceiling. Pass
+  // `simplerThan` to RE-VISION simpler when a design proved infeasible at this size. ----
+  type Vision = { brief: string; palette: { char: string; hex: string; role: string }[]; complexity: Complexity };
+  const designVision = async (simplerThan?: string): Promise<Vision> => {
     const msg = await withRetry(async () => {
       const s = client.messages.stream({
         model,
-        max_tokens: 2000,
+        max_tokens: 4000,
         thinking: { type: 'adaptive', display: 'summarized' },
-        output_config: { effort: 'high' },
-        system: statueVisionSystemPrompt(size),
+        output_config: { effort: 'high', format: { type: 'json_schema', schema: STATUE_VISION_SCHEMA } },
+        system: statueVisionSystemPrompt(size, simplerThan),
         messages: [{ role: 'user', content: statueVisionUserMessage(subject, size) }],
       } as any);
       job.liveThinking = '';
@@ -491,49 +425,57 @@ async function runStatueEngine(job: LiveJob, apiKey: string, resumeFrame?: PXSFr
     });
     accrue((msg as any).usage || {});
     emitCost();
-    return msg.content.filter((b): b is Anthropic.TextBlock => b.type === 'text').map((b) => b.text).join('').trim();
+    const raw = msg.content.filter((b): b is Anthropic.TextBlock => b.type === 'text').map((b) => b.text).join('');
+    const p = JSON.parse(raw);
+    const palette = Array.isArray(p.palette) ? p.palette : [];
+    const complexity: Complexity = (['simple', 'moderate', 'complex', 'advanced'] as const).includes(p.complexity) ? p.complexity : 'moderate';
+    return { brief: String(p.brief || '').trim(), palette, complexity };
   };
 
-  // ---- DIFFICULTY CLASSIFIER — sets auditor rigor (iconic = lenient/read-level; figure/action/
-  // scene = strict, default-to-reject, with subject-specific structural checks) ----
-  const classify = async (brief: string): Promise<{ subjectClass: string; checks: string[] }> => {
+  // ---- ONE fresh-eyes hot-potato turn: judge the CURRENT render COLD against {brief}, then either
+  // approve or apply the highest-value FIX itself (structured output: {approved, flaw, redesign,
+  // edits}). FRESH context every call (no message history) — that freshness IS the hot-potato. ----
+  const turnSystem = statueHotPotatoSystemPrompt(size);
+  type Turn = { approved: boolean; flaw: string; redesign: boolean; edits: { x: number; y: number; c: string }[] };
+  const callTurn = async (content: any): Promise<Turn> => {
+    const msg = await withRetry(async () => {
+      const s = client.messages.stream({
+        model,
+        max_tokens: 32000,
+        thinking: { type: 'adaptive', display: 'summarized' },
+        output_config: { effort: EFFORT, format: { type: 'json_schema', schema: STATUE_TURN_SCHEMA } },
+        system: [{ type: 'text', text: turnSystem, cache_control: { type: 'ephemeral' } }],
+        messages: [{ role: 'user', content }],
+      } as any);
+      job.liveThinking = '';
+      const cap = (d: string) => { job.liveThinking = (job.liveThinking + d).slice(-4000); job.updatedAt = Date.now(); };
+      (s as any).on('thinking', cap);
+      s.on('text', cap);
+      return s.finalMessage();
+    });
+    accrue((msg as any).usage || {});
+    emitCost();
+    const raw = msg.content.filter((b): b is Anthropic.TextBlock => b.type === 'text').map((b) => b.text).join('');
     try {
-      const msg = await withRetry(async () => {
-        const s = client.messages.stream({ model, max_tokens: 600, system: statueClassifySystem, output_config: { format: { type: 'json_schema', schema: STATUE_CLASSIFY_SCHEMA } }, messages: [{ role: 'user', content: statueClassifyUserMessage(subject, brief) }] } as any);
-        return s.finalMessage();
-      });
-      accrue((msg as any).usage || {});
-      emitCost();
-      const raw = msg.content.filter((b): b is Anthropic.TextBlock => b.type === 'text').map((b) => b.text).join('');
       const p = JSON.parse(raw);
-      return { subjectClass: p.subjectClass || 'iconic', checks: Array.isArray(p.checks) ? p.checks.slice(0, 5) : [] };
+      return { approved: !!p.approved, flaw: String(p.flaw || ''), redesign: !!p.redesign, edits: Array.isArray(p.edits) ? p.edits : [] };
     } catch {
-      return { subjectClass: 'iconic', checks: [] }; // safe default: the proven lenient path
+      return { approved: false, flaw: '(unparseable turn — retrying)', redesign: false, edits: [] };
     }
   };
 
-  // ---- the recovered cascade AUDITOR (independent art director; bar-anchored; class-aware) ----
-  const audit = async (candB64: string, phase: Phase, brief: string): Promise<{ approved: boolean; issues: string[] }> => {
-    const sys = statueAuditSystemPrompt({ subject, phaseKey: phase.key, phaseBar: phase.bar, brief, size, subjectClass: job.subjectClass, checks: job.auditChecks });
-    const content = [
-      { type: 'text', text: 'CANDIDATE (judge this for the current phase):' },
-      { type: 'image', source: { type: 'base64', media_type: 'image/png', data: candB64 } },
-      { type: 'text', text: 'Judge the CANDIDATE for the current phase. Return approved + the specific issues.' },
-    ];
-    try {
-      const msg = await withRetry(async () => {
-        const s = client.messages.stream({ model, max_tokens: 1500, system: sys, output_config: { format: { type: 'json_schema', schema: AUDIT_SCHEMA } }, messages: [{ role: 'user', content }] } as any);
-        return s.finalMessage();
-      });
-      accrue((msg as any).usage || {});
-      emitCost();
-      const raw = msg.content.filter((b): b is Anthropic.TextBlock => b.type === 'text').map((b) => b.text).join('');
-      const p = JSON.parse(raw);
-      return { approved: !!p.approved, issues: Array.isArray(p.issues) ? p.issues.slice(0, 5) : [] };
-    } catch (e) {
-      return { approved: false, issues: [`auditor error: ${e instanceof Error ? e.message : 'unknown'}`] };
+  // Build the working canvas from the committed VISION palette (the engine owns it — no setup tool).
+  const buildCanvas = (pal: Vision['palette'], title: string): Canvas => {
+    const palette: Record<string, string> = { '.': BACKGROUND };
+    for (const e of pal) {
+      const ch = String(e.char || '').slice(0, 1);
+      const hex = String(e.hex || '').toLowerCase();
+      if (ch && ch !== '.' && HEX_RE.test(hex)) palette[ch] = hex;
     }
+    return { title, cols: size, rows: size, palette, grid: blankGrid(size, size) };
   };
+  const paletteStr = (c: Canvas): string =>
+    Object.entries(c.palette).filter(([k]) => k !== '.').map(([k, v]) => `${k}=${v}`).join(', ');
 
   // ---- trajectory accumulation (Option-3 training data) ----
   const traj: any = { id: job.id, subject, size, model, passes: [], audits: [] };
@@ -541,64 +483,55 @@ async function runStatueEngine(job: LiveJob, apiKey: string, resumeFrame?: PXSFr
   try {
     emit('job.started', { id: job.id, subject, size, model, costCapUsd: job.costCapUsd });
 
-    const messages: Anthropic.MessageParam[] = [];
-    let canvas: Canvas | null = null;
-    let phaseIdx = 0;
-    let phaseRejects = 0;
-    let bestCanvas: Canvas | null = null;
+    let canvas: Canvas;
+    let brief = job.brief || '';
+    let complexity: Complexity = 'moderate';
+    let bestCanvas: Canvas | null = null; // the last APPROVED snapshot (keep-best)
     let finished = false;
+    let redesigns = 0;
 
     if (resumeFrame) {
-      // RESUME: treat the saved frame as the work-in-progress and re-enter at the stage it left
-      // off (job.stage, set from the saved phase) — default POLISH if unknown.
+      // RESUME: the saved frame IS the work-in-progress; re-enter the hot-potato loop on it (the
+      // fresh-eyes turn judges + fixes from here). Complexity unknown → the moderate ceiling.
       canvas = frameToCanvas(resumeFrame, job.title || subject);
-      bestCanvas = cloneCanvas(canvas);
-      const idx = PHASES.findIndex((p) => p.key === job.stage);
-      phaseIdx = idx >= 0 ? idx : 1; // default polish
-      job.brief = job.brief || `(resumed work-in-progress of "${subject}" — finish it to the committed Pixcel standard)`;
-      traj.spec = job.brief;
+      brief = job.brief || `(resumed work-in-progress of "${subject}" — finish it to the committed Pixcel standard, fresh eyes each pass)`;
+      job.brief = brief;
+      traj.spec = brief;
       traj.resumed = true;
       const f0 = canvasToFrame(canvas);
       job.latestFrame = f0;
       job.frames.push(f0);
-      const resumeKey = PHASES[phaseIdx].key;
-      job.stage = job.phase = resumeKey;
-      const paletteStr = Object.entries(canvas.palette).filter(([k]) => k !== '.').map(([k, v]) => `${k}=${v}`).join(', ');
-      emit('vision.committed', { brief: job.brief });
-      emit('stage.enter', { stage: resumeKey, goal: PHASES[phaseIdx].goal });
-      messages.push({
-        role: 'user',
-        content: [
-          { type: 'image', source: { type: 'base64', media_type: 'image/png', data: frameToPngBase64(f0) } },
-          { type: 'text', text: liveResumeUserMessage(subject, canvas.cols, canvas.rows, paletteStr, asciiView(canvas)) },
-        ],
-      });
+      job.stage = job.phase = 'refine';
+      emit('vision.committed', { brief });
+      emit('stage.enter', { stage: 'refine', goal: 'finish the piece — fresh-eyes judge + fix each pass' });
     } else {
-      // VISION — commit the iconic design brief.
+      // VISION — commit the feasible, fit-to-size design + palette + complexity.
       job.stage = job.phase = 'vision';
       job.statusMessage = 'Designing the vision…';
       emit('vision.start', {});
-      const brief = await designVision();
+      const v = await designVision();
+      brief = v.brief;
+      complexity = v.complexity;
       job.brief = brief;
+      job.complexity = complexity;
       traj.spec = brief;
-      // Classify difficulty → set auditor rigor for the whole run.
-      const cls = await classify(brief);
-      job.subjectClass = cls.subjectClass;
-      job.auditChecks = cls.checks;
-      traj.subjectClass = cls.subjectClass;
-      traj.auditChecks = cls.checks;
-      emit('vision.committed', { brief, subjectClass: cls.subjectClass, checks: cls.checks });
-
-      // SHAPE — open the first carving phase.
-      job.stage = job.phase = 'shape';
-      job.statusMessage = 'Blocking in the shape…';
-      emit('stage.enter', { stage: 'shape', goal: PHASES[0].goal });
-      messages.push({ role: 'user', content: statueDrawerUserMessage(subject, size, brief) });
+      traj.complexity = complexity;
+      traj.palette = v.palette;
+      canvas = buildCanvas(v.palette, subject);
+      job.title = canvas.title;
+      emit('vision.committed', { brief, palette: v.palette, complexity });
+      job.stage = job.phase = 'refine';
+      job.statusMessage = 'Blocking in the composition…';
+      emit('stage.enter', { stage: 'refine', goal: `hot-potato — fresh-eyes judge + fix each pass (complexity: ${complexity})` });
     }
 
-    const MAX_PASSES = size >= 48 ? 12 : 8;
+    const maxPasses = CEILINGS[complexity].passes;
 
-    for (let turn = 0; turn < MAX_PASSES + 6; turn++) {
+    // ---- THE HOT-POTATO LOOP: a "pass" = one batched fresh-eyes turn (the debounce — NEVER per
+    // stroke). Each turn sees ONLY {brief + current render}. Approve → ship; else apply the fix; the
+    // ceiling is a cost seatbelt, not the stop condition. ----
+    let pass = 0;
+    while (pass < maxPasses) {
       if (job.control === 'cancel') {
         job.status = 'cancelled';
         job.statusMessage = 'Cancelled';
@@ -616,192 +549,101 @@ async function runStatueEngine(job: LiveJob, apiKey: string, resumeFrame?: PXSFr
         break; // keep-best handles shipping below
       }
 
-      // Inject any live user feedback (human in the loop) into the upcoming turn.
+      const blank = canvas.grid.every((row) => row.every((c) => c === '.'));
+
+      // Live user feedback (human in the loop) folds into THIS turn's fresh context as a floor.
+      let feedbackLine = '';
       if (job.pendingFeedback && job.pendingFeedback.length) {
         const fb = job.pendingFeedback.join(' ');
         job.pendingFeedback = [];
         emit('feedback.injected', { text: fb, atStage: job.stage });
-        const note = `\n\n⚡ LIVE FEEDBACK FROM THE USER — incorporate this now (it overrides earlier intent if it conflicts), then keep raising the WHOLE piece past it: it's a FLOOR to build on, not a box to tick: ${fb}`;
-        const last = messages[messages.length - 1];
-        if (last && last.role === 'user' && Array.isArray(last.content)) {
-          (last.content as any[]).push({ type: 'text', text: note });
-        } else if (last && last.role === 'user') {
-          last.content = `${String(last.content)}${note}`;
-        } else {
-          messages.push({ role: 'user', content: note.trim() });
-        }
+        feedbackLine = `\n\n⚡ LIVE FEEDBACK FROM THE USER — fold this in now and treat it as a FLOOR to build past (it overrides earlier intent if it conflicts): ${fb}`;
       }
 
-      const msg = await callDrawer(messages);
-      messages.push({ role: 'assistant', content: msg.content });
-      const tool = msg.content.find((b): b is Anthropic.ToolUseBlock => b.type === 'tool_use');
-
-      // No tool call → the drawer declares this PHASE done → the auditor reviews.
-      if (!tool) {
-        if (!canvas) {
-          messages.push({ role: 'user', content: 'Use setup to create the canvas, then paint.' });
-          continue;
-        }
-        const ph = PHASES[phaseIdx];
-        job.statusMessage = `Art director reviewing the ${ph.key} phase…`;
-        emit('audit.start', { stage: ph.key });
-        const verdict = await audit(frameToPngBase64(canvasToFrame(canvas)), ph, job.brief || '');
-        job.critiques.push({ phase: ph.key, approved: verdict.approved });
-        job.audits.push({ stage: ph.key, pass: job.gestures, approved: verdict.approved, issues: verdict.issues });
-        traj.audits.push({ stage: ph.key, afterPass: job.gestures, approved: verdict.approved, issues: verdict.issues });
-        emit('audit.verdict', { stage: ph.key, approved: verdict.approved, issues: verdict.issues, pass: job.gestures });
-
-        if (verdict.approved) {
-          bestCanvas = cloneCanvas(canvas); // keep-best: snapshot every APPROVED state
-          job.stagesPassed.push(ph.key);
-          const approvedFrame = canvasToFrame(canvas);
-          emit('stage.approved', { stage: ph.key, frame: approvedFrame });
-          emit('keepbest.snapshot', { stage: ph.key, frame: approvedFrame });
-          if (phaseIdx >= PHASES.length - 1) {
-            finished = true;
-            break;
-          }
-          phaseIdx++;
-          phaseRejects = 0;
-          const next = PHASES[phaseIdx];
-          job.stage = job.phase = next.key;
-          job.phaseIndex = phaseIdx;
-          job.statusMessage = `${next.key} phase`;
-          emit('stage.enter', { stage: next.key, goal: next.goal });
-          messages.push({
-            role: 'user',
-            content: [
-              { type: 'image', source: { type: 'base64', media_type: 'image/png', data: frameToPngBase64(approvedFrame) } },
-              { type: 'text', text: `✅ The ${ph.key.toUpperCase()} phase is APPROVED and LOCKED.\n\nNow → ${next.drawer}.\nWork in batches with the paint tool; reply DONE when this phase is complete.` },
-            ],
-          });
-          continue;
-        }
-
-        // Rejected — bounded retries, then advance (read-level caps prevent churn). HARD subjects
-        // (figure/action/scene) get more SHAPE attempts + explicit whole-figure REDRAW permission —
-        // a broken pose/proportion must be re-blocked, never polished forward.
-        const isHard = job.subjectClass === 'figure' || job.subjectClass === 'action' || job.subjectClass === 'scene';
-        const effCap = ph.key === 'shape' && isHard ? ph.cap + 2 : ph.cap;
-        phaseRejects++;
-        if (phaseRejects > effCap) {
-          if (phaseIdx >= PHASES.length - 1) break;
-          phaseIdx++;
-          phaseRejects = 0;
-          const next = PHASES[phaseIdx];
-          job.stage = job.phase = next.key;
-          job.phaseIndex = phaseIdx;
-          emit('stage.enter', { stage: next.key, goal: next.goal });
-          messages.push({ role: 'user', content: [{ type: 'text', text: `Moving on. Now → ${next.drawer}. Reply DONE when complete.` }] });
-          continue;
-        }
-        const redraw = ph.key === 'shape' && isHard
-          ? `\n\nThe STRUCTURE is the problem, not the polish. If the pose / proportions / limb-attachment are fundamentally off, ERASE the whole figure and RE-BLOCK it from scratch in a better pose — do NOT nudge a broken shape. Build it as ONE connected body: torso first, then attach each limb chain to it, then the prop sized correctly. Reply DONE when the shape is genuinely right.`
-          : '';
-        messages.push({
-          role: 'user',
-          content: [
-            { type: 'image', source: { type: 'base64', media_type: 'image/png', data: frameToPngBase64(canvasToFrame(canvas)) } },
-            { type: 'text', text: `ART DIRECTOR — ${ph.key.toUpperCase()} phase NOT approved. Fix exactly these, then reply DONE:\n- ${verdict.issues.join('\n- ')}${redraw}` },
-          ],
-        });
-        continue;
+      let content: any;
+      if (blank) {
+        // Opening pass — block the whole committed design onto the blank canvas (no render to show).
+        job.statusMessage = 'Blocking in the composition…';
+        emit('pass.start', { stage: 'refine', pass: job.gestures + 1, note: 'block-in' });
+        content = [{ type: 'text', text: statueFirstDrawUserMessage(subject, size, brief, paletteStr(canvas)) + feedbackLine }];
+      } else {
+        // Fresh-eyes turn — judge the current render cold, then approve or fix.
+        job.statusMessage = 'Fresh-eyes review…';
+        emit('pass.start', { stage: 'refine', pass: job.gestures + 1 });
+        content = [
+          { type: 'image', source: { type: 'base64', media_type: 'image/png', data: frameToPngBase64(canvasToFrame(canvas)) } },
+          { type: 'text', text: statueTurnUserMessage(subject, size, brief, paletteStr(canvas)) + feedbackLine },
+        ];
       }
 
-      if (tool.name === 'setup') {
-        if (canvas) {
-          messages.push({ role: 'user', content: [{ type: 'tool_result', tool_use_id: tool.id, content: 'Canvas already exists — do not call setup. Continue painting.' }] });
-          continue;
-        }
-        const input = tool.input as { title: string; cols: number; rows: number; palette: Record<string, string> };
-        const cols = Math.min(64, Math.max(8, Math.round(input.cols)));
-        const rows = Math.min(64, Math.max(8, Math.round(input.rows)));
-        const palette: Record<string, string> = { '.': BACKGROUND };
-        for (const [k, v] of Object.entries(input.palette || {})) {
-          if (k.length === 1 && /^#[0-9a-f]{6}$/.test(String(v).toLowerCase())) palette[k] = String(v).toLowerCase();
-        }
-        canvas = { title: input.title || 'piece', cols, rows, palette, grid: blankGrid(cols, rows) };
-        job.title = canvas.title;
-        job.statusMessage = `Canvas ${cols}×${rows} — blocking in the shape`;
-        messages.push({
-          role: 'user',
-          content: [
-            {
-              type: 'tool_result',
-              tool_use_id: tool.id,
-              content: `Canvas ready ${cols}×${rows}, all background. Palette: ${Object.entries(palette).filter(([k]) => k !== '.').map(([k, v]) => `${k}=${v}`).join(', ')}.\n\nNow PASS 1: block the WHOLE silhouette as one batch so it fills the canvas and reads at a glance.`,
-            },
-          ],
-        });
-        continue;
+      const turn = await callTurn(content);
+      pass++;
+
+      // REDESIGN escape — the design can't read at this size → re-VISION simpler (not on resume; bounded).
+      if (turn.redesign && !resumeFrame && redesigns < MAX_REDESIGNS) {
+        redesigns++;
+        emit('audit.verdict', { stage: 'refine', approved: false, issues: [`REDESIGN (too complex for ${size}²): ${turn.flaw}`], pass: job.gestures });
+        traj.audits.push({ stage: 'redesign', afterPass: job.gestures, approved: false, issues: [turn.flaw] });
+        job.statusMessage = 'Re-visioning simpler…';
+        const v = await designVision(brief);
+        brief = v.brief;
+        complexity = v.complexity;
+        job.brief = brief;
+        job.complexity = complexity;
+        traj.spec = brief;
+        canvas = buildCanvas(v.palette, subject);
+        bestCanvas = null;
+        emit('vision.committed', { brief, palette: v.palette, complexity });
+        emit('stage.enter', { stage: 'refine', goal: `re-visioned simpler (complexity: ${complexity})` });
+        continue; // next pass redraws the simpler design from a blank canvas
       }
 
-      if (tool.name === 'paint') {
-        if (!canvas) {
-          messages.push({ role: 'user', content: [{ type: 'tool_result', tool_use_id: tool.id, content: 'Call setup first to create the canvas.' }] });
-          continue;
-        }
-        const input = tool.input as { note?: string; edits: { x: number; y: number; c: string }[] };
-        const ph = PHASES[phaseIdx];
-        emit('pass.start', { stage: ph.key, pass: job.gestures + 1, note: input.note ?? '' });
-        const issues: string[] = [];
-        const appliedCells: { x: number; y: number; c: string }[] = [];
-        for (const e of input.edits || []) {
-          if (!Number.isInteger(e.x) || !Number.isInteger(e.y) || e.x < 0 || e.x >= canvas.cols || e.y < 0 || e.y >= canvas.rows) {
-            if (issues.length < 4) issues.push(`(${e.x},${e.y}) out of bounds`);
-            continue;
-          }
-          if (e.c !== '.' && !(e.c in canvas.palette)) {
-            if (issues.length < 4) issues.push(`char "${e.c}" not in palette`);
-            continue;
-          }
-          canvas.grid[e.y][e.x] = e.c;
-          appliedCells.push({ x: e.x, y: e.y, c: e.c });
-        }
-        job.gestures++;
-        const frame = canvasToFrame(canvas);
-        job.latestFrame = frame;
-        job.frames.push(frame);
-        job.statusMessage = `Pass ${job.gestures}${input.note ? ` — ${input.note}` : ''}`;
-        traj.passes.push({ pass: job.gestures, stage: ph.key, note: input.note ?? '', applied: appliedCells.length, costUsd: +(job.costUsd ?? 0).toFixed(3) });
-        // pass.delta = the heartbeat for the live reveal; pass.done.frame is the authoritative resync.
-        emit('pass.delta', { stage: ph.key, pass: job.gestures, cells: appliedCells });
-        emit('pass.done', { stage: ph.key, pass: job.gestures, cellsApplied: appliedCells.length, note: input.note ?? '', frame });
-
-        const png = frameToPngBase64(frame);
-        const overBudget = job.gestures >= MAX_PASSES;
-        const text =
-          `Pass ${job.gestures}: applied ${appliedCells.length} edit(s)${issues.length ? `; skipped — ${issues.join('; ')}` : ''}.\n` +
-          `Canvas now (${canvas.cols}×${canvas.rows}):\n${asciiView(canvas)}\n\n` +
-          `LOOK at the render cold, against your bar at true scale. If the silhouette is wrong, ERASE and re-block it (don't polish a wrong shape). Otherwise paint the next coarse→fine pass — fix exactly what you SEE, raise the WHOLE piece. Reply DONE only when it clears your 96% bar (don't chase 100%, don't invent flaws).` +
-          (overBudget ? `\n\nNOTE: converge and finish (reply DONE) soon.` : '');
-        messages.push({
-          role: 'user',
-          content: [{ type: 'tool_result', tool_use_id: tool.id, content: [
-            { type: 'image', source: { type: 'base64', media_type: 'image/png', data: png } },
-            { type: 'text', text },
-          ] }],
-        });
-        continue;
+      // APPROVED → converged. (A blank first draw can't be approved — it has nothing to read.)
+      if (turn.approved && !blank) {
+        bestCanvas = cloneCanvas(canvas); // keep-best: the approved state
+        job.stagesPassed.push('refine');
+        const approvedFrame = canvasToFrame(canvas);
+        job.critiques.push({ phase: 'refine', approved: true });
+        job.audits.push({ stage: 'refine', pass: job.gestures, approved: true, issues: [] });
+        traj.audits.push({ stage: 'refine', afterPass: job.gestures, approved: true, issues: [] });
+        emit('audit.verdict', { stage: 'refine', approved: true, issues: [], pass: job.gestures });
+        emit('stage.approved', { stage: 'refine', frame: approvedFrame });
+        emit('keepbest.snapshot', { stage: 'refine', frame: approvedFrame });
+        finished = true;
+        break;
       }
 
-      // Unknown tool — nudge.
-      messages.push({ role: 'user', content: [{ type: 'tool_result', tool_use_id: tool.id, content: 'Use setup or paint.' }] });
+      // Otherwise the turn APPLIES the highest-value fix — the batched edits ARE this pass (the
+      // judgment → critique feed; the fix → canvas reveal). This is the hot-potato fix in one call.
+      const { applied, issues } = applyEdits(canvas, turn.edits);
+      job.gestures++;
+      const frame = canvasToFrame(canvas);
+      job.latestFrame = frame;
+      job.frames.push(frame);
+      const note = turn.flaw || (blank ? 'block-in' : 'refine');
+      job.statusMessage = `Pass ${job.gestures} — ${note}`;
+      job.critiques.push({ phase: 'refine', approved: false });
+      job.audits.push({ stage: 'refine', pass: job.gestures, approved: false, issues: [note] });
+      traj.audits.push({ stage: 'refine', afterPass: job.gestures, approved: false, issues: [note] });
+      traj.passes.push({ pass: job.gestures, stage: 'refine', note, applied: applied.length, skipped: issues, costUsd: +(job.costUsd ?? 0).toFixed(3) });
+      // The flaw it named (the JUDGMENT) → critique feed; the batch (the FIX) → the live reveal.
+      emit('audit.verdict', { stage: 'refine', approved: false, issues: [note], pass: job.gestures });
+      emit('pass.delta', { stage: 'refine', pass: job.gestures, cells: applied });
+      emit('pass.done', { stage: 'refine', pass: job.gestures, cellsApplied: applied.length, note, frame });
     }
 
-    if (!canvas) {
-      job.status = 'error';
-      job.error = 'The artist never set up a canvas.';
-      emit('job.error', { message: job.error });
-      return;
-    }
-
-    // keep-best: if we did NOT finish cleanly, ship the last APPROVED state, not the churned latest.
+    // keep-best ship: a clean approve ships `canvas` as-is; hitting the ceiling/cost cap WITHOUT an
+    // approval ships the last APPROVED snapshot if we have one, else the most-refined latest (honest:
+    // it never formally cleared the bar). We break on approve, so we never churn PAST an approval.
     let shippedFrom: string | null = null;
-    if (!finished && bestCanvas && bestCanvas !== canvas) {
-      const reason = (job.costUsd ?? 0) >= job.costCapUsd ? 'cost cap reached' : 'pass cap reached';
-      canvas = bestCanvas;
-      shippedFrom = job.stagesPassed[job.stagesPassed.length - 1] || 'shape';
+    if (!finished) {
+      const reason = (job.costUsd ?? 0) >= job.costCapUsd ? 'cost cap reached' : 'pass ceiling reached';
+      if (bestCanvas) {
+        canvas = bestCanvas;
+        shippedFrom = 'last approved';
+      } else {
+        shippedFrom = 'most-refined (never formally approved)';
+      }
       job.latestFrame = canvasToFrame(canvas);
       emit('keepbest.shipped', { fromStage: shippedFrom, reason, frame: job.latestFrame });
     }
@@ -817,7 +659,7 @@ async function runStatueEngine(job: LiveJob, apiKey: string, resumeFrame?: PXSFr
     job.status = 'done';
     job.statusMessage = 'Done';
 
-    traj.final = { title: canvas.title, passes: job.gestures, stagesPassed: job.stagesPassed, shippedFrom, costUsd: +(job.costUsd ?? 0).toFixed(3), durationMs: job.durationMs, frame };
+    traj.final = { title: canvas.title, passes: job.gestures, complexity, redesigns, finished, shippedFrom, costUsd: +(job.costUsd ?? 0).toFixed(3), durationMs: job.durationMs, frame };
     writeTrajectory(job, traj);
 
     emit('job.done', { frame, passes: job.gestures, stagesPassed: job.stagesPassed, costUsd: +(job.costUsd ?? 0).toFixed(3), durationMs: job.durationMs });

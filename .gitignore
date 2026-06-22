@@ -62,3 +62,7 @@ packages/pxs-studio/ab-results/
 packages/pxs-studio/painter-out/
 
 packages/pxs-studio/art-engine/runs/
+
+# Hot-potato quality-engine harness (bundle is generated; runs are output)
+packages/pxs-studio/art-engine/hotpotato-harness.mjs
+packages/pxs-studio/art-engine/hotpotato-runs/

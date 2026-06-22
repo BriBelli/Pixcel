@@ -139,10 +139,14 @@ interface LiveArtState {
   jobId: string | null;
   job: LiveJob | null;
   startedAt: number;
+  reviewing: boolean; // job finished, awaiting the HUMAN keep/reject verdict (no auto-save)
+  accepted: boolean; // the human kept it → saved to the gallery
   start: (o: { prompt: string; size: number; model: string }) => Promise<void>;
   resume: () => Promise<void>;
   control: (a: 'pause' | 'cancel') => Promise<void>;
   feedback: (text: string) => Promise<void>;
+  accept: () => Promise<void>;
+  reject: (note?: string) => Promise<void>;
   clear: () => void;
 }
 
@@ -170,7 +174,8 @@ async function post(body: unknown): Promise<any> {
 export const useLiveArtStore = create<LiveArtState>((set, get) => {
   let savedFor: string | null = null;
 
-  async function finalize(id: string) {
+  /** Human KEPT it → save to the gallery (the only path that saves). Idempotent per job. */
+  async function saveAccepted(id: string) {
     if (savedFor === id) return;
     savedFor = id;
     try {
@@ -189,7 +194,7 @@ export const useLiveArtStore = create<LiveArtState>((set, get) => {
           model: jf.model,
           session: { mode: 'sculpt', transcript: feedToTranscript(jf.feed || []) },
         });
-        toastManager.success(`Created "${jf.title || 'piece'}" — in your Art gallery`);
+        toastManager.success(`Kept "${jf.title || 'piece'}" — saved to your Art gallery`);
       }
     } catch {
       /* ignore */
@@ -250,7 +255,10 @@ export const useLiveArtStore = create<LiveArtState>((set, get) => {
           view = reduceEvent(view, ev);
           applyJob(view);
           if (view.status === 'done') {
-            await finalize(id);
+            // HONESTY GATE: do NOT auto-save or claim "hero-grade" — the artist proposes, the
+            // HUMAN disposes. Surface it for keep/reject; only an explicit keep saves to the
+            // gallery (and that judgment is the Option-3 training signal). See docs canon.
+            set({ reviewing: true });
             return;
           }
           if (view.status === 'error' || view.status === 'paused' || view.status === 'cancelled') return;
@@ -269,11 +277,13 @@ export const useLiveArtStore = create<LiveArtState>((set, get) => {
     jobId: null,
     job: null,
     startedAt: 0,
+    reviewing: false,
+    accepted: false,
     start: async ({ prompt, size, model }) => {
       const j = await post({ prompt, size, model });
       if (j.jobId) {
         savedFor = null;
-        set({ jobId: j.jobId, job: null, startedAt: Date.now() });
+        set({ jobId: j.jobId, job: null, startedAt: Date.now(), reviewing: false, accepted: false });
         useCenterStage.getState().set({ active: true, mode: 'sculpt', frame: null, status: 'running', shimmer: true, label: 'setting up…' });
         streamTail(j.jobId);
       } else {
@@ -286,11 +296,39 @@ export const useLiveArtStore = create<LiveArtState>((set, get) => {
       const j = await post({ resume: id });
       if (j.jobId) {
         savedFor = null;
-        set({ jobId: j.jobId, startedAt: Date.now() });
+        set({ jobId: j.jobId, startedAt: Date.now(), reviewing: false, accepted: false });
         streamTail(j.jobId);
         toastManager.success('Resuming where it left off');
       } else {
         toastManager.error(j.error || 'Could not resume');
+      }
+    },
+    accept: async () => {
+      const id = get().jobId;
+      if (!id) return;
+      await saveAccepted(id);
+      post({ verdict: 'keep', id }).catch(() => {}); // record the human judgment (Option-3 corpus)
+      set({ reviewing: false, accepted: true });
+    },
+    reject: async (note?: string) => {
+      const id = get().jobId;
+      if (!id) return;
+      post({ verdict: 'reject', id, note: note?.trim() || undefined }).catch(() => {});
+      set({ reviewing: false });
+      if (note && note.trim()) {
+        // Push back: resume the piece and fold the redirect in as live feedback.
+        const j = await post({ resume: id });
+        if (j.jobId) {
+          savedFor = null;
+          set({ jobId: j.jobId, startedAt: Date.now(), reviewing: false, accepted: false });
+          streamTail(j.jobId);
+          post({ feedback: note.trim(), id: j.jobId }).catch(() => {});
+          toastManager.success('Pushing back — the artist will rework it with your note');
+        } else {
+          toastManager.error(j.error || 'Could not reopen the piece');
+        }
+      } else {
+        toastManager.success('Discarded — not saved');
       }
     },
     control: async (a) => {
@@ -306,7 +344,7 @@ export const useLiveArtStore = create<LiveArtState>((set, get) => {
       else toastManager.error('Could not send (the run may have ended)');
     },
     clear: () => {
-      set({ jobId: null, job: null, startedAt: 0 });
+      set({ jobId: null, job: null, startedAt: 0, reviewing: false, accepted: false });
       useCenterStage.getState().clear();
     },
   };

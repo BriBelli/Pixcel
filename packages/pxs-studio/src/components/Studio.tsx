@@ -603,7 +603,7 @@ export default function Studio({ children }: { children?: React.ReactNode }) {
                       {stage.mode === 'sculpt' ? 'Comprehensive' : 'Optimized'} · {stage.label || 'working…'}
                     </span>
                   ) : stage.status === 'done' ? (
-                    <span className="text-accent-green">✓ Finished — saved to your Art gallery</span>
+                    <span className="text-accent-purple">● The artist says it&apos;s done — keep it or push back in the panel →</span>
                   ) : stage.status === 'paused' ? (
                     <span className="text-accent-yellow">⏸ Paused</span>
                   ) : (

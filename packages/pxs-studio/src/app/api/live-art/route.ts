@@ -1,4 +1,4 @@
-import { startLiveJob, getLiveJob, controlLiveJob, feedbackLiveJob } from '../../../lib/live-jobs';
+import { startLiveJob, getLiveJob, controlLiveJob, feedbackLiveJob, recordVerdict } from '../../../lib/live-jobs';
 import type { PXSFrame } from '../../../store/pxs-store';
 
 // LIVE ARTISAN — detached execution. POST starts (or RESUMES) a background job and returns its
@@ -28,6 +28,8 @@ export async function POST(req: Request) {
     title?: string;
     control?: 'pause' | 'cancel';
     feedback?: string;
+    verdict?: 'keep' | 'reject';
+    note?: string;
     id?: string;
   };
   try {
@@ -45,6 +47,12 @@ export async function POST(req: Request) {
   // Live human feedback injected into a running job.
   if (body.feedback && body.id) {
     const ok = feedbackLiveJob(body.id, body.feedback);
+    return Response.json({ ok });
+  }
+
+  // Human keep/reject verdict (the honesty gate) — recorded onto the trajectory for Option-3.
+  if (body.verdict && body.id) {
+    const ok = recordVerdict(body.id, body.verdict, body.note);
     return Response.json({ ok });
   }
 

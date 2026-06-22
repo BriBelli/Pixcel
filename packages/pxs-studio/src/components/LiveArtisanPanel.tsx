@@ -24,7 +24,7 @@ export default function LiveArtisanPanel({ onGridUpdate }: Props) {
   const [input, setInput] = useState('');
   const [size, setSize] = useState(24);
   const [model, setModel] = useState<ModelId>('claude-opus-4-8');
-  const { jobId, job, startedAt, start, resume, control, feedback } = useLiveArtStore();
+  const { jobId, job, startedAt, reviewing, accepted, start, resume, control, feedback, accept, reject } = useLiveArtStore();
   const addPiece = useGalleryStore((s) => s.addPiece);
   const [elapsed, setElapsed] = useState(0);
   const feedRef = useRef<HTMLDivElement>(null);
@@ -83,6 +83,11 @@ export default function LiveArtisanPanel({ onGridUpdate }: Props) {
     control('cancel');
     toastManager.success('Stopping the artist…');
   }
+  function onPushBack() {
+    const note = window.prompt('What should the artist fix? (it will rework the piece with your note)');
+    if (note === null) return; // cancelled
+    reject(note.trim() || undefined);
+  }
 
   return (
     <div className="flex flex-col h-full">
@@ -122,7 +127,11 @@ export default function LiveArtisanPanel({ onGridUpdate }: Props) {
                       <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" /> {stage.toUpperCase()}{strokes ? ` · pass ${strokes}` : ''} · {mmss}{job?.costUsd ? ` · $${job.costUsd.toFixed(2)}` : ''}
                     </span>
                   ) : job?.status === 'done' ? (
-                    <span className="text-accent-green">✓ done · {job?.cells} cells · {job?.durationMs ? `${(job.durationMs / 1000).toFixed(0)}s` : ''}{job?.costUsd ? ` · $${job.costUsd.toFixed(2)}` : ''}</span>
+                    accepted ? (
+                      <span className="text-accent-green">✓ kept · saved to gallery · {job?.cells} cells{job?.costUsd ? ` · $${job.costUsd.toFixed(2)}` : ''}</span>
+                    ) : (
+                      <span className="text-accent-purple">● the artist says it&apos;s done — your call · {job?.cells} cells · {job?.durationMs ? `${(job.durationMs / 1000).toFixed(0)}s` : ''}{job?.costUsd ? ` · $${job.costUsd.toFixed(2)}` : ''}</span>
+                    )
                   ) : job?.status === 'paused' ? (
                     <span className="text-accent-yellow">⏸ paused</span>
                   ) : (
@@ -143,6 +152,14 @@ export default function LiveArtisanPanel({ onGridUpdate }: Props) {
                     <button onClick={onCancel} className="px-2 py-0.5 rounded border border-accent-red/40 bg-accent-red/10 text-[9px] text-accent-red hover:bg-accent-red/20">✕ Cancel</button>
                   </>
                 )}
+                {/* HONESTY GATE — the artist proposes, you dispose. Keep saves; push back reworks. */}
+                {job?.status === 'done' && reviewing && curFrame && (
+                  <>
+                    <button onClick={() => accept()} className="px-2 py-0.5 rounded bg-accent-green text-background-primary text-[9px] font-semibold hover:opacity-90">✓ Keep</button>
+                    <button onClick={onPushBack} className="px-2 py-0.5 rounded border border-accent-yellow/40 bg-accent-yellow/10 text-[9px] text-accent-yellow hover:bg-accent-yellow/20">↻ Push back</button>
+                    <button onClick={() => reject()} className="px-2 py-0.5 rounded border border-border bg-background-overlay text-[9px] text-text-muted hover:text-text-primary">Discard</button>
+                  </>
+                )}
                 {(job?.status === 'paused' || job?.status === 'cancelled' || job?.status === 'error') && curFrame && (
                   <>
                     <button onClick={() => resume()} className="px-2 py-0.5 rounded bg-accent-purple text-white text-[9px] hover:opacity-90">▶ Resume</button>
@@ -150,6 +167,9 @@ export default function LiveArtisanPanel({ onGridUpdate }: Props) {
                   </>
                 )}
               </div>
+              {job?.status === 'done' && reviewing && (
+                <div className="text-[9px] text-text-muted leading-snug">Keep it (saves to your gallery), or push back with a note to rework it. Nothing is saved until you say so.</div>
+              )}
               {/* Statue-stage progress — VISION → SHAPE → POLISH → QA */}
               <div className="flex items-center gap-1 text-[8px] font-mono">
                 {STAGES.map((s, i) => {

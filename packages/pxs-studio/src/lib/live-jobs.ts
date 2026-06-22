@@ -378,6 +378,24 @@ function writeTrajectory(job: LiveJob, traj: unknown): void {
   }
 }
 
+/**
+ * Record the HUMAN's keep/reject verdict onto the run's trajectory. The honesty gate's whole
+ * point: the human is the real quality gate, and that accept/reject judgment — paired with the
+ * brief + passes + audits + final — is the training signal for the eventual own-model (Option 3).
+ */
+export function recordVerdict(id: string, verdict: 'keep' | 'reject', note?: string): boolean {
+  try {
+    const p = path.join(TRAJ_DIR, `${id}.json`);
+    if (!fs.existsSync(p)) return false;
+    const traj = JSON.parse(fs.readFileSync(p, 'utf8'));
+    traj.humanVerdict = { verdict, note: note || '', at: Date.now() };
+    fs.writeFileSync(p, JSON.stringify(traj, null, 2));
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 async function runStatueEngine(job: LiveJob, apiKey: string, resumeFrame?: PXSFrame): Promise<void> {
   const client = new Anthropic({ apiKey });
   const subject = job.prompt;

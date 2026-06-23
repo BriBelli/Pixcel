@@ -265,9 +265,9 @@ export default function LiveArtisanPanel({ onGridUpdate }: Props) {
             {size}px is finer and takes a bit longer — still a handful of drafts, a few minutes.
           </p>
         )}
-        {/* Size (the budget — longest edge) + model */}
+        {/* Resolution (pixel count — longest edge) + model */}
         <div className="flex items-center gap-2 text-[9px]">
-          <span className="uppercase tracking-wider text-text-muted" title="The artwork's PIXEL resolution — the grid size on its longest edge (not a zoom level). The Shape control below sets the canvas proportions.">Size</span>
+          <span className="uppercase tracking-wider text-text-muted" title="The artwork's PIXEL RESOLUTION — how many pixels across (the longest edge), i.e. how chunky vs fine. The Aspect Ratio control below sets the canvas proportions.">Resolution</span>
           <div className="flex items-center gap-0.5 rounded-md border border-border bg-background-tertiary p-0.5">
             {SIZES.map((s) => (
               <button
@@ -299,7 +299,7 @@ export default function LiveArtisanPanel({ onGridUpdate }: Props) {
 
         {/* Shape (aspect) — Auto = the artist picks the best for the subject; presets force it; custom = W×H */}
         <div className="flex flex-wrap items-center gap-2 text-[9px]">
-          <span className="uppercase tracking-wider text-text-muted" title="The canvas SHAPE (separate from Size). Auto lets the artist pick the best for your subject — a car is WIDE, a tower is TALL. Square crams a car into a UFO — pick Landscape for vehicles.">Shape</span>
+          <span className="uppercase tracking-wider text-text-muted" title="The canvas ASPECT RATIO / proportions (separate from Resolution). Auto lets the artist pick the best for your subject — a car is WIDE, a tower is TALL. Square crams a car into a UFO — pick Landscape for vehicles.">Aspect Ratio</span>
           <div className="flex flex-wrap items-center gap-0.5 rounded-md border border-border bg-background-tertiary p-0.5">
             {ASPECTS.map((a) => (
               <button

@@ -201,6 +201,12 @@ Real approved-but-flawed pieces the fresh-eyes gate MUST catch. Use them to vali
   (free cream bars left/right of the head, not touching the face). A stranger reads "why are there
   dashes next to the cat?" The QA never flagged it. Also a per-class craft note: **whiskers must attach
   to the muzzle** (cats/creatures — appendages connect to the body, never float).
+- **Owl (32×32, 2026-06-23)** — APPROVED with a **soft even gradient RAMP down the flank** (dark→medium
+  →tan→cream, ~4 evenly-stepped near-identical browns) that reads as an **airbrushed/anti-aliased blur**,
+  not deliberate form-shading. The "raster shows through" → looks *downsampled*, not *reasoned* (kills the
+  low-res moat). Craft rule the judge must enforce: **shading = a FEW crisp tones placed as a deliberate
+  shadow SHAPE, never a smooth multi-step gradient ramp** (soft edges hurt — [[feedback_pixcel-craft-rubric]]).
+  Tighter palette, decisive steps hugging the form — form, not a fade.
 
 ## What the Evaluator is
 An **independent, fresh-eyes quality gate** — a critic that did NOT make the piece, sees the finished

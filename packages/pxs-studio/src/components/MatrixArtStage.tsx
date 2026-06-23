@@ -107,15 +107,24 @@ export default function MatrixArtStage({ maxEdge = 460 }: { maxEdge?: number }) 
     }
   }, [job?.revealSeq, job?.pendingReveal, cols, rows]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // reconcile to the final/last frame (covers any dropped deltas) — enqueue anything not yet written
+  // reconcile to the final/last frame — re-enqueue any cell that is MISSING, whose color CHANGED (e.g.
+  // an Iterate adds a pupil to an already-drawn eye), or was ERASED. Without this the live stage goes
+  // stale vs the real data after an iterate (the "canvas never updated" bug) — it only filled blanks.
   useEffect(() => {
     const s = st.current;
     const frame = job?.frame || (done ? job?.latestFrame : null);
     if (!frame || frame.cols !== cols || frame.rows !== rows) return;
+    const filled = new Set<number>();
     for (const c of frame.cells) {
       if (c.color.toLowerCase() === BG) continue;
       const idx = c.y * cols + c.x;
-      if (s.char[idx] == null && !s.queue.some((q) => q.idx === idx)) s.queue.push({ idx, char: charFor(c.color), color: c.color });
+      filled.add(idx);
+      const want = charFor(c.color); // color→char is deterministic, so a changed color ⇒ a changed char
+      if (s.char[idx] !== want && !s.queue.some((q) => q.idx === idx)) s.queue.push({ idx, char: want, color: c.color });
+    }
+    // cells we're still showing that the final frame no longer fills → erase them
+    for (let idx = 0; idx < s.char.length; idx++) {
+      if (s.char[idx] != null && !filled.has(idx) && !s.queue.some((q) => q.idx === idx)) s.queue.push({ idx, char: '', color: null });
     }
   }, [job?.frame, done, cols, rows]); // eslint-disable-line react-hooks/exhaustive-deps
 

@@ -33,6 +33,9 @@ export default function MatrixArtStage({ maxEdge = 460 }: { maxEdge?: number }) 
     { cols: job?.size || 32, rows: job?.size || 32 };
   const cols = dims.cols;
   const rows = dims.rows;
+  // CRISP PIXELS: draw at cols*px internal and DISPLAY at exactly cols*px (1:1, no upscale) so every cell
+  // is a razor-sharp block. A non-integer CSS upscale (448 internal → 460 css) was the soft/"blurry" look.
+  const px = Math.max(7, Math.min(22, Math.floor(maxEdge / Math.max(cols, rows))));
   const status = job?.status || 'running';
   const done = status === 'done';
   const phase = job?.stage || 'vision';
@@ -139,7 +142,6 @@ export default function MatrixArtStage({ maxEdge = 460 }: { maxEdge?: number }) 
     if (!cv) return;
     const ctx = cv.getContext('2d');
     if (!ctx) return;
-    const px = Math.max(7, Math.min(22, Math.floor(maxEdge / Math.max(cols, rows))));
     cv.width = cols * px;
     cv.height = rows * px;
     const font = `${Math.max(7, Math.floor(px * 0.8))}px ui-monospace, SFMono-Regular, monospace`;
@@ -222,7 +224,7 @@ export default function MatrixArtStage({ maxEdge = 460 }: { maxEdge?: number }) 
         className="relative inline-block self-start overflow-hidden rounded-lg"
         style={{ background: BG, boxShadow: '0 0 0 1px rgba(125,255,176,0.16), 0 0 36px rgba(20,120,70,0.22)' }}
       >
-        <canvas ref={canvasRef} className="block" style={{ width: Math.min(maxEdge, cols * 22), imageRendering: 'pixelated' }} />
+        <canvas ref={canvasRef} className="block" style={{ width: cols * px, imageRendering: 'pixelated' }} />
         {/* CRT scanlines — a "generating live" vibe ONLY while writing; gone on resolve so the final art reads clean. */}
         {!done && (
           <div

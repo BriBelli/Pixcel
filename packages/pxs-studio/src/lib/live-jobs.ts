@@ -640,7 +640,6 @@ async function runStatueEngine(job: LiveJob, apiKey: string, resumeFrame?: PXSFr
     let pass = 0;
     const recentFlaws: string[] = []; // for STUCK detection (same element reworked repeatedly)
     let truncRun = 0; // consecutive truncated turns → bail fast (don't grind the whole budget / roast fans)
-    let reviewTurns = 0; // FORCED FIRST POLISH: the first review after a block-in may NOT approve — guarantees ≥1 real polish pass (the prompt gate alone bites only probabilistically; this raises the FLOOR).
     while (pass < maxPasses) {
       if (job.control === 'cancel') {
         job.status = 'cancelled';
@@ -694,17 +693,11 @@ async function runStatueEngine(job: LiveJob, apiKey: string, resumeFrame?: PXSFr
         const limitLine = remaining <= NEAR_LIMIT_NUDGE
           ? `\n\n(You are near the end of the working budget. If the piece already reads well, APPROVE it now; otherwise make your most decisive final fixes this pass. This is the only budget signal — otherwise you would keep working to your true bar.)`
           : '';
-        // FORCED FIRST POLISH — a fresh block-in is NOT polished; the first review may not rubber-stamp
-        // it. One guaranteed polish pass, then it's fully quality-driven (NOT a fixed pass count).
-        const forcePolish = reviewTurns === 0;
-        const polishLine = forcePolish
-          ? `\n\n⚠ FORCED POLISH PASS — this piece has only been BLOCKED IN; it is NOT yet refined or polished, so you may NOT approve it this pass (approved MUST be false). Run the polish sweep NOW (top→bottom, left→right) and FIX the single highest-value form-folly: a FLAT fill with no form (a blank belly/slab → add light→shadow steps + texture), a detached/floating part (→ attach), a weak/placeholder feature (→ finish), or wasted cells. Return that fix as a batch of edits.`
-          : '';
-        job.statusMessage = forcePolish ? 'First polish pass…' : stuck ? 'Breaking a loop — simplifying…' : remaining <= NEAR_LIMIT_NUDGE ? 'Final passes…' : 'Fresh-eyes review…';
+        job.statusMessage = stuck ? 'Breaking a loop — simplifying…' : remaining <= NEAR_LIMIT_NUDGE ? 'Final passes…' : 'Fresh-eyes review…';
         emit('pass.start', { stage: 'refine', pass: job.gestures + 1 });
         content = [
           { type: 'image', source: { type: 'base64', media_type: 'image/png', data: frameToPngBase64(canvasToFrame(canvas)) } },
-          { type: 'text', text: statueTurnUserMessage(subject, canvas.cols, canvas.rows, brief, paletteStr(canvas)) + feedbackLine + stuckLine + limitLine + polishLine },
+          { type: 'text', text: statueTurnUserMessage(subject, canvas.cols, canvas.rows, brief, paletteStr(canvas)) + feedbackLine + stuckLine + limitLine },
         ];
       }
 
@@ -747,9 +740,8 @@ async function runStatueEngine(job: LiveJob, apiKey: string, resumeFrame?: PXSFr
         continue; // next pass redraws the simpler design from a blank canvas
       }
 
-      // APPROVED → converged. (A blank first draw can't be approved; nor can the FIRST review of a fresh
-      // block-in — reviewTurns>0 forces ≥1 real polish pass before any approval is allowed.)
-      if (turn.approved && !blank && reviewTurns > 0) {
+      // APPROVED → converged. (A blank first draw can't be approved — it has nothing to read.)
+      if (turn.approved && !blank) {
         bestCanvas = cloneCanvas(canvas); // keep-best: the approved state
         job.stagesPassed.push('refine');
         const approvedFrame = canvasToFrame(canvas);
@@ -783,7 +775,6 @@ async function runStatueEngine(job: LiveJob, apiKey: string, resumeFrame?: PXSFr
       emit('audit.verdict', { stage: 'refine', approved: false, issues: [note], pass: job.gestures });
       emit('pass.delta', { stage: 'refine', pass: job.gestures, cells: deltaCells });
       emit('pass.done', { stage: 'refine', pass: job.gestures, cellsApplied: applied.length, note, frame });
-      if (!blank) reviewTurns++; // count review passes — the first (forced polish) unlocks normal approval
     }
 
     // keep-best ship: a clean approve ships `canvas` as-is; hitting the ceiling/cost cap WITHOUT an

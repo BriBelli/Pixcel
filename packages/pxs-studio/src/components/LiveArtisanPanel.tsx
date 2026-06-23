@@ -18,6 +18,15 @@ const MODELS: { id: ModelId; label: string }[] = [
   { id: 'claude-haiku-4-5', label: 'Haiku 4.5 · cheapest' },
 ];
 const SIZES = [16, 24, 32, 48, 64];
+// Canvas SHAPE presets (separate from Size/resolution). 'auto' = the artist picks the best for the
+// subject (the smart default); the rest force a shape; 'custom' = exact W×H. (docs/SPEC-DIMENSIONS.md)
+const ASPECTS = [
+  { id: 'auto' as const, label: 'Auto', title: 'The artist picks the best shape for your subject (a car is wide, a tower is tall) — the smart default.' },
+  { id: 'landscape' as const, label: 'Landscape', title: 'Landscape / wide — cars, scenes, anything horizontal.' },
+  { id: 'portrait' as const, label: 'Portrait', title: 'Portrait / tall — figures, towers, anything vertical.' },
+  { id: 'square' as const, label: 'Square', title: 'Square (1:1) — icons, faces, symmetric subjects.' },
+  { id: 'custom' as const, label: 'Custom', title: 'Set the exact width × height yourself.' },
+];
 // The hidden pass CEILING per complexity tier (mirrors live-jobs CEILINGS) — shown to the USER as the
 // max-rounds cap; it stays hidden from the AI (which approves on quality). Auto → the top of the range.
 const PASS_CAPS: Record<string, number> = { simple: 4, moderate: 6, complex: 9, advanced: 12 };
@@ -27,17 +36,24 @@ export default function LiveArtisanPanel({ onGridUpdate }: Props) {
   const [input, setInput] = useState('');
   const [size, setSize] = useState(24);
   const [model, setModel] = useState<ModelId>('claude-opus-4-8');
-  // Aspect: 'auto' lets the designer choose the canvas shape for the subject (wide car, tall tower);
-  // 'manual' uses the W×H the user sets. See the quality engine (non-square canvas).
-  const [aspect, setAspect] = useState<'auto' | 'manual'>('auto');
-  const [manualW, setManualW] = useState(32);
-  const [manualH, setManualH] = useState(20);
+  // Aspect = the canvas SHAPE (separate from Size/resolution). 'auto' = the artist picks the best shape
+  // for the subject — the smart default. Presets force a shape; 'custom' = exact W×H. (docs/SPEC-DIMENSIONS.md)
+  const [aspect, setAspect] = useState<'auto' | 'portrait' | 'landscape' | 'square' | 'custom'>('auto');
+  const [manualW, setManualW] = useState(48);
+  const [manualH, setManualH] = useState(32);
   // 2.1 — HIDDEN pass budget (the AI never sees it; '' = auto by complexity, up to 90).
   const [passes, setPasses] = useState<number | ''>('');
   // 2.2 — complexity: 'auto' lets VISION estimate; else the user forces the tier (simplifies the AI).
   const [complexity, setComplexity] = useState<string>('auto');
-  // Dims to send: only in manual mode (auto omits cols/rows so VISION decides the aspect ratio).
-  const dims = aspect === 'manual' ? { cols: manualW, rows: manualH } : {};
+  // Dims to send, derived from the SHAPE + the size budget. 'auto' omits cols/rows (VISION picks the
+  // shape itself); presets derive cols×rows from `size` (3:2); 'custom' = the exact W×H.
+  const shortEdge = Math.max(8, Math.round(size * 2 / 3));
+  const dims =
+    aspect === 'square' ? { cols: size, rows: size }
+    : aspect === 'landscape' ? { cols: size, rows: shortEdge }
+    : aspect === 'portrait' ? { cols: shortEdge, rows: size }
+    : aspect === 'custom' ? { cols: manualW, rows: manualH }
+    : {};
   // The effective max-rounds cap shown to the user (Auto → top of the range). Stays hidden from the AI.
   const passCap = complexity === 'auto' ? 12 : (PASS_CAPS[complexity] ?? 12);
   const startArgs = (prompt: string) => ({
@@ -245,28 +261,56 @@ export default function LiveArtisanPanel({ onGridUpdate }: Props) {
             {size}px is finer and takes a bit longer — still a handful of drafts, a few minutes.
           </p>
         )}
+        {/* Size (the budget — longest edge) + model */}
         <div className="flex items-center gap-2 text-[9px]">
-          <span className="uppercase tracking-wider text-text-muted" title="The artwork's PIXEL resolution — the grid size on its longest edge, not a zoom level. In Auto, the short edge is fitted to the subject (a wide car → 32×15).">Size</span>
-          {aspect === 'auto' ? (
-            <div className="flex items-center gap-0.5 rounded-md border border-border bg-background-tertiary p-0.5">
-              {SIZES.map((s) => (
-                <button
-                  key={s}
-                  onClick={() => setSize(s)}
-                  title={s >= 48 ? `${s}px grid — finer, slower & pricier` : `${s}px grid — quick & cheap`}
-                  className={`px-1.5 py-0.5 rounded transition-colors ${
-                    size === s
-                      ? s >= 48
-                        ? 'bg-accent-yellow/80 text-background-primary'
-                        : 'bg-primary text-white'
-                      : 'text-text-muted hover:text-text-primary'
-                  }`}
-                >
-                  {s}
-                </button>
-              ))}
-            </div>
-          ) : (
+          <span className="uppercase tracking-wider text-text-muted" title="The artwork's PIXEL resolution — the grid size on its longest edge (not a zoom level). The Shape control below sets the canvas proportions.">Size</span>
+          <div className="flex items-center gap-0.5 rounded-md border border-border bg-background-tertiary p-0.5">
+            {SIZES.map((s) => (
+              <button
+                key={s}
+                onClick={() => setSize(s)}
+                title={s >= 48 ? `${s}px grid — finer, slower & pricier` : `${s}px grid — quick & cheap`}
+                className={`px-1.5 py-0.5 rounded transition-colors ${
+                  size === s
+                    ? s >= 48
+                      ? 'bg-accent-yellow/80 text-background-primary'
+                      : 'bg-primary text-white'
+                    : 'text-text-muted hover:text-text-primary'
+                }`}
+              >
+                {s}
+              </button>
+            ))}
+          </div>
+          <select
+            value={model}
+            onChange={(e) => setModel(e.target.value as ModelId)}
+            className="ml-auto rounded-md border border-border bg-background-tertiary px-1.5 py-1 text-[9px] text-text-secondary focus:outline-none focus:border-border-hover"
+          >
+            {MODELS.map((m) => (
+              <option key={m.id} value={m.id}>{m.label}</option>
+            ))}
+          </select>
+        </div>
+
+        {/* Shape (aspect) — Auto = the artist picks the best for the subject; presets force it; custom = W×H */}
+        <div className="flex flex-wrap items-center gap-2 text-[9px]">
+          <span className="uppercase tracking-wider text-text-muted" title="The canvas SHAPE (separate from Size). Auto lets the artist pick the best for your subject — a car is WIDE, a tower is TALL. Square crams a car into a UFO — pick Landscape for vehicles.">Shape</span>
+          <div className="flex flex-wrap items-center gap-0.5 rounded-md border border-border bg-background-tertiary p-0.5">
+            {ASPECTS.map((a) => (
+              <button
+                key={a.id}
+                onClick={() => setAspect(a.id)}
+                title={a.title}
+                className={`px-1.5 py-0.5 rounded transition-colors ${
+                  aspect === a.id ? 'bg-primary text-white' : 'text-text-muted hover:text-text-primary'
+                }`}
+              >
+                {a.label}
+              </button>
+            ))}
+          </div>
+          {aspect === 'custom' && (
             <div className="flex items-center gap-1 rounded-md border border-border bg-background-tertiary px-1.5 py-0.5 text-text-secondary">
               <input
                 type="number" min={8} max={64} value={manualW}
@@ -283,27 +327,6 @@ export default function LiveArtisanPanel({ onGridUpdate }: Props) {
               />
             </div>
           )}
-          {/* Auto = the designer picks the canvas shape for the subject (wide car, tall tower); Manual = your W×H. */}
-          <button
-            onClick={() => setAspect((a) => (a === 'auto' ? 'manual' : 'auto'))}
-            title={aspect === 'auto' ? 'Auto: the designer fits the canvas shape to the subject. Click to set dimensions manually.' : 'Manual: your chosen width × height. Click for auto aspect.'}
-            className={`px-1.5 py-0.5 rounded border transition-colors ${
-              aspect === 'auto'
-                ? 'border-primary/50 bg-primary/15 text-primary'
-                : 'border-border bg-background-tertiary text-text-secondary hover:text-text-primary'
-            }`}
-          >
-            {aspect === 'auto' ? '◇ Auto size' : '▦ Manual'}
-          </button>
-          <select
-            value={model}
-            onChange={(e) => setModel(e.target.value as ModelId)}
-            className="ml-auto rounded-md border border-border bg-background-tertiary px-1.5 py-1 text-[9px] text-text-secondary focus:outline-none focus:border-border-hover"
-          >
-            {MODELS.map((m) => (
-              <option key={m.id} value={m.id}>{m.label}</option>
-            ))}
-          </select>
         </div>
 
         {/* 2.1 passes (hidden budget) + 2.2 complexity — the interactive controls. */}

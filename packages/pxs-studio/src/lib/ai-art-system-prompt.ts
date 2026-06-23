@@ -386,7 +386,7 @@ ${brief}
 
 Palette: ${paletteStr}
 
-Above is the FINISHED, APPROVED piece — it already cleared the bar. This is a BONUS ROUND: take ONE more shot to ELEVATE it a notch toward a hero, professional-grade finish — richer form/volume, cleaner edges, a touch more believable texture/sheen/depth, the final flourish a master adds last. ONLY make changes that GENUINELY improve it: coherent shading bands and clean form, NEVER scattered single-cell "dirt" (salt-and-pepper noise makes it WORSE). If you honestly cannot improve it, return approved:true and edits:[] — leave it alone ("better than perfect makes it worse"). Otherwise return your elevation as a batch of edits.`;
+Above is the current piece. This is a BONUS ROUND — make your BEST single attempt to ELEVATE it toward a hero, professional-grade finish. Find the HIGHEST-VALUE real improvement and make it: sharpen a soft/blurry/mushy area into clean, crisp form; fix a weak or wrong feature (a vague/oversized eye, a flat face, a placeholder limb); add believable volume/texture/sheen to a flat mass; clean a jagged or noisy edge. Make a COHERENT improvement — clean bands and clean form — NEVER scattered single-cell "dirt" (salt-and-pepper noise makes it WORSE). Your result is compared against the current version and KEPT ONLY if it is genuinely better, so attempt a REAL, bold improvement — do not play it safe. Return edits:[] ONLY if you have looked hard and the piece is genuinely flawless (rare — a blurry read, a weak eye, a flat mass, or a jagged edge is almost always improvable). Otherwise return your elevation as a batch of edits.`;
 }
 
 /** The BONUS-ROUND comparison judge — picks the better of {approved A, bonus attempt B}, biased to KEEP A. */

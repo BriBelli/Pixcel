@@ -812,40 +812,46 @@ async function runStatueEngine(job: LiveJob, apiKey: string, resumeFrame?: PXSFr
       emit('pass.done', { stage: 'refine', pass: job.gestures, cellsApplied: applied.length, note, frame });
     }
 
-    // ---- BONUS ROUND (Brian) — once the artist APPROVES, ONE optional shot to elevate the piece. The
-    // attempt is KEPT only if a fresh-eyes A/B comparison judges it genuinely BETTER than the approved
-    // version; otherwise the approved piece stands. Strictly NON-REGRESSIVE — the only cost is the try. ----
-    if (finished && job.control !== 'cancel' && (job.costUsd ?? 0) < job.costCapUsd) {
+    // ---- BONUS LOOP (Brian) — once the artist APPROVES (even a lazy pass-1 approval), keep taking shots
+    // to ELEVATE the piece. Each attempt is KEPT only if a fresh-eyes A/B comparison judges it genuinely
+    // BETTER than the current version (else discarded). Loop WHILE it keeps improving; stop after 2 tries
+    // in a row can't beat it (or a hard cap). Strictly NON-REGRESSIVE (keep-better) AND won't skip out:
+    // it's the reliable quality FLOOR, independent of the judge's probabilistic early-approve. ----
+    const MAX_BONUS = 4;
+    let bonusN = 0, bonusDry = 0, bonusKept = 0;
+    while (finished && job.control !== 'cancel' && bonusN < MAX_BONUS && bonusDry < 2 && (job.costUsd ?? 0) < job.costCapUsd) {
+      bonusN++;
       const champion = cloneCanvas(canvas);
-      job.statusMessage = 'Bonus round — one more shot at greatness…';
-      emit('pass.start', { stage: 'bonus', pass: job.gestures + 1, note: 'bonus round' });
+      job.statusMessage = `Bonus ${bonusN} — another shot at greatness…`;
+      emit('pass.start', { stage: 'bonus', pass: job.gestures + 1, note: `bonus ${bonusN}` });
       const challenger = cloneCanvas(canvas);
       const bonusTurn = await callTurn([
         { type: 'image', source: { type: 'base64', media_type: 'image/png', data: frameToPngBase64(canvasToFrame(challenger)) } },
         { type: 'text', text: statueBonusUserMessage(subject, canvas.cols, canvas.rows, brief, paletteStr(canvas)) },
       ], challenger);
-      if (!bonusTurn.truncated && bonusTurn.edits.length) {
-        const { applied } = applyEdits(challenger, bonusTurn.edits);
-        job.statusMessage = 'Bonus round — judging A vs B…';
-        const cmp = await callCompare(champion, challenger);
-        if (cmp.winner === 'B') {
-          canvas = challenger; // the bonus genuinely beat the approved piece — take it
-          job.gestures++;
-          job.latestFrame = canvasToFrame(canvas);
-          job.frames.push(job.latestFrame);
-          traj.bonus = { kept: true, why: cmp.why, cells: applied.length };
-          emit('audit.verdict', { stage: 'bonus', approved: true, issues: [`bonus KEPT — ${cmp.why}`], pass: job.gestures });
-          emit('pass.done', { stage: 'bonus', pass: job.gestures, cellsApplied: applied.length, note: 'bonus kept', frame: job.latestFrame });
-        } else {
-          canvas = champion; // discard the bonus — the approved piece wins (no regression)
-          traj.bonus = { kept: false, why: cmp.why };
-          emit('audit.verdict', { stage: 'bonus', approved: false, issues: [`bonus discarded — kept the approved (${cmp.why})`], pass: job.gestures });
-        }
+      if (bonusTurn.truncated || !bonusTurn.edits.length) {
+        bonusDry++;
+        emit('audit.verdict', { stage: 'bonus', approved: false, issues: [`bonus ${bonusN} — nothing attempted`], pass: job.gestures });
+        continue;
+      }
+      const { applied } = applyEdits(challenger, bonusTurn.edits);
+      job.statusMessage = `Bonus ${bonusN} — judging A vs B…`;
+      const cmp = await callCompare(champion, challenger);
+      if (cmp.winner === 'B') {
+        canvas = challenger; // the bonus genuinely beat the current piece — take it and keep going
+        bonusDry = 0; bonusKept++;
+        job.gestures++;
+        job.latestFrame = canvasToFrame(canvas);
+        job.frames.push(job.latestFrame);
+        emit('audit.verdict', { stage: 'bonus', approved: true, issues: [`bonus ${bonusN} KEPT — ${cmp.why}`], pass: job.gestures });
+        emit('pass.done', { stage: 'bonus', pass: job.gestures, cellsApplied: applied.length, note: `bonus ${bonusN} kept`, frame: job.latestFrame });
       } else {
-        traj.bonus = { kept: false, why: 'nothing worth adding' };
-        emit('audit.verdict', { stage: 'bonus', approved: false, issues: ['bonus — nothing worth adding; kept the approved piece'], pass: job.gestures });
+        canvas = champion; // discard — the current piece wins (no regression); a 2nd dry in a row ends it
+        bonusDry++;
+        emit('audit.verdict', { stage: 'bonus', approved: false, issues: [`bonus ${bonusN} discarded — kept current (${cmp.why})`], pass: job.gestures });
       }
     }
+    traj.bonus = { rounds: bonusN, kept: bonusKept };
 
     // keep-best ship: a clean approve ships `canvas` as-is; hitting the ceiling/cost cap WITHOUT an
     // approval ships the last APPROVED snapshot if we have one, else the most-refined latest (honest:

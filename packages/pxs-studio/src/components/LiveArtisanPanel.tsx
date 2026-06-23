@@ -35,7 +35,7 @@ const SUGGESTIONS = ['a red apple', 'a snail', 'a teapot', 'a ladybug'];
 export default function LiveArtisanPanel({ onGridUpdate }: Props) {
   const [input, setInput] = useState('');
   const [lastPrompt, setLastPrompt] = useState(''); // the last subject we generated — for "Redo" (fresh re-roll)
-  const [size, setSize] = useState(24);
+  const [size, setSize] = useState(32);
   const [model, setModel] = useState<ModelId>('claude-opus-4-8');
   // Aspect = the canvas SHAPE (separate from Size/resolution). 'auto' = the artist picks the best shape
   // for the subject — the smart default. Presets force a shape; 'custom' = exact W×H. (docs/SPEC-DIMENSIONS.md)

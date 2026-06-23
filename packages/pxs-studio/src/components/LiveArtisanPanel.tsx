@@ -315,9 +315,6 @@ export default function LiveArtisanPanel({ onGridUpdate }: Props) {
               </button>
             ))}
           </div>
-          {aspect === 'auto' && (
-            <span className="text-[9px] text-text-muted/60 italic" title="Nothing picked — the artist chooses the best shape for your subject.">the artist decides</span>
-          )}
           {aspect === 'custom' && (
             <div className="flex items-center gap-1 rounded-md border border-border bg-background-tertiary px-1.5 py-0.5 text-text-secondary">
               <input

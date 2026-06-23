@@ -51,6 +51,15 @@ export interface LiveJob {
   error?: string;
 }
 
+// ---- AUTO-DRAFT (data-safety, NOT curation; Opus Design) — the moment a piece RESOLVES it is silently
+// kept as a draft, so a refresh/leave never loses work. "Save" only PROMOTES the draft into the Assets
+// gallery (taste/curation); it is never the thing that prevents loss. Cleared on Save or Discard. ----
+export interface UnsavedDraft { frame: PXSFrame; title: string; prompt?: string; model?: string; at: number; }
+const DRAFT_KEY = 'pxs-unsaved-draft';
+function writeDraft(d: UnsavedDraft) { try { localStorage.setItem(DRAFT_KEY, JSON.stringify(d)); } catch { /* quota/SSR */ } }
+function readDraft(): UnsavedDraft | null { try { const r = typeof localStorage !== 'undefined' ? localStorage.getItem(DRAFT_KEY) : null; return r ? JSON.parse(r) as UnsavedDraft : null; } catch { return null; } }
+function clearDraft() { try { localStorage.removeItem(DRAFT_KEY); } catch { /* */ } }
+
 /** One contract event (docs/PIXCEL-LIVE-SSE.md). */
 interface LiveEvent {
   type: string;
@@ -173,6 +182,9 @@ interface LiveArtState {
   feedback: (text: string) => Promise<void>;
   accept: () => Promise<void>;
   reject: (note?: string) => Promise<void>;
+  restoredDraft: UnsavedDraft | null; // a finished piece recovered from a prior session (refresh/leave), awaiting Save/Discard
+  keepDraft: () => void;   // promote the recovered draft into the Assets gallery
+  discardDraft: () => void; // throw the recovered draft away
   clear: () => void;
 }
 
@@ -199,6 +211,7 @@ async function post(body: unknown): Promise<any> {
 
 export const useLiveArtStore = create<LiveArtState>((set, get) => {
   let savedFor: string | null = null;
+  let lastMeta: { prompt?: string; model?: string } = {}; // remembered at start() → folded into the auto-draft
 
   /** Human KEPT it → save to the gallery (the only path that saves). Idempotent per job. */
   async function saveAccepted(id: string) {
@@ -285,6 +298,8 @@ export const useLiveArtStore = create<LiveArtState>((set, get) => {
             // HUMAN disposes. Surface it for keep/reject; only an explicit keep saves to the
             // gallery (and that judgment is the Option-3 training signal). See docs canon.
             set({ reviewing: true });
+            const f = view.frame || view.latestFrame;
+            if (f) writeDraft({ frame: f, title: view.title || 'Live piece', prompt: lastMeta.prompt, model: lastMeta.model, at: Date.now() }); // auto-draft: never lose a resolved piece
             return;
           }
           if (view.status === 'error' || view.status === 'paused' || view.status === 'cancelled') return;
@@ -305,7 +320,9 @@ export const useLiveArtStore = create<LiveArtState>((set, get) => {
     startedAt: 0,
     reviewing: false,
     accepted: false,
+    restoredDraft: readDraft(),
     start: async ({ prompt, size, model, cols, rows, passes, complexity }) => {
+      lastMeta = { prompt, model };
       const j = await post({ prompt, size, model, cols, rows, passes, complexity });
       if (j.jobId) {
         savedFor = null;
@@ -334,11 +351,13 @@ export const useLiveArtStore = create<LiveArtState>((set, get) => {
       if (!id) return;
       await saveAccepted(id);
       post({ verdict: 'keep', id }).catch(() => {}); // record the human judgment (Option-3 corpus)
+      clearDraft(); // promoted to Assets → no longer an unsaved draft
       set({ reviewing: false, accepted: true });
     },
     reject: async (note?: string) => {
       const id = get().jobId;
       if (!id) return;
+      clearDraft(); // discarding, or reworking (the resumed run writes a fresh draft when it re-resolves)
       post({ verdict: 'reject', id, note: note?.trim() || undefined }).catch(() => {});
       set({ reviewing: false });
       if (note && note.trim()) {
@@ -356,6 +375,29 @@ export const useLiveArtStore = create<LiveArtState>((set, get) => {
       } else {
         toastManager.success('Discarded — not saved');
       }
+    },
+    keepDraft: () => {
+      const d = get().restoredDraft;
+      if (!d) return;
+      useGalleryStore.getState().addPiece({
+        id: crypto.randomUUID(),
+        title: d.title || 'Recovered piece',
+        prompt: d.prompt || 'recovered piece',
+        promptBy: 'human',
+        composedBy: 'ai-composer',
+        frame: d.frame,
+        createdAt: Date.now(),
+        model: d.model,
+        session: { mode: 'sculpt', transcript: [] },
+      });
+      clearDraft();
+      set({ restoredDraft: null });
+      toastManager.success(`Saved "${d.title || 'piece'}" to your Art gallery`);
+    },
+    discardDraft: () => {
+      clearDraft();
+      set({ restoredDraft: null });
+      toastManager.success('Unsaved piece discarded');
     },
     control: async (a) => {
       const id = get().jobId;

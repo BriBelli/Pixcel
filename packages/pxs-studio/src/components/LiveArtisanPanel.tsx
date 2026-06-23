@@ -64,7 +64,7 @@ export default function LiveArtisanPanel({ onGridUpdate }: Props) {
     passes: passes === '' ? undefined : passes,
     complexity: complexity === 'auto' ? undefined : complexity,
   });
-  const { jobId, job, startedAt, reviewing, accepted, start, resume, control, feedback, accept, reject } = useLiveArtStore();
+  const { jobId, job, startedAt, reviewing, accepted, start, resume, control, feedback, accept, reject, restoredDraft, keepDraft, discardDraft } = useLiveArtStore();
   const addPiece = useGalleryStore((s) => s.addPiece);
   const [elapsed, setElapsed] = useState(0);
   const feedRef = useRef<HTMLDivElement>(null);
@@ -89,6 +89,28 @@ export default function LiveArtisanPanel({ onGridUpdate }: Props) {
   useEffect(() => {
     thinkRef.current?.scrollTo({ top: thinkRef.current.scrollHeight });
   }, [job?.liveThinking]);
+
+  // AUTO-DRAFT RECOVERY (Opus Design): a piece recovered from a prior session → drop it on the canvas so
+  // the user sees their unsaved work; the banner below lets them Save (promote) or Discard it.
+  const restoredShown = useRef(false);
+  useEffect(() => {
+    if (restoredDraft && !jobId && !restoredShown.current) {
+      restoredShown.current = true;
+      onGridUpdate(applyGalleryFrame(restoredDraft.frame, `Recovered: ${restoredDraft.title}`));
+      toastManager.success('Restored an unsaved piece — Save to keep it');
+    }
+  }, [restoredDraft, jobId]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // LEAVE GUARD (Opus Design): warn on refresh/close ONLY when there's a finished, UNSAVED piece on the
+  // table (a resolved-but-not-saved live piece, or a recovered draft). Save promotes it; this stops
+  // accidental loss WITHOUT making Save the thing that prevents loss.
+  useEffect(() => {
+    const hasUnsaved = (reviewing && !accepted && !!curFrame) || !!restoredDraft;
+    if (!hasUnsaved) return;
+    const onBeforeUnload = (e: BeforeUnloadEvent) => { e.preventDefault(); e.returnValue = ''; };
+    window.addEventListener('beforeunload', onBeforeUnload);
+    return () => window.removeEventListener('beforeunload', onBeforeUnload);
+  }, [reviewing, accepted, curFrame, restoredDraft]);
 
   function onSend() {
     const p = input.trim();
@@ -151,6 +173,16 @@ export default function LiveArtisanPanel({ onGridUpdate }: Props) {
   return (
     <div className="flex flex-col h-full">
       <div className="flex-1 overflow-y-auto p-3 space-y-3">
+        {restoredDraft && !jobId && (
+          <div className="rounded-lg border border-accent-yellow/40 bg-accent-yellow/10 p-2.5 space-y-1.5">
+            <div className="text-[11px] text-text-primary font-semibold">↩ Restored an unsaved piece</div>
+            <div className="text-[10px] text-text-muted leading-snug">It&apos;s loaded on the canvas. <b className="text-accent-green">Save</b> to keep it in your Art gallery, or discard it. <span className="text-text-muted/70">(Auto-kept from your last session — nothing was lost.)</span></div>
+            <div className="flex items-center gap-1.5 pt-0.5">
+              <button onClick={() => keepDraft()} className="px-2 py-0.5 rounded bg-accent-green text-background-primary text-[9px] font-semibold hover:opacity-90">✓ Save to gallery</button>
+              <button onClick={() => discardDraft()} className="px-2 py-0.5 rounded border border-border bg-background-overlay text-[9px] text-text-muted hover:text-text-primary">Discard</button>
+            </div>
+          </div>
+        )}
         {!jobId && (
           <div className="text-[11px] text-text-muted leading-relaxed space-y-3">
             <p>

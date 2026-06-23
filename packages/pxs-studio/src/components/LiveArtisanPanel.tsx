@@ -266,24 +266,16 @@ export default function LiveArtisanPanel({ onGridUpdate }: Props) {
         {/* Size (the budget — longest edge) + model */}
         <div className="flex items-center gap-2 text-[9px]">
           <span className="uppercase tracking-wider text-text-muted" title="The artwork's PIXEL resolution — the grid size on its longest edge (not a zoom level). The Shape control below sets the canvas proportions.">Size</span>
-          <div className="flex items-center gap-0.5 rounded-md border border-border bg-background-tertiary p-0.5">
+          <select
+            value={size}
+            onChange={(e) => setSize(Number(e.target.value))}
+            title="The artwork's pixel resolution (longest edge). Bigger = finer, slower, pricier."
+            className="rounded-md border border-border bg-background-tertiary px-1.5 py-1 text-[9px] text-text-secondary focus:outline-none focus:border-border-hover"
+          >
             {SIZES.map((s) => (
-              <button
-                key={s}
-                onClick={() => setSize(s)}
-                title={s >= 48 ? `${s}px grid — finer, slower & pricier` : `${s}px grid — quick & cheap`}
-                className={`px-1.5 py-0.5 rounded transition-colors ${
-                  size === s
-                    ? s >= 48
-                      ? 'bg-accent-yellow/80 text-background-primary'
-                      : 'bg-primary text-white'
-                    : 'text-text-muted hover:text-text-primary'
-                }`}
-              >
-                {s}
-              </button>
+              <option key={s} value={s}>{s} px{s >= 48 ? ' · finer' : ''}</option>
             ))}
-          </div>
+          </select>
           <select
             value={model}
             onChange={(e) => setModel(e.target.value as ModelId)}
@@ -298,20 +290,16 @@ export default function LiveArtisanPanel({ onGridUpdate }: Props) {
         {/* Shape (aspect) — Auto = the artist picks the best for the subject; presets force it; custom = W×H */}
         <div className="flex flex-wrap items-center gap-2 text-[9px]">
           <span className="uppercase tracking-wider text-text-muted" title="The canvas SHAPE (separate from Size). Auto lets the artist pick the best for your subject — a car is WIDE, a tower is TALL. Square crams a car into a UFO — pick Landscape for vehicles.">Shape</span>
-          <div className="flex flex-wrap items-center gap-0.5 rounded-md border border-border bg-background-tertiary p-0.5">
+          <select
+            value={aspect}
+            onChange={(e) => setAspect(e.target.value as typeof aspect)}
+            title="The canvas SHAPE (separate from Size). Auto = the artist picks the best for your subject; pick Landscape for cars/wide things."
+            className="rounded-md border border-border bg-background-tertiary px-1.5 py-1 text-[9px] text-text-secondary focus:outline-none focus:border-border-hover"
+          >
             {ASPECTS.map((a) => (
-              <button
-                key={a.id}
-                onClick={() => setAspect(a.id)}
-                title={a.title}
-                className={`px-1.5 py-0.5 rounded transition-colors ${
-                  aspect === a.id ? 'bg-primary text-white' : 'text-text-muted hover:text-text-primary'
-                }`}
-              >
-                {a.label}
-              </button>
+              <option key={a.id} value={a.id} title={a.title}>{a.label}</option>
             ))}
-          </div>
+          </select>
           {aspect === 'custom' && (
             <div className="flex items-center gap-1 rounded-md border border-border bg-background-tertiary px-1.5 py-0.5 text-text-secondary">
               <input

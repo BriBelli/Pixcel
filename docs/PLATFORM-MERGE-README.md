@@ -166,6 +166,10 @@ autonomous agent build it, structured, watchable, editable."
   + trajectory = provenance → collectibles. See `docs/ON-CHAIN-PIXCEL.md`.
 - **Vector space** — logos / fonts / icons (.ICO) / glyphs / sprites; existing logos = exact 1:1
   convert, inspired work = the artist designs. See the `project_vector-space-scope` memory.
+- **Multi-image output (variations grid)** — generate **N Pixcel attempts at once → pick the best**
+  (variance-as-a-feature, Midjourney-style). The "Redo" button is the single-shot seed of this; the
+  **sister product already does multi-image output**, so this is a natural merge bring-over for Pixcel.
+  (UX to be designed with Claude Design.)
 - **Trained model (Option 3)** — fine-tune (SFT/LoRA, distilled from Opus) on the trajectory corpus for
   cents/seconds at scale. Later, when volume justifies it.
 

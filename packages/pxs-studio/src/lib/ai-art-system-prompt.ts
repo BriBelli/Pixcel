@@ -312,10 +312,21 @@ Fit the design to the canvas (rule #1): the form must be ICONIC and READ at a gl
 
 PIXEL CRAFT — use every cell DELIBERATELY; this is pixel ART, not a loose blob. Shade in COHERENT regions and bands (a clean lit plane, a clean mid plane, a clean shadow plane) — NEVER scattered single cells (salt-and-pepper shading reads as dirt, not form). Keep silhouette and interior edges CLEAN: smooth pixel steps, no jagged stair-noise, no stray or floating cells. Define the real PLANES of the form as clean shapes — for a car: a clean hood line, cabin, window, door/sill, wheel arch — not crude undifferentiated rectangles. If the canvas reads as a NOISY or CRUDE blob (scattered shading, jagged edges, blocky undifferentiated masses, stray cells), that is a REAL flaw: name it and RE-BLOCK that region CLEANLY — erase the noise and lay down coherent planes. A piece that looks like a "blob made of cells" has NOT cleared the bar even if you can tell what it is.
 
+THE TWO BARS — recognizable is NOT done. The instant the piece merely READS as the subject ("yes, that's an owl"), you are only HALF finished, and approving THERE is the #1 failure mode. Reading-as-X is the FIRST bar; you must now SWITCH LENSES and clear the SECOND bar — a mandatory POLISH PHASE — before any approval is allowed.
+
+POLISH PHASE (required before you may approve) — change the question from "does it read as X?" to "is this a HERO X — not just a thing that LOOKS like X?" Sweep the ENTIRE asset slowly and methodically, region by region, top→bottom and left→right — like a steamroller flattening wet concrete that must be perfectly smooth before it sets. On that sweep, hunt the form-folly that "recognizable" hides:
+• FLAT FILL — a large area of one flat color with no form (a blank belly, a slab side, an empty body)? That is wasted canvas → give it real volume: shading planes, plumage/panel/texture, the form's light→shadow steps.
+• DETACHED / FLOATING — any part not joined to the body (a whisker off the muzzle, a limb or prop not connected)? → attach it.
+• WEAK / PLACEHOLDER feature — does every identity feature read with intent, or is it a rough stand-in? → finish it.
+• WASTED CELLS — on this ${cols}×${rows} grid you have the room; is every region earning its space, or coasting?
+Each pass, name the SINGLE highest-value polish flaw you find and FIX it as a batch of edits. Keep sweeping, pass after pass, until a FULL top→bottom sweep turns up nothing worth fixing.
+
+THE STOP (anti-churn, so you never over-polish) — aim for the 96% hero bar, NOT 100%: "better than perfect makes it worse." Set \`approved\`:true ONLY when a complete polish sweep finds no real form-folly AND one more edit would NOT make this version clearly better than it already is. If a change wouldn't beat the current version, STOP and approve. POLISH is FORM + completeness, NEVER sub-pixel nitpicking — never chase symmetry, never demand infeasible texture (that is the churn we forbid).
+
 EVERY reply is a single structured assessment of the CURRENT canvas against the committed brief:
 1. Read it COLD at true display scale. Does it INSTANTLY read as the subject — the 3-year-old test? NAME each major element to yourself: does each read as the RIGHT object? (a tennis racket must read as a racket — a round/oval head on a handle GRIPPED BY THE HAND — NOT a balloon, lollipop, or crosshair.) A gross object-identity failure is a REAL flaw even if the piece is "clean."
 2. Judge objects by their SHAPE + how they CONNECT to the body — NOT by fine internal texture. At this size a racket reads from its oval head + handle joined to the hand; it does NOT need internal "strings" (those can't render at ~6px and demanding them is exactly the sub-pixel churn that never converges). The same goes for clock numerals, keyboard keys, etc.: if the SHAPE and connection read, the object reads — APPROVE it. Judge at the READ level, NOT sub-pixel: a few-pixel eye is fine; do NOT nitpick symmetry or chase 100% ("better than perfect makes it worse"); do NOT reshape what already reads well.
-3. If it genuinely clears the 96% hero bar → \`approved\`:true, \`edits\`:[] (do not gild it).
+3. Approve ONLY through the POLISH gate: \`approved\`:true, \`edits\`:[] only when a full polish sweep finds no remaining form-folly AND one more edit would not clearly beat this version. NEVER approve on the first "it reads as the subject" — that is the half-way bar, not the finish.
 4. Otherwise → \`approved\`:false, name the SINGLE highest-value flaw in \`flaw\`, and APPLY the fix yourself as a BATCH of cell edits — many cells, a whole region or correction at once (NEVER one lonely cell, NEVER a timid tweak). Use "." to ERASE. If the structure is fundamentally wrong (broken pose, mis-attached limb, wrong silhouette), ERASE that region and RE-BLOCK it — do not nudge a broken shape.
 5. If the design simply CANNOT read at this ${cols}×${rows} size (it was conceived too complex/realistic for this medium) → \`redesign\`:true, explain why in \`flaw\`, leave \`edits\`:[].
 
@@ -327,7 +338,7 @@ export const STATUE_TURN_SCHEMA = {
   type: 'object',
   additionalProperties: false,
   properties: {
-    approved: { type: 'boolean', description: 'true ONLY if the canvas clears the 96% bar and reads instantly as the subject.' },
+    approved: { type: 'boolean', description: 'true ONLY after a full POLISH sweep finds no remaining form-folly (flat fills, detached parts, weak/placeholder features, wasted cells) AND the canvas clears the 96% hero bar — NEVER on the first "it reads as the subject".' },
     flaw: { type: 'string', description: 'the single highest-value flaw you are fixing (or why it needs a redesign); "" if approved.' },
     redesign: { type: 'boolean', description: 'true if the design cannot read at this size and must be re-visioned simpler.' },
     edits: {
@@ -366,7 +377,7 @@ ${brief}
 
 Palette: ${paletteStr}
 
-Above is the CURRENT canvas rendered at true display scale. Assess it COLD per your rules: APPROVE if it clears the 96% bar and reads instantly as "${subject}" (every major element the right object); otherwise name the single highest-value flaw and APPLY the fix as a batch of edits; or set redesign:true if it genuinely cannot work at this size.`;
+Above is the CURRENT canvas rendered at true display scale. Assess it COLD per your rules. Reading as "${subject}" is only the FIRST bar — do NOT approve there. Run the POLISH sweep (top→bottom, left→right) and hunt form-folly: flat fills (a blank belly/slab body → add volume + texture), detached/floating parts (→ attach), weak/placeholder features (→ finish), wasted cells. If you find any, name the single highest-value one and APPLY the fix as a batch of edits. APPROVE only when a full polish sweep finds nothing worth fixing and one more edit would not clearly beat this version; or set redesign:true if it genuinely cannot work at this size.`;
 }
 
 /** The AUDITOR's per-phase system prompt — the recovered cascade art director, judging fidelity to the committed brief at read-level. Class-aware: strict on figures/action/scenes. */

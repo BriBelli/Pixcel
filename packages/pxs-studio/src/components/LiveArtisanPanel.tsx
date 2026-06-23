@@ -13,9 +13,9 @@ interface Props {
 
 type ModelId = 'claude-opus-4-8' | 'claude-sonnet-4-6' | 'claude-haiku-4-5';
 const MODELS: { id: ModelId; label: string }[] = [
-  { id: 'claude-opus-4-8', label: 'Opus 4.8 · top craft (default)' },
-  { id: 'claude-sonnet-4-6', label: 'Sonnet 4.6 · faster' },
-  { id: 'claude-haiku-4-5', label: 'Haiku 4.5 · cheapest' },
+  { id: 'claude-opus-4-8', label: 'Opus 4.8' },
+  { id: 'claude-sonnet-4-6', label: 'Sonnet 4.6' },
+  { id: 'claude-haiku-4-5', label: 'Haiku 4.5' },
 ];
 const SIZES = [16, 24, 32, 48, 64];
 // Canvas SHAPE presets (separate from Size/resolution). 'auto' = the artist picks the best for the
@@ -43,8 +43,10 @@ export default function LiveArtisanPanel({ onGridUpdate }: Props) {
   const [manualH, setManualH] = useState(32);
   // 2.1 — HIDDEN pass budget (the AI never sees it; '' = auto by complexity, up to 90).
   const [passes, setPasses] = useState<number | ''>('');
-  // 2.2 — complexity: 'auto' lets VISION estimate; else the user forces the tier (simplifies the AI).
-  const [complexity, setComplexity] = useState<string>('auto');
+  // Complexity is ALWAYS auto-estimated by VISION. The manual "Detail" override (Simple/Moderate/…) was
+  // removed — its tiers were dead, confusing dead-space (no user knows which to pick). Kept as a const so
+  // the cost-cap math below still reads it.
+  const complexity = 'auto';
   // Dims to send, derived from the SHAPE + the size budget. 'auto' omits cols/rows (VISION picks the
   // shape itself); presets derive cols×rows from `size` (3:2); 'custom' = the exact W×H.
   const shortEdge = Math.max(8, Math.round(size * 2 / 3));
@@ -266,16 +268,24 @@ export default function LiveArtisanPanel({ onGridUpdate }: Props) {
         {/* Size (the budget — longest edge) + model */}
         <div className="flex items-center gap-2 text-[9px]">
           <span className="uppercase tracking-wider text-text-muted" title="The artwork's PIXEL resolution — the grid size on its longest edge (not a zoom level). The Shape control below sets the canvas proportions.">Size</span>
-          <select
-            value={size}
-            onChange={(e) => setSize(Number(e.target.value))}
-            title="The artwork's pixel resolution (longest edge). Bigger = finer, slower, pricier."
-            className="rounded-md border border-border bg-background-tertiary px-1.5 py-1 text-[9px] text-text-secondary focus:outline-none focus:border-border-hover"
-          >
+          <div className="flex items-center gap-0.5 rounded-md border border-border bg-background-tertiary p-0.5">
             {SIZES.map((s) => (
-              <option key={s} value={s}>{s} px{s >= 48 ? ' · finer' : ''}</option>
+              <button
+                key={s}
+                onClick={() => setSize(s)}
+                title={s >= 48 ? `${s}px grid — finer, slower & pricier` : `${s}px grid — quick & cheap`}
+                className={`px-1.5 py-0.5 rounded transition-colors ${
+                  size === s
+                    ? s >= 48
+                      ? 'bg-accent-yellow/80 text-background-primary'
+                      : 'bg-primary text-white'
+                    : 'text-text-muted hover:text-text-primary'
+                }`}
+              >
+                {s}
+              </button>
             ))}
-          </select>
+          </div>
           <select
             value={model}
             onChange={(e) => setModel(e.target.value as ModelId)}
@@ -290,16 +300,20 @@ export default function LiveArtisanPanel({ onGridUpdate }: Props) {
         {/* Shape (aspect) — Auto = the artist picks the best for the subject; presets force it; custom = W×H */}
         <div className="flex flex-wrap items-center gap-2 text-[9px]">
           <span className="uppercase tracking-wider text-text-muted" title="The canvas SHAPE (separate from Size). Auto lets the artist pick the best for your subject — a car is WIDE, a tower is TALL. Square crams a car into a UFO — pick Landscape for vehicles.">Shape</span>
-          <select
-            value={aspect}
-            onChange={(e) => setAspect(e.target.value as typeof aspect)}
-            title="The canvas SHAPE (separate from Size). Auto = the artist picks the best for your subject; pick Landscape for cars/wide things."
-            className="rounded-md border border-border bg-background-tertiary px-1.5 py-1 text-[9px] text-text-secondary focus:outline-none focus:border-border-hover"
-          >
+          <div className="flex flex-wrap items-center gap-0.5 rounded-md border border-border bg-background-tertiary p-0.5">
             {ASPECTS.map((a) => (
-              <option key={a.id} value={a.id} title={a.title}>{a.label}</option>
+              <button
+                key={a.id}
+                onClick={() => setAspect(a.id)}
+                title={a.title}
+                className={`px-1.5 py-0.5 rounded transition-colors ${
+                  aspect === a.id ? 'bg-primary text-white' : 'text-text-muted hover:text-text-primary'
+                }`}
+              >
+                {a.label}
+              </button>
             ))}
-          </select>
+          </div>
           {aspect === 'custom' && (
             <div className="flex items-center gap-1 rounded-md border border-border bg-background-tertiary px-1.5 py-0.5 text-text-secondary">
               <input
@@ -319,31 +333,17 @@ export default function LiveArtisanPanel({ onGridUpdate }: Props) {
           )}
         </div>
 
-        {/* 2.1 passes (hidden budget) + 2.2 complexity — the interactive controls. */}
+        {/* Max rounds — the hidden pass budget (cost seatbelt). Complexity is auto (Detail control removed). */}
         <div className="flex items-center gap-2 text-[9px] text-text-muted">
-          <label className="flex items-center gap-1" title="The MAX number of refine rounds before it must ship — your cost seatbelt, HIDDEN from the AI (it approves on quality, never to fill a budget). Blank = the cap for the chosen Detail tier (shown in the box); type a number to override, up to 90.">
+          <label className="flex items-center gap-1" title="The MAX number of refine rounds before it must ship — your cost seatbelt, HIDDEN from the AI (it approves on quality, never to fill a budget). Blank = the cap the AI estimated for this piece (shown in the box); type a number to override, up to 90.">
             <span className="uppercase tracking-wider">Max rounds</span>
             <input
               type="number" min={1} max={90} value={passes}
               placeholder={String(passCap)}
               onChange={(e) => setPasses(e.target.value === '' ? '' : Math.min(90, Math.max(1, Math.round(+e.target.value || 1))))}
-              title={`default cap for ${complexity === 'auto' ? 'the estimated tier' : complexity} = ${passCap}`}
+              title={`auto-estimated cap = ${passCap} (blank uses it; type to override)`}
               className="w-12 rounded-md border border-border bg-background-tertiary px-1 py-0.5 text-center text-text-primary placeholder:text-text-muted focus:outline-none focus:border-border-hover"
             />
-          </label>
-          <label className="flex items-center gap-1" title="Detail/complexity tier. Auto lets the designer estimate it; pick one to set it yourself.">
-            <span className="uppercase tracking-wider">Detail</span>
-            <select
-              value={complexity}
-              onChange={(e) => setComplexity(e.target.value)}
-              className="rounded-md border border-border bg-background-tertiary px-1.5 py-0.5 text-text-secondary focus:outline-none focus:border-border-hover"
-            >
-              <option value="auto">Auto</option>
-              <option value="simple">Simple</option>
-              <option value="moderate">Moderate</option>
-              <option value="complex">Complex</option>
-              <option value="advanced">Advanced</option>
-            </select>
           </label>
           {passes !== '' && passes >= 24 && (
             <span className="ml-auto text-accent-yellow/80" title="More rounds = more spend (each round is one model call).">~{passes} rounds · higher cost</span>

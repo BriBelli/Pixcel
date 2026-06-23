@@ -42,6 +42,21 @@ decides; a preset/custom = the user decides, and the agent honors it.)
 - **Aspect** = the *shape*; **Resolution** = the *density*. Never one control for both.
 - `Retro / Photo / Vector` = **convert modes** on the IMAGE tab only — not generation settings.
 
+## Open — a CLEARER representation still needed (Brian, 2026-06-23)
+Two things shipped on the ART panel: **Size + Shape are chip rows** (not dropdowns — chips read better
+here), the **model label is just "Opus 4.8"** (the "· top craft (default)" was congesting noise), and the
+**"Detail" complexity control was REMOVED** — its tiers (Simple/Moderate/Complex/Advanced) were dead,
+meaningless dead-space; **no user knows which to pick, and Auto already nails it** (VISION estimates
+complexity). Complexity is now always auto.
+
+**But the underlying representation of Size / Resolution / Aspect is still not right.** The hard problem:
+express **canvas SHAPE + a large/comfortable canvas WHILE retaining the chunky pixel resolution** in
+controls a normal person groks instantly. What NOT to do: the other system's **"cells-per-pixel"** knob
+(meaningless to humans). The "Detail" tiers were the same trap — abstract values nobody can rank. The
+target is a representation that **resonates / maps to something common** (think Photoshop presets, or
+named looks people recognize) — or it gets cut, like Detail did. **Find a better presentation BEFORE the
+formal design review** — this is a product-feel problem, not just a layout one.
+
 ## One-line truth
 *Aspect (Auto-by-agent, or Portrait/Landscape/Square/Custom) and Resolution (chunky→fine) are two
 separate dials. Default: the agent picks the aspect; the user only touches it if they want to. And nothing

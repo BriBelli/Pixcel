@@ -318,7 +318,7 @@ export default function LiveArtisanPanel({ onGridUpdate }: Props) {
             title="Auto = the artist picks the best shape for your subject. Pick one to force it; Custom = your exact W×H."
             className="rounded-md border border-border bg-background-tertiary px-1.5 py-1 text-[9px] text-text-secondary focus:outline-none focus:border-border-hover"
           >
-            <option value="auto">Auto — the artist picks</option>
+            <option value="auto">Auto</option>
             {ASPECTS.map((a) => (
               <option key={a.id} value={a.id}>{a.label}</option>
             ))}

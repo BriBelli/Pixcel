@@ -73,6 +73,10 @@ const CEILINGS: Record<Complexity, Ceiling> = {
   advanced: { passes: 12, forum: true },
 };
 const MAX_REDESIGNS = 2; // re-VISION simpler at most this many times before committing to refine
+// EXTREME-case abuse ceiling on the longest edge — NOT a token-saving cap (per Brian: token use = product
+// use, don't throttle it). The real account guard is the per-job COST cap (costCapUsd) below. This just
+// stops an absurd request (e.g. 500²) from trying. The UI offers ≤64; this gives manual headroom above it.
+const MAX_EDGE = 80;
 // CONVERGENCE GUARDS — kept INDEPENDENT of the (user-set, hidden) pass ceiling, so the AI approves on
 // quality, not on a count (the user's principle). STUCK = this many consecutive fix passes naming the
 // SAME element ⇒ it's chasing detail that can't render (the racket grind) → force a simplify/redesign.
@@ -339,8 +343,8 @@ export function startLiveJob(opts: {
     id,
     prompt: opts.prompt,
     size,
-    manualCols: opts.cols && opts.rows ? Math.min(64, Math.max(8, Math.round(opts.cols))) : undefined,
-    manualRows: opts.cols && opts.rows ? Math.min(64, Math.max(8, Math.round(opts.rows))) : undefined,
+    manualCols: opts.cols && opts.rows ? Math.min(MAX_EDGE, Math.max(8, Math.round(opts.cols))) : undefined,
+    manualRows: opts.cols && opts.rows ? Math.min(MAX_EDGE, Math.max(8, Math.round(opts.rows))) : undefined,
     maxPasses: opts.passes ? Math.min(90, Math.max(1, Math.round(opts.passes))) : undefined,
     manualComplexity: ['simple', 'moderate', 'complex', 'advanced'].includes(opts.complexity || '') ? opts.complexity : undefined,
     model: opts.model || DEFAULT_MODEL,
@@ -449,7 +453,7 @@ async function runStatueEngine(job: LiveJob, apiKey: string, resumeFrame?: PXSFr
   // `simplerThan` to RE-VISION simpler when a design proved infeasible at this size. ----
   // Manual dimensions: if the request fixed cols/rows, the canvas is NOT square and VISION designs to
   // fill them; otherwise VISION CHOOSES the aspect ratio for the subject (auto — `size` = the long edge).
-  const clampDim = (n: unknown): number => Math.min(size, Math.max(8, Math.round(Number(n) || size)));
+  const clampDim = (n: unknown): number => Math.min(MAX_EDGE, size, Math.max(8, Math.round(Number(n) || size)));
   const fixedDims = job.manualCols && job.manualRows
     ? { cols: clampDim(job.manualCols), rows: clampDim(job.manualRows) }
     : undefined;
@@ -462,7 +466,7 @@ async function runStatueEngine(job: LiveJob, apiKey: string, resumeFrame?: PXSFr
         max_tokens: 4000,
         thinking: { type: 'adaptive', display: 'summarized' },
         output_config: { effort: 'high', format: { type: 'json_schema', schema: STATUE_VISION_SCHEMA } },
-        system: statueVisionSystemPrompt(size, simplerThan, fixedDims, job.manualComplexity),
+        system: statueVisionSystemPrompt(Math.min(MAX_EDGE, size), simplerThan, fixedDims, job.manualComplexity),
         messages: [{ role: 'user', content: statueVisionUserMessage(subject, size) }],
       } as any);
       job.liveThinking = '';
@@ -490,12 +494,15 @@ async function runStatueEngine(job: LiveJob, apiKey: string, resumeFrame?: PXSFr
   // approve or apply the highest-value FIX itself (structured output: {approved, flaw, redesign,
   // edits}). FRESH context every call (no message history) — that freshness IS the hot-potato. ----
   let turnSystem = ''; // set once the canvas dimensions are known (after VISION / on resume / on redesign)
-  type Turn = { approved: boolean; flaw: string; redesign: boolean; edits: { x: number; y: number; c: string }[] };
+  type Turn = { approved: boolean; flaw: string; redesign: boolean; truncated?: boolean; edits: { x: number; y: number; c: string }[] };
   const callTurn = async (content: any): Promise<Turn> => {
     const msg = await withRetry(async () => {
       const s = client.messages.stream({
         model,
-        max_tokens: 32000,
+        // Generous headroom so a high-res block-in's big edit batch isn't TRUNCATED → unparseable → grind.
+        // This is a CEILING, not a cost: you pay only for tokens actually generated. The per-job cost cap
+        // (costCapUsd) is the real spend guard. (Brian: don't throttle tokens — token use = product use.)
+        max_tokens: 64000,
         thinking: { type: 'adaptive', display: 'summarized' },
         output_config: { effort: EFFORT, format: { type: 'json_schema', schema: STATUE_TURN_SCHEMA } },
         system: [{ type: 'text', text: turnSystem, cache_control: { type: 'ephemeral' } }],
@@ -510,11 +517,18 @@ async function runStatueEngine(job: LiveJob, apiKey: string, resumeFrame?: PXSFr
     accrue((msg as any).usage || {});
     emitCost();
     const raw = msg.content.filter((b): b is Anthropic.TextBlock => b.type === 'text').map((b) => b.text).join('');
+    const hitTokenCeiling = (msg as any).stop_reason === 'max_tokens'; // output got cut off → JSON incomplete
     try {
       const p = JSON.parse(raw);
       return { approved: !!p.approved, flaw: String(p.flaw || ''), redesign: !!p.redesign, edits: Array.isArray(p.edits) ? p.edits : [] };
     } catch {
-      return { approved: false, flaw: '(unparseable turn — retrying)', redesign: false, edits: [] };
+      return {
+        approved: false,
+        flaw: hitTokenCeiling ? '(too detailed to render in one pass at this size)' : '(unparseable turn — retrying)',
+        redesign: false,
+        edits: [],
+        truncated: true,
+      };
     }
   };
 
@@ -592,6 +606,7 @@ async function runStatueEngine(job: LiveJob, apiKey: string, resumeFrame?: PXSFr
     // ceiling is a cost seatbelt, not the stop condition. ----
     let pass = 0;
     const recentFlaws: string[] = []; // for STUCK detection (same element reworked repeatedly)
+    let truncRun = 0; // consecutive truncated turns → bail fast (don't grind the whole budget / roast fans)
     while (pass < maxPasses) {
       if (job.control === 'cancel') {
         job.status = 'cancelled';
@@ -655,6 +670,21 @@ async function runStatueEngine(job: LiveJob, apiKey: string, resumeFrame?: PXSFr
 
       const turn = await callTurn(content);
       pass++;
+
+      // TRUNCATION GUARD — if even the generous token ceiling is overrun (an extreme / very dense piece),
+      // the JSON is cut off → unparseable. Don't grind every remaining pass on it (the 12-min fan-roaster):
+      // bail fast after 2 with a clear, honest error. (The per-job COST cap is the spend guard, not this.)
+      if (turn.truncated) {
+        truncRun++;
+        if (truncRun >= 2) {
+          job.status = 'error';
+          job.error = `${canvas.cols}×${canvas.rows} is too dense to render in one pass right now — try a smaller size.`;
+          emit('job.error', { message: job.error });
+          return;
+        }
+        continue;
+      }
+      truncRun = 0;
 
       // REDESIGN escape — the design can't read at this size → re-VISION simpler (not on resume; bounded).
       if (turn.redesign && !resumeFrame && redesigns < MAX_REDESIGNS) {

@@ -5,6 +5,11 @@
 > autonomous creative platform** — and getting it **IDE-style** for the UI. Hand this to the UI/IDE
 > effort (Claude Code) as the north star.
 >
+> ⚠ **Building the Pixcel product itself? Read [`docs/PIXCEL-PRODUCT.md`](PIXCEL-PRODUCT.md) FIRST** — the
+> clean, product-only definition (the autonomous artisan agent via A2UI). **THIS doc is the FUTURE
+> platform merge with a separate product — a different, later direction. Do not let it confuse the
+> current Pixcel build.**
+>
 > **Status:** Pixcel side is real and proven (engine, Studio app, live show, gallery). The merge + the
 > IDE shell + the multi-LLM/image/video surfaces are TO BUILD. The sister product's internals must come
 > from its own codebase — this README frames the join, not its implementation details.

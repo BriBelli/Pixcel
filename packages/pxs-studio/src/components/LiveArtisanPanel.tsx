@@ -120,10 +120,12 @@ export default function LiveArtisanPanel({ onGridUpdate }: Props) {
     control('cancel');
     toastManager.success('Stopping the artist…');
   }
-  function onPushBack() {
-    const note = window.prompt('What should the artist fix? (it will rework the piece with your note)');
+  function onIterate() {
+    const note = window.prompt('Run ANOTHER round. Add a note to steer it (e.g. "bigger eyes", "richer shading", "add a hat"), or leave blank to just have the artist refine + elevate the piece further.');
     if (note === null) return; // cancelled
-    reject(note.trim() || undefined);
+    // Resume the autonomous process for another round. A blank note becomes a generic "push it further"
+    // so Iterate always does meaningful work (otherwise the satisfied judge would just re-approve as-is).
+    reject(note.trim() || 'Take this further — push it a notch past where it is now (sharper details, richer form, more polish) WITHOUT changing the committed design.');
   }
 
   return (
@@ -192,9 +194,9 @@ export default function LiveArtisanPanel({ onGridUpdate }: Props) {
                 {/* HONESTY GATE — the artist proposes, you dispose. Keep saves; push back reworks. */}
                 {job?.status === 'done' && reviewing && curFrame && (
                   <>
-                    <button onClick={() => accept()} className="px-2 py-0.5 rounded bg-accent-green text-background-primary text-[9px] font-semibold hover:opacity-90">✓ Keep</button>
-                    <button onClick={onPushBack} className="px-2 py-0.5 rounded border border-accent-yellow/40 bg-accent-yellow/10 text-[9px] text-accent-yellow hover:bg-accent-yellow/20">↻ Push back</button>
-                    <button onClick={() => reject()} className="px-2 py-0.5 rounded border border-border bg-background-overlay text-[9px] text-text-muted hover:text-text-primary">Discard</button>
+                    <button onClick={() => accept()} title="Save to your art assets — added to your gallery; load it back any time to keep editing." className="px-2 py-0.5 rounded bg-accent-green text-background-primary text-[9px] font-semibold hover:opacity-90">✓ Save</button>
+                    <button onClick={onIterate} title="Run another round — keep refining autonomously, optionally with a note to steer it (e.g. 'bigger eyes')." className="px-2 py-0.5 rounded border border-accent-yellow/40 bg-accent-yellow/10 text-[9px] text-accent-yellow hover:bg-accent-yellow/20">↻ Iterate</button>
+                    <button onClick={() => reject()} title="Cancel — discard this piece (nothing is saved)." className="px-2 py-0.5 rounded border border-border bg-background-overlay text-[9px] text-text-muted hover:text-text-primary">✕ Cancel</button>
                   </>
                 )}
                 {(job?.status === 'paused' || job?.status === 'cancelled' || job?.status === 'error') && curFrame && (
@@ -205,7 +207,7 @@ export default function LiveArtisanPanel({ onGridUpdate }: Props) {
                 )}
               </div>
               {job?.status === 'done' && reviewing && (
-                <div className="text-[9px] text-text-muted leading-snug">Keep it (saves to your gallery), or push back with a note to rework it. Nothing is saved until you say so.</div>
+                <div className="text-[9px] text-text-muted leading-snug"><b className="text-accent-green">Save</b> → into your art assets (load it back from the gallery to keep editing). <b className="text-accent-yellow">Iterate</b> → another round, optionally with a note to steer it. <b>Cancel</b> → discard. Nothing is saved until you say so.</div>
               )}
               {/* Statue-stage progress — VISION → SHAPE → POLISH → QA */}
               <div className="flex items-center gap-1 text-[8px] font-mono">

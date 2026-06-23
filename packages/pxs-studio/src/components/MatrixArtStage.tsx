@@ -234,7 +234,7 @@ export default function MatrixArtStage({ maxEdge = 460 }: { maxEdge?: number }) 
           </div>
         )}
         {done && (
-          <div className="pointer-events-none absolute inset-x-0 bottom-0 px-2 py-1 text-center font-mono text-[10px] tracking-wider bg-[#0a2a18]/85 text-[#7dffb0]">✓ resolved — keep it or push back →</div>
+          <div className="pointer-events-none absolute inset-x-0 bottom-0 px-2 py-1 text-center font-mono text-[10px] tracking-wider bg-[#0a2a18]/85 text-[#7dffb0]">✓ resolved — Save it or Iterate →</div>
         )}
       </div>
 

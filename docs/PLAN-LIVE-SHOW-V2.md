@@ -68,6 +68,25 @@ fine with the extra passes. **The catch:** pushing the judge stricter is exactly
 so tune carefully, TEST against the comprehensive baseline, and only ship if quality matches or beats it.
 Comprehensive block-in stays the default until then.
 
+## Part B-done + Part D — controls renamed; convergence + manual mode (queued)
+**DONE (2026-06-23):** renamed the review controls to **Save / Iterate / Cancel** (was Keep / Push back /
+Discard). **Save** = into the user's art assets (the gallery; "Load to edit" already lets them reopen +
+edit). **Iterate** = run another round — optional note to steer it; a blank note sends a generic "push it
+further" so Iterate always does real work (otherwise the satisfied judge just re-approves). **Cancel** =
+discard. (`LiveArtisanPanel` + the matching copy in `Studio`/`MatrixArtStage`.)
+
+**QUEUED — the two deeper asks (engine-side, careful):**
+1. **Convergence-threshold ACCURACY (the IP secret sauce).** The judge sometimes approves *too early*
+   (the "cat" at pass 1 — good, but the user wanted a few more rounds). The fix is NOT a forced minimum
+   (that was a bad band-aid) — it's making the "is it *done*?" window **smaller + more accurate** so the
+   agent stops at the *right* moment, not the first acceptable one. This is the judge-consistency lever
+   from `docs/PLAN-QUALITY-ENGINE.md` — quality-gated, churn-prone, test against baselines. Brian: "worth
+   every penny — it's tied to the product IP recipe."
+2. **A more-MANUAL mode (best of both worlds).** Beyond Iterate's autonomous rounds, let the user go
+   granular — direct stroke-by-stroke / pixel-by-pixel when they want fine control, while keeping the
+   autonomous flow as the default. (The "Load to edit" → GRID editor is the seed of this; a tighter
+   in-panel manual loop is the target.)
+
 ## Build ownership
 - **Part A (real-time char-map)** = ENGINE work (stream-parsing in `callTurn` + incremental `pass.delta`)
   → build carefully + tested (display-layer, so low art risk). The bullseye; highest value.

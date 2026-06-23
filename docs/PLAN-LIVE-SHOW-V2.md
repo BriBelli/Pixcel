@@ -54,6 +54,20 @@ Rename + behavior (`LiveArtisanPanel` + `live-art-store`):
 - Mechanism: today `reject(note)` already resumes + injects feedback; v2 = make a non-destructive
   "continue" that ALSO bumps `maxPasses` by N (with/without a note), and doesn't mark a rejection.
 
+## Part C — incremental build (QUEUED experiment, quality-gated)
+**Tested 2026-06-22 → REVERTED (quality dropped).** A "silhouette block-in" (lighter first pass → the
+hot-potato loop builds it up in stages) was genuinely watchable (owl built silhouette → eyes/beak →
+shading) AND cheap/fast (3 passes, $0.41/159s ≈ the 1-pass baseline). BUT the judge **converged early**
+on a FLATTER result (no facial disc / cream belly / full shading vs the rich comprehensive baseline). Per
+[[feedback_quality-is-the-product]] (quality is sacred), reverted immediately.
+
+**The real target (next deliberate experiment): incremental build + judge pushes to FULL richness.** Keep
+the staged build (watchable, cheap), but the judge must NOT approve until the piece reaches the brief's
+full richness (silhouette → features → shading → facial disc → belly → details → *then* approve). Brian is
+fine with the extra passes. **The catch:** pushing the judge stricter is exactly what reintroduces churn —
+so tune carefully, TEST against the comprehensive baseline, and only ship if quality matches or beats it.
+Comprehensive block-in stays the default until then.
+
 ## Build ownership
 - **Part A (real-time char-map)** = ENGINE work (stream-parsing in `callTurn` + incremental `pass.delta`)
   → build carefully + tested (display-layer, so low art risk). The bullseye; highest value.

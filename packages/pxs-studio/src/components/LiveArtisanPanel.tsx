@@ -18,10 +18,9 @@ const MODELS: { id: ModelId; label: string }[] = [
   { id: 'claude-haiku-4-5', label: 'Haiku 4.5' },
 ];
 const SIZES = [16, 24, 32, 48, 64];
-// Canvas ASPECT-RATIO presets (separate from resolution). There is NO explicit "Auto" chip — leaving
-// NONE selected IS the default ("lazy auto"): the artist just picks the best shape for the subject.
-// Picking a chip forces that shape; clicking the selected chip again clears back to none. 'custom' =
-// exact W×H. (docs/SPEC-DIMENSIONS.md)
+// Canvas ASPECT-RATIO presets (separate from resolution). Rendered as a dropdown whose DEFAULT option
+// is "Auto" (the artist picks the best shape for the subject); these are the explicit overrides.
+// 'custom' = exact W×H (shows the W/H inputs). (docs/SPEC-DIMENSIONS.md)
 const ASPECTS = [
   { id: 'landscape' as const, label: 'Landscape', title: 'Landscape / wide — cars, scenes, anything horizontal.' },
   { id: 'portrait' as const, label: 'Portrait', title: 'Portrait / tall — figures, towers, anything vertical.' },
@@ -310,23 +309,20 @@ export default function LiveArtisanPanel({ onGridUpdate }: Props) {
           </select>
         </div>
 
-        {/* Aspect ratio — leave NONE selected = "lazy auto" (the artist picks); a chip forces it; custom = W×H */}
+        {/* Aspect ratio — a dropdown defaulting to "Auto" (the artist picks the shape); Custom shows W×H */}
         <div className="flex flex-wrap items-center gap-2 text-[9px]">
-          <span className="uppercase tracking-wider text-text-muted" title="The canvas ASPECT RATIO / proportions (separate from Resolution). Leave it UNPICKED and the artist chooses the best for your subject — a car is WIDE, a tower is TALL. Pick one only to force it (Square crams a car into a UFO — pick Landscape for vehicles).">Aspect Ratio</span>
-          <div className="flex flex-wrap items-center gap-0.5 rounded-md border border-border bg-background-tertiary p-0.5">
+          <span className="uppercase tracking-wider text-text-muted" title="The canvas ASPECT RATIO / proportions (separate from Resolution). Auto (the default) lets the artist choose the best for your subject — a car is WIDE, a tower is TALL. Pick one to force it; Custom = your exact W×H.">Aspect Ratio</span>
+          <select
+            value={aspect}
+            onChange={(e) => setAspect(e.target.value as typeof aspect)}
+            title="Auto = the artist picks the best shape for your subject. Pick one to force it; Custom = your exact W×H."
+            className="rounded-md border border-border bg-background-tertiary px-1.5 py-1 text-[9px] text-text-secondary focus:outline-none focus:border-border-hover"
+          >
+            <option value="auto">Auto — the artist picks</option>
             {ASPECTS.map((a) => (
-              <button
-                key={a.id}
-                onClick={() => setAspect(aspect === a.id ? 'auto' : a.id)}
-                title={`${a.title}  ·  click again to clear (let the artist decide)`}
-                className={`px-1.5 py-0.5 rounded transition-colors ${
-                  aspect === a.id ? 'bg-primary text-white' : 'text-text-muted hover:text-text-primary'
-                }`}
-              >
-                {a.label}
-              </button>
+              <option key={a.id} value={a.id}>{a.label}</option>
             ))}
-          </div>
+          </select>
           {aspect === 'custom' && (
             <div className="flex items-center gap-1 rounded-md border border-border bg-background-tertiary px-1.5 py-0.5 text-text-secondary">
               <input

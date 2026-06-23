@@ -93,8 +93,15 @@ export default function LiveArtisanPanel({ onGridUpdate }: Props) {
   function onSend() {
     const p = input.trim();
     if (!p) return;
-    if (running) feedback(p);
-    else { setLastPrompt(p); start(startArgs(p)); }
+    if (running) {
+      feedback(p); // a live job is running → steer it mid-flight
+    } else if (job?.status === 'done' && reviewing) {
+      // Reviewing a FINISHED piece → the chat REFINES this piece (resume + fold in the note), it does
+      // NOT start a new generation from scratch. (To make a brand-new piece, use Redo, or Cancel first.)
+      reject(p);
+    } else {
+      setLastPrompt(p); start(startArgs(p)); // idle → a brand-new piece
+    }
     setInput('');
   }
   function saveCurrent() {
@@ -369,7 +376,11 @@ export default function LiveArtisanPanel({ onGridUpdate }: Props) {
               }
             }}
             rows={2}
-            placeholder={running ? 'Send live feedback to the artist…  (e.g. "make two tentacles into arms")' : 'Describe a piece to sculpt live…'}
+            placeholder={
+              running ? 'Send live feedback to the artist…  (e.g. "make two tentacles into arms")'
+              : (job?.status === 'done' && reviewing) ? 'Tell the artist a change to make to THIS piece…  (or Save / Redo above)'
+              : 'Describe a piece to sculpt live…'
+            }
             className="flex-1 resize-none rounded-md border border-border bg-background-tertiary px-2 py-1.5 text-[11px] text-text-primary placeholder:text-text-muted focus:outline-none focus:border-border-hover"
           />
           <button

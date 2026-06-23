@@ -194,6 +194,14 @@ context). For the **final gate** on hard pieces, optionally split into judge-the
 thing being made talks themselves into it. That coupling + anchoring = the leniency that rubber-stamped
 a piece failing its own stated child/read test.
 
+### Concrete misses — the regression test set (grow this)
+Real approved-but-flawed pieces the fresh-eyes gate MUST catch. Use them to validate any judge change.
+- **Tennis player** — APPROVED holding a *balloon*, not a racket (the founding case).
+- **Cat (32×32, 2026-06-23)** — APPROVED with **whiskers floating in space, detached from the muzzle**
+  (free cream bars left/right of the head, not touching the face). A stranger reads "why are there
+  dashes next to the cat?" The QA never flagged it. Also a per-class craft note: **whiskers must attach
+  to the muzzle** (cats/creatures — appendages connect to the body, never float).
+
 ## What the Evaluator is
 An **independent, fresh-eyes quality gate** — a critic that did NOT make the piece, sees the finished
 render **cold** (only the brief + the image), and has the authority to **reject and force rework**.

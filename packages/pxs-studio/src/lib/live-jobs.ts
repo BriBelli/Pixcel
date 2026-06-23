@@ -14,6 +14,10 @@ import {
   STATUE_TURN_SCHEMA,
   statueFirstDrawUserMessage,
   statueTurnUserMessage,
+  statueBonusUserMessage,
+  statueCompareSystemPrompt,
+  statueCompareUserMessage,
+  STATUE_COMPARE_SCHEMA,
 } from './ai-art-system-prompt';
 
 /**
@@ -565,6 +569,37 @@ async function runStatueEngine(job: LiveJob, apiKey: string, resumeFrame?: PXSFr
     }
   };
 
+  // BONUS-ROUND judge — show fresh eyes {A: the approved piece, B: the bonus attempt}; return the winner.
+  // Hard-biased to KEEP A unless B is clearly better, so the bonus round is strictly NON-REGRESSIVE.
+  const callCompare = async (a: Canvas, b: Canvas): Promise<{ winner: 'A' | 'B'; why: string }> => {
+    try {
+      const msg = await withRetry(async () => {
+        const s = client.messages.stream({
+          model,
+          max_tokens: 2000,
+          thinking: { type: 'adaptive', display: 'summarized' },
+          output_config: { effort: EFFORT, format: { type: 'json_schema', schema: STATUE_COMPARE_SCHEMA } },
+          system: [{ type: 'text', text: statueCompareSystemPrompt(subject) }],
+          messages: [{ role: 'user', content: [
+            { type: 'text', text: 'Version A — the current APPROVED piece:' },
+            { type: 'image', source: { type: 'base64', media_type: 'image/png', data: frameToPngBase64(canvasToFrame(a)) } },
+            { type: 'text', text: 'Version B — a BONUS attempt to elevate it:' },
+            { type: 'image', source: { type: 'base64', media_type: 'image/png', data: frameToPngBase64(canvasToFrame(b)) } },
+            { type: 'text', text: statueCompareUserMessage(subject) },
+          ] }],
+        } as any);
+        return await s.finalMessage();
+      });
+      accrue((msg as any).usage || {});
+      emitCost();
+      const raw = (msg as any).content.filter((bl: any) => bl.type === 'text').map((bl: any) => bl.text).join('');
+      const p = JSON.parse(raw);
+      return { winner: p.winner === 'B' ? 'B' : 'A', why: String(p.why || '') };
+    } catch {
+      return { winner: 'A', why: '(comparison failed — kept the approved piece)' }; // safe default: keep A
+    }
+  };
+
   // Build the working canvas from the committed VISION palette + chosen dimensions (the engine owns
   // both — no setup tool). Dimensions are VISION's aspect choice (auto) or the user's (manual).
   const buildCanvas = (pal: Vision['palette'], title: string, cols: number, rows: number): Canvas => {
@@ -775,6 +810,41 @@ async function runStatueEngine(job: LiveJob, apiKey: string, resumeFrame?: PXSFr
       emit('audit.verdict', { stage: 'refine', approved: false, issues: [note], pass: job.gestures });
       emit('pass.delta', { stage: 'refine', pass: job.gestures, cells: deltaCells });
       emit('pass.done', { stage: 'refine', pass: job.gestures, cellsApplied: applied.length, note, frame });
+    }
+
+    // ---- BONUS ROUND (Brian) — once the artist APPROVES, ONE optional shot to elevate the piece. The
+    // attempt is KEPT only if a fresh-eyes A/B comparison judges it genuinely BETTER than the approved
+    // version; otherwise the approved piece stands. Strictly NON-REGRESSIVE — the only cost is the try. ----
+    if (finished && job.control !== 'cancel' && (job.costUsd ?? 0) < job.costCapUsd) {
+      const champion = cloneCanvas(canvas);
+      job.statusMessage = 'Bonus round — one more shot at greatness…';
+      emit('pass.start', { stage: 'bonus', pass: job.gestures + 1, note: 'bonus round' });
+      const challenger = cloneCanvas(canvas);
+      const bonusTurn = await callTurn([
+        { type: 'image', source: { type: 'base64', media_type: 'image/png', data: frameToPngBase64(canvasToFrame(challenger)) } },
+        { type: 'text', text: statueBonusUserMessage(subject, canvas.cols, canvas.rows, brief, paletteStr(canvas)) },
+      ], challenger);
+      if (!bonusTurn.truncated && bonusTurn.edits.length) {
+        const { applied } = applyEdits(challenger, bonusTurn.edits);
+        job.statusMessage = 'Bonus round — judging A vs B…';
+        const cmp = await callCompare(champion, challenger);
+        if (cmp.winner === 'B') {
+          canvas = challenger; // the bonus genuinely beat the approved piece — take it
+          job.gestures++;
+          job.latestFrame = canvasToFrame(canvas);
+          job.frames.push(job.latestFrame);
+          traj.bonus = { kept: true, why: cmp.why, cells: applied.length };
+          emit('audit.verdict', { stage: 'bonus', approved: true, issues: [`bonus KEPT — ${cmp.why}`], pass: job.gestures });
+          emit('pass.done', { stage: 'bonus', pass: job.gestures, cellsApplied: applied.length, note: 'bonus kept', frame: job.latestFrame });
+        } else {
+          canvas = champion; // discard the bonus — the approved piece wins (no regression)
+          traj.bonus = { kept: false, why: cmp.why };
+          emit('audit.verdict', { stage: 'bonus', approved: false, issues: [`bonus discarded — kept the approved (${cmp.why})`], pass: job.gestures });
+        }
+      } else {
+        traj.bonus = { kept: false, why: 'nothing worth adding' };
+        emit('audit.verdict', { stage: 'bonus', approved: false, issues: ['bonus — nothing worth adding; kept the approved piece'], pass: job.gestures });
+      }
     }
 
     // keep-best ship: a clean approve ships `canvas` as-is; hitting the ceiling/cost cap WITHOUT an

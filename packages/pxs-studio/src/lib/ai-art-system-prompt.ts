@@ -378,6 +378,38 @@ Palette: ${paletteStr}
 Above is the CURRENT canvas rendered at true display scale. Assess it COLD per your rules. Reading as "${subject}" is only the FIRST bar — do NOT approve there. Run the POLISH sweep (top→bottom, left→right) and hunt form-folly: flat fills (a blank belly/slab body → add volume + texture), detached/floating parts (→ attach), weak/placeholder features (→ finish), wasted cells. If you find any, name the single highest-value one and APPLY the fix as a batch of edits. APPROVE only when a full polish sweep finds nothing worth fixing and one more edit would not clearly beat this version; or set redesign:true if it genuinely cannot work at this size.`;
 }
 
+/** BONUS ROUND — after the piece is APPROVED, one optional shot to elevate it. The result is only KEPT
+ *  if a separate fresh-eyes comparison judges it genuinely better (so a crude attempt is simply discarded). */
+export function statueBonusUserMessage(subject: string, cols: number, rows: number, brief: string, paletteStr: string): string {
+  return `COMMITTED design brief for "${subject}" (${cols}×${rows} — ${cols} wide, ${rows} tall):
+${brief}
+
+Palette: ${paletteStr}
+
+Above is the FINISHED, APPROVED piece — it already cleared the bar. This is a BONUS ROUND: take ONE more shot to ELEVATE it a notch toward a hero, professional-grade finish — richer form/volume, cleaner edges, a touch more believable texture/sheen/depth, the final flourish a master adds last. ONLY make changes that GENUINELY improve it: coherent shading bands and clean form, NEVER scattered single-cell "dirt" (salt-and-pepper noise makes it WORSE). If you honestly cannot improve it, return approved:true and edits:[] — leave it alone ("better than perfect makes it worse"). Otherwise return your elevation as a batch of edits.`;
+}
+
+/** The BONUS-ROUND comparison judge — picks the better of {approved A, bonus attempt B}, biased to KEEP A. */
+export function statueCompareSystemPrompt(subject: string): string {
+  return `You are a master art director making a FINAL call between two versions of a Pixcel "${subject}". You see BOTH cold. Pick the BETTER hero piece — the one someone would more proudly keep: cleaner, more believable form, more professional, reading instantly at a glance.
+
+CRUCIAL BIAS — DEFAULT TO VERSION A (the current, already-approved piece). Choose B ONLY if it is CLEARLY, genuinely BETTER — richer form, cleaner edges, a more finished read. If B merely ADDED busy detail, scattered single-cell "dirt"/noise, or changed things without truly improving them, choose A. Change for its own sake is a LOSS ("better than perfect makes it worse"). When in any doubt, A wins.
+
+Return ONLY {winner, why}.`;
+}
+export function statueCompareUserMessage(subject: string): string {
+  return `Which is the better hero "${subject}" — A (the current approved piece) or B (the bonus attempt)? Default to A unless B is CLEARLY, genuinely better.`;
+}
+export const STATUE_COMPARE_SCHEMA = {
+  type: 'object',
+  additionalProperties: false,
+  properties: {
+    winner: { type: 'string', enum: ['A', 'B'], description: 'A = keep the current approved piece (the default); B = the bonus attempt is CLEARLY better.' },
+    why: { type: 'string', description: 'one short line: why this version wins.' },
+  },
+  required: ['winner', 'why'],
+} as const;
+
 /** The AUDITOR's per-phase system prompt — the recovered cascade art director, judging fidelity to the committed brief at read-level. Class-aware: strict on figures/action/scenes. */
 export function statueAuditSystemPrompt(opts: {
   subject: string;

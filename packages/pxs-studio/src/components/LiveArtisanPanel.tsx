@@ -18,10 +18,11 @@ const MODELS: { id: ModelId; label: string }[] = [
   { id: 'claude-haiku-4-5', label: 'Haiku 4.5' },
 ];
 const SIZES = [16, 24, 32, 48, 64];
-// Canvas SHAPE presets (separate from Size/resolution). 'auto' = the artist picks the best for the
-// subject (the smart default); the rest force a shape; 'custom' = exact W×H. (docs/SPEC-DIMENSIONS.md)
+// Canvas ASPECT-RATIO presets (separate from resolution). There is NO explicit "Auto" chip — leaving
+// NONE selected IS the default ("lazy auto"): the artist just picks the best shape for the subject.
+// Picking a chip forces that shape; clicking the selected chip again clears back to none. 'custom' =
+// exact W×H. (docs/SPEC-DIMENSIONS.md)
 const ASPECTS = [
-  { id: 'auto' as const, label: 'Auto', title: 'The artist picks the best shape for your subject (a car is wide, a tower is tall) — the smart default.' },
   { id: 'landscape' as const, label: 'Landscape', title: 'Landscape / wide — cars, scenes, anything horizontal.' },
   { id: 'portrait' as const, label: 'Portrait', title: 'Portrait / tall — figures, towers, anything vertical.' },
   { id: 'square' as const, label: 'Square', title: 'Square (1:1) — icons, faces, symmetric subjects.' },
@@ -297,15 +298,15 @@ export default function LiveArtisanPanel({ onGridUpdate }: Props) {
           </select>
         </div>
 
-        {/* Shape (aspect) — Auto = the artist picks the best for the subject; presets force it; custom = W×H */}
+        {/* Aspect ratio — leave NONE selected = "lazy auto" (the artist picks); a chip forces it; custom = W×H */}
         <div className="flex flex-wrap items-center gap-2 text-[9px]">
-          <span className="uppercase tracking-wider text-text-muted" title="The canvas ASPECT RATIO / proportions (separate from Resolution). Auto lets the artist pick the best for your subject — a car is WIDE, a tower is TALL. Square crams a car into a UFO — pick Landscape for vehicles.">Aspect Ratio</span>
+          <span className="uppercase tracking-wider text-text-muted" title="The canvas ASPECT RATIO / proportions (separate from Resolution). Leave it UNPICKED and the artist chooses the best for your subject — a car is WIDE, a tower is TALL. Pick one only to force it (Square crams a car into a UFO — pick Landscape for vehicles).">Aspect Ratio</span>
           <div className="flex flex-wrap items-center gap-0.5 rounded-md border border-border bg-background-tertiary p-0.5">
             {ASPECTS.map((a) => (
               <button
                 key={a.id}
-                onClick={() => setAspect(a.id)}
-                title={a.title}
+                onClick={() => setAspect(aspect === a.id ? 'auto' : a.id)}
+                title={`${a.title}  ·  click again to clear (let the artist decide)`}
                 className={`px-1.5 py-0.5 rounded transition-colors ${
                   aspect === a.id ? 'bg-primary text-white' : 'text-text-muted hover:text-text-primary'
                 }`}
@@ -314,6 +315,9 @@ export default function LiveArtisanPanel({ onGridUpdate }: Props) {
               </button>
             ))}
           </div>
+          {aspect === 'auto' && (
+            <span className="text-[9px] text-text-muted/60 italic" title="Nothing picked — the artist chooses the best shape for your subject.">the artist decides</span>
+          )}
           {aspect === 'custom' && (
             <div className="flex items-center gap-1 rounded-md border border-border bg-background-tertiary px-1.5 py-0.5 text-text-secondary">
               <input

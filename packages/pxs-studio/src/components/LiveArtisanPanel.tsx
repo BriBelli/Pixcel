@@ -336,7 +336,7 @@ export default function LiveArtisanPanel({ onGridUpdate }: Props) {
         {/* Max rounds — the hidden pass budget (cost seatbelt). Complexity is auto (Detail control removed). */}
         <div className="flex items-center gap-2 text-[9px] text-text-muted">
           <label className="flex items-center gap-1" title="The MAX number of refine rounds before it must ship — your cost seatbelt, HIDDEN from the AI (it approves on quality, never to fill a budget). Blank = the cap the AI estimated for this piece (shown in the box); type a number to override, up to 90.">
-            <span className="uppercase tracking-wider">Max rounds</span>
+            <span className="uppercase tracking-wider">Max revisions</span>
             <input
               type="number" min={1} max={90} value={passes}
               placeholder={String(passCap)}
@@ -346,7 +346,7 @@ export default function LiveArtisanPanel({ onGridUpdate }: Props) {
             />
           </label>
           {passes !== '' && passes >= 24 && (
-            <span className="ml-auto text-accent-yellow/80" title="More rounds = more spend (each round is one model call).">~{passes} rounds · higher cost</span>
+            <span className="ml-auto text-accent-yellow/80" title="More revisions = more spend (each revision is one model call).">~{passes} revisions · higher cost</span>
           )}
         </div>
         <div className="flex items-end gap-1.5">

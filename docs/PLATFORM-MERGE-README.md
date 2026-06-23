@@ -119,7 +119,11 @@ autonomous agent build it, structured, watchable, editable."
 - **Left rail** — surfaces/tools (Art · Image · Video · Grid · Anim · Autonomous Studio) + the
   **gallery/project explorer** (media-as-JSON records, hearts/favorites, history).
 - **Center** — the **canvas / editor / live stage** (the current Studio center easel + the real-time
-  char-map live show + per-surface editors).
+  char-map live show + per-surface editors). ⚠ **Editing is under-surfaced today:** the canvas IS
+  paintable (the `B` brush key + a tiny color swatch by "PXS" + Cmd+Z), but there's no visible
+  **paint-tools palette** — a saved piece looks un-editable. Build a clear, prominent editor toolbar
+  (brush / eraser / fill / color / select) so "Save → load → edit" is obvious. The capability exists
+  (`GridCanvas` imperative API, `selectedColor`); it just needs to be *surfaced*.
 - **Right rail — the AI panel** — chat + the **agent**: the multi-LLM brain that runs the convergent
   engine, streams the live show, exposes controls (size/aspect/rounds/complexity/model), and folds in
   live human feedback. This is where "describe a piece → watch it sculpt" lives, and where the

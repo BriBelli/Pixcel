@@ -11,6 +11,33 @@
 
 ---
 
+## What Pixcel IS — the product, technically (read this FIRST)
+
+**Pixcel is an autonomous artisan AGENT you talk to — not a pixel-art *tool* you operate.** You interface
+with an autonomous *agent* through a **dynamic, conversational UI (A2UI — the agent drives the
+interface).** The agent's job is to **work out the best workflow and guide you to a finished piece.** You
+own the *what* (and the taste); the agent owns the *how*.
+
+The autonomous-agent pattern is **recycled** — a general *"describe it → the agent figures out how to
+build it → it builds it"* engine (the "do-anything, given time + money" agent). **Pixcel Art Studio is
+one instance of it: an autonomous ARTISAN.** (Every other surface of the platform is the *same* idea — an
+autonomous agent you interface with via A2UI. Pixcel is the proven first one.)
+
+**The flow, from the user's seat:**
+1. **Request** — ask for something as pixel art: as little as a single word (`owl`) or a detailed prompt.
+2. **The artisan works autonomously** through its proven pipeline — **VISION → REFINE → … (the Statue
+   Method)**: it commits a design, then sculpts it pass by pass, judging its own work with fresh eyes and
+   keeping the best — a real artist's loop, no human required.
+3. **Watch it create** — visualize → design → paint → edit, in **real time** (the live char-map show).
+4. **Iterate + steer** — keep it, send it for **another round**, or give **optional feedback** to direct
+   it. You commission and curate; the artisan executes.
+
+**Mental model:** not "a button that spits out an image" — **"an autonomous artist you commission, watch
+work, and direct."** The UI is the *conversation with the agent + the window into its work*, not a panel
+of sliders.
+
+---
+
 ## 0. The one-paragraph vision
 Two projects independently converged on the same primitive — **media as structured JSON, not files.**
 Pixcel reasons *pixel art* into JSON (watchable, structured, hardware-valid). The sister project turns

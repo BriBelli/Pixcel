@@ -207,10 +207,13 @@ export default function MatrixArtStage({ maxEdge = 460 }: { maxEdge?: number }) 
         style={{ background: BG, boxShadow: '0 0 0 1px rgba(125,255,176,0.16), 0 0 36px rgba(20,120,70,0.22)' }}
       >
         <canvas ref={canvasRef} className="block" style={{ width: Math.min(maxEdge, cols * 22), imageRendering: 'pixelated' }} />
-        <div
-          className="pointer-events-none absolute inset-0"
-          style={{ backgroundImage: 'repeating-linear-gradient(to bottom, rgba(0,0,0,0.16) 0px, rgba(0,0,0,0.16) 1px, transparent 1px, transparent 3px)', mixBlendMode: 'multiply' }}
-        />
+        {/* CRT scanlines — a "generating live" vibe ONLY while writing; gone on resolve so the final art reads clean. */}
+        {!done && (
+          <div
+            className="pointer-events-none absolute inset-0"
+            style={{ backgroundImage: 'repeating-linear-gradient(to bottom, rgba(0,0,0,0.16) 0px, rgba(0,0,0,0.16) 1px, transparent 1px, transparent 3px)', mixBlendMode: 'multiply' }}
+          />
+        )}
         <div className="pointer-events-none absolute inset-x-0 top-0 flex items-center justify-between px-2 py-1 font-mono text-[10px]">
           <span className="rounded bg-black/55 px-1.5 py-0.5 tracking-widest text-[#7dffb0]">
             {phaseLabel}

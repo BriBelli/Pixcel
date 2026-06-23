@@ -296,7 +296,34 @@ Another thread is editing lib/live-jobs.ts — pull + re-validate before startin
 API-spend step before running it.
 ```
 
+## ✅ SHIPPED (2026-06-23 night) — the quality FLOOR: polish gate + the BONUS LOOP
+The Evaluator idea above resolved into something better and proven-in-testing. The chain:
+
+1. **POLISH gate (prompt)** — `statueHotPotatoSystemPrompt`: the three-stage **CARVE → REFINE → POLISH**
+   (Brian's carpenter framing). "It reads as an owl" is the end of CARVING, not the work. *Effect:* lifts
+   quality when it bites — but an LLM rationalizes past an instruction, so it bites only **probabilistically**
+   (the same prompt gave a 3-pass hero owl in-app and a flat-belly pass-1 owl headless).
+2. **FORCED-first-polish guard — TRIED & REVERTED** (`f8cf918`→`7c2a69f`). Forcing a polish pass made the
+   model *add crud to clean areas* → salt-and-pepper **dirt** → worse. **Lesson: forcing change guarantees
+   change, not improvement.** Never force additions.
+3. **The BONUS LOOP (the real floor)** — `live-jobs.ts`, after approval. It **always attacks** (the bonus
+   prompt hunts blurry reads / weak eyes / flat masses — never plays safe) and is gated by **keep-better**:
+   each attempt is kept ONLY if a separate fresh-eyes **A/B comparison** (`callCompare`, hard-biased to keep
+   the champion) says it's genuinely better. Loops WHILE improving; stops after **2 no-improvement tries in
+   a row** (cap 4). **This is strictly non-regressive (can't ship dirt) AND can't skip out (always tries) —
+   so it is the reliable quality FLOOR, independent of the judge's probabilistic early-approve.**
+
+**Proven in testing:** owl belly feathered over real passes; cat whiskers connected; chameleon bonus loop
+**rejected two noisy attempts with specific reasons** ("scattered the purple into noise") and kept the clean
+version, stopping after 2 dry. The two failure modes (lazy-skip + crude-dirt) are both closed.
+
+**The principle that fell out:** don't try to make the AI judge perfect (AI-judging-AI rationalizes —
+"yeah ship it"). Make the process **transparent** so the human sees the folly, and give the engine a
+**keep-better loop** so it only keeps real improvements. Human-in-the-loop + non-regressive auto-elevation,
+not a smarter rubber stamp. *(Plus: auto-draft so Save = curation never data-safety; crisp 1:1 render.)*
+
 ## One-line truth
 *The tennis player converged on garbage — which means the judge, not the schedule, is what failed. The
 real fix is an independent fresh-eyes Evaluator that DEFINES "done" (and can convene a panel). Once it
-exists, "how many rounds" stops mattering — the budget is just a seatbelt.*
+exists, "how many rounds" stops mattering — the budget is just a seatbelt. → **Shipped as the BONUS LOOP:
+attack + keep-better, the non-regressive quality floor (see above).***

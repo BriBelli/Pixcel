@@ -5,6 +5,7 @@ import type { GridData } from '../workers/grid.worker';
 import { applyGalleryFrame } from '../lib/apply-gallery-frame';
 import { useGalleryStore } from '../store/gallery-store';
 import { useLiveArtStore, feedToTranscript } from '../store/live-art-store';
+import { usePXSStore, type PXSFrame } from '../store/pxs-store';
 import { toastManager } from './Toast';
 
 interface Props {
@@ -64,8 +65,10 @@ export default function LiveArtisanPanel({ onGridUpdate }: Props) {
     passes: passes === '' ? undefined : passes,
     complexity: complexity === 'auto' ? undefined : complexity,
   });
-  const { jobId, job, startedAt, reviewing, accepted, start, resume, control, feedback, accept, reject, restoredDraft, keepDraft, discardDraft } = useLiveArtStore();
+  const { jobId, job, startedAt, reviewing, accepted, start, resume, control, feedback, accept, reject, refineFrame, restoredDraft, keepDraft, discardDraft } = useLiveArtStore();
   const addPiece = useGalleryStore((s) => s.addPiece);
+  const canvasCells = usePXSStore((s) => s.grid.cells.size); // is there a piece on the canvas to refine?
+  const [refineNote, setRefineNote] = useState('');
   const [elapsed, setElapsed] = useState(0);
   const feedRef = useRef<HTMLDivElement>(null);
   const thinkRef = useRef<HTMLDivElement>(null);
@@ -126,6 +129,14 @@ export default function LiveArtisanPanel({ onGridUpdate }: Props) {
     }
     setInput('');
   }
+  function onRefineCanvas() {
+    const g = usePXSStore.getState().grid;
+    if (!g.cells.size) return;
+    const frame: PXSFrame = { cols: g.cols, rows: g.rows, cells: Array.from(g.cells.values()) };
+    const note = refineNote.trim();
+    setRefineNote('');
+    refineFrame(frame, note, model, lastPrompt || undefined); // seed a refine job from the canvas piece + feedback
+  }
   function saveCurrent() {
     if (!curFrame) return;
     addPiece({
@@ -185,6 +196,23 @@ export default function LiveArtisanPanel({ onGridUpdate }: Props) {
         )}
         {!jobId && (
           <div className="text-[11px] text-text-muted leading-relaxed space-y-3">
+            {canvasCells > 0 && (
+              <div className="rounded-lg border border-accent-purple/30 bg-accent-purple/5 p-2.5 space-y-1.5">
+                <div className="text-[11px] text-text-primary font-semibold flex items-center gap-1"><span className="text-accent-purple">✦</span> Refine the piece on the canvas</div>
+                <div className="text-[10px] text-text-muted leading-snug">More revisions with feedback on the loaded piece (e.g. &ldquo;sharpen the eye&rdquo;, &ldquo;add feather detail&rdquo;) — or leave blank to just refine + elevate it.</div>
+                <div className="flex items-end gap-1.5">
+                  <textarea
+                    value={refineNote}
+                    onChange={(e) => setRefineNote(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); onRefineCanvas(); } }}
+                    rows={2}
+                    placeholder="What should the artist change? (optional)"
+                    className="flex-1 resize-none rounded-md border border-border bg-background-tertiary px-2 py-1.5 text-[11px] text-text-primary placeholder:text-text-muted focus:outline-none focus:border-border-hover"
+                  />
+                  <button onClick={onRefineCanvas} title="Refine the canvas piece with this feedback" className="rounded-md bg-accent-purple hover:opacity-90 text-white px-2.5 h-8 flex items-center justify-center shrink-0 text-[10px] font-semibold">↻ Refine</button>
+                </div>
+              </div>
+            )}
             <p>
               Describe anything — a fox, a teapot, your logo — and watch it come to life on the
               canvas, drawn step by step like a real artist would.

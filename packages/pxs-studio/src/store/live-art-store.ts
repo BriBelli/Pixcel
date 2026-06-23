@@ -182,6 +182,7 @@ interface LiveArtState {
   feedback: (text: string) => Promise<void>;
   accept: () => Promise<void>;
   reject: (note?: string) => Promise<void>;
+  refineFrame: (frame: PXSFrame, note: string, model: string, subject?: string) => Promise<void>; // re-enter refinement on a SAVED/loaded piece (seed a job from its frame + feedback)
   restoredDraft: UnsavedDraft | null; // a finished piece recovered from a prior session (refresh/leave), awaiting Save/Discard
   keepDraft: () => void;   // promote the recovered draft into the Assets gallery
   discardDraft: () => void; // throw the recovered draft away
@@ -344,6 +345,23 @@ export const useLiveArtStore = create<LiveArtState>((set, get) => {
         toastManager.success('Resuming where it left off');
       } else {
         toastManager.error(j.error || 'Could not resume');
+      }
+    },
+    refineFrame: async (frame, note, model, subject) => {
+      // Re-enter refinement on a SAVED/loaded piece: seed a fresh job FROM its frame (resume at POLISH),
+      // then fold the feedback in. This is "more revisions with feedback" after Save, not just at review.
+      const j = await post({ prompt: subject || 'the piece', resumeFrame: frame, resumePhase: 'polish', model });
+      if (j.jobId) {
+        savedFor = null;
+        lastMeta = { prompt: subject, model };
+        set({ jobId: j.jobId, startedAt: Date.now(), reviewing: false, accepted: false });
+        useCenterStage.getState().set({ active: true, mode: 'sculpt', frame: null, status: 'running', shimmer: true, label: 'refining…' });
+        streamTail(j.jobId);
+        const t = (note || '').trim();
+        if (t) post({ feedback: t, id: j.jobId }).catch(() => {});
+        toastManager.success('Refining the piece on the canvas…');
+      } else {
+        toastManager.error(j.error || 'Could not start the refine');
       }
     },
     accept: async () => {

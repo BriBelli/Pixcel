@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useRef } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useLiveArtStore } from '../store/live-art-store';
 
 /**
@@ -45,6 +45,10 @@ export default function MatrixArtStage({ maxEdge = 460 }: { maxEdge?: number }) 
   }, [paletteMap]);
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  // "writing" = cells actively streaming in (vs the model still THINKING) — for an honest HUD label,
+  // so the long pre-output thinking phase doesn't read as "WRITING" when nothing's been drawn yet.
+  const [writing, setWriting] = useState(false);
+  const writingTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const st = useRef({
     sig: '',
     char: [] as (string | null)[], // palette char per cell (null = empty)
@@ -91,6 +95,9 @@ export default function MatrixArtStage({ maxEdge = 460 }: { maxEdge?: number }) 
     const seq = job?.revealSeq ?? -1;
     if (seq > s.consumedSeq && job?.pendingReveal) {
       s.consumedSeq = seq;
+      setWriting(true);
+      if (writingTimer.current) clearTimeout(writingTimer.current);
+      writingTimer.current = setTimeout(() => setWriting(false), 1500);
       for (const c of job.pendingReveal) {
         if (c.x < 0 || c.x >= cols || c.y < 0 || c.y >= rows) continue;
         const idx = c.y * cols + c.x;
@@ -197,7 +204,7 @@ export default function MatrixArtStage({ maxEdge = 460 }: { maxEdge?: number }) 
   const shown = feed.slice(-16);
   const verdict = job?.lastVerdict;
   const costUsd = job?.costUsd ?? 0;
-  const phaseLabel = done ? 'RESOLVED' : phase === 'vision' ? 'VISION' : 'WRITING';
+  const phaseLabel = done ? 'RESOLVED' : writing ? 'WRITING' : phase === 'vision' ? 'DESIGNING' : 'THINKING';
 
   return (
     <div className="flex gap-3 items-stretch">

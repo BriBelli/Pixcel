@@ -495,7 +495,7 @@ async function runStatueEngine(job: LiveJob, apiKey: string, resumeFrame?: PXSFr
   // edits}). FRESH context every call (no message history) — that freshness IS the hot-potato. ----
   let turnSystem = ''; // set once the canvas dimensions are known (after VISION / on resume / on redesign)
   type Turn = { approved: boolean; flaw: string; redesign: boolean; truncated?: boolean; edits: { x: number; y: number; c: string }[] };
-  const callTurn = async (content: any): Promise<Turn> => {
+  const callTurn = async (content: any, cv: Canvas): Promise<Turn> => {
     const msg = await withRetry(async () => {
       const s = client.messages.stream({
         model,
@@ -509,10 +509,43 @@ async function runStatueEngine(job: LiveJob, apiKey: string, resumeFrame?: PXSFr
         messages: [{ role: 'user', content }],
       } as any);
       job.liveThinking = '';
-      const cap = (d: string) => { job.liveThinking = (job.liveThinking + d).slice(-4000); job.updatedAt = Date.now(); };
-      (s as any).on('thinking', cap);
-      s.on('text', cap);
-      return s.finalMessage();
+      // thinking → the live "mind" pane (the model's planning narration)
+      (s as any).on('thinking', (d: string) => { job.liveThinking = (job.liveThinking + d).slice(-4000); job.updatedAt = Date.now(); });
+      // OUTPUT stream → plot the char-map cell-by-cell AS THE MODEL WRITES IT (real-time, ONE call, no
+      // per-cell cost). The model emits edits as {"x":N,"y":N,"c":"X"}; we pull complete cells out of the
+      // streaming JSON and push them to the live reveal. DISPLAY-ONLY: the JSON.parse below stays the
+      // source of truth — a missed/mis-ordered cell just won't animate; the pass.done frame reconciles it.
+      let outBuf = '';
+      let cur = 0;
+      let pend: { x: number; y: number; color: string }[] = [];
+      let lastFlush = 0;
+      const flush = (force: boolean) => {
+        if (!pend.length) return;
+        const now = Date.now();
+        if (!force && now - lastFlush < 80) return; // debounce into small, frame-paced batches
+        lastFlush = now;
+        emit('pass.delta', { stage: 'refine', pass: job.gestures + 1, cells: pend });
+        pend = [];
+      };
+      const CELL_RE = /\{\s*"x"\s*:\s*(-?\d+)\s*,\s*"y"\s*:\s*(-?\d+)\s*,\s*"c"\s*:\s*"([^"]*)"\s*\}/g;
+      s.on('text', (d: string) => {
+        outBuf += d;
+        try {
+          CELL_RE.lastIndex = cur;
+          let m: RegExpExecArray | null;
+          while ((m = CELL_RE.exec(outBuf)) !== null) {
+            cur = CELL_RE.lastIndex;
+            const x = +m[1], y = +m[2], ch = m[3];
+            if (x < 0 || x >= cv.cols || y < 0 || y >= cv.rows) continue;
+            const color = ch === '.' ? BACKGROUND : (cv.palette[ch] || (/^#[0-9a-f]{6}$/i.test(ch) ? ch.toLowerCase() : ''));
+            if (color) pend.push({ x, y, color });
+          }
+          flush(false);
+        } catch { /* display-only — never break the generation on a parse hiccup */ }
+      });
+      const fm = await s.finalMessage();
+      flush(true);
+      return fm;
     });
     accrue((msg as any).usage || {});
     emitCost();
@@ -668,7 +701,7 @@ async function runStatueEngine(job: LiveJob, apiKey: string, resumeFrame?: PXSFr
         ];
       }
 
-      const turn = await callTurn(content);
+      const turn = await callTurn(content, canvas);
       pass++;
 
       // TRUNCATION GUARD — if even the generous token ceiling is overrun (an extreme / very dense piece),

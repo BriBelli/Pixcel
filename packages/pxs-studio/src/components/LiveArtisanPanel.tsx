@@ -35,6 +35,7 @@ const SUGGESTIONS = ['a red apple', 'a snail', 'a teapot', 'a ladybug'];
 
 export default function LiveArtisanPanel({ onGridUpdate }: Props) {
   const [input, setInput] = useState('');
+  const [lastPrompt, setLastPrompt] = useState(''); // the last subject we generated — for "Redo" (fresh re-roll)
   const [size, setSize] = useState(24);
   const [model, setModel] = useState<ModelId>('claude-opus-4-8');
   // Aspect = the canvas SHAPE (separate from Size/resolution). 'auto' = the artist picks the best shape
@@ -94,7 +95,7 @@ export default function LiveArtisanPanel({ onGridUpdate }: Props) {
     const p = input.trim();
     if (!p) return;
     if (running) feedback(p);
-    else start(startArgs(p));
+    else { setLastPrompt(p); start(startArgs(p)); }
     setInput('');
   }
   function saveCurrent() {
@@ -122,6 +123,16 @@ export default function LiveArtisanPanel({ onGridUpdate }: Props) {
     if (save) saveCurrent();
     control('cancel');
     toastManager.success('Stopping the artist…');
+  }
+  function onRedo() {
+    const p = (lastPrompt || job?.title || '').trim();
+    if (!p) return;
+    // Fresh re-roll: discard THIS result and generate a NEW attempt from the same prompt + settings.
+    // (Variance → a brand-new design, NOT a refine of this one — that's Iterate.) start() replaces the
+    // current job, so the abandoned result is simply not saved.
+    setLastPrompt(p);
+    start(startArgs(p));
+    toastManager.success('Redo — fresh attempt…');
   }
   function onIterate() {
     const note = window.prompt('Run ANOTHER round. Add a note to steer it (e.g. "bigger eyes", "richer shading", "add a hat"), or leave blank to just have the artist refine + elevate the piece further.');
@@ -199,6 +210,7 @@ export default function LiveArtisanPanel({ onGridUpdate }: Props) {
                   <>
                     <button onClick={() => accept()} title="Save to your art assets — added to your gallery; load it back any time to keep editing." className="px-2 py-0.5 rounded bg-accent-green text-background-primary text-[9px] font-semibold hover:opacity-90">✓ Save</button>
                     <button onClick={onIterate} title="Run another round — keep refining autonomously, optionally with a note to steer it (e.g. 'bigger eyes')." className="px-2 py-0.5 rounded border border-accent-yellow/40 bg-accent-yellow/10 text-[9px] text-accent-yellow hover:bg-accent-yellow/20">↻ Iterate</button>
+                    <button onClick={onRedo} title="Redo — discard this and generate a FRESH attempt from the same prompt (a new roll, not a refine of this design)." className="px-2 py-0.5 rounded border border-accent-purple/40 bg-accent-purple/10 text-[9px] text-accent-purple hover:bg-accent-purple/20">⟳ Redo</button>
                     <button onClick={() => reject()} title="Cancel — discard this piece (nothing is saved)." className="px-2 py-0.5 rounded border border-border bg-background-overlay text-[9px] text-text-muted hover:text-text-primary">✕ Cancel</button>
                   </>
                 )}
@@ -210,7 +222,7 @@ export default function LiveArtisanPanel({ onGridUpdate }: Props) {
                 )}
               </div>
               {job?.status === 'done' && reviewing && (
-                <div className="text-[9px] text-text-muted leading-snug"><b className="text-accent-green">Save</b> → into your art assets (load it back from the gallery to keep editing). <b className="text-accent-yellow">Iterate</b> → another round, optionally with a note to steer it. <b>Cancel</b> → discard. Nothing is saved until you say so.</div>
+                <div className="text-[9px] text-text-muted leading-snug"><b className="text-accent-green">Save</b> → into your art assets. <b className="text-accent-yellow">Iterate</b> → refine THIS one further. <b className="text-accent-purple">Redo</b> → a fresh re-roll of the same prompt (new design). <b>Cancel</b> → discard. Nothing is saved until you say so.</div>
               )}
               {/* Statue-stage progress — VISION → SHAPE → POLISH → QA */}
               <div className="flex items-center gap-1 text-[8px] font-mono">

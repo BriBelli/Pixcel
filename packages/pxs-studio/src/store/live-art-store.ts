@@ -4,6 +4,7 @@ import { create } from 'zustand';
 import type { PXSFrame } from './pxs-store';
 import { useGalleryStore } from './gallery-store';
 import { useCenterStage } from './center-stage-store';
+import { usePXSStore } from './pxs-store';
 import { toastManager } from '../components/Toast';
 
 /**
@@ -183,6 +184,10 @@ interface LiveArtState {
   accept: () => Promise<void>;
   reject: (note?: string) => Promise<void>;
   refineFrame: (frame: PXSFrame, note: string, model: string, subject?: string) => Promise<void>; // re-enter refinement on a SAVED/loaded piece (seed a job from its frame + feedback)
+  versions: { label: string; frame: PXSFrame }[]; // the CURRENT piece's revision chain (per-piece, NOT a global log)
+  versionIdx: number; // which version is on the canvas
+  setPiece: (frame: PXSFrame, label: string) => void; // establish a loaded piece as the current piece (chain reset, no revisions yet)
+  loadVersion: (i: number) => void; // load a version of the current piece back onto the canvas
   restoredDraft: UnsavedDraft | null; // a finished piece recovered from a prior session (refresh/leave), awaiting Save/Discard
   keepDraft: () => void;   // promote the recovered draft into the Assets gallery
   discardDraft: () => void; // throw the recovered draft away
@@ -213,6 +218,10 @@ async function post(body: unknown): Promise<any> {
 export const useLiveArtStore = create<LiveArtState>((set, get) => {
   let savedFor: string | null = null;
   let lastMeta: { prompt?: string; model?: string } = {}; // remembered at start() → folded into the auto-draft
+  // PER-PIECE VERSION HISTORY: a fresh generation/load STARTS a new chain (the original, no revisions yet);
+  // a refine/iterate APPENDS a revision. NOT a global session log. `jobKind` tags the in-flight job.
+  let jobKind: 'new' | 'revision' = 'new';
+  let lastRevisionLabel = '';
 
   /** Human KEPT it → save to the gallery (the only path that saves). Idempotent per job. */
   async function saveAccepted(id: string) {
@@ -300,7 +309,16 @@ export const useLiveArtStore = create<LiveArtState>((set, get) => {
             // gallery (and that judgment is the Option-3 training signal). See docs canon.
             set({ reviewing: true });
             const f = view.frame || view.latestFrame;
-            if (f) writeDraft({ frame: f, title: view.title || 'Live piece', prompt: lastMeta.prompt, model: lastMeta.model, at: Date.now() }); // auto-draft: never lose a resolved piece
+            if (f) {
+              writeDraft({ frame: f, title: view.title || 'Live piece', prompt: lastMeta.prompt, model: lastMeta.model, at: Date.now() }); // auto-draft: never lose a resolved piece
+              // per-piece version chain: a revision APPENDS to the current piece; a fresh generation STARTS a new chain (the original).
+              if (jobKind === 'revision' && get().versions.length) {
+                const vs = [...get().versions, { label: lastRevisionLabel || 'revision', frame: f }];
+                set({ versions: vs, versionIdx: vs.length - 1 });
+              } else {
+                set({ versions: [{ label: lastMeta.prompt || view.title || 'original', frame: f }], versionIdx: 0 });
+              }
+            }
             return;
           }
           if (view.status === 'error' || view.status === 'paused' || view.status === 'cancelled') return;
@@ -322,8 +340,11 @@ export const useLiveArtStore = create<LiveArtState>((set, get) => {
     reviewing: false,
     accepted: false,
     restoredDraft: readDraft(),
+    versions: [],
+    versionIdx: -1,
     start: async ({ prompt, size, model, cols, rows, passes, complexity }) => {
       lastMeta = { prompt, model };
+      jobKind = 'new'; // a fresh subject → starts a new per-piece chain on resolve
       const j = await post({ prompt, size, model, cols, rows, passes, complexity });
       if (j.jobId) {
         savedFor = null;
@@ -348,6 +369,7 @@ export const useLiveArtStore = create<LiveArtState>((set, get) => {
       }
     },
     refineFrame: async (frame, note, model, subject) => {
+      jobKind = 'revision'; lastRevisionLabel = (note && note.trim()) || subject || 'refined'; // appends a version on resolve
       // Re-enter refinement on a SAVED/loaded piece: seed a fresh job FROM its frame (resume at POLISH),
       // then fold the feedback in. This is "more revisions with feedback" after Save, not just at review.
       const j = await post({ prompt: subject || 'the piece', resumeFrame: frame, resumePhase: 'polish', model });
@@ -364,6 +386,18 @@ export const useLiveArtStore = create<LiveArtState>((set, get) => {
         toastManager.error(j.error || 'Could not start the refine');
       }
     },
+    setPiece: (frame, label) => {
+      // A loaded piece (e.g. from the gallery) becomes the current piece — chain reset, no revisions yet.
+      set({ versions: [{ label, frame }], versionIdx: 0 });
+    },
+    loadVersion: (i) => {
+      const v = get().versions[i];
+      if (!v) return;
+      const cellsMap = new Map<string, any>();
+      v.frame.cells.forEach((c) => cellsMap.set(`${c.x}-${c.y}`, c));
+      usePXSStore.setState((s: any) => ({ grid: { ...s.grid, cols: v.frame.cols, rows: v.frame.rows, cells: cellsMap } }));
+      set({ versionIdx: i });
+    },
     accept: async () => {
       const id = get().jobId;
       if (!id) return;
@@ -379,6 +413,7 @@ export const useLiveArtStore = create<LiveArtState>((set, get) => {
       post({ verdict: 'reject', id, note: note?.trim() || undefined }).catch(() => {});
       set({ reviewing: false });
       if (note && note.trim()) {
+        jobKind = 'revision'; lastRevisionLabel = note.trim(); // iterate = a revision → appends a version on resolve
         // Push back: resume the piece and fold the redirect in as live feedback.
         const j = await post({ resume: id });
         if (j.jobId) {

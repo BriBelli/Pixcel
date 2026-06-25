@@ -65,7 +65,7 @@ export default function LiveArtisanPanel({ onGridUpdate }: Props) {
     passes: passes === '' ? undefined : passes,
     complexity: complexity === 'auto' ? undefined : complexity,
   });
-  const { jobId, job, startedAt, reviewing, accepted, start, resume, control, feedback, accept, reject, refineFrame, restoredDraft, keepDraft, discardDraft } = useLiveArtStore();
+  const { jobId, job, startedAt, reviewing, accepted, start, resume, control, feedback, accept, reject, refineFrame, restoredDraft, keepDraft, discardDraft, setPiece } = useLiveArtStore();
   const addPiece = useGalleryStore((s) => s.addPiece);
   const canvasCells = usePXSStore((s) => s.grid.cells.size); // is there a piece on the canvas to refine?
   const [refineNote, setRefineNote] = useState('');
@@ -100,6 +100,7 @@ export default function LiveArtisanPanel({ onGridUpdate }: Props) {
     if (restoredDraft && !jobId && !restoredShown.current) {
       restoredShown.current = true;
       onGridUpdate(applyGalleryFrame(restoredDraft.frame, `Recovered: ${restoredDraft.title}`), `↩ ${restoredDraft.title}`);
+      setPiece(restoredDraft.frame, restoredDraft.title); // the recovered piece becomes the current piece (fresh version chain)
       toastManager.success('Restored an unsaved piece — Save to keep it');
     }
   }, [restoredDraft, jobId]); // eslint-disable-line react-hooks/exhaustive-deps

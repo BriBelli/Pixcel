@@ -13,6 +13,7 @@ import { useHistoryManager } from '../hooks/useHistoryManager';
 import { useAutoSave } from '../hooks/useAutoSave';
 import { useKeyboardShortcuts } from '../hooks/useKeyboardShortcuts';
 import historyManager from '../store/history-manager';
+import { useLiveArtStore } from '../store/live-art-store';
 import type { GridData } from '../workers/grid.worker';
 import pixcelLogo from '../data/defaults/pixcel-logo.json';
 import ArtGalleryTab from './ArtGalleryTab';
@@ -92,8 +93,9 @@ export default function Studio({ children }: { children?: React.ReactNode }) {
   }, []);
   
   // History & Auto-save hooks
-  const { canUndo, canRedo, undo, redo, hasUnsavedChanges, undoDescription, redoDescription, entries, currentIndex, goTo } = useHistoryManager();
-  const [histOpen, setHistOpen] = useState(false); // version-history dropdown (next to the canvas-size chip)
+  const { canUndo, canRedo, undo, redo, hasUnsavedChanges, undoDescription, redoDescription } = useHistoryManager();
+  const { versions, versionIdx, loadVersion } = useLiveArtStore(); // the CURRENT piece's revision chain (per-piece)
+  const [histOpen, setHistOpen] = useState(false); // per-piece version-history dropdown (next to the canvas-size chip)
   const { formatTimeSinceLastSave, saveNow, isInitialized: autoSaveInitialized } = useAutoSave();
   const { modKey } = useKeyboardShortcuts();
   const { toasts, dismiss: dismissToast } = useToasts();
@@ -564,35 +566,34 @@ export default function Studio({ children }: { children?: React.ReactNode }) {
               <div className="px-2 py-1 rounded bg-background-secondary/90 backdrop-blur border border-border text-[10px] font-mono text-text-muted">
                 <span className="text-accent-green">⚡</span> {grid.cols}×{grid.rows}
               </div>
-              {/* VERSION HISTORY — every version of this piece; click one to load it (records each edit/refine) */}
-              <div className="relative">
-                <button
-                  onClick={() => setHistOpen((o) => !o)}
-                  title="Version history — every version of this piece; click one to load it"
-                  className="px-2 py-1 rounded bg-background-secondary/90 backdrop-blur border border-border text-[10px] text-text-muted hover:text-text-primary flex items-center gap-1"
-                >
-                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 3v5h5" /><path d="M3.05 13A9 9 0 1 0 6 5.3L3 8" /><path d="M12 7v5l3 2" /></svg>
-                  History{entries.length > 0 && <span className="text-text-muted/60">· {currentIndex + 1}/{entries.length}</span>}
-                </button>
-                {histOpen && (
-                  <div className="absolute top-full mt-1 left-0 w-60 max-h-72 overflow-y-auto rounded-md bg-background-secondary border border-border shadow-lg p-1 z-30">
-                    {entries.length === 0 ? (
-                      <div className="px-2 py-1.5 text-[10px] text-text-muted">No versions yet — generate or edit a piece.</div>
-                    ) : (
-                      entries.map((e, i) => (
+              {/* VERSION HISTORY — the CURRENT piece's revision chain (per-piece). Only appears once a
+                  revision exists; a fresh/loaded piece has no history until it's revised. */}
+              {versions.length > 1 && (
+                <div className="relative">
+                  <button
+                    onClick={() => setHistOpen((o) => !o)}
+                    title="Version history — this piece's revisions; click one to load it"
+                    className="px-2 py-1 rounded bg-background-secondary/90 backdrop-blur border border-border text-[10px] text-text-muted hover:text-text-primary flex items-center gap-1"
+                  >
+                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 3v5h5" /><path d="M3.05 13A9 9 0 1 0 6 5.3L3 8" /><path d="M12 7v5l3 2" /></svg>
+                    History<span className="text-text-muted/60">· {versionIdx + 1}/{versions.length}</span>
+                  </button>
+                  {histOpen && (
+                    <div className="absolute top-full mt-1 left-0 w-60 max-h-72 overflow-y-auto rounded-md bg-background-secondary border border-border shadow-lg p-1 z-30">
+                      {versions.map((v, i) => (
                         <button
-                          key={e.timestamp}
-                          onClick={() => { goTo(i); setHistOpen(false); toastManager.info(`Loaded version: ${e.description}`, 2000); }}
-                          className={`w-full text-left px-2 py-1.5 rounded text-[10px] flex items-center justify-between gap-2 transition-colors ${i === currentIndex ? 'bg-primary/15 text-text-primary' : 'text-text-secondary hover:bg-background-tertiary'}`}
+                          key={i}
+                          onClick={() => { loadVersion(i); setHistOpen(false); toastManager.info(`Loaded: ${v.label}`, 2000); }}
+                          className={`w-full text-left px-2 py-1.5 rounded text-[10px] flex items-center justify-between gap-2 transition-colors ${i === versionIdx ? 'bg-primary/15 text-text-primary' : 'text-text-secondary hover:bg-background-tertiary'}`}
                         >
-                          <span className="truncate">{e.description}</span>
-                          {i === currentIndex && <span className="text-primary text-[9px] shrink-0">● current</span>}
+                          <span className="truncate">{i === 0 ? `${v.label} · original` : v.label}</span>
+                          {i === versionIdx && <span className="text-primary text-[9px] shrink-0">● current</span>}
                         </button>
-                      )).reverse()
-                    )}
-                  </div>
-                )}
-              </div>
+                      )).reverse()}
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
 
             {/* Keyboard Shortcuts Hint */}

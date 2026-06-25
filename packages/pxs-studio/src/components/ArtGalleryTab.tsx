@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { GALLERY_ENTRIES } from '../data/gallery';
 import type { GalleryEntry } from '../store/gallery-store';
 import { useGalleryStore } from '../store/gallery-store';
+import { useLiveArtStore } from '../store/live-art-store';
 import { applyGalleryFrame } from '../lib/apply-gallery-frame';
 import type { GridData } from '../workers/grid.worker';
 import FramePreview from './FramePreview';
@@ -40,6 +41,7 @@ export default function ArtGalleryTab({ onGridUpdate }: ArtGalleryTabProps) {
   const loadEntry = (entry: GalleryEntry) => {
     const gridData = applyGalleryFrame(entry.frame, `Gallery: ${entry.title}`);
     onGridUpdate(gridData, entry.title);
+    useLiveArtStore.getState().setPiece(entry.frame, entry.title); // this loaded piece becomes the current piece (fresh version chain)
     setActiveId(entry.id);
   };
 

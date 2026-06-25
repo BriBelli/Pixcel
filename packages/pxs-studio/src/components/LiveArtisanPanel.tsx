@@ -198,8 +198,8 @@ export default function LiveArtisanPanel({ onGridUpdate }: Props) {
           <div className="text-[11px] text-text-muted leading-relaxed space-y-3">
             {canvasCells > 0 && (
               <div className="rounded-lg border border-accent-purple/30 bg-accent-purple/5 p-2.5 space-y-1.5">
-                <div className="text-[11px] text-text-primary font-semibold flex items-center gap-1"><span className="text-accent-purple">✦</span> Refine the piece on the canvas</div>
-                <div className="text-[10px] text-text-muted leading-snug">More revisions with feedback on the loaded piece (e.g. &ldquo;sharpen the eye&rdquo;, &ldquo;add feather detail&rdquo;) — or leave blank to just refine + elevate it.</div>
+                <div className="text-[11px] text-text-primary font-semibold flex items-center gap-1"><span className="text-accent-purple">✦</span> Refine</div>
+                <div className="text-[10px] text-text-muted leading-snug">Refine the piece with revisions (e.g. &ldquo;sharpen the eye&rdquo;, &ldquo;add feather detail&rdquo;) — or leave blank to just refine + elevate it.</div>
                 <div className="flex items-end gap-1.5">
                   <textarea
                     value={refineNote}

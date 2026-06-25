@@ -9,7 +9,7 @@ import { usePXSStore, type PXSFrame } from '../store/pxs-store';
 import { toastManager } from './Toast';
 
 interface Props {
-  onGridUpdate: (gridData: GridData) => void;
+  onGridUpdate: (gridData: GridData, label?: string) => void;
 }
 
 type ModelId = 'claude-opus-4-8' | 'claude-sonnet-4-6' | 'claude-haiku-4-5';
@@ -99,7 +99,7 @@ export default function LiveArtisanPanel({ onGridUpdate }: Props) {
   useEffect(() => {
     if (restoredDraft && !jobId && !restoredShown.current) {
       restoredShown.current = true;
-      onGridUpdate(applyGalleryFrame(restoredDraft.frame, `Recovered: ${restoredDraft.title}`));
+      onGridUpdate(applyGalleryFrame(restoredDraft.frame, `Recovered: ${restoredDraft.title}`), `↩ ${restoredDraft.title}`);
       toastManager.success('Restored an unsaved piece — Save to keep it');
     }
   }, [restoredDraft, jobId]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -154,7 +154,7 @@ export default function LiveArtisanPanel({ onGridUpdate }: Props) {
   }
   function loadOnCanvas() {
     if (!curFrame) return;
-    onGridUpdate(applyGalleryFrame(curFrame, `AI: ${job?.title ?? 'piece'}`));
+    onGridUpdate(applyGalleryFrame(curFrame, `AI: ${job?.title ?? 'piece'}`), `✦ ${job?.title ?? 'AI piece'}`);
     toastManager.success('Loaded on canvas');
   }
   function onCancel() {
@@ -199,7 +199,7 @@ export default function LiveArtisanPanel({ onGridUpdate }: Props) {
             {canvasCells > 0 && (
               <div className="rounded-lg border border-accent-purple/30 bg-accent-purple/5 p-2.5 space-y-1.5">
                 <div className="text-[11px] text-text-primary font-semibold flex items-center gap-1"><span className="text-accent-purple">✦</span> Refine</div>
-                <div className="text-[10px] text-text-muted leading-snug">Refine the piece with revisions (e.g. &ldquo;sharpen the eye&rdquo;, &ldquo;add feather detail&rdquo;) — or leave blank to just refine + elevate it.</div>
+                <div className="text-[10px] text-text-muted leading-snug">Refine the piece in the canvas (e.g. &ldquo;sharpen the eye&rdquo;, &ldquo;add feather detail&rdquo;) — or leave blank to just refine + elevate it.</div>
                 <div className="flex items-end gap-1.5">
                   <textarea
                     value={refineNote}

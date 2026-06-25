@@ -10,7 +10,7 @@ import FramePreview from './FramePreview';
 import { toastManager } from './Toast';
 
 interface ArtGalleryTabProps {
-  onGridUpdate: (gridData: GridData) => void;
+  onGridUpdate: (gridData: GridData, label?: string) => void;
 }
 
 export default function ArtGalleryTab({ onGridUpdate }: ArtGalleryTabProps) {
@@ -39,7 +39,7 @@ export default function ArtGalleryTab({ onGridUpdate }: ArtGalleryTabProps) {
 
   const loadEntry = (entry: GalleryEntry) => {
     const gridData = applyGalleryFrame(entry.frame, `Gallery: ${entry.title}`);
-    onGridUpdate(gridData);
+    onGridUpdate(gridData, entry.title);
     setActiveId(entry.id);
   };
 

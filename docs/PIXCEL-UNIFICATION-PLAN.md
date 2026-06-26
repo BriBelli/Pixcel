@@ -6,6 +6,29 @@
 > `PLATFORM-MERGE-README.md`. Conceptual design = the Claude Design prototypes (a "statue shape," open for
 > engineering — do NOT design literally toward them yet).
 
+## LOCKED DECISIONS (2026-06-26, Brian)
+1. **Stack = all TypeScript / Node.** Node/TS backend + React/Next front-end. The **artisan stays TS and
+   UNTOUCHED** (the proven crown jewel is never risked). `a2ui-core` (the protocol) is already TS → ports
+   directly; the **Lit A2UI renderer is rebuilt in React.** **photolif's Python backend (FastAPI routing,
+   29 image + 20 video providers, surface pipelines) gets PORTED to TS** — the biggest single lift,
+   sequenced to **P3 (AFTER the first slice)** so the architecture is proven before we pay it.
+2. **Front-end = React/Next** (this repo's studio + the Claude Design). Mature the React A2UI renderer
+   (photolif's React lib is the prototype seed).
+3. **First slice = front door → the artisan flagship** + A2UI + the asset substrate. Wrap the PROVEN engine
+   in the new shell; prove the pattern + the JSON fusion on the crown jewel before porting the breadth.
+
+## Conceptual designs folded in (Brian's existing photolif screens + Claude Design)
+- **The Pixcel-JSON z-index cascade** (chat-record → Pixcel-project → edits-as-JSON-records → Assets) = the
+  signature IP data-spine. Preserve exactly.
+- **Click-into-live-edit-studio** = the model↔artisan FUSION made concrete (any generated image → instant
+  Pixcel project, JSON-versioned both ways, deep cheap history).
+- **Assets hub = the Oracle** — every asset a first-class JSON citizen (ID + rich tags); the AI has central
+  intelligence over all assets/projects/workflows. The whole system reads as ONE central-intelligence
+  interface. The 32-image firehose was the anti-pattern (colliding workflows) the front-door agent cures.
+- **Autonomy is a DIAL** (Brian's IDE journey: Copilot-micro → Cursor-plan/exec → Claude-Code-high-auto):
+  the statue pattern spans the full spectrum; #3 (high autonomy + monitor/review) is the default, turnable
+  down per task. The designs are a "statue shape," open for engineering — not literal.
+
 ## The story (why this is the shape)
 Brian fought for the autonomous artisan HERE for months ($500+, Opus 4.6) — it failed. He built the entire
 platform (photolif) around the gap. Then the artisan clicked (Opus 4.8). So: **the artisan pipeline is the
@@ -63,8 +86,10 @@ complete dish (primary + sides + seasoning + presentation + quality) — package
   A2UI-native, tool/MCP-aware framework. The heart.
 - **P2 · The front-door orchestrator (Pixcel Assistant).** The single agent: read project → shape workflow →
   route to specialists. Replaces photolif's Python routing brain (keep the concept, lose the brittleness).
-- **P3 · Re-pattern the specialist domains.** Recast 8×8 image routing/ranking, video, scenes, storyboards as
-  specialist agents (pattern + context + rails). Pixcel-art = flagship specialist, engine preserved.
+- **P3 · Port photolif's breadth (Python → TS) + re-pattern as specialist agents.** The big lift, AFTER the
+  first slice proves the architecture: port the 8×8 routing/ranking, 29 image + 20 video providers, video/
+  scenes/storyboards pipelines from Python to TS — and recast them as specialist agents (statue pattern +
+  domain context + rails), not brittle decision trees. Pixcel-art = flagship specialist, engine preserved.
 - **P4 · The unified front door (UI/UX).** The Claude-Design shell on the shared substrate; A2UI everywhere.
 - **P5 · The asset-JSON fusion.** All media → Pixcel JSON; model→Pixcel-file→Studio-edit interchange;
   provenance + training corpus.

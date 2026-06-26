@@ -1,3 +1,8 @@
+/* Canonical Pixcel/A2UI design tokens (Claude Design). Additive — declares
+   --a2ui-* / --pxs-* + IBM Plex; existing components are unaffected until the
+   deliberate global swap. New surfaces (e.g. LandingPage) opt in via the tokens. */
+@import './tokens.css';
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;

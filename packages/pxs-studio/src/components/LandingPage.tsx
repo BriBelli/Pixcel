@@ -1,219 +1,188 @@
 'use client';
 
-import { useMemo } from 'react';
-import FramePreview from './FramePreview';
-import { GALLERY_ENTRIES } from '../data/gallery';
-import type { PXSFrame } from '../store/pxs-store';
+import { useState, type ReactNode } from 'react';
 
 interface Props {
   onEnter: () => void;
 }
 
-const FEATURED = [
-  'owl-live-32',
-  'dragon-live-48b',
-  'race-car-pipeline-32',
-  'wizard-anchored-32',
-  'cat-32',
-  'robot-32',
-  'monkey-32',
-  'saguaro-16',
+/* ── Iconography ─────────────────────────────────────────────────────────────
+   The brand mark + Lucide line icons (stroke 2, currentColor, viewBox 0 0 24 24),
+   the canonical set from the Claude Design handoff. The Art glyph is the
+   `scribble` squiggle everywhere — never a brush. */
+
+function PixcelMark({ size = 22 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 100 100" shapeRendering="crispEdges" fill="currentColor" role="img" aria-label="Pixcel">
+      <rect x="-0.5" y="-0.5" width="21" height="21" /><rect x="79.5" y="-0.5" width="21" height="21" />
+      <rect x="19.5" y="19.5" width="21" height="21" /><rect x="59.5" y="19.5" width="21" height="21" />
+      <rect x="39.5" y="39.5" width="21" height="21" />
+      <rect x="19.5" y="59.5" width="21" height="21" /><rect x="59.5" y="59.5" width="21" height="21" />
+      <rect x="-0.5" y="79.5" width="21" height="21" /><rect x="79.5" y="79.5" width="21" height="21" />
+    </svg>
+  );
+}
+
+type IconName = 'scribble' | 'image' | 'video' | 'anim' | 'export' | 'assets' | 'assistant' | 'send' | 'paperclip';
+
+const PATHS: Record<IconName, string[]> = {
+  // The Art squiggle — exact path from the prototype icon set
+  scribble: ['M3.0 12.00L3.7 9.65L4.3 8.81L5.0 10.02L5.7 12.50L6.4 14.66L7.0 15.11L7.7 13.56L8.4 11.01L9.1 9.09L9.8 9.04L10.4 10.89L11.1 13.45L11.8 15.08L12.4 14.73L13.1 12.62L13.8 10.12L14.5 8.82L15.2 9.57L15.8 11.87L16.5 14.26L17.2 15.20L17.9 14.08L18.5 11.62L19.2 9.41L19.9 8.86L20.6 10.33L21.0 12.00'],
+  image: ['M3 5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z', 'M8.5 11a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3z', 'm21 15-5-5L5 21'],
+  video: ['M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20z', 'm10 8 6 4-6 4z'],
+  anim: ['M3 3h7v7H3z', 'M14 3h7v7h-7z', 'M14 14h7v7h-7z', 'M3 14h7v7H3z'],
+  export: ['M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4', 'M7 9l5-5 5 5', 'M12 4v12'],
+  assets: ['M3 5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z', 'M8.5 11a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3z', 'm21 15-5-5L5 21'],
+  assistant: ['M5 3h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z', 'M15 3v18'],
+  send: ['M5 12h14', 'm12 5 7 7-7 7'],
+  paperclip: ['m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48'],
+};
+
+function Ic({ name, size = 20 }: { name: IconName; size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      {PATHS[name].map((d, i) => <path key={i} d={d} />)}
+    </svg>
+  );
+}
+
+/* ── Nav rail (primary sections + bottom utility cluster) ── */
+const SECTIONS: { id: string; label: string; icon: IconName }[] = [
+  { id: 'art', label: 'Art', icon: 'scribble' },
+  { id: 'image', label: 'Image', icon: 'image' },
+  { id: 'video', label: 'Video', icon: 'video' },
+  { id: 'anim', label: 'Anim', icon: 'anim' },
+];
+const UTILITY: { id: string; label: string; icon: IconName }[] = [
+  { id: 'export', label: 'Export', icon: 'export' },
+  { id: 'assets', label: 'Assets', icon: 'assets' },
+  { id: 'assistant', label: 'Assistant', icon: 'assistant' },
 ];
 
-const FEATURES = [
-  {
-    icon: '👁',
-    title: 'Eyes open',
-    body: 'It sees its own work after every stroke and fixes what it sees — never composing blind.',
-  },
-  {
-    icon: '◆',
-    title: 'Sculptor cascade',
-    body: 'Shape → elements → refine → detail → polish → QA. Carved coarse-to-fine, like a statue.',
-  },
-  {
-    icon: '🎨',
-    title: 'Art director',
-    body: 'An independent critic gates every phase to a 96% bar and recalls drift before it sets.',
-  },
-  {
-    icon: '↺',
-    title: 'Pause & resume',
-    body: 'Step away and come back. Every piece is checkpointed and finishable later — like real art.',
-  },
+/* ── High-level entry cards — the major creative options ── */
+const CARDS: { id: string; icon: IconName; title: string; body: string }[] = [
+  { id: 'art', icon: 'scribble', title: 'Art', body: 'Pixel art sculpted live by the autonomous artisan, cell by cell.' },
+  { id: 'image', icon: 'image', title: 'Image', body: 'Generate across many top models at once, then refine in Studio.' },
+  { id: 'video', icon: 'video', title: 'Video', body: 'Direct short clips and animations from a single prompt.' },
 ];
+
+const SUGGESTIONS = ['Compare iPhone vs Android', 'Weather this weekend', 'Create a banana chair'];
 
 export default function LandingPage({ onEnter }: Props) {
-  const pieces = useMemo(() => {
-    const byId = new Map(GALLERY_ENTRIES.map((e) => [e.id, e]));
-    return FEATURED.map((id) => byId.get(id)).filter(Boolean) as { id: string; title: string; frame: PXSFrame }[];
-  }, []);
+  const [draft, setDraft] = useState('');
+  const [mode, setMode] = useState<'chat' | 'image' | 'video'>('chat');
 
   return (
-    <div className="relative h-screen overflow-y-auto bg-background text-text-primary">
+    <div className="pxl-root flex h-screen overflow-hidden">
       <style>{`
-        @keyframes pxFloat { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-8px)} }
-        @keyframes pxGlow { 0%,100%{opacity:.5} 50%{opacity:.85} }
+        .pxl-root { background: var(--a2ui-bg-app); color: var(--a2ui-text-primary); font-family: var(--a2ui-font-family); -webkit-font-smoothing: antialiased; }
+        .pxl-root ::selection { background: var(--a2ui-accent-subtle); }
+        .pxl-gridbg { background-image: linear-gradient(rgba(255,255,255,0.025) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,0.025) 1px,transparent 1px); background-size:28px 28px; -webkit-mask-image:radial-gradient(circle at 50% 34%,black,transparent 70%); mask-image:radial-gradient(circle at 50% 34%,black,transparent 70%); }
+        .pxl-rail { background: var(--a2ui-bg-primary); border-right: 1px solid var(--a2ui-border-subtle); }
+        .pxl-navbtn { color: var(--a2ui-text-tertiary); border-radius: var(--a2ui-radius-lg); transition: color var(--a2ui-transition-fast), background var(--a2ui-transition-fast); position: relative; }
+        .pxl-navbtn:hover { color: var(--a2ui-text-secondary); background: var(--a2ui-bg-hover); }
+        .pxl-navbtn[data-active="true"] { color: var(--a2ui-text-primary); background: var(--a2ui-bg-tertiary); }
+        .pxl-navbtn[data-active="true"]::before { content:''; position:absolute; left:-9px; top:50%; transform:translateY(-50%); width:2.5px; height:20px; border-radius:2px; background: var(--a2ui-accent); }
+        .pxl-secondary { color: var(--a2ui-text-secondary); }
+        .pxl-tertiary { color: var(--a2ui-text-tertiary); }
+        .pxl-accent { color: var(--a2ui-accent); }
+        .pxl-card { background: var(--a2ui-bg-tertiary); border: 1px solid transparent; border-radius: var(--a2ui-radius-lg); transition: background var(--a2ui-transition-normal), border-color var(--a2ui-transition-normal), box-shadow var(--a2ui-transition-normal); text-align:left; }
+        .pxl-card:hover { background: var(--a2ui-bg-secondary); border-color: var(--a2ui-border-default); box-shadow: var(--a2ui-shadow-sm); }
+        .pxl-card-ic { background: var(--a2ui-bg-elevated); color: var(--a2ui-text-tertiary); border-radius: 9px; transition: background var(--a2ui-transition-normal), color var(--a2ui-transition-normal); }
+        .pxl-card:hover .pxl-card-ic { background: var(--a2ui-accent-subtle); color: var(--pxs-accent-text); }
+        .pxl-chip { background: var(--a2ui-bg-secondary); border: 1px solid var(--a2ui-border-default); color: var(--a2ui-text-secondary); border-radius: var(--a2ui-radius-full); transition: border-color var(--a2ui-transition-fast), color var(--a2ui-transition-fast); }
+        .pxl-chip:hover { border-color: var(--a2ui-border-strong); color: var(--a2ui-text-primary); }
+        .pxl-promptbar { background: var(--a2ui-bg-secondary); border: 1px solid var(--a2ui-border-default); border-radius: var(--a2ui-radius-xl); transition: border-color var(--a2ui-transition-fast); }
+        .pxl-promptbar:focus-within { border-color: var(--a2ui-accent); box-shadow: 0 0 0 3px var(--a2ui-accent-subtle); }
+        .pxl-input { background: transparent; color: var(--a2ui-text-primary); }
+        .pxl-input::placeholder { color: var(--a2ui-text-tertiary); }
+        .pxl-send { background: var(--a2ui-accent); color: var(--a2ui-text-inverse); border-radius: var(--a2ui-radius-full); transition: background var(--a2ui-transition-fast); }
+        .pxl-send:hover { background: var(--a2ui-accent-hover); }
+        .pxl-modeseg { background: var(--a2ui-bg-tertiary); border-radius: var(--a2ui-radius-full); }
+        .pxl-mode { color: var(--a2ui-text-secondary); border-radius: var(--a2ui-radius-full); transition: color var(--a2ui-transition-fast), background var(--a2ui-transition-fast); }
+        .pxl-mode[data-on="true"] { color: var(--a2ui-text-primary); background: var(--a2ui-bg-elevated); }
       `}</style>
 
-      {/* Ambient glow + faint pixel grid */}
-      <div
-        className="pointer-events-none fixed inset-0 z-0"
-        style={{
-          background:
-            'radial-gradient(1100px 520px at 50% -10%, rgba(139,92,246,0.18), transparent 60%), radial-gradient(800px 500px at 85% 20%, rgba(59,130,246,0.12), transparent 55%)',
-          animation: 'pxGlow 7s ease-in-out infinite',
-        }}
-      />
-      <div
-        className="pointer-events-none fixed inset-0 z-0 opacity-[0.18]"
-        style={{
-          backgroundImage:
-            'linear-gradient(rgba(255,255,255,0.04) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.04) 1px, transparent 1px)',
-          backgroundSize: '28px 28px',
-          maskImage: 'radial-gradient(circle at 50% 30%, black, transparent 75%)',
-        }}
-      />
-
-      <div className="relative z-10">
-        {/* Nav */}
-        <nav className="sticky top-0 z-20 backdrop-blur-md bg-background/70 border-b border-border/60">
-          <div className="max-w-6xl mx-auto px-6 h-14 flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <span className="text-accent-purple text-lg">✦</span>
-              <span className="font-semibold tracking-tight">Pixcel</span>
-              <span className="hidden sm:inline text-[11px] text-text-muted ml-2 px-2 py-0.5 rounded-full border border-border">
-                the pixel-art IDE
-              </span>
-            </div>
-            <div className="flex items-center gap-5 text-sm">
-              <a href="#gallery" className="hidden sm:inline text-text-secondary hover:text-text-primary transition-colors">
-                Gallery
-              </a>
-              <a href="#how" className="hidden sm:inline text-text-secondary hover:text-text-primary transition-colors">
-                How it works
-              </a>
-              <button
-                onClick={onEnter}
-                className="px-3.5 py-1.5 rounded-lg bg-primary hover:bg-primary-dark text-white text-sm font-medium transition-colors"
-              >
-                Open Studio
-              </button>
-            </div>
-          </div>
-        </nav>
-
-        {/* Hero */}
-        <header className="max-w-5xl mx-auto px-6 pt-20 pb-12 text-center">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-border bg-background-secondary/60 text-[12px] text-text-secondary mb-7">
-            <span className="w-1.5 h-1.5 rounded-full bg-accent-green animate-pulse" />
-            Live Artisan · powered by Claude Opus 4.8
-          </div>
-          <h1 className="text-5xl sm:text-7xl font-bold tracking-tight leading-[1.05]">
-            Pixel art,
-            <br />
-            <span className="bg-gradient-to-r from-primary via-accent-purple to-primary-light bg-clip-text text-transparent">
-              sculpted like a human.
-            </span>
-          </h1>
-          <p className="mt-6 max-w-2xl mx-auto text-lg text-text-secondary leading-relaxed">
-            Pixcel doesn&apos;t one-shot a blob. Its Live Artisan blocks in the shape, then refines,
-            details, and polishes — eyes open the whole time, an art director gating every phase.
-            Watch real art get made, cell by cell.
-          </p>
-          <div className="mt-9 flex items-center justify-center gap-3">
-            <button
-              onClick={onEnter}
-              className="group px-6 py-3 rounded-xl bg-primary hover:bg-primary-dark text-white font-semibold transition-all shadow-lg shadow-primary/20"
-            >
-              Open the Studio
-              <span className="inline-block ml-1.5 transition-transform group-hover:translate-x-0.5">→</span>
+      {/* Primary nav rail */}
+      <nav className="pxl-rail flex flex-col items-center w-[72px] py-4 shrink-0">
+        <div className="pxl-secondary mb-6"><PixcelMark size={22} /></div>
+        <div className="flex flex-col gap-1.5">
+          {SECTIONS.map((s) => (
+            <button key={s.id} onClick={onEnter} data-active={s.id === 'art'} title={s.label}
+              className="pxl-navbtn flex flex-col items-center gap-1 w-14 py-2">
+              <Ic name={s.icon} size={20} />
+              <span className="text-[10px] font-medium">{s.label}</span>
             </button>
-            <a
-              href="#gallery"
-              className="px-6 py-3 rounded-xl border border-border bg-background-secondary/60 hover:border-border-hover text-text-secondary hover:text-text-primary font-medium transition-colors"
-            >
-              See the gallery
-            </a>
-          </div>
+          ))}
+        </div>
+        <div className="mt-auto flex flex-col gap-1.5">
+          {UTILITY.map((s) => (
+            <button key={s.id} onClick={onEnter} title={s.label} className="pxl-navbtn flex flex-col items-center gap-1 w-14 py-2">
+              <Ic name={s.icon} size={18} />
+              <span className="text-[10px] font-medium">{s.label}</span>
+            </button>
+          ))}
+        </div>
+      </nav>
 
-          {/* Featured pieces, gently floating */}
-          <div className="mt-16 flex items-end justify-center gap-4 sm:gap-6 flex-wrap">
-            {pieces.slice(0, 5).map((p, i) => (
-              <div
-                key={p.id}
-                className="rounded-xl border border-border bg-background-secondary/70 p-3 shadow-xl shadow-black/30 hover:scale-105 transition-transform"
-                style={{ animation: `pxFloat ${5 + (i % 3)}s ease-in-out ${i * 0.4}s infinite` }}
-              >
-                <FramePreview frame={p.frame} size={i === 1 ? 132 : 104} />
-              </div>
-            ))}
-          </div>
-        </header>
+      {/* Main column */}
+      <div className="relative flex-1 flex flex-col min-w-0">
+        <div className="pxl-gridbg pointer-events-none absolute inset-0" />
 
-        {/* How it works */}
-        <section id="how" className="max-w-6xl mx-auto px-6 py-16">
-          <h2 className="text-center text-sm font-semibold uppercase tracking-[0.2em] text-text-muted mb-10">
-            How the Live Artisan works
-          </h2>
-          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            {FEATURES.map((f) => (
-              <div
-                key={f.title}
-                className="rounded-2xl border border-border bg-background-secondary/50 p-5 hover:border-accent-purple/40 hover:bg-background-secondary transition-colors"
-              >
-                <div className="text-2xl mb-3">{f.icon}</div>
-                <div className="font-semibold mb-1.5">{f.title}</div>
-                <p className="text-sm text-text-muted leading-relaxed">{f.body}</p>
-              </div>
-            ))}
-          </div>
-        </section>
+        {/* Centered chat empty-state */}
+        <div className="relative flex-1 flex flex-col items-center justify-center px-6 text-center">
+          <h1 style={{ margin: 0, fontSize: 'clamp(26px, 3.4vw, 34px)', fontWeight: 400, letterSpacing: '-0.01em' }}>
+            How can I help you today?
+          </h1>
+          <p className="pxl-tertiary" style={{ margin: '12px 0 0', fontSize: 14, lineHeight: 1.5, maxWidth: 520 }}>
+            Ask anything — or describe something to create. Pixcel routes it to the right workflow.
+          </p>
 
-        {/* Gallery */}
-        <section id="gallery" className="max-w-6xl mx-auto px-6 py-16">
-          <div className="text-center mb-10">
-            <h2 className="text-3xl font-bold tracking-tight">Made cell-by-cell</h2>
-            <p className="mt-2 text-text-secondary">Real pieces from the Live Artisan — no filters, no quantizing. Pure reasoning on a grid.</p>
-          </div>
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-            {pieces.map((p) => (
-              <button
-                key={p.id}
-                onClick={onEnter}
-                className="group rounded-xl border border-border bg-background-secondary/50 p-4 flex flex-col items-center gap-3 hover:border-primary/50 hover:bg-background-secondary transition-colors"
-              >
-                <div className="transition-transform group-hover:scale-105">
-                  <FramePreview frame={p.frame} size={120} />
-                </div>
-                <span className="text-[11px] text-text-muted group-hover:text-text-secondary">{p.title}</span>
+          {/* High-level option cards (prototype spec: 212px, bg-tertiary, borderless, 13.5/600 title) */}
+          <div className="mt-8 flex flex-wrap justify-center gap-3">
+            {CARDS.map((c) => (
+              <button key={c.id} onClick={onEnter} className="pxl-card group flex w-[212px] flex-col gap-[9px] px-4 py-[15px]">
+                <span className="pxl-card-ic inline-flex h-8 w-8 items-center justify-center"><Ic name={c.icon} size={17} /></span>
+                <span className="font-semibold" style={{ fontSize: 13.5, letterSpacing: '-0.01em' }}>{c.title}</span>
+                <span className="pxl-tertiary line-clamp-2" style={{ fontSize: 11.5, lineHeight: 1.45 }}>{c.body}</span>
               </button>
             ))}
           </div>
-        </section>
 
-        {/* Final CTA */}
-        <section className="max-w-3xl mx-auto px-6 py-20 text-center">
-          <h2 className="text-4xl font-bold tracking-tight">
-            Your canvas is <span className="bg-gradient-to-r from-primary to-accent-purple bg-clip-text text-transparent">waiting.</span>
-          </h2>
-          <p className="mt-4 text-text-secondary">Open the Studio and watch the artist work — or pick up a brush yourself.</p>
-          <button
-            onClick={onEnter}
-            className="mt-8 px-7 py-3.5 rounded-xl bg-primary hover:bg-primary-dark text-white font-semibold text-lg transition-colors shadow-lg shadow-primary/20"
-          >
-            Start creating →
-          </button>
-        </section>
-
-        <footer className="border-t border-border/60">
-          <div className="max-w-6xl mx-auto px-6 py-8 flex flex-col sm:flex-row items-center justify-between gap-3 text-[12px] text-text-muted">
-            <div className="flex items-center gap-2">
-              <span className="text-accent-purple">✦</span> Pixcel — images are data, not files.
-            </div>
-            <div>Powered by Claude Opus 4.8</div>
+          {/* Universal suggestion chips */}
+          <div className="mt-8 flex flex-wrap items-center justify-center gap-2.5">
+            {SUGGESTIONS.map((s) => (
+              <button key={s} onClick={onEnter} className="pxl-chip px-4 py-2 text-sm">{s}</button>
+            ))}
           </div>
-        </footer>
+        </div>
+
+        {/* Universal prompt bar */}
+        <div className="relative px-6 pb-7">
+          <div className="mx-auto w-full max-w-3xl">
+            <form
+              onSubmit={(e) => { e.preventDefault(); onEnter(); }}
+              className="pxl-promptbar flex items-center gap-2 px-3 py-2"
+            >
+              <button type="button" onClick={onEnter} className="pxl-tertiary p-1.5" title="Attach"><Ic name="paperclip" size={18} /></button>
+              <input
+                value={draft}
+                onChange={(e) => setDraft(e.target.value)}
+                placeholder="Ask me anything, or describe a piece to create…"
+                className="pxl-input flex-1 py-1.5 text-[15px] outline-none"
+              />
+              <button type="submit" className="pxl-send flex h-8 w-8 items-center justify-center" title="Send"><Ic name="send" size={16} /></button>
+            </form>
+            <div className="mt-2.5 flex items-center justify-between">
+              <div className="pxl-modeseg inline-flex items-center gap-0.5 p-0.5">
+                {(['chat', 'image', 'video'] as const).map((m) => (
+                  <button key={m} onClick={() => setMode(m)} data-on={mode === m} className="pxl-mode px-3 py-1 text-[13px] capitalize">{m}</button>
+                ))}
+              </div>
+              <div className="pxl-tertiary text-[12px]">Model <span className="pxl-secondary">Auto</span></div>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   );

@@ -8,7 +8,19 @@
 
 ## ⚠ OPEN FORKS — need your call (I paused; did not decide)
 
-### FORK-1 · Front-end framework: React/Next vs Lit  *(the big one)*
+*(none open — FORK-1 resolved 2026-06-26: **React-everywhere**. See below.)*
+
+---
+
+## ✓ RESOLVED FORKS
+
+### FORK-1 · Front-end framework → **React/Next everywhere** (Brian, 2026-06-26)
+The Lit chat app (`apps/a2ui-chat`) gets ported to React as part of the breadth port (P3); the React
+prototypes are the target (zero translation). The handoff's "production = Lit" rule is **superseded** —
+it was written for the photolif-as-is target. The design system (tokens, rules, prototypes) is unchanged.
+
+<details><summary>original analysis</summary>
+
 **The conflict:** your Q2 answer was **React/Next**, and the Art Studio integration guide targets
 `packages/pxs-studio` (Next.js + React). BUT the handoff's `CLAUDE.md` (the global rulebook) says
 **"production is Lit + Web Components… No React in `apps/a2ui-chat/`"** — because photolif's existing chat
@@ -27,8 +39,7 @@ real work — but it's work we'd largely do anyway (the unification rebuilds the
 Design), and the React prototypes give us the target for free.
 
 **→ Confirm: React-everywhere (port the Lit chat → React)?  Or keep Lit for the chat/IDE + React only for the art studio (a hybrid front-end)?**
-
-*(No other significant forks found yet. I'll append here as I go.)*
+</details>
 
 ---
 
@@ -36,7 +47,7 @@ Design), and the React prototypes give us the target for free.
 1. **ONE product: Pixcel.** Not two. (photolif = "Pixcel v2", a decoy name — dropped.)
 2. **Language = all TypeScript/JS, single.** Backend Python → ported to TS (P3). Python only if a capability
    has no viable TS equivalent — *my call, flagged in this log if hit. None so far.*
-3. **Front-end = React/Next** (pending FORK-1 confirm on whether that means *everywhere* incl. the chat).
+3. **Front-end = React/Next EVERYWHERE** (FORK-1 resolved). The Lit chat app ports to React (P3).
 4. **First slice = front door → the proven artisan flagship** + A2UI + asset substrate. Port photolif's
    breadth (routing/providers/video) to TS *after* the slice proves the architecture.
 5. **The Pixcel Agent primitive (the chef)** = the keystone. Spec: `PIXCEL-AGENT-PRIMITIVE.md`.

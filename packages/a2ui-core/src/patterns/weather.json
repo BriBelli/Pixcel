@@ -1,0 +1,21 @@
+{
+  "name": "weather",
+  "description": "Weather display using stat for current conditions",
+  "match": ["weather", "forecast", "temperature", "climate"],
+  "template": {
+    "version": "1.0",
+    "components": [
+      {
+        "id": "current-weather",
+        "type": "stat",
+        "props": {
+          "label": "{{city}}",
+          "value": "{{temperature}}",
+          "trend": "{{condition}}",
+          "trendDirection": "neutral",
+          "description": "{{details}}"
+        }
+      }
+    ]
+  }
+}

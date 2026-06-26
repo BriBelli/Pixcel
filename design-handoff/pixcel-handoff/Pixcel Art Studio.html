@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<!-- @dsCard group="Brand" name="Pixcel Art Studio" subtitle="Autonomous artisan · live char-map · Easel + Atelier directions" viewport="1440x900" -->
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pixcel Art Studio</title>
+<link rel="icon" href="assets/logo-mark-favicon.svg">
+<link rel="stylesheet" href="colors_and_type.css">
+<meta name="ext-resource-dependency" content="assets/logo-mark-white.svg" data-resource-id="logoMarkWhite" />
+<meta name="ext-resource-dependency" content="assets/provider-icons/anthropic.ico" data-resource-id="pi_anthropic" />
+<template id="__bundler_thumbnail">
+<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+<rect width="100" height="100" fill="#161618"/>
+<g fill="#8ab4f8">
+<rect x="30" y="30" width="6" height="6"/><rect x="42" y="30" width="6" height="6"/><rect x="54" y="30" width="6" height="6"/>
+<rect x="36" y="42" width="6" height="6"/><rect x="48" y="42" width="6" height="6"/>
+<rect x="30" y="54" width="6" height="6"/><rect x="42" y="54" width="6" height="6"/><rect x="54" y="54" width="6" height="6"/>
+</g>
+<rect x="24" y="68" width="42" height="5" rx="1" fill="#35353b"/>
+</svg>
+</template>
+<style>
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; overflow: hidden; }
+  #root { height: 100%; }
+  button { font-family: var(--a2ui-font-family); }
+  textarea::placeholder, input::placeholder { color: var(--a2ui-text-tertiary); }
+  .ide-scroll::-webkit-scrollbar { width: 8px; height: 8px; }
+  .ide-scroll::-webkit-scrollbar-track { background: transparent; }
+  .ide-scroll::-webkit-scrollbar-thumb { background: var(--a2ui-border-default); border-radius: 9999px; }
+  .ide-scroll::-webkit-scrollbar-thumb:hover { background: var(--a2ui-border-strong); }
+  @keyframes pxart-pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.35; } }
+  .pxart-pulse { animation: pxart-pulse 1.4s ease-in-out infinite; }
+  @keyframes pxart-blink { 0%,100% { opacity: 1; } 50% { opacity: 0.15; } }
+  .pxart-cursor { display: inline-block; width: 0.5em; height: 1em; transform: translateY(2px); margin-left: 2px;
+    background: var(--pxs-accent-focus); border-radius: 1px; animation: pxart-blink 1s steps(1) infinite; }
+  @keyframes pxart-scan { 0% { top: 4%; } 100% { top: 96%; } }
+  .pxart-scan { animation: pxart-scan 2.2s ease-in-out infinite alternate; }
+  @keyframes pxart-slotin { 0% { transform: translateY(10px); } 100% { transform: translateY(0); } }
+  .pxart-slotline { animation: pxart-slotin 460ms cubic-bezier(0.22,1,0.36,1) both; }
+  @media (prefers-reduced-motion: reduce) {
+    .pxart-pulse, .pxart-cursor, .pxart-scan, .pxart-slotline { animation: none !important; }
+  }
+</style>
+</head>
+<body>
+<div id="root"></div>
+
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+
+<script src="pixcel-art/owl-data.js"></script>
+<script type="text/babel" src="pixcel-art/engine.jsx"></script>
+<script type="text/babel" src="pixcel-art/studio.jsx"></script>
+<script type="text/babel" src="pixcel-art/app.jsx"></script>
+</body>
+</html>

@@ -41,7 +41,7 @@ const PXSWasm = {
   async _loadWasm(wasmPath) {
     try {
       // Dynamic import of the generated WASM wrapper
-      const wasmModule = await import(wasmPath);
+      const wasmModule = await import(/* @vite-ignore */ wasmPath);
       
       // Initialize the WASM module
       await wasmModule.default();
@@ -359,4 +359,4 @@ if (typeof window !== 'undefined') {
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = PXSWasm;
 }
-export default {};
+export { PXSWasm };

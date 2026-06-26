@@ -556,4 +556,4 @@ if (typeof window !== 'undefined') {
     window.CellGroup = CellGroup;
     window.CellGroupManager = CellGroupManager;
 }
-export default {};
+export { CellGroup, CellGroupManager };

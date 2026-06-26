@@ -608,4 +608,4 @@ if (typeof module !== 'undefined' && module.exports) {
 if (typeof window !== 'undefined') {
     window.WebGLRenderer = WebGLRenderer;
 }
-export default {};
+export { WebGLRenderer };

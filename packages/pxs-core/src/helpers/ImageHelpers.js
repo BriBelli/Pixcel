@@ -47,11 +47,15 @@ class ImageHelpers {
     medium: 64,     // ~64×48 - Balanced quality
     high: 128,      // ~128×96 - Good detail
     hd: 200,        // ~200×150 - High definition
-    ultra: 256,     // ~256×192 - Very sharp (4K quality)
-    qvga: 320,      // ~320×240 - QVGA quality
+    ultra: 256,     // ~256×192 - Very sharp
+    qvga: 320,      // ~320×240 - QVGA
     '4k': 400,      // ~400×300 - 4K style
-    cinema: 512,    // ~512×384 - Cinema quality
-    vga: 640        // ~640×480 - VGA quality
+    cinema: 512,    // ~512×384 - Cinema
+    vga: 640,       // ~640×480 - VGA
+    xga: 1024,      // ~1024×768 - XGA
+    hdplus: 1280,   // ~1280×960 - HD+
+    fhd: 1920,      // ~1920×1440 - Full HD
+    max: 0          // Native source resolution (no downsampling)
   };
   
   /**
@@ -157,7 +161,12 @@ class ImageHelpers {
     // Get max size from quality preset or explicit value
     const maxSize = typeof quality === 'number' 
       ? quality 
-      : (this.QUALITY_PRESETS[quality] || this.QUALITY_PRESETS.medium);
+      : (this.QUALITY_PRESETS[quality] ?? this.QUALITY_PRESETS.medium);
+
+    // max=0 means native resolution — use source dimensions directly
+    if (maxSize === 0) {
+      return { targetCols: imgWidth, targetRows: imgHeight };
+    }
     
     let targetCols, targetRows;
     
@@ -326,6 +335,50 @@ class ImageHelpers {
   }
   
   /**
+   * Resample a PXSFrame to new dimensions using nearest-neighbor sampling.
+   * Pure client-side operation — no server round-trip.
+   * @param {PXSFrame} frame - Source frame
+   * @param {number} targetCols - Target width in cells
+   * @param {number} targetRows - Target height in cells
+   * @returns {PXSFrame} New frame at target dimensions
+   */
+  static resampleFrame(frame, targetCols, targetRows) {
+    const { cols: srcCols, rows: srcRows, cells: srcCells } = frame;
+    targetCols = Math.max(8, Math.round(targetCols));
+    targetRows = Math.max(8, Math.round(targetRows));
+    if (targetCols === srcCols && targetRows === srcRows) {
+      return this.cloneFrame(frame);
+    }
+
+    const lookup = new Map();
+    for (const cell of srcCells) {
+      lookup.set(cell.y * srcCols + cell.x, cell);
+    }
+
+    const scaleX = srcCols / targetCols;
+    const scaleY = srcRows / targetRows;
+    const cells = new Array(targetCols * targetRows);
+
+    for (let ty = 0; ty < targetRows; ty++) {
+      const sy = Math.min(Math.floor((ty + 0.5) * scaleY), srcRows - 1);
+      for (let tx = 0; tx < targetCols; tx++) {
+        const sx = Math.min(Math.floor((tx + 0.5) * scaleX), srcCols - 1);
+        const src = lookup.get(sy * srcCols + sx);
+        const c = { x: tx, y: ty, color: src ? src.color : '#000000' };
+        if (src && src.opacity != null) c.opacity = src.opacity;
+        cells[ty * targetCols + tx] = c;
+      }
+    }
+
+    return {
+      cols: targetCols,
+      rows: targetRows,
+      cells,
+      metadata: { ...frame.metadata, timestamp: Date.now(), resampledFrom: `${srcCols}x${srcRows}` }
+    };
+  }
+
+  /**
    * Clone a PXSFrame (deep copy)
    * @param {PXSFrame} frame - Frame to clone
    * @returns {PXSFrame} Cloned frame
@@ -481,4 +534,4 @@ if (typeof window !== 'undefined') {
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = ImageHelpers;
 }
-export default {};
+export { ImageHelpers };

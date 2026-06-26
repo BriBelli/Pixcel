@@ -33,6 +33,7 @@ class CellAnimator {
             cellHeight: config.cellHeight || 25,
             container: config.container,
             renderMode: config.renderMode || 'html',
+            // TODO(brian): confirm cellBorders default — kept `true` (non-regressive vs this repo); photolif's adopted source defaulted to `false`.
             cellBorders: config.cellBorders !== undefined ? config.cellBorders : true,
             borderColor: config.borderColor || 'transparent',
             borderWidth: config.borderWidth || 1,
@@ -146,15 +147,15 @@ class CellAnimator {
             if (this.config.renderMode === 'auto') {
                 this.renderMode = this._selectAutoRenderMode();
                 
-                // Auto-enable Phase 2C systems for large grids
-                if (this.state.totalCells >= 10000) {
+                // Auto-enable Phase 2C systems for very large grids
+                if (this.state.totalCells >= 250000) {
                     this.config.enableViewport = true;
                     this.config.enableSpatialIndex = true;
                 }
             }
 
             // Phase 2C: Initialize ViewportManager
-            if (this.config.enableViewport || this.state.totalCells >= 10000) {
+            if (this.config.enableViewport || this.state.totalCells >= 250000) {
                 if (typeof ViewportManager !== 'undefined') {
                     this.viewportManager = new ViewportManager(this);
                     
@@ -179,7 +180,7 @@ class CellAnimator {
             }
 
             // Phase 2C: Initialize SpatialIndex
-            if (this.config.enableSpatialIndex || this.state.totalCells >= 10000) {
+            if (this.config.enableSpatialIndex || this.state.totalCells >= 250000) {
                 if (typeof SpatialIndex !== 'undefined') {
                     this.spatialIndex = new SpatialIndex({
                         x: 0,
@@ -1521,4 +1522,5 @@ if (typeof window !== 'undefined') {
 }
 
 // ES Module export
+export { CellAnimator };
 export default CellAnimator;

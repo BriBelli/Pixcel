@@ -426,4 +426,4 @@ if (typeof module !== 'undefined' && module.exports) {
 if (typeof window !== 'undefined') {
     window.HTMLRenderer = HTMLRenderer;
 }
-export default {};
+export { HTMLRenderer };

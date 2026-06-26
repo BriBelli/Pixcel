@@ -162,4 +162,4 @@ if (typeof module !== 'undefined' && module.exports) {
 if (typeof window !== 'undefined') {
     window.BaseRenderer = BaseRenderer;
 }
-export default {};
+export { BaseRenderer };

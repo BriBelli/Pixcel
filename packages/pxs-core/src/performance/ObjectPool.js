@@ -325,4 +325,4 @@ if (typeof window !== 'undefined') {
     window.AnimationObjectPool = AnimationObjectPool;
     window.CoordinateObjectPool = CoordinateObjectPool;
 }
-export default {};
+export { ObjectPool, CellObjectPool, AnimationObjectPool, CoordinateObjectPool };

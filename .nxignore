@@ -5,3 +5,6 @@ photolif
 
 # Claude Design handoff — reference prototypes (React/JSX), not a workspace project.
 design-handoff
+
+# Agent worktrees (isolated sub-agent checkouts) — never part of the root graph.
+.claude/worktrees

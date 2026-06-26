@@ -331,4 +331,4 @@ if (typeof module !== 'undefined' && module.exports) {
 if (typeof window !== 'undefined') {
     window.PatternHelpers = PatternHelpers;
 }
-export default {};
+export { PatternHelpers };

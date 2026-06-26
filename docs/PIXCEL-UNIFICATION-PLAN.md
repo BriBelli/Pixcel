@@ -64,8 +64,16 @@ master (skills / MCP). Recycle the statue for everything; set context per task.
   Identical to pixel-art "Aspect: Auto." Applies to model pick, workflow pick, AND presentation pick.
   Restore `auto`-as-default everywhere (photolif regressed it to `custom`). This is the autonomy dial's
   resting position; the user can always turn it down.
-- **The Pixcel Agent primitive** (the recycled statue): a context-driven framework — VISION→work→fresh-eyes
-  judge→keep-best→96% gate, tool/skill/MCP-aware, A2UI-native. "Hire a master, set their domain."
+- **The Pixcel Agent primitive (the CHEF)** — the recycled statue as a context-driven framework. The loop
+  maps 1:1 to a chef: **VISION** (the order + the custom "no sauce" tweak, as a floor) → route a **RECIPE**
+  (the swappable per-task context-as-DATA = `{ingredients: tools/assets/data, instructions: the workflow}`,
+  e.g. the teriyaki JSON) → **DELEGATE** to sous-chefs (skill/specialist sub-agents via MCP) → **GATHER**
+  ingredients (tools/data/components) → **COOK** (execute the passes, dynamically fold the custom request —
+  the adaptation only an autonomous agent can do) → **QA** (fresh-eyes validate: correct + hot) → **POLISH**
+  (garnish/clean the brim) → **PLATE** (A2UI presentation). keep-best = never serve a worse plate. **The
+  recipe is RAILS (structure/context-as-data); the chef is AUTONOMY (adapts within the box) — the hybrid
+  resolved.** Swap the recipe → any dish: context="pixel artist" → the artisan; "image router" → the oracle;
+  "comparison" → the radar plate. "Hire a master, set the recipe."
 - **Specialist agents** (each = the primitive + domain context + rails): **Pixcel-art = the flagship**
   (this repo's engine, untouched); image-router/8×8; video; scenes; storyboards; assets. Reached by the
   front-door agent via MCP/skills — the hybrid shift happens at these hand-offs.

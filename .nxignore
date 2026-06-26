@@ -1,0 +1,7 @@
+# Nested, not-yet-merged sister project (Pixcel v2 / "photolif"). It carries its own
+# Nx projects (incl. a second `pxs-core`) and its own git — keep it out of the root
+# project graph until the unification ports it in. See docs/PIXCEL-UNIFICATION-PLAN.md.
+photolif
+
+# Claude Design handoff — reference prototypes (React/JSX), not a workspace project.
+design-handoff

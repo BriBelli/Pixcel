@@ -58,6 +58,15 @@ code-structure + an agent in control; blend toward more-autonomous as it proves 
 professionals, **one front-door agent** that shapes a workflow from the user's words and routes to the right
 master (skills / MCP). Recycle the statue for everything; set context per task.
 
+**The recycling is FEATURE-deep, not just engine-deep.** Every platform feature is a *medium-agnostic agent
+capability* — set the context to Pixcel Art and it serves pixel-art too: the **prompt-coach** (five-part
+formula → a recipe with a per-medium cookbook: image = Subject/Action/Context/Composition/Style; pixel-art
+= Subject/Angle/Density/Palette/Read), the **multi-variant "blast"** (8×8 gallery applied to "create three
+owls" → fan out N artisan designs, pick best; "Redo" is the single-shot seed), routing, version-history,
+the studio editor. **Pixcel Art is a first-class MEDIUM under the same feature set — NOT a vertical bolted
+beside the image platform.** One feature set, every medium, agent-driven, `auto` by default. The deepest
+"one product" proof: not two products sharing a substrate, but one feature set serving all media.
+
 ## The architecture (one organism)
 - **Front door — the Pixcel Assistant** (autonomous orchestrator): the user talks to ONE agent. It reads the
   whole project, makes sense of the prompt, surveys available tools/paths/**workflows** (Pixcel-art, image,

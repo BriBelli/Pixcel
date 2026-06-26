@@ -28,8 +28,8 @@
 - **Autonomy is a DIAL** (Brian's IDE journey: Copilot-micro → Cursor-plan/exec → Claude-Code-high-auto):
   the statue pattern spans the full spectrum; #3 (high autonomy + monitor/review) is the default, turnable
   down per task. The designs are a "statue shape," open for engineering — not literal.
-- **DESIGN LANGUAGE = fuse photolif's aesthetic** (clean flat dark, bento/gallery grid, model-accent
-  colors — Brian's signature, he loves it) WITH the Claude Design. The Pixcel visual signature for P4.
+- **DESIGN LANGUAGE = the Claude Design is CANONICAL for the UI.** The photolif screens were origin/context
+  only (Brian likes the clean flat/bento feel) — don't over-index on them; Claude Design packages the UI.
 - **PROVEN + SHIPPED in photolif (preserve, don't rebuild):** (a) the **live-edit studio** — semantic edits
   ("add a sniper rifle" → "make the helicopter smaller") each create a versioned **Pixcel JSON record** =
   the model↔artisan↔version-history FUSION, real + working today; (b) the **multi-model 8×8 gallery +

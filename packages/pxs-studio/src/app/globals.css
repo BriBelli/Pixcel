@@ -1,6 +1,7 @@
-/* Canonical Pixcel/A2UI design tokens (Claude Design). Additive — declares
-   --a2ui-* / --pxs-* + IBM Plex; existing components are unaffected until the
-   deliberate global swap. New surfaces (e.g. LandingPage) opt in via the tokens. */
+/* Canonical Pixcel/A2UI design tokens (Claude Design) — tokens.css declares --a2ui-* / --pxs-* + IBM Plex.
+   A1 (global token foundation): the legacy palette names below are now ALIASES onto those tokens, so the
+   whole app renders on the design system (warm charcoal + soft Google-blue + IBM Plex) while every existing
+   `bg-background-*` / `text-*` / `border` class keeps working untouched. */
 @import './tokens.css';
 
 @tailwind base;
@@ -9,28 +10,28 @@
 
 @layer base {
   :root {
-    /* Background Colors */
-    --background-primary: #0d1117;
-    --background-secondary: #161b22;
-    --background-tertiary: #21262d;
-    --background-overlay: #30363d;
-    
-    /* Border Colors */
-    --border: #30363d;
-    --border-hover: #58a6ff;
-    
-    /* Text Colors */
-    --text-primary: #c9d1d9;
-    --text-secondary: #8b949e;
-    --text-muted: #484f58;
-    
-    /* Accent Colors */
-    --primary: #58a6ff;
-    --primary-dark: #1f6feb;
-    --accent-green: #238636;
-    --accent-red: #da3633;
-    --accent-yellow: #d29922;
-    --accent-purple: #8957e5;
+    /* Backgrounds — charcoal elevations (was GitHub #0d1117 family) */
+    --background-primary:   var(--a2ui-bg-app);
+    --background-secondary: var(--a2ui-bg-secondary);
+    --background-tertiary:  var(--a2ui-bg-tertiary);
+    --background-overlay:   var(--a2ui-bg-elevated);
+
+    /* Borders — alpha-on-surface (was solid #30363d) */
+    --border:       var(--a2ui-border-default);
+    --border-hover: var(--a2ui-accent);
+
+    /* Text */
+    --text-primary:   var(--a2ui-text-primary);
+    --text-secondary: var(--a2ui-text-secondary);
+    --text-muted:     var(--a2ui-text-tertiary);
+
+    /* Accent — soft Google-blue; purple retired to the single accent */
+    --primary:       var(--a2ui-accent);
+    --primary-dark:  var(--a2ui-accent-active);
+    --accent-green:  var(--a2ui-success);
+    --accent-red:    var(--a2ui-error);
+    --accent-yellow: var(--a2ui-warning);
+    --accent-purple: var(--a2ui-accent);
   }
   
   * {
@@ -39,7 +40,7 @@
   
   body {
     @apply bg-background-primary text-text-primary;
-    font-family: 'Space Grotesk', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    font-family: var(--a2ui-font-family);
     margin: 0;
     padding: 0;
     overflow: hidden;

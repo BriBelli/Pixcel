@@ -25,8 +25,8 @@ module.exports = {
         'accent-purple': 'var(--accent-purple)',
       },
       fontFamily: {
-        sans: ['Space Grotesk', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'sans-serif'],
-        mono: ['JetBrains Mono', 'monospace'],
+        sans: ['IBM Plex Sans', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'sans-serif'],
+        mono: ['IBM Plex Mono', 'SF Mono', 'Menlo', 'monospace'],
       },
     },
   },

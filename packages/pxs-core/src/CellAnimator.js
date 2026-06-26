@@ -33,8 +33,9 @@ class CellAnimator {
             cellHeight: config.cellHeight || 25,
             container: config.container,
             renderMode: config.renderMode || 'html',
-            // TODO(brian): confirm cellBorders default — kept `true` (non-regressive vs this repo); photolif's adopted source defaulted to `false`.
-            cellBorders: config.cellBorders !== undefined ? config.cellBorders : true,
+            // cellBorders default: false (borderless) — Brian's call 2026-06-26. Cleaner solid art; the
+            // grid look is opt-in via config.cellBorders. (photolif's adopted default; supersedes this repo's old `true`.)
+            cellBorders: config.cellBorders !== undefined ? config.cellBorders : false,
             borderColor: config.borderColor || 'transparent',
             borderWidth: config.borderWidth || 1,
             borderStyle: config.borderStyle || 'solid',

@@ -54,6 +54,16 @@ master (skills / MCP). Recycle the statue for everything; set context per task.
   video, multi-image gallery, multi-video gallery, scenes, storyboards…), shapes the best workflow, asks/
   suggests naturally, and **delivers/routes** — responding with **A2UI** (the agent drives the UI; CRUD-style
   GUI, never prose). *This keeps photolif's agent CONCEPT (route → workflows) and drops its brittleness.*
+- **PRESENTATION INTELLIGENCE — the agent has TWO selection jobs (the chef):** from the intent classifier
+  it picks (a) the **RECIPE** = which workflow/specialist, AND (b) the **PLATE** = which A2UI presentation
+  scaffold + AI context (photolif's "content styles" — a prepackaged UI scaffold + skill/behavior context
+  per intent class: compare→radar+table, how-to→steps, dashboard→KPIs, analytical→charts, …). So the
+  primitive's A2UI output = *pick-the-scaffold-then-fill-it*, NOT just emit-components. The scaffold+context
+  library is **core IP** (port photolif's `content_styles/`; the name "content style" is droppable).
+- **ONE LAW across the whole system: `auto` = the agent decides (the default); `custom` = user override.**
+  Identical to pixel-art "Aspect: Auto." Applies to model pick, workflow pick, AND presentation pick.
+  Restore `auto`-as-default everywhere (photolif regressed it to `custom`). This is the autonomy dial's
+  resting position; the user can always turn it down.
 - **The Pixcel Agent primitive** (the recycled statue): a context-driven framework — VISION→work→fresh-eyes
   judge→keep-best→96% gate, tool/skill/MCP-aware, A2UI-native. "Hire a master, set their domain."
 - **Specialist agents** (each = the primitive + domain context + rails): **Pixcel-art = the flagship**

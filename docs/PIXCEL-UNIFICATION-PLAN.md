@@ -28,6 +28,16 @@
 - **Autonomy is a DIAL** (Brian's IDE journey: Copilot-micro → Cursor-plan/exec → Claude-Code-high-auto):
   the statue pattern spans the full spectrum; #3 (high autonomy + monitor/review) is the default, turnable
   down per task. The designs are a "statue shape," open for engineering — not literal.
+- **DESIGN LANGUAGE = fuse photolif's aesthetic** (clean flat dark, bento/gallery grid, model-accent
+  colors — Brian's signature, he loves it) WITH the Claude Design. The Pixcel visual signature for P4.
+- **PROVEN + SHIPPED in photolif (preserve, don't rebuild):** (a) the **live-edit studio** — semantic edits
+  ("add a sniper rifle" → "make the helicopter smaller") each create a versioned **Pixcel JSON record** =
+  the model↔artisan↔version-history FUSION, real + working today; (b) the **multi-model 8×8 gallery +
+  Generation Console** (routing transparency: per-model PRIMARY counts, dropped pins WITH reasons);
+  (c) consistent-character turnaround sheets (a real workflow).
+- **CONVERGENCE:** photolif's per-edit JSON version history == this repo's NEW per-piece version chain. Both
+  halves independently grew the same thing → unify to **ONE version-history system across all media** (image
+  edits + pixel-art revisions + video + …).
 
 ## The story (why this is the shape)
 Brian fought for the autonomous artisan HERE for months ($500+, Opus 4.6) — it failed. He built the entire

@@ -176,4 +176,10 @@
 
   --a2ui-transition-fast: 150ms ease; --a2ui-transition-normal: 200ms ease; --a2ui-transition-slow: 300ms ease;
   --a2ui-ease-entrance: cubic-bezier(0.22, 1, 0.36, 1);
+
+  /* z-index + layout (complete canonical set, mirrors colors_and_type.css) */
+  --a2ui-space-0: 0; --a2ui-radius-none: 0;
+  --a2ui-z-base: 0; --a2ui-z-dropdown: 100; --a2ui-z-sticky: 200; --a2ui-z-modal: 300; --a2ui-z-toast: 400; --a2ui-z-tooltip: 500;
+  --a2ui-chat-max-width: 640px; --a2ui-chat-max-width-expanded: 1120px;
+  --a2ui-sidebar-width: 280px; --a2ui-header-height: 64px; --a2ui-input-height: 56px;
 }

@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import dynamic from 'next/dynamic';
 import LandingPage from '../components/LandingPage';
+import { useCurrentUser } from '../lib/use-current-user';
 
 // Dynamically import Studio component (client-side only for Web Workers)
 const Studio = dynamic(() => import('../components/Studio'), {
@@ -47,6 +48,7 @@ function LoadingScreen() {
 export default function Home() {
   const [mounted, setMounted] = useState(false);
   const [entered, setEntered] = useState(false);
+  const user = useCurrentUser();
 
   useEffect(() => {
     setMounted(true);
@@ -58,7 +60,7 @@ export default function Home() {
 
   // The product's front door: a landing/splash page → launch into the Studio (the IDE).
   if (!entered) {
-    return <LandingPage onEnter={() => setEntered(true)} />;
+    return <LandingPage onEnter={() => setEntered(true)} userName={user?.firstName} />;
   }
 
   return <Studio />;

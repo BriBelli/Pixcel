@@ -11,6 +11,8 @@ import { useState } from 'react';
 
 interface Props {
   onEnter: () => void;
+  /** First name of the signed-in user (from auth). Greeting drops the name when absent. */
+  userName?: string;
 }
 
 /* ── Iconography (Claude Design handoff): the Pixel-X mark + Lucide line icons
@@ -65,7 +67,7 @@ const UTILITY: { id: string; label: string; icon: IconName }[] = [
   { id: 'assistant', label: 'Assistant', icon: 'assistant' },
 ];
 
-export default function LandingPage({ onEnter }: Props) {
+export default function LandingPage({ onEnter, userName }: Props) {
   const [draft, setDraft] = useState('');
 
   return (
@@ -120,7 +122,7 @@ export default function LandingPage({ onEnter }: Props) {
         <div className="relative flex-1 flex flex-col items-center justify-center px-6">
           {/* The universal ask */}
           <h1 style={{ margin: 0, fontSize: 'clamp(28px, 3.6vw, 36px)', fontWeight: 400, letterSpacing: '-0.01em', textAlign: 'center' }}>
-            How can I help you today, Brian?
+            {userName ? `How can I help you today, ${userName}?` : 'How can I help you today?'}
           </h1>
 
           {/* Hero prompt bar — Google-style single search; placeholder carries the supporting text */}

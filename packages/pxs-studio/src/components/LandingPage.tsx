@@ -58,10 +58,6 @@ const UTILITY: { id: string; label: string; icon: IconName }[] = [
   { id: 'assistant', label: 'Assistant', icon: 'assistant' },
 ];
 
-/* Smart context chips — cold-start static fallback (creative-led, with range).
-   Future: replace dynamically from the user's recent threads/topics. They do NOT rotate. */
-const CHIPS = ['Sculpt a pixel-art owl', 'Generate a product shot', 'Storyboard a scene', 'Compare iPhone vs Android'];
-
 export default function LandingPage({ onEnter }: Props) {
   const [draft, setDraft] = useState('');
 
@@ -135,13 +131,6 @@ export default function LandingPage({ onEnter }: Props) {
             />
             <button type="submit" className="pxl-send flex h-9 w-9 items-center justify-center shrink-0" title="Send"><Ic name="send" size={16} /></button>
           </form>
-
-          {/* Smart context chips (static cold-start set; dynamic later, no rotation) */}
-          <div className="mt-5 flex flex-wrap items-center justify-center gap-2.5">
-            {CHIPS.map((c) => (
-              <button key={c} onClick={onEnter} className="pxl-chip px-4 py-2 text-sm">{c}</button>
-            ))}
-          </div>
         </div>
       </div>
     </div>

@@ -126,7 +126,7 @@ export default function LandingPage({ onEnter }: Props) {
             <input
               value={draft}
               onChange={(e) => setDraft(e.target.value)}
-              placeholder="Ask me anything, or describe what you want to create…"
+              placeholder="Ask me anything…"
               className="pxl-input min-w-0 flex-1 text-[15px] outline-none"
             />
             <button type="submit" className="pxl-send flex h-9 w-9 items-center justify-center shrink-0" title="Send"><Ic name="send" size={16} /></button>

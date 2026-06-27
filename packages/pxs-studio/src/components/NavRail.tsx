@@ -2,6 +2,8 @@
 
 import { useAuth0 } from '@auth0/auth0-react';
 import { useCurrentUser } from '../lib/use-current-user';
+import { useLoginModal } from './LoginModalProvider';
+import { clearCredentialsSession } from '../lib/credentials-auth';
 
 /* ─────────────────────────────────────────────────────────────────────────────
  * NavRail — the primary app-feature switcher (Chat · Art · Image · Video
@@ -91,16 +93,20 @@ const RAIL_CSS = `
    signed-in user's avatar (round, ~34px). Avatar shows the user's picture when
    present, else a graceful fallback (their initial, else a Lucide `user` glyph). */
 function UserAvatar() {
-  const { isAuthenticated, loginWithRedirect, logout } = useAuth0();
+  const { isAuthenticated, logout } = useAuth0();
+  const { openLogin } = useLoginModal();
+  // useCurrentUser merges BOTH sessions (Auth0 SDK + custom credentials), so the
+  // avatar reflects a credentials login too — not just Auth0 redirect flows.
   const user = useCurrentUser();
 
-  // Signed out: a round "Sign in" button → Auth0 hosted login (redirect flow).
-  if (!isAuthenticated) {
+  // Signed out: a round "Sign in" button → opens our CUSTOM login modal
+  // (overlays whichever shell is on screen, via LoginModalProvider).
+  if (!user) {
     return (
       <button
         type="button"
         title="Sign in"
-        onClick={() => loginWithRedirect()}
+        onClick={openLogin}
         className="pxl-avatar"
       >
         <span className="pxl-avatar-fallback">
@@ -113,12 +119,24 @@ function UserAvatar() {
   // Signed in: the avatar. Clicking it logs out for now.
   // TODO(auth): replace this with a fuller account menu (profile, settings,
   // sign out) — a later task. For now a click signs the user out directly.
+  //
+  // Logout must tear down BOTH sessions: clear the custom credentials session
+  // first, then run the Auth0 SDK logout when there's an SDK session (it
+  // redirects). When there's only a credentials session, clearing it is enough —
+  // useCurrentUser re-renders the rail back to "Sign in".
+  const handleLogout = () => {
+    clearCredentialsSession();
+    if (isAuthenticated) {
+      logout({ logoutParams: { returnTo: window.location.origin } });
+    }
+  };
+
   const initial = (user?.firstName || user?.name || '').trim().charAt(0);
   return (
     <button
       type="button"
       title={user?.name || user?.firstName || 'Sign out'}
-      onClick={() => logout({ logoutParams: { returnTo: window.location.origin } })}
+      onClick={handleLogout}
       className="pxl-avatar"
     >
       {user?.avatarUrl ? (

@@ -152,6 +152,21 @@ export default function LandingPage({ onEnter }: Props) {
             What do you want to make?
           </h1>
 
+          {/* Hero prompt bar — Google-style single search; placeholder carries the supporting text */}
+          <form
+            onSubmit={(e) => { e.preventDefault(); onEnter(); }}
+            className="pxl-promptbar mt-7 flex w-full max-w-2xl items-center gap-2 rounded-full px-3.5 py-2.5"
+          >
+            <button type="button" onClick={onEnter} className="pxl-iconbtn flex h-9 w-9 items-center justify-center shrink-0" title="Attach"><Ic name="plus" size={20} /></button>
+            <input
+              value={draft}
+              onChange={(e) => setDraft(e.target.value)}
+              placeholder="Ask me anything, or describe a piece to create…"
+              className="pxl-input min-w-0 flex-1 text-[15px] outline-none"
+            />
+            <button type="submit" className="pxl-send flex h-9 w-9 items-center justify-center shrink-0" title="Send"><Ic name="send" size={16} /></button>
+          </form>
+
           {/* Rotating starting-point cards */}
           <div
             className="mt-10 w-full max-w-3xl"
@@ -180,21 +195,6 @@ export default function LandingPage({ onEnter }: Props) {
               ))}
             </div>
           </div>
-
-          {/* Hero prompt bar — Google-style single search; placeholder carries the supporting text */}
-          <form
-            onSubmit={(e) => { e.preventDefault(); onEnter(); }}
-            className="pxl-promptbar mt-10 flex w-full max-w-2xl items-center gap-2 rounded-full px-3.5 py-2.5"
-          >
-            <button type="button" onClick={onEnter} className="pxl-iconbtn flex h-9 w-9 items-center justify-center shrink-0" title="Attach"><Ic name="plus" size={20} /></button>
-            <input
-              value={draft}
-              onChange={(e) => setDraft(e.target.value)}
-              placeholder="Ask me anything, or describe a piece to create…"
-              className="pxl-input min-w-0 flex-1 text-[15px] outline-none"
-            />
-            <button type="submit" className="pxl-send flex h-9 w-9 items-center justify-center shrink-0" title="Send"><Ic name="send" size={16} /></button>
-          </form>
         </div>
       </div>
     </div>

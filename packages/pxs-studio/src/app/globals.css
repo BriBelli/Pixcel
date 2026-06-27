@@ -4,6 +4,23 @@
    `bg-background-*` / `text-*` / `border` class keeps working untouched. */
 @import './tokens.css';
 
+/* ── Brand color exception — carried from the old Pixcel design. Deliberate deviation
+   from the DS "no new hex" rule (flagged in docs). These override the canonical accent
+   app-wide WITHOUT editing the frozen splash. Revert by deleting this block. ── */
+:root {
+  --pxl-brand-blue:   #58a6ff;  /* old --primary (primary buttons) */
+  --pxl-brand-purple: #8957e5;  /* old --accent-purple (AI / special actions) */
+  --pxl-glow-blue:    #3b82f6;  /* old hero-glow blue (decorative) */
+  --pxl-glow-purple:  #8b5cf6;  /* old hero-glow violet (decorative) */
+
+  /* TRYING: the carried brand blue as the app accent (replaces the DS Google-blue).
+     Purple stays a named token for deliberate AI/special actions (e.g. Refine in Studio). */
+  --a2ui-accent:        var(--pxl-brand-blue);
+  --a2ui-accent-hover:  #79b8ff;
+  --a2ui-accent-active: #1f6feb;
+  --a2ui-accent-subtle: rgba(88, 166, 255, 0.16);
+}
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;

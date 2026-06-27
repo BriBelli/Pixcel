@@ -108,7 +108,9 @@ export default function LandingPage({ onEnter }: Props) {
         <div className="pxl-secondary mb-6"><PixcelMark size={22} /></div>
         <div className="flex flex-col gap-1.5">
           {SECTIONS.map((s) => (
-            <button key={s.id} onClick={onEnter} data-active={s.id === 'art'} title={s.label}
+            // Splash = home (reached via the X mark above). No section is active here,
+            // so nothing carries the highlight/accent-bar until you actually enter one.
+            <button key={s.id} onClick={onEnter} title={s.label}
               className="pxl-navbtn flex flex-col items-center gap-1 w-14 py-2">
               <Ic name={s.icon} size={20} />
               <span className="text-[10px] font-medium">{s.label}</span>

@@ -93,4 +93,8 @@ changes — it's the same engine, now parameterized.
 - **Agent runtime:** Claude API directly (like today's `live-jobs`) vs the Claude Agent SDK vs MCP servers
   for the sous-chefs. *Lean: Claude API direct for the chef loop (proven); MCP for the sous-chef hand-offs.*
   Adjustable — I'll pick this when we build unless you want to weigh in.
-- **Recipe authoring:** hand-authored data files first (the cookbook), trained/learned recipes later.
+- **Recipes are EMERGENT, not just hand-authored (CRITICAL).** The chef can **synthesize a NEW recipe**
+  (workflow + A2UI plate) for a novel request — research models/features, plan the workflow, generate the
+  A2UI on the fly — and (future) **save** it. Hand-authored recipes are only the cold-start seed; the
+  predefined set is never the ceiling. (Fixes the original design's predefined-workflow bottleneck; see the
+  plan's "emergent workflows" + "workflow persistence" notes.)

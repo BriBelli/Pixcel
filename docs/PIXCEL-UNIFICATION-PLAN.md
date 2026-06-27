@@ -93,6 +93,15 @@ beside the image platform.** One feature set, every medium, agent-driven, `auto`
   recipe is RAILS (structure/context-as-data); the chef is AUTONOMY (adapts within the box) — the hybrid
   resolved.** Swap the recipe → any dish: context="pixel artist" → the artisan; "image router" → the oracle;
   "comparison" → the radar plate. "Hire a master, set the recipe."
+- **EMERGENT WORKFLOWS — the agent is NOT limited to a predefined menu (CRITICAL; fixes the original
+  design's core flaw).** Human-authored, predefined workflows were a *bottleneck*. The autonomous agent
+  **finds an existing workflow OR synthesizes a brand-new one** from a unique prompt: it researches models/
+  features, constructs the workflow plan, and **generates the A2UI on the fly**. The splash cards/carousel
+  are **examples/starting-points, never the ceiling** — hand-authored recipes are just the cold-start seed.
+- **WORKFLOW PERSISTENCE (future state, design the DB pattern).** Users **save** agent-created workflows;
+  the agent stores them in memory. Workflows behave like **AI threads/sessions**, named by the originating
+  prompt ("I want to create an owl…", "How do I do Pixar style…", "Multi-shot storyboarding"). The splash
+  surfaces **recent/saved** workflows (recycle the card slot, or a new surface — TBD). Needs a DB schema.
 - **Specialist agents** (each = the primitive + domain context + rails): **Pixcel-art = the flagship**
   (this repo's engine, untouched); image-router/8×8; video; scenes; storyboards; assets. Reached by the
   front-door agent via MCP/skills — the hybrid shift happens at these hand-offs.

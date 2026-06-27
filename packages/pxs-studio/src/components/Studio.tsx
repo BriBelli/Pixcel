@@ -532,9 +532,13 @@ export default function Studio({ children, onHome, initialPrompt }: { children?:
             <span className="opacity-70">{modKey}+wheel zoom</span>
           </div>
 
-          {/* Center easel — the artist's studio: the live drawing + its thoughts + the workflow feed */}
+          {/* Center easel — the artist's studio: the live drawing + its thoughts + the workflow feed.
+              SCULPT mode is the immersive full-bleed live show — MatrixArtStage FILLS this z-0 layer
+              edge-to-edge (the art centered inside it). The supporting chrome (status, thinking, feed)
+              floats at the EDGES so the central art focal region stays clear. Other modes keep the
+              centered framed preview. */}
           {stage.active && (
-            <div className="absolute inset-0 z-30 flex flex-col items-center justify-center gap-4 bg-background-primary p-6 overflow-y-auto">
+            <div className="absolute inset-0 z-30 bg-background-primary overflow-hidden">
               <button
                 onClick={() => stage.clear()}
                 className="absolute top-4 right-4 z-40 px-2 py-1 rounded-md bg-background-secondary/90 border border-border text-[11px] text-text-muted hover:text-text-primary"
@@ -543,45 +547,53 @@ export default function Studio({ children, onHome, initialPrompt }: { children?:
                 ✕ Dismiss
               </button>
 
-              <div className="rounded-xl border border-border bg-background-secondary/40 p-4 shadow-2xl shadow-black/40">
-                {stage.mode === 'sculpt' ? (
-                  // THE LIVE SHOW — real char-map written → cascaded to color, + a live data stream.
-                  <MatrixArtStage maxEdge={460} />
-                ) : stage.frame && !stage.shimmer ? (
-                  <MaterializeFrame frame={stage.frame} size={Math.min(400, (grid?.cols ?? 32) * 12)} />
-                ) : (
-                  <DiffusionShimmer size={Math.min(360, (grid?.cols ?? 32) * 11)} />
-                )}
-              </div>
+              {stage.mode === 'sculpt' ? (
+                // THE LIVE SHOW — full-bleed immersive blue canvas, art centered, char-sea ambient.
+                <div className="absolute inset-0">
+                  <MatrixArtStage />
+                </div>
+              ) : (
+                // Optimized / shimmer modes — centered framed preview (unchanged).
+                <div className="absolute inset-0 flex items-center justify-center p-6">
+                  <div className="rounded-xl border border-border bg-background-secondary/40 p-4 shadow-2xl shadow-black/40">
+                    {stage.frame && !stage.shimmer ? (
+                      <MaterializeFrame frame={stage.frame} size={Math.min(400, (grid?.cols ?? 32) * 12)} />
+                    ) : (
+                      <DiffusionShimmer size={Math.min(360, (grid?.cols ?? 32) * 11)} />
+                    )}
+                  </div>
+                </div>
+              )}
 
-              <div className="flex items-center gap-2 text-xs font-mono">
+              {/* status line — floats top-center, clear of the art's body */}
+              <div className="absolute top-4 left-1/2 -translate-x-1/2 z-40 flex items-center gap-2 text-xs font-mono pointer-events-none">
                 {stage.status === 'running' ? (
-                  <span className="inline-flex items-center gap-1.5 text-accent-purple">
+                  <span className="inline-flex items-center gap-1.5 text-accent-purple rounded-md bg-background-primary/60 backdrop-blur px-2 py-1">
                     <span className="w-2 h-2 rounded-full bg-accent-purple animate-pulse" />
                     {stage.mode === 'sculpt' ? 'Comprehensive' : 'Optimized'} · {stage.label || 'working…'}
                   </span>
                 ) : stage.status === 'done' ? (
-                  <span className="text-accent-purple">● The artist says it&apos;s done — Save it or Iterate in the panel →</span>
+                  <span className="text-accent-purple rounded-md bg-background-primary/60 backdrop-blur px-2 py-1">● The artist says it&apos;s done — Save it or Iterate in the panel →</span>
                 ) : stage.status === 'paused' ? (
-                  <span className="text-accent-yellow">⏸ Paused</span>
+                  <span className="text-accent-yellow rounded-md bg-background-primary/60 backdrop-blur px-2 py-1">⏸ Paused</span>
                 ) : (
-                  <span className="text-text-muted">{stage.label || stage.status}</span>
+                  <span className="text-text-muted rounded-md bg-background-primary/60 backdrop-blur px-2 py-1">{stage.label || stage.status}</span>
                 )}
               </div>
 
-              {/* the artist's thoughts — readable + auto-following while it paints */}
+              {/* the artist's thoughts — floats down the LEFT margin, clear of the centered art */}
               {stage.status === 'running' && stage.thinking && (
-                <div className="max-w-2xl w-full rounded-lg border border-accent-purple/30 bg-accent-purple/5 px-3 py-2">
-                  <div className="text-[9px] uppercase tracking-wider text-accent-purple mb-1 flex items-center gap-1">
+                <div className="absolute left-4 top-1/2 -translate-y-1/2 z-40 w-60 max-h-[42vh] rounded-lg border border-accent-purple/30 bg-background-primary/70 backdrop-blur px-3 py-2 overflow-hidden flex flex-col">
+                  <div className="text-[9px] uppercase tracking-wider text-accent-purple mb-1 flex items-center gap-1 shrink-0">
                     <span className="w-1 h-1 rounded-full bg-accent-purple animate-pulse" /> thinking
                   </div>
-                  <div ref={stageThinkRef} className="text-[11px] text-text-secondary italic leading-relaxed max-h-44 overflow-y-auto whitespace-pre-wrap">{stage.thinking}</div>
+                  <div ref={stageThinkRef} className="text-[11px] text-text-secondary italic leading-relaxed overflow-y-auto whitespace-pre-wrap">{stage.thinking}</div>
                 </div>
               )}
 
-              {/* the studio feed — the persistent stroke-by-stroke transcript */}
+              {/* the studio feed — floats as a bottom strip, clear of the centered art */}
               {stage.feed.length > 0 && (
-                <div ref={stageFeedRef} className="max-w-2xl w-full rounded-lg border border-border bg-background-secondary/40 px-3 py-2 max-h-56 overflow-y-auto space-y-0.5">
+                <div ref={stageFeedRef} className="absolute bottom-4 left-1/2 -translate-x-1/2 z-40 w-[min(90%,42rem)] max-h-40 rounded-lg border border-border bg-background-primary/70 backdrop-blur px-3 py-2 overflow-y-auto space-y-0.5">
                   {stage.feed.slice(-60).map((f, i) => (
                     <div key={i} className="text-[10px] leading-snug">
                       {f.kind === 'user' ? (

@@ -27,7 +27,7 @@ import MatrixArtStage from './MatrixArtStage';
 import { applyGalleryFrame } from '../lib/apply-gallery-frame';
 import NavRail from './NavRail';
 
-export default function Studio({ children, onHome }: { children?: React.ReactNode; onHome?: () => void }) {
+export default function Studio({ children, onHome, initialPrompt }: { children?: React.ReactNode; onHome?: () => void; initialPrompt?: string }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasHandleRef = useRef<GridCanvasHandle>(null);
   const [gridData, setGridData] = useState<GridData | null>(null);
@@ -780,7 +780,7 @@ export default function Studio({ children, onHome }: { children?: React.ReactNod
               </button>
             </div>
             <div className="flex-1 min-h-0">
-              <LiveArtisanPanel onGridUpdate={handleGridUpdate} />
+              <LiveArtisanPanel onGridUpdate={handleGridUpdate} initialPrompt={initialPrompt} />
             </div>
           </aside>
         )}

@@ -12,7 +12,7 @@ import NavRail from './NavRail';
 import PixcelLogo from './PixcelLogo';
 
 interface Props {
-  onEnter: () => void;
+  onEnter: (prompt?: string) => void;
 }
 
 /* ── Iconography (Claude Design handoff): Lucide line icons (stroke 2, currentColor,
@@ -75,10 +75,10 @@ export default function LandingPage({ onEnter }: Props) {
 
           {/* Hero prompt bar — Google-style single search; placeholder carries the supporting text */}
           <form
-            onSubmit={(e) => { e.preventDefault(); onEnter(); }}
+            onSubmit={(e) => { e.preventDefault(); onEnter(draft.trim() || undefined); }}
             className="pxl-promptbar flex w-full max-w-2xl items-center gap-2 rounded-full px-3.5 py-2.5"
           >
-            <button type="button" onClick={onEnter} className="pxl-iconbtn flex h-9 w-9 items-center justify-center shrink-0" title="Attach"><Ic name="plus" size={20} /></button>
+            <button type="button" onClick={() => onEnter()} className="pxl-iconbtn flex h-9 w-9 items-center justify-center shrink-0" title="Attach"><Ic name="plus" size={20} /></button>
             <input
               value={draft}
               onChange={(e) => setDraft(e.target.value)}

@@ -55,6 +55,12 @@ Design), and the React prototypes give us the target for free.
 7. **The auto-is-default law** (agent decides by default; user can override) — model, workflow, AND
    presentation. Restore `auto` everywhere (photolif regressed to `custom`).
 8. **One version-history system** across all media (image edits + pixel revisions + …).
+9. **Brand colors (locked 2026-06-27)** — carried from the old design as a *deliberate* "no new hex"
+   exception (in `globals.css`): app **accent = brand blue `#58a6ff`** (hover `#79b8ff`, active `#1f6feb`),
+   overriding the DS Google-blue. `--pxl-brand-purple #8957e5` reserved for AI/special actions;
+   `--pxl-glow-blue #3b82f6` + `--pxl-glow-purple #8b5cf6` for decorative non-chrome.
+10. **CHAT SPLASH = FROZEN** (gold reference) — layout/copy/grid locked; only global token/CSS flows through.
+    The greeting name comes from `useCurrentUser()` (the auth integration point), not hardcoded.
 
 ---
 

@@ -13,7 +13,7 @@
   --pxl-glow-blue:    #3b82f6;  /* old hero-glow blue (decorative) */
   --pxl-glow-purple:  #8b5cf6;  /* old hero-glow violet (decorative) */
 
-  /* TRYING: the carried brand blue as the app accent (replaces the DS Google-blue).
+  /* LOCKED (2026-06-27): the carried brand blue IS the app accent (replaces the DS Google-blue).
      Purple stays a named token for deliberate AI/special actions (e.g. Refine in Studio). */
   --a2ui-accent:        var(--pxl-brand-blue);
   --a2ui-accent-hover:  #79b8ff;

@@ -160,9 +160,13 @@ interface NavRailProps {
   onSection?: (id: string) => void;
   /** Click on a utility item (Export / Assets / Assistant). */
   onUtility?: (id: string) => void;
+  /** Which utility item is currently "on" (e.g. 'assets' while the Assets panel is open). */
+  activeUtility?: string;
+  /** Optional count badges per utility id (e.g. { assets: 12 } → the unified Assets catalog size). */
+  utilityBadges?: Partial<Record<string, number>>;
 }
 
-export default function NavRail({ activeSection = 'art', onHome, onSection, onUtility }: NavRailProps) {
+export default function NavRail({ activeSection = 'art', onHome, onSection, onUtility, activeUtility, utilityBadges }: NavRailProps) {
   const handleSection = (id: string) => {
     if (id === 'chat') return onHome?.();
     (onSection ?? (() => onHome?.()))(id);
@@ -188,17 +192,29 @@ export default function NavRail({ activeSection = 'art', onHome, onSection, onUt
         ))}
       </div>
       <div className="mt-auto flex flex-col gap-1.5">
-        {UTILITY.map((s) => (
-          <button
-            key={s.id}
-            onClick={() => onUtility?.(s.id)}
-            title={s.label}
-            className="pxl-navbtn flex flex-col items-center gap-1 w-14 py-2"
-          >
-            <Ic name={s.icon} size={18} />
-            <span className="text-[10px] font-medium">{s.label}</span>
-          </button>
-        ))}
+        {UTILITY.map((s) => {
+          const badge = utilityBadges?.[s.id];
+          return (
+            <button
+              key={s.id}
+              onClick={() => onUtility?.(s.id)}
+              data-active={s.id === activeUtility}
+              title={badge != null ? `${s.label} · ${badge}` : s.label}
+              className="pxl-navbtn relative flex flex-col items-center gap-1 w-14 py-2"
+            >
+              <Ic name={s.icon} size={18} />
+              {badge != null && badge > 0 && (
+                <span
+                  className="absolute top-1 right-2 min-w-[15px] h-[15px] px-1 rounded-full flex items-center justify-center text-[8.5px] font-semibold leading-none"
+                  style={{ background: 'var(--a2ui-accent)', color: 'var(--a2ui-text-inverse)' }}
+                >
+                  {badge > 99 ? '99+' : badge}
+                </span>
+              )}
+              <span className="text-[10px] font-medium">{s.label}</span>
+            </button>
+          );
+        })}
       </div>
 
       {/* FUTURE: Alerts/notification icon goes HERE (above the avatar), with a

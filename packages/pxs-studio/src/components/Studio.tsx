@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useRef, useState, useCallback } from 'react';
+import React, { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import { usePXSStore, selectGrid, selectUI, selectActions, selectAnimation, PXSCell, PXSFrame } from '../store/pxs-store';
 import GridCanvas, { GridCanvasHandle } from './GridCanvas';
 import ResolutionTab from './ResolutionTab';
@@ -26,6 +26,8 @@ import MaterializeFrame from './MaterializeFrame';
 import MatrixArtStage from './MatrixArtStage';
 import { applyGalleryFrame } from '../lib/apply-gallery-frame';
 import NavRail from './NavRail';
+import { useGalleryStore } from '../store/gallery-store';
+import { GALLERY_ENTRIES } from '../data/gallery';
 
 /* ── Living-canvas chrome styling (Claude Design handoff §5 + §3.13) ──
    Glass floating chrome: rgba(18,18,22,0.82) + blur(20px) + 1px white-8% border +
@@ -61,6 +63,24 @@ export default function Studio({ children, onHome, initialPrompt }: { children?:
   const [inspectorData, setInspectorData] = useState<InspectorData | null>(null);
   const [selectedColor, setSelectedColor] = useState('#58a6ff');
   const [exportOpen, setExportOpen] = useState(false);
+
+  // ── Unified Assets catalog (the gallery, re-homed) + the thin tool rail ──
+  // `assetsOpen` toggles the floating Assets panel (glass, left-edge dock) that
+  // hosts ArtGalleryTab. The big "Library" sidebar with mode tabs is gone — its
+  // editing modes (grid / image / anim) now live in a slim icon tool rail, and
+  // selecting one reveals a compact floating control panel (`toolMode`).
+  const [assetsOpen, setAssetsOpen] = useState(false);
+  const [toolMode, setToolMode] = useState<null | 'resolution' | 'image' | 'animation'>(null);
+
+  // Saved-pieces count for the Assets nav badge — mirrors ArtGalleryTab's visible
+  // set (built-ins + user pieces, minus hidden).
+  const userPieces = useGalleryStore((s) => s.userPieces);
+  const hiddenPieces = useGalleryStore((s) => s.hidden);
+  const assetsCount = useMemo(
+    () =>
+      [...userPieces, ...GALLERY_ENTRIES].filter((e) => !hiddenPieces.includes(e.id)).length,
+    [userPieces, hiddenPieces]
+  );
 
   // Theme toggle (DS: dark is canonical). Flips data-theme on <html>; tokens.css does the rest.
   const [theme, setTheme] = useState<'dark' | 'light'>('dark');
@@ -437,17 +457,17 @@ export default function Studio({ children, onHome, initialPrompt }: { children?:
   };
 
   // Primary nav rail routing. The rail = app-feature switcher; for the creative sections
-  // that the Studio already hosts (Image / Anim) we just switch the existing inner tab so
-  // the section's content stays where it is. Export / Assets / Assistant map to the studio's
-  // existing affordances. Chat (active item) + the X mark go home (handled by NavRail → onHome).
+  // that the Studio already hosts (Image / Anim) we reveal that mode's compact controls
+  // via the thin tool rail. Export / Assets / Assistant map to the studio's affordances.
+  // Chat (active item) + the X mark go home (handled by NavRail → onHome).
   const handleRailSection = (id: string) => {
-    if (id === 'image') { if (ui.sidebarCollapsed) actions.toggleSidebar(); actions.setActiveTab('image'); }
-    else if (id === 'anim') { if (ui.sidebarCollapsed) actions.toggleSidebar(); actions.setActiveTab('animation'); }
+    if (id === 'image') setToolMode('image');
+    else if (id === 'anim') setToolMode('animation');
     // 'art' is the current section (active) — no-op; 'video' has no studio home yet → ignore.
   };
   const handleRailUtility = (id: string) => {
     if (id === 'export') setExportOpen(true);
-    else if (id === 'assets') { if (ui.sidebarCollapsed) actions.toggleSidebar(); actions.setActiveTab('gallery'); }
+    else if (id === 'assets') setAssetsOpen((o) => !o);
     else if (id === 'assistant') { if (!ui.chatPanelOpen) actions.toggleChatPanel(); }
   };
 
@@ -637,6 +657,8 @@ export default function Studio({ children, onHome, initialPrompt }: { children?:
           onHome={onHome}
           onSection={handleRailSection}
           onUtility={handleRailUtility}
+          activeUtility={assetsOpen ? 'assets' : undefined}
+          utilityBadges={{ assets: assetsCount }}
         />
       </div>
 
@@ -738,69 +760,66 @@ export default function Studio({ children, onHome, initialPrompt }: { children?:
         </div>
       </header>
 
-      {/* ── FLOATING GALLERY / LIBRARY SIDEBAR (glass) — left-edge overlay, docked
-          beside the nav rail. Collapses to nothing (the rail's section buttons
-          re-open it). Floats over the canvas; glides in/out. ── */}
-      {!ui.sidebarCollapsed && (
+      {/* ── THIN TOOL RAIL (glass) — a slim vertical icon strip docked at the left
+          edge, just beside the nav rail. "Just the tools needed" — the bulky Library
+          panel is gone. Each icon is an editing mode (Grid / Image / Anim); clicking
+          one reveals its compact floating controls (toolMode). Click the active one
+          again to dismiss. ── */}
+      <ToolRail mode={toolMode} onSelect={(m) => setToolMode((cur) => (cur === m ? null : m))} />
+
+      {/* ── FLOATING MODE CONTROLS (glass) — the compact panel for the selected tool.
+          Docks beside the tool rail; floats over the canvas; glides in/out. Holds the
+          mode's existing controls (grid editor / image import / animation). ── */}
+      {toolMode && (
         <aside
           className="absolute z-30 flex flex-col lc-glass rounded-xl overflow-hidden lc-anim"
-          style={{ left: 72 + 12, top: 60, bottom: 12, width: 256 }}
+          style={{ left: 72 + 8 + 44 + 8, top: 60, bottom: 12, width: 256 }}
         >
-          {/* Sidebar header */}
           <div className="h-9 px-2.5 border-b border-border flex items-center justify-between shrink-0">
-            <span className="text-xs font-semibold text-text-primary">Library</span>
+            <span className="text-xs font-semibold text-text-primary">
+              {toolMode === 'resolution' ? 'Grid' : toolMode === 'image' ? 'Image' : 'Animation'}
+            </span>
             <button
-              onClick={() => actions.toggleSidebar()}
+              onClick={() => setToolMode(null)}
               className="w-6 h-6 rounded flex items-center justify-center text-text-muted hover:text-text-primary hover:bg-background-overlay transition-colors"
-              title="Collapse library"
+              title="Close"
             >
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M15 18l-6-6 6-6"/></svg>
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
             </button>
           </div>
-
-          {/* Tabs */}
-          <div className="flex border-b border-border shrink-0">
-            {(['gallery', 'resolution', 'image', 'animation'] as const).map((tab) => (
-              <button
-                key={tab}
-                onClick={() => actions.setActiveTab(tab)}
-                className={`flex-1 py-2 text-[10px] font-medium uppercase tracking-wider transition-colors ${
-                  ui.activeTab === tab
-                    ? 'text-primary border-b-2 border-primary'
-                    : 'text-text-muted hover:text-text-primary'
-                }`}
-              >
-                {tab === 'resolution'
-                  ? 'Grid'
-                  : tab === 'image'
-                    ? 'Image'
-                    : tab === 'animation'
-                      ? 'Anim'
-                      : 'Art'}
-              </button>
-            ))}
-          </div>
-
-          {/* Tab content */}
           <div className="flex-1 overflow-y-auto">
-            {ui.activeTab === 'resolution' && <ResolutionTab onGridUpdate={handleGridUpdate} />}
-            {ui.activeTab === 'image' && <ImageTab onGridUpdate={handleGridUpdate} />}
-            {ui.activeTab === 'animation' && <AnimationTab onCreateAnimation={handleCreateAnimation} />}
-            {ui.activeTab === 'gallery' && <ArtGalleryTab onGridUpdate={handleGridUpdate} />}
+            {toolMode === 'resolution' && <ResolutionTab onGridUpdate={handleGridUpdate} />}
+            {toolMode === 'image' && <ImageTab onGridUpdate={handleGridUpdate} />}
+            {toolMode === 'animation' && <AnimationTab onCreateAnimation={handleCreateAnimation} />}
           </div>
         </aside>
       )}
 
-      {/* Collapsed-library handle — a thin floating affordance to re-open the library. */}
-      {ui.sidebarCollapsed && (
-        <button
-          onClick={() => actions.toggleSidebar()}
-          title="Open library"
-          className="absolute z-30 w-8 h-8 flex items-center justify-center lc-glass rounded-lg text-text-muted hover:text-text-primary lc-anim"
-          style={{ left: 72 + 12, top: 60 }}
+      {/* ── FLOATING ASSETS PANEL (glass) — the unified Assets catalog (the gallery,
+          re-homed). Opened from the NavRail "Assets" item; edge-docked left, floats
+          over the canvas. Renders the existing ArtGalleryTab → click a piece to load
+          it via applyGalleryFrame (handleGridUpdate). Art now; images / video later. ── */}
+      {assetsOpen && (
+        <aside
+          className="absolute z-30 flex flex-col lc-glass rounded-xl overflow-hidden lc-anim"
+          style={{ left: 72 + 8 + 44 + 8, top: 60, bottom: 12, width: 280 }}
         >
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M9 18l6-6-6-6"/></svg>
-        </button>
+          <div className="h-9 px-2.5 border-b border-border flex items-center justify-between shrink-0">
+            <span className="text-xs font-semibold text-text-primary">
+              Assets <span className="text-text-muted font-normal">· {assetsCount}</span>
+            </span>
+            <button
+              onClick={() => setAssetsOpen(false)}
+              className="w-6 h-6 rounded flex items-center justify-center text-text-muted hover:text-text-primary hover:bg-background-overlay transition-colors"
+              title="Close Assets"
+            >
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
+            </button>
+          </div>
+          <div className="flex-1 overflow-y-auto">
+            <ArtGalleryTab onGridUpdate={handleGridUpdate} />
+          </div>
+        </aside>
       )}
 
       {/* ── FLOATING ZOOM / TOOL CONTROLS (glass) — corner overlay near the canvas
@@ -973,6 +992,68 @@ function CanvasToolbar({
           <line x1="12" y1="15" x2="12" y2="3" />
         </svg>
       </button>
+    </div>
+  );
+}
+
+/* ── Thin tool rail ──────────────────────────────────────────────────────────
+   A slim vertical icon strip (44px) docked at the left edge beside the nav rail.
+   Each icon is an editing mode; the active one is highlighted. Replaces the bulky
+   "Library" panel's mode tabs — "just the tools needed". Glass float per the DS. */
+type ToolMode = 'resolution' | 'image' | 'animation';
+
+function ToolRail({ mode, onSelect }: { mode: ToolMode | null; onSelect: (m: ToolMode) => void }) {
+  const TOOLS: { id: ToolMode; label: string; icon: React.ReactNode }[] = [
+    {
+      id: 'resolution',
+      label: 'Grid',
+      icon: (
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <rect x="3" y="3" width="18" height="18" rx="1" /><path d="M3 9h18M3 15h18M9 3v18M15 3v18" />
+        </svg>
+      ),
+    },
+    {
+      id: 'image',
+      label: 'Image',
+      icon: (
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <rect x="3" y="3" width="18" height="18" rx="2" /><circle cx="8.5" cy="9" r="1.5" /><path d="m21 15-5-5L5 21" />
+        </svg>
+      ),
+    },
+    {
+      id: 'animation',
+      label: 'Anim',
+      icon: (
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <polygon points="5 3 19 12 5 21 5 3" />
+        </svg>
+      ),
+    },
+  ];
+  return (
+    <div
+      className="absolute z-30 flex flex-col gap-1 p-1 rounded-xl lc-glass lc-anim"
+      style={{ left: 72 + 8, top: 60 }}
+    >
+      {TOOLS.map((t) => {
+        const active = mode === t.id;
+        return (
+          <button
+            key={t.id}
+            onClick={() => onSelect(t.id)}
+            title={t.label}
+            className={`w-9 h-9 rounded-lg flex flex-col items-center justify-center transition-all ${
+              active
+                ? 'bg-primary/15 text-primary'
+                : 'text-text-muted hover:text-text-primary hover:bg-background-overlay'
+            }`}
+          >
+            {t.icon}
+          </button>
+        );
+      })}
     </div>
   );
 }

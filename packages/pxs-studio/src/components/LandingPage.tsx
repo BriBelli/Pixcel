@@ -13,8 +13,6 @@ import PixcelLogo from './PixcelLogo';
 
 interface Props {
   onEnter: () => void;
-  /** First name of the signed-in user (from auth). Greeting drops the name when absent. */
-  userName?: string;
 }
 
 /* ── Iconography (Claude Design handoff): Lucide line icons (stroke 2, currentColor,
@@ -35,7 +33,7 @@ function Ic({ name, size = 20 }: { name: IconName; size?: number }) {
   );
 }
 
-export default function LandingPage({ onEnter, userName }: Props) {
+export default function LandingPage({ onEnter }: Props) {
   const [draft, setDraft] = useState('');
 
   return (
@@ -73,17 +71,12 @@ export default function LandingPage({ onEnter, userName }: Props) {
         <div className="relative flex-1 flex flex-col items-center justify-center px-6">
           {/* Big, centered Pixcel wordmark (Google-style). Single swap point for a
               future animated "Doodle" — see PixcelLogo. */}
-          <PixcelLogo height={84} className="mb-7" />
-
-          {/* The universal ask */}
-          <h1 style={{ margin: 0, fontSize: 'clamp(28px, 3.6vw, 36px)', fontWeight: 400, letterSpacing: '-0.01em', textAlign: 'center' }}>
-            {userName ? `How can I help you today, ${userName}?` : 'How can I help you today?'}
-          </h1>
+          <PixcelLogo height={72} className="mb-8" />
 
           {/* Hero prompt bar — Google-style single search; placeholder carries the supporting text */}
           <form
             onSubmit={(e) => { e.preventDefault(); onEnter(); }}
-            className="pxl-promptbar mt-7 flex w-full max-w-2xl items-center gap-2 rounded-full px-3.5 py-2.5"
+            className="pxl-promptbar flex w-full max-w-2xl items-center gap-2 rounded-full px-3.5 py-2.5"
           >
             <button type="button" onClick={onEnter} className="pxl-iconbtn flex h-9 w-9 items-center justify-center shrink-0" title="Attach"><Ic name="plus" size={20} /></button>
             <input

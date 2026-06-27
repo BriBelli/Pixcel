@@ -63,5 +63,5 @@ export default function Home() {
     return <LandingPage onEnter={() => setEntered(true)} userName={user?.firstName} />;
   }
 
-  return <Studio />;
+  return <Studio onHome={() => setEntered(false)} />;
 }

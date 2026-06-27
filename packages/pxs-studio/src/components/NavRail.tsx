@@ -1,5 +1,6 @@
 'use client';
 
+import { useAuth0 } from '@auth0/auth0-react';
 import { useCurrentUser } from '../lib/use-current-user';
 
 /* ─────────────────────────────────────────────────────────────────────────────
@@ -31,7 +32,7 @@ function PixcelMark({ size = 22 }: { size?: number }) {
   );
 }
 
-type IconName = 'chat' | 'scribble' | 'image' | 'video' | 'export' | 'assets' | 'assistant' | 'user';
+type IconName = 'chat' | 'scribble' | 'image' | 'video' | 'export' | 'assets' | 'assistant' | 'user' | 'login';
 
 const PATHS: Record<IconName, string[]> = {
   chat: ['M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z'],
@@ -43,6 +44,8 @@ const PATHS: Record<IconName, string[]> = {
   assistant: ['M5 3h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z', 'M15 3v18'],
   // Lucide `user` — avatar fallback glyph.
   user: ['M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2', 'M12 7a4 4 0 1 0 0 8 4 4 0 0 0 0-8z'],
+  // Lucide `log-in` — the signed-out "Sign in" affordance.
+  login: ['M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4', 'M10 17l5-5-5-5', 'M15 12H3'],
 };
 
 function Ic({ name, size = 20 }: { name: IconName; size?: number }) {
@@ -84,13 +87,40 @@ const RAIL_CSS = `
   .pxl-avatar-fallback { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; background: var(--a2ui-bg-tertiary); color: var(--a2ui-text-secondary); font-size: 13px; font-weight: 500; text-transform: uppercase; }
 `;
 
-/* The signed-in user's avatar (round, ~34px). Avatar image when present, otherwise a
-   graceful fallback: the user's initial, else a Lucide `user` glyph. */
+/* The bottom rail slot: a "Sign in" affordance when signed out, otherwise the
+   signed-in user's avatar (round, ~34px). Avatar shows the user's picture when
+   present, else a graceful fallback (their initial, else a Lucide `user` glyph). */
 function UserAvatar() {
+  const { isAuthenticated, loginWithRedirect, logout } = useAuth0();
   const user = useCurrentUser();
+
+  // Signed out: a round "Sign in" button → Auth0 hosted login (redirect flow).
+  if (!isAuthenticated) {
+    return (
+      <button
+        type="button"
+        title="Sign in"
+        onClick={() => loginWithRedirect()}
+        className="pxl-avatar"
+      >
+        <span className="pxl-avatar-fallback">
+          <Ic name="login" size={18} />
+        </span>
+      </button>
+    );
+  }
+
+  // Signed in: the avatar. Clicking it logs out for now.
+  // TODO(auth): replace this with a fuller account menu (profile, settings,
+  // sign out) — a later task. For now a click signs the user out directly.
   const initial = (user?.firstName || user?.name || '').trim().charAt(0);
   return (
-    <button type="button" title={user?.name || user?.firstName || 'Account'} className="pxl-avatar">
+    <button
+      type="button"
+      title={user?.name || user?.firstName || 'Sign out'}
+      onClick={() => logout({ logoutParams: { returnTo: window.location.origin } })}
+      className="pxl-avatar"
+    >
       {user?.avatarUrl ? (
         <img src={user.avatarUrl} alt="" />
       ) : (

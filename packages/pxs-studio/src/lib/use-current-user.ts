@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useAuth0 } from '@auth0/auth0-react';
 
 export interface CurrentUser {
   firstName?: string;
@@ -13,27 +13,22 @@ export interface CurrentUser {
 /**
  * The single source of truth for the signed-in user.
  *
- * TODO(auth): wire this to the real session (next-auth / Cognito / your provider).
- * Until auth exists it returns `null`, so name-dependent UI falls back gracefully
- * (the splash greeting drops the name → "How can I help you today?").
+ * Backed by the real Auth0 session (see AuthProvider.tsx, which wraps the app in
+ * `<Auth0Provider>`). Returns `null` when no one is signed in, so name-dependent
+ * UI falls back gracefully (e.g. the splash greeting drops the name).
  *
- * Dev convenience: set
- * `localStorage.setItem('pxs-user', JSON.stringify({ firstName: 'Brian', avatarUrl: 'https://…' }))`
- * to preview the personalized greeting + rail avatar without auth. The whole JSON blob is
- * spread onto CurrentUser, so any field (incl. avatarUrl) on the override flows through.
+ * Must be called inside the AuthProvider tree. `firstName` prefers Auth0's
+ * `given_name`, falling back to the first token of `name`.
  */
 export function useCurrentUser(): CurrentUser | null {
-  const [user, setUser] = useState<CurrentUser | null>(null);
+  const { isAuthenticated, user } = useAuth0();
 
-  useEffect(() => {
-    // TODO(auth): replace this block with the real session lookup.
-    try {
-      const raw = typeof window !== 'undefined' ? window.localStorage.getItem('pxs-user') : null;
-      if (raw) setUser(JSON.parse(raw) as CurrentUser);
-    } catch {
-      /* ignore malformed dev override */
-    }
-  }, []);
+  if (!isAuthenticated || !user) return null;
 
-  return user;
+  return {
+    name: user.name,
+    email: user.email,
+    avatarUrl: user.picture,
+    firstName: user.given_name ?? user.name?.split(' ')[0],
+  };
 }

@@ -16,6 +16,13 @@
    (photolif's React lib is the prototype seed).
 3. **First slice = front door → the artisan flagship** + A2UI + the asset substrate. Wrap the PROVEN engine
    in the new shell; prove the pattern + the JSON fusion on the crown jewel before porting the breadth.
+4. **POSITIONING = everything-platform, creative-LED (2026-06-27, Brian).** Pixcel is a universal A2UI
+   assistant *with* deep creative studios. **Chat is a first-class nav pillar** (the proven A2UI moat — best
+   chat UI/UX per enterprise testers) and the default **splash**. The PRODUCT is everything; the
+   GO-TO-MARKET leads with the **creative wedge** (Cursor's play) to keep a sharp identity and avoid
+   Adobe-style dilution. Nav: **Chat · Art · Image · Video · Anim**. Splash = Chat ("How can I help you
+   today, <name>?") + smart context chips (dynamic from recent threads; static curated fallback for
+   cold-start). The per-medium **cards/carousel live in the section landings**, not the chat splash.
 
 ## Conceptual designs folded in (Brian's existing photolif screens + Claude Design)
 - **The Pixcel-JSON z-index cascade** (chat-record → Pixcel-project → edits-as-JSON-records → Assets) = the

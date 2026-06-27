@@ -77,8 +77,6 @@ const WORKFLOWS: { id: string; icon: IconName; title: string; body: string }[] =
 const PAGES: typeof WORKFLOWS[] = [];
 for (let i = 0; i < WORKFLOWS.length; i += 3) PAGES.push(WORKFLOWS.slice(i, i + 3));
 
-const SUGGESTIONS = ['Compare iPhone vs Android', 'Weather this weekend', 'Create a banana chair'];
-
 export default function LandingPage({ onEnter }: Props) {
   const [draft, setDraft] = useState('');
   const [page, setPage] = useState(0);
@@ -154,31 +152,9 @@ export default function LandingPage({ onEnter }: Props) {
             What do you want to make?
           </h1>
 
-          {/* Hero prompt bar — the offer text lives here as the placeholder, and it's where you respond */}
-          <form
-            onSubmit={(e) => { e.preventDefault(); onEnter(); }}
-            className="pxl-promptbar mt-7 flex w-full max-w-2xl items-center gap-2 rounded-full px-3.5 py-2.5"
-          >
-            <button type="button" onClick={onEnter} className="pxl-iconbtn flex h-9 w-9 items-center justify-center shrink-0" title="Attach"><Ic name="plus" size={20} /></button>
-            <input
-              value={draft}
-              onChange={(e) => setDraft(e.target.value)}
-              placeholder="Ask me anything, or describe a piece to create…"
-              className="pxl-input min-w-0 flex-1 text-[15px] outline-none"
-            />
-            <button type="submit" className="pxl-send flex h-9 w-9 items-center justify-center shrink-0" title="Send"><Ic name="send" size={16} /></button>
-          </form>
-
-          {/* Suggestion chips (kept for perspective) */}
-          <div className="mt-5 flex flex-wrap items-center justify-center gap-2.5">
-            {SUGGESTIONS.map((s) => (
-              <button key={s} onClick={onEnter} className="pxl-chip px-4 py-2 text-sm">{s}</button>
-            ))}
-          </div>
-
           {/* Rotating starting-point cards */}
           <div
-            className="mt-12 w-full max-w-3xl"
+            className="mt-10 w-full max-w-3xl"
             onMouseEnter={() => setPaused(true)}
             onMouseLeave={() => setPaused(false)}
           >
@@ -204,6 +180,21 @@ export default function LandingPage({ onEnter }: Props) {
               ))}
             </div>
           </div>
+
+          {/* Hero prompt bar — Google-style single search; placeholder carries the supporting text */}
+          <form
+            onSubmit={(e) => { e.preventDefault(); onEnter(); }}
+            className="pxl-promptbar mt-10 flex w-full max-w-2xl items-center gap-2 rounded-full px-3.5 py-2.5"
+          >
+            <button type="button" onClick={onEnter} className="pxl-iconbtn flex h-9 w-9 items-center justify-center shrink-0" title="Attach"><Ic name="plus" size={20} /></button>
+            <input
+              value={draft}
+              onChange={(e) => setDraft(e.target.value)}
+              placeholder="Ask me anything, or describe a piece to create…"
+              className="pxl-input min-w-0 flex-1 text-[15px] outline-none"
+            />
+            <button type="submit" className="pxl-send flex h-9 w-9 items-center justify-center shrink-0" title="Send"><Ic name="send" size={16} /></button>
+          </form>
         </div>
       </div>
     </div>

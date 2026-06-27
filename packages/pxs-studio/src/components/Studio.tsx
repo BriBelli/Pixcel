@@ -25,8 +25,9 @@ import DiffusionShimmer from './DiffusionShimmer';
 import MaterializeFrame from './MaterializeFrame';
 import MatrixArtStage from './MatrixArtStage';
 import { applyGalleryFrame } from '../lib/apply-gallery-frame';
+import NavRail from './NavRail';
 
-export default function Studio({ children }: { children?: React.ReactNode }) {
+export default function Studio({ children, onHome }: { children?: React.ReactNode; onHome?: () => void }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasHandleRef = useRef<GridCanvasHandle>(null);
   const [gridData, setGridData] = useState<GridData | null>(null);
@@ -34,6 +35,25 @@ export default function Studio({ children }: { children?: React.ReactNode }) {
   const [inspectorData, setInspectorData] = useState<InspectorData | null>(null);
   const [selectedColor, setSelectedColor] = useState('#58a6ff');
   const [exportOpen, setExportOpen] = useState(false);
+
+  // Theme toggle (DS: dark is canonical). Flips data-theme on <html>; tokens.css does the rest.
+  const [theme, setTheme] = useState<'dark' | 'light'>('dark');
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem('pxs-theme');
+      if (saved === 'light' || saved === 'dark') setTheme(saved);
+    } catch {
+      /* ignore */
+    }
+  }, []);
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', theme);
+    try {
+      localStorage.setItem('pxs-theme', theme);
+    } catch {
+      /* ignore */
+    }
+  }, [theme]);
 
   const grid = usePXSStore(selectGrid);
   const ui = usePXSStore(selectUI);
@@ -383,8 +403,33 @@ export default function Studio({ children }: { children?: React.ReactNode }) {
     return { r: Math.round(r * 255), g: Math.round(g * 255), b: Math.round(b * 255) };
   };
 
+  // Primary nav rail routing. The rail = app-feature switcher; for the creative sections
+  // that the Studio already hosts (Image / Anim) we just switch the existing inner tab so
+  // the section's content stays where it is. Export / Assets / Assistant map to the studio's
+  // existing affordances. Chat (active item) + the X mark go home (handled by NavRail → onHome).
+  const handleRailSection = (id: string) => {
+    if (id === 'image') { if (ui.sidebarCollapsed) actions.toggleSidebar(); actions.setActiveTab('image'); }
+    else if (id === 'anim') { if (ui.sidebarCollapsed) actions.toggleSidebar(); actions.setActiveTab('animation'); }
+    // 'art' is the current section (active) — no-op; 'video' has no studio home yet → ignore.
+  };
+  const handleRailUtility = (id: string) => {
+    if (id === 'export') setExportOpen(true);
+    else if (id === 'assets') { if (ui.sidebarCollapsed) actions.toggleSidebar(); actions.setActiveTab('gallery'); }
+    else if (id === 'assistant') { if (!ui.chatPanelOpen) actions.toggleChatPanel(); }
+  };
+
   return (
-    <div className="flex flex-col h-screen overflow-hidden bg-background-primary text-text-primary font-sans">
+    <div className="flex h-screen overflow-hidden bg-background-primary text-text-primary font-sans">
+      {/* Primary nav rail (app-feature switcher) — matches the Chat splash exactly. */}
+      <NavRail
+        activeSection="art"
+        onHome={onHome}
+        onSection={handleRailSection}
+        onUtility={handleRailUtility}
+      />
+
+      {/* The Art section's content: the existing Studio (top bar + sidebar + canvas + AI panel). */}
+      <div className="flex flex-col flex-1 min-w-0 overflow-hidden">
       {/* Top Bar - Clean minimal header */}
       <header className="h-9 px-3 bg-background-secondary border-b border-border flex items-center justify-between shrink-0">
         {/* Undo/Redo - Icon only */}
@@ -415,13 +460,15 @@ export default function Studio({ children }: { children?: React.ReactNode }) {
           </button>
         </div>
 
-        {/* Center - Title + Status */}
+        {/* Center - Title + save-state dot (DS §3d) */}
         <div className="flex items-center gap-3">
-          <span className="text-xs font-semibold tracking-wide text-text-primary">PXS</span>
-          {hasUnsavedChanges && (
-            <span className="w-1.5 h-1.5 rounded-full bg-accent-yellow" title="Unsaved changes"></span>
-          )}
-          
+          <span className="text-xs font-semibold tracking-wide text-text-primary">Pixcel Art · Studio</span>
+          <span
+            className="w-1.5 h-1.5 rounded-full"
+            style={{ background: hasUnsavedChanges ? 'var(--a2ui-warning)' : 'var(--a2ui-success)' }}
+            title={hasUnsavedChanges ? 'Unsaved changes' : 'All changes saved'}
+          ></span>
+
           {/* Brush Color */}
           <div className="flex items-center gap-1.5">
             <input
@@ -439,6 +486,19 @@ export default function Studio({ children }: { children?: React.ReactNode }) {
           <span className="text-[10px] text-text-muted/60">
             {autoSaveInitialized ? formatTimeSinceLastSave() : '...'}
           </span>
+          {/* Theme toggle — self-evident moon/sun glyph (DS §3d), dark is canonical. */}
+          <button
+            onClick={() => setTheme((t) => (t === 'dark' ? 'light' : 'dark'))}
+            className="w-7 h-7 rounded flex items-center justify-center text-text-secondary hover:text-text-primary hover:bg-background-overlay transition-all"
+            title={theme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'}
+            aria-label="Toggle theme"
+          >
+            {theme === 'dark' ? (
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9z"/></svg>
+            ) : (
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></svg>
+            )}
+          </button>
           <button
             onClick={handleSave}
             className="px-2.5 py-1 rounded text-[10px] font-medium bg-background-overlay hover:bg-border text-text-secondary hover:text-text-primary transition-all"
@@ -479,10 +539,8 @@ export default function Studio({ children }: { children?: React.ReactNode }) {
           <div className="h-9 px-2 border-b border-border flex items-center justify-between shrink-0">
             {!ui.sidebarCollapsed && (
               <div className="flex items-center gap-1.5">
-                <div className="w-5 h-5 rounded bg-primary flex items-center justify-center">
-                  <span className="text-[10px] font-black text-white">P</span>
-                </div>
-                <span className="text-xs font-semibold text-text-primary">Studio</span>
+                {/* Section content panel — brand mark lives on the outer rail, not here. */}
+                <span className="text-xs font-semibold text-text-primary">Library</span>
               </div>
             )}
             <button
@@ -751,6 +809,7 @@ export default function Studio({ children }: { children?: React.ReactNode }) {
 
       {/* Toast Notifications */}
       <ToastContainer toasts={toasts} onDismiss={dismissToast} />
+      </div>
     </div>
   );
 }

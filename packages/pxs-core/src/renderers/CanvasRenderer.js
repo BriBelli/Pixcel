@@ -881,4 +881,4 @@ if (typeof module !== 'undefined' && module.exports) {
 if (typeof window !== 'undefined') {
     window.CanvasRenderer = CanvasRenderer;
 }
-export default {};
+export { CanvasRenderer };

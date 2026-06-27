@@ -1,0 +1,24 @@
+{
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "name": "a2ui-core",
+  "sourceRoot": "packages/a2ui-core/src",
+  "projectType": "library",
+  "targets": {
+    "build": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "tsc -p tsconfig.json",
+        "cwd": "packages/a2ui-core"
+      },
+      "outputs": ["{projectRoot}/dist"]
+    },
+    "type-check": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "tsc --noEmit -p tsconfig.json",
+        "cwd": "packages/a2ui-core"
+      }
+    }
+  },
+  "tags": ["scope:a2ui", "type:library"]
+}

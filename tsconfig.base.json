@@ -18,7 +18,9 @@
     "sourceMap": true,
     "paths": {
       "@pxs/core": ["./packages/pxs-core/src/index.js"],
-      "@pxs/core/*": ["./packages/pxs-core/src/*"]
+      "@pxs/core/*": ["./packages/pxs-core/src/*"],
+      "@pxs/a2ui-core": ["./packages/a2ui-core/src/index.ts"],
+      "@pxs/a2ui-core/*": ["./packages/a2ui-core/src/*"]
     }
   },
   "exclude": ["node_modules", "dist", "build", "target"]

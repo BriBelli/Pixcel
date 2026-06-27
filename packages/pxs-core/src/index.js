@@ -15,6 +15,7 @@ export * from './renderers/WebGLRenderer.js';
 export * from './helpers/PatternHelpers.js';
 export * from './helpers/ImageHelpers.js';
 export * from './helpers/AnimationHelpers.js';
+export * from './helpers/DrawingInstructions.js';
 export * from './storage/StorageAdapters.js';
 export * from './performance/PerformanceProfiler.js';
 export * from './performance/ObjectPool.js';

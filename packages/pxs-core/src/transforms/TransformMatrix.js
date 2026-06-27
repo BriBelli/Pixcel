@@ -558,4 +558,4 @@ if (typeof window !== 'undefined') {
     window.TransformMatrix = TransformMatrix;
     window.TransformMatrix3D = TransformMatrix3D;
 }
-export default {};
+export { TransformMatrix, TransformMatrix3D };

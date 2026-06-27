@@ -1,0 +1,38 @@
+{
+  "name": "dashboard",
+  "description": "Metrics dashboard with KPI stats, chart, and detail table",
+  "match": ["dashboard", "overview", "summary", "metrics", "kpi", "top stocks"],
+  "template": {
+    "version": "1.0",
+    "components": [
+      {
+        "id": "kpi-grid",
+        "type": "grid",
+        "props": { "columns": 4 },
+        "children": [
+          { "id": "kpi-1", "type": "stat", "props": { "label": "{{kpi1Label}}", "value": "{{kpi1Value}}", "trend": "{{kpi1Trend}}", "description": "{{kpi1Desc}}" } },
+          { "id": "kpi-2", "type": "stat", "props": { "label": "{{kpi2Label}}", "value": "{{kpi2Value}}", "trend": "{{kpi2Trend}}", "description": "{{kpi2Desc}}" } },
+          { "id": "kpi-3", "type": "stat", "props": { "label": "{{kpi3Label}}", "value": "{{kpi3Value}}", "trend": "{{kpi3Trend}}", "description": "{{kpi3Desc}}" } },
+          { "id": "kpi-4", "type": "stat", "props": { "label": "{{kpi4Label}}", "value": "{{kpi4Value}}", "trend": "{{kpi4Trend}}", "description": "{{kpi4Desc}}" } }
+        ]
+      },
+      {
+        "id": "main-chart",
+        "type": "chart",
+        "props": {
+          "chartType": "{{chartType}}",
+          "title": "{{chartTitle}}",
+          "data": "{{chartData}}"
+        }
+      },
+      {
+        "id": "detail-table",
+        "type": "data-table",
+        "props": {
+          "columns": "{{tableColumns}}",
+          "data": "{{tableRows}}"
+        }
+      }
+    ]
+  }
+}

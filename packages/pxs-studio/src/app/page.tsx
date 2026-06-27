@@ -3,6 +3,8 @@
 import { useEffect, useState } from 'react';
 import dynamic from 'next/dynamic';
 import LandingPage from '../components/LandingPage';
+import AuthProvider from '../components/AuthProvider';
+import LoginModalProvider from '../components/LoginModalProvider';
 
 // Dynamically import Studio component (client-side only for Web Workers)
 const Studio = dynamic(() => import('../components/Studio'), {
@@ -57,9 +59,17 @@ export default function Home() {
   }
 
   // The product's front door: a landing/splash page → launch into the Studio (the IDE).
-  if (!entered) {
-    return <LandingPage onEnter={() => setEntered(true)} />;
-  }
-
-  return <Studio />;
+  // AuthProvider wraps both so LandingPage + Studio (and thus NavRail/useCurrentUser)
+  // share the same Auth0 session context.
+  return (
+    <AuthProvider>
+      <LoginModalProvider>
+        {!entered ? (
+          <LandingPage onEnter={() => setEntered(true)} />
+        ) : (
+          <Studio onHome={() => setEntered(false)} />
+        )}
+      </LoginModalProvider>
+    </AuthProvider>
+  );
 }

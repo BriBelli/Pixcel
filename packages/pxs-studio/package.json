@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.69.0",
+    "@auth0/auth0-react": "^2.19.0",
     "@pxs/core": "*",
     "clsx": "^2.1.0",
     "comlink": "^4.4.1",

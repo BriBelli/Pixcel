@@ -468,4 +468,4 @@ if (typeof module !== 'undefined' && module.exports) {
 if (typeof window !== 'undefined') {
     window.PerformanceProfiler = PerformanceProfiler;
 }
-export default {};
+export { PerformanceProfiler };

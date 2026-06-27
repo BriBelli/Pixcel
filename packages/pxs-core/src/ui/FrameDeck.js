@@ -489,4 +489,4 @@ class FrameDeck {
     this.animation = null;
   }
 }
-export default {};
+export { FrameDeck };

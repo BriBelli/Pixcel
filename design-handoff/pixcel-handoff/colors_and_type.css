@@ -1,0 +1,311 @@
+/* =============================================================
+ * Pixcel / A2UI Design Tokens
+ * -----------------------------------------------------------------
+ * The token system used across the Pixcel monorepo. Two themes
+ * live here: dark (default) and light. Designs should target the
+ * dark theme unless explicitly told otherwise — it is the brand's
+ * primary surface ("frosted glass, neutral charcoal, blue accent").
+ *
+ * Three-tier architecture:
+ *   1. Primitives        — raw color scales (cool charcoal, indigo)
+ *   2. Semantic          — purpose-mapped app tokens (--a2ui-bg-app)
+ *   3. Studio semantics  — Pixcel Studio sub-surface (--pxs-*)
+ *
+ * Mirrors apps/a2ui-chat/src/styles/tokens.css upstream.
+ * =========================================================== */
+
+/* ────────────────────────────────────────────────────────────
+ *  Web fonts — IBM Plex Sans + IBM Plex Mono (CDN)
+ *
+ *  Local files: drop IBM Plex Sans / Plex Mono .woff2 files into
+ *  /fonts/ and the @font-face declarations below will pick them up,
+ *  overriding the CDN. (Get them from github.com/IBM/plex/releases.)
+ * ─────────────────────────────────────────────────────────── */
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap');
+
+/* ────────────────────────────────────────────────────────────
+ *  Tier 1 — Primitives
+ *  Raw color scales. Almost never used directly in components.
+ * ─────────────────────────────────────────────────────────── */
+:root {
+  /* Neutral charcoal — warm dark gray, no blue/purple tint.
+     This is the brand base; nearly every surface uses one of these. */
+  --a2ui-cool-950: #111113;
+  --a2ui-cool-900: #161618;
+  --a2ui-cool-800: #1c1c1f;
+  --a2ui-cool-700: #232326;
+  --a2ui-cool-600: #2a2a2e;
+  --a2ui-cool-500: #35353b;
+  --a2ui-cool-400: #43434b;
+  --a2ui-cool-300: #55555f;
+  --a2ui-cool-200: #6e6e78;
+  --a2ui-cool-100: #8a8a94;
+
+  /* Blue accent — Google Material soft blue. Used for buttons,
+     focus rings, links, the single accent color of the system. */
+  --a2ui-indigo-600: #669df6;
+  --a2ui-indigo-500: #8ab4f8;
+  --a2ui-indigo-400: #aecbfa;
+  --a2ui-indigo-300: #d2e3fc;
+  --a2ui-indigo-200: #e8f0fe;
+
+  /* Frosted-glass overlays — for menus, floating chrome.
+     Always rendered with backdrop-filter: blur(...). */
+  --a2ui-glass-dark:   rgba(18, 18, 22, 0.82);
+  --a2ui-glass-medium: rgba(18, 18, 22, 0.70);
+  --a2ui-glass-menu:   rgba(22, 22, 26, 0.97);
+}
+
+/* ────────────────────────────────────────────────────────────
+ *  Tier 2 — Semantic (Dark, default)
+ * ─────────────────────────────────────────────────────────── */
+:root,
+:root[data-theme="dark"] {
+  /* Backgrounds */
+  --a2ui-bg-app:         var(--a2ui-cool-900);
+  --a2ui-bg-primary:     var(--a2ui-cool-800);
+  --a2ui-bg-secondary:   var(--a2ui-cool-700);
+  --a2ui-bg-tertiary:    var(--a2ui-cool-600);
+  --a2ui-bg-elevated:    var(--a2ui-cool-500);
+  --a2ui-bg-input:       var(--a2ui-cool-600);
+  --a2ui-bg-input-focus: var(--a2ui-cool-500);
+  --a2ui-bg-hover:       rgba(255, 255, 255, 0.06);
+  --a2ui-bg-active:      rgba(255, 255, 255, 0.10);
+
+  /* Text */
+  --a2ui-text-primary:   #e4e4e8;
+  --a2ui-text-secondary: #909098;
+  --a2ui-text-tertiary:  #636370;
+  --a2ui-text-disabled:  #49494f;
+  --a2ui-text-inverse:   #1c1c1f;
+
+  /* Accent / brand */
+  --a2ui-accent:         var(--a2ui-indigo-500);
+  --a2ui-accent-hover:   var(--a2ui-indigo-400);
+  --a2ui-accent-active:  var(--a2ui-indigo-600);
+  --a2ui-accent-subtle:  rgba(138, 180, 248, 0.15);
+
+  /* Links */
+  --a2ui-link:           var(--a2ui-indigo-400);
+  --a2ui-link-hover:     var(--a2ui-indigo-300);
+  --a2ui-link-visited:   #c58af9;
+
+  /* Semantic / status */
+  --a2ui-success:    #6ee7a0;
+  --a2ui-success-bg: rgba(110, 231, 160, 0.12);
+  --a2ui-warning:    #fbbf24;
+  --a2ui-warning-bg: rgba(251, 191, 36, 0.12);
+  --a2ui-error:      #f87171;
+  --a2ui-error-bg:   rgba(248, 113, 113, 0.12);
+  --a2ui-info:       var(--a2ui-indigo-400);
+  --a2ui-info-bg:    rgba(138, 180, 248, 0.15);
+
+  /* Borders — almost always low-opacity white */
+  --a2ui-border-default: rgba(255, 255, 255, 0.10);
+  --a2ui-border-strong:  rgba(255, 255, 255, 0.18);
+  --a2ui-border-subtle:  rgba(255, 255, 255, 0.05);
+
+  /* Shadows — deep blacks for the dark theme */
+  --a2ui-shadow-sm: 0 1px 2px  rgba(0, 0, 0, 0.4);
+  --a2ui-shadow-md: 0 2px 6px  rgba(0, 0, 0, 0.5);
+  --a2ui-shadow-lg: 0 4px 12px rgba(0, 0, 0, 0.6);
+  --a2ui-shadow-xl: 0 8px 24px rgba(0, 0, 0, 0.7);
+
+  color-scheme: dark;
+}
+
+/* ────────────────────────────────────────────────────────────
+ *  Tier 2 — Semantic (Light)
+ *  Used for the light theme toggle. Google-product-flavored.
+ * ─────────────────────────────────────────────────────────── */
+:root[data-theme="light"] {
+  --a2ui-bg-app:         #f8f9fa;
+  --a2ui-bg-primary:     #ffffff;
+  --a2ui-bg-secondary:   #f1f3f4;
+  --a2ui-bg-tertiary:    #e8eaed;
+  --a2ui-bg-elevated:    #ffffff;
+  --a2ui-bg-input:       #f1f3f4;
+  --a2ui-bg-input-focus: #e8eaed;
+  --a2ui-bg-hover:       rgba(0, 0, 0, 0.04);
+  --a2ui-bg-active:      rgba(0, 0, 0, 0.08);
+
+  --a2ui-text-primary:   #202124;
+  --a2ui-text-secondary: #5f6368;
+  --a2ui-text-tertiary:  #80868b;
+  --a2ui-text-disabled:  #bdc1c6;
+  --a2ui-text-inverse:   #ffffff;
+
+  --a2ui-accent:         #1a73e8;
+  --a2ui-accent-hover:   #1967d2;
+  --a2ui-accent-active:  #185abc;
+  --a2ui-accent-subtle:  rgba(26, 115, 232, 0.1);
+
+  --a2ui-link:           #1a73e8;
+  --a2ui-link-hover:     #1967d2;
+  --a2ui-link-visited:   #8430ce;
+
+  --a2ui-success:    #1e8e3e;
+  --a2ui-success-bg: rgba(30, 142, 62, 0.1);
+  --a2ui-warning:    #f9ab00;
+  --a2ui-warning-bg: rgba(249, 171, 0, 0.1);
+  --a2ui-error:      #d93025;
+  --a2ui-error-bg:   rgba(217, 48, 37, 0.1);
+  --a2ui-info:       #1a73e8;
+  --a2ui-info-bg:    rgba(26, 115, 232, 0.1);
+
+  --a2ui-border-default: rgba(0, 0, 0, 0.12);
+  --a2ui-border-strong:  rgba(0, 0, 0, 0.20);
+  --a2ui-border-subtle:  rgba(0, 0, 0, 0.06);
+
+  --a2ui-shadow-sm: 0 1px 2px  rgba(0, 0, 0, 0.10);
+  --a2ui-shadow-md: 0 2px 6px  rgba(0, 0, 0, 0.15);
+  --a2ui-shadow-lg: 0 4px 12px rgba(0, 0, 0, 0.15);
+  --a2ui-shadow-xl: 0 8px 24px rgba(0, 0, 0, 0.20);
+
+  color-scheme: light;
+}
+
+/* ────────────────────────────────────────────────────────────
+ *  Tier 2b — Pixcel Studio sub-surface
+ *  Scoped namespace for the in-app pixel editor.
+ * ─────────────────────────────────────────────────────────── */
+:root,
+.pxs-scope {
+  --pxs-bg-host:       var(--a2ui-cool-800);
+  --pxs-bg-chrome:     var(--a2ui-cool-700);
+  --pxs-bg-canvas:     var(--a2ui-cool-900);
+  --pxs-border:        var(--a2ui-cool-500);
+  --pxs-border-subtle: rgba(255, 255, 255, 0.06);
+  --pxs-glass:         var(--a2ui-glass-dark);
+  --pxs-glass-border:  rgba(255, 255, 255, 0.08);
+  --pxs-glass-menu:    var(--a2ui-glass-menu);
+  --pxs-text:          var(--a2ui-text-primary);
+  --pxs-text-muted:    rgba(255, 255, 255, 0.55);
+  --pxs-text-dim:      rgba(255, 255, 255, 0.35);
+  --pxs-accent:        var(--a2ui-accent);
+  --pxs-accent-hover:  var(--a2ui-accent-active);
+  --pxs-accent-subtle: var(--a2ui-accent-subtle);
+  --pxs-accent-text:   var(--a2ui-indigo-300);
+  --pxs-accent-focus:  var(--a2ui-indigo-400);
+}
+
+/* ────────────────────────────────────────────────────────────
+ *  Typography
+ *  Google Sans is the brand display + UI face; Roboto is the
+ *  body fallback; Roboto Mono is the system mono.
+ * ─────────────────────────────────────────────────────────── */
+:root {
+  --a2ui-font-family: 'IBM Plex Sans', -apple-system, BlinkMacSystemFont, 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  --a2ui-font-mono:   'IBM Plex Mono', 'SF Mono', Menlo, Consolas, monospace;
+
+  /* Type ramp */
+  --a2ui-text-xs:  11px;
+  --a2ui-text-sm:  12px;
+  --a2ui-text-md:  14px;
+  --a2ui-text-lg:  16px;
+  --a2ui-text-xl:  18px;
+  --a2ui-text-2xl: 22px;
+  --a2ui-text-3xl: 28px;
+
+  /* Weights */
+  --a2ui-font-normal:   400;
+  --a2ui-font-medium:   500;
+  --a2ui-font-semibold: 600;
+  --a2ui-font-bold:     700;
+
+  /* Line heights */
+  --a2ui-leading-tight:   1.25;
+  --a2ui-leading-normal:  1.5;
+  --a2ui-leading-relaxed: 1.75;
+}
+
+/* ────────────────────────────────────────────────────────────
+ *  Spacing, radii, motion, layout
+ * ─────────────────────────────────────────────────────────── */
+:root {
+  --a2ui-space-0:  0;
+  --a2ui-space-1:  4px;
+  --a2ui-space-2:  8px;
+  --a2ui-space-3:  12px;
+  --a2ui-space-4:  16px;
+  --a2ui-space-5:  20px;
+  --a2ui-space-6:  24px;
+  --a2ui-space-8:  32px;
+  --a2ui-space-10: 40px;
+  --a2ui-space-12: 48px;
+  --a2ui-space-16: 64px;
+
+  --a2ui-radius-none: 0;
+  --a2ui-radius-sm:   4px;
+  --a2ui-radius-md:   8px;
+  --a2ui-radius-lg:   12px;
+  --a2ui-radius-xl:   16px;
+  --a2ui-radius-2xl:  24px;
+  --a2ui-radius-full: 9999px;
+
+  --a2ui-transition-fast:   150ms ease; /* @kind other */
+  --a2ui-transition-normal: 200ms ease; /* @kind other */
+  --a2ui-transition-slow:   300ms ease; /* @kind other */
+
+  --a2ui-z-base:     0;   /* @kind other */
+  --a2ui-z-dropdown: 100; /* @kind other */
+  --a2ui-z-sticky:   200; /* @kind other */
+  --a2ui-z-modal:    300; /* @kind other */
+  --a2ui-z-toast:    400; /* @kind other */
+  --a2ui-z-tooltip:  500; /* @kind other */
+
+  --a2ui-chat-max-width:           640px;
+  --a2ui-chat-max-width-expanded:  1120px;
+  --a2ui-sidebar-width:            280px;
+  --a2ui-header-height:            64px;
+  --a2ui-input-height:             56px;
+}
+
+/* ────────────────────────────────────────────────────────────
+ *  Semantic CSS — headings, paragraphs, code
+ *  Optional layer for raw HTML (not shadow DOM).
+ * ─────────────────────────────────────────────────────────── */
+html, body {
+  font-family: var(--a2ui-font-family);
+  font-size: var(--a2ui-text-md);
+  line-height: var(--a2ui-leading-normal);
+  color: var(--a2ui-text-primary);
+  background: var(--a2ui-bg-app);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+h1 { font-size: var(--a2ui-text-3xl); font-weight: var(--a2ui-font-bold);   line-height: var(--a2ui-leading-tight);  letter-spacing: -0.01em; }
+h2 { font-size: var(--a2ui-text-2xl); font-weight: var(--a2ui-font-medium); line-height: var(--a2ui-leading-tight); }
+h3 { font-size: var(--a2ui-text-xl);  font-weight: var(--a2ui-font-medium); line-height: var(--a2ui-leading-tight); }
+h4 { font-size: var(--a2ui-text-lg);  font-weight: var(--a2ui-font-medium); }
+p  { font-size: var(--a2ui-text-md);  line-height: var(--a2ui-leading-normal); color: var(--a2ui-text-primary); }
+small,
+.caption { font-size: var(--a2ui-text-sm); color: var(--a2ui-text-secondary); }
+.label   { font-size: var(--a2ui-text-xs); font-weight: var(--a2ui-font-medium); text-transform: uppercase; letter-spacing: 0.5px; color: var(--a2ui-text-tertiary); }
+code, kbd, samp {
+  font-family: var(--a2ui-font-mono);
+  font-size: var(--a2ui-text-sm);
+  background: var(--a2ui-bg-tertiary);
+  padding: var(--a2ui-space-1) var(--a2ui-space-2);
+  border-radius: var(--a2ui-radius-sm);
+}
+a {
+  color: var(--a2ui-link);
+  text-decoration: none;
+  transition: color var(--a2ui-transition-fast);
+}
+a:hover { color: var(--a2ui-link-hover); text-decoration: underline; }
+
+/* Scrollbar */
+::-webkit-scrollbar        { width: 8px; height: 8px; }
+::-webkit-scrollbar-track  { background: transparent; }
+::-webkit-scrollbar-thumb  { background: var(--a2ui-border-default); border-radius: var(--a2ui-radius-full); }
+::-webkit-scrollbar-thumb:hover { background: var(--a2ui-border-strong); }
+
+
+/* ────────────────────────────────────────────────────────────
+ *  Fonts are served by the Google Fonts @import at the top of
+ *  this file. To self-host instead, drop the IBM Plex .woff2
+ *  files into /fonts/ and add matching @font-face blocks here.
+ * ─────────────────────────────────────────────────────────── */

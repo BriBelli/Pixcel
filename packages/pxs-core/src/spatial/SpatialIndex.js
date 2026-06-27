@@ -480,4 +480,4 @@ if (typeof module !== 'undefined' && module.exports) {
 if (typeof window !== 'undefined') {
     window.SpatialIndex = SpatialIndex;
 }
-export default {};
+export { SpatialIndex };

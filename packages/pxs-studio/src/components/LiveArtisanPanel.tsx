@@ -10,6 +10,8 @@ import { toastManager } from './Toast';
 
 interface Props {
   onGridUpdate: (gridData: GridData, label?: string) => void;
+  // Front-door handoff: a prompt typed on the splash → prefill + auto-start a live generation (once, on mount).
+  initialPrompt?: string;
 }
 
 type ModelId = 'claude-opus-4-8' | 'claude-sonnet-4-6' | 'claude-haiku-4-5';
@@ -33,7 +35,7 @@ const ASPECTS = [
 const PASS_CAPS: Record<string, number> = { simple: 4, moderate: 6, complex: 9, advanced: 12 };
 const SUGGESTIONS = ['a red apple', 'a snail', 'a teapot', 'a ladybug'];
 
-export default function LiveArtisanPanel({ onGridUpdate }: Props) {
+export default function LiveArtisanPanel({ onGridUpdate, initialPrompt }: Props) {
   const [input, setInput] = useState('');
   const [lastPrompt, setLastPrompt] = useState(''); // the last subject we generated — for "Redo" (fresh re-roll)
   const [size, setSize] = useState(32);
@@ -115,6 +117,20 @@ export default function LiveArtisanPanel({ onGridUpdate }: Props) {
     window.addEventListener('beforeunload', onBeforeUnload);
     return () => window.removeEventListener('beforeunload', onBeforeUnload);
   }, [reviewing, accepted, curFrame, restoredDraft]);
+
+  // FRONT-DOOR AUTO-START: a prompt typed on the splash lands here → prefill the composer and kick off a
+  // live generation. Runs ONCE (ref-guarded), only when there's a real prompt AND the artisan is idle
+  // (no active job) — so it never fires on plain "enter" or double-starts on re-render.
+  const autoStarted = useRef(false);
+  useEffect(() => {
+    if (autoStarted.current) return;
+    const p = initialPrompt?.trim();
+    if (!p || jobId || job) return;
+    autoStarted.current = true;
+    setInput(p);
+    setLastPrompt(p);
+    start(startArgs(p));
+  }, [initialPrompt, jobId, job]); // eslint-disable-line react-hooks/exhaustive-deps
 
   function onSend() {
     const p = input.trim();

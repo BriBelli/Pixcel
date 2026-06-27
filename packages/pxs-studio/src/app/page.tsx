@@ -49,6 +49,7 @@ function LoadingScreen() {
 export default function Home() {
   const [mounted, setMounted] = useState(false);
   const [entered, setEntered] = useState(false);
+  const [initialPrompt, setInitialPrompt] = useState<string | undefined>();
 
   useEffect(() => {
     setMounted(true);
@@ -65,9 +66,9 @@ export default function Home() {
     <AuthProvider>
       <LoginModalProvider>
         {!entered ? (
-          <LandingPage onEnter={() => setEntered(true)} />
+          <LandingPage onEnter={(p) => { setInitialPrompt(p); setEntered(true); }} />
         ) : (
-          <Studio onHome={() => setEntered(false)} />
+          <Studio onHome={() => setEntered(false)} initialPrompt={initialPrompt} />
         )}
       </LoginModalProvider>
     </AuthProvider>

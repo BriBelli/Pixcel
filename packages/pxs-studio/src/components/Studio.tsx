@@ -28,6 +28,7 @@ import { applyGalleryFrame } from '../lib/apply-gallery-frame';
 import NavRail from './NavRail';
 import { useGalleryStore } from '../store/gallery-store';
 import { GALLERY_ENTRIES } from '../data/gallery';
+import { ArtRegionProvider, CHROME } from './ArtRegion';
 
 /* ── Living-canvas chrome styling (Claude Design handoff §5 + §3.13) ──
    Glass floating chrome: rgba(18,18,22,0.82) + blur(20px) + 1px white-8% border +
@@ -171,7 +172,18 @@ export default function Studio({ children, onHome, initialPrompt }: { children?:
 
   // The right edge reserved by the always-present AI accordion (expanded width when
   // open, the thin rail width when collapsed). The canvas + floating chrome inset to it.
+  // This is the live right-inset that drives the ART REGION (the accordion-toggle responsiveness).
   const chatPanelOpenStyleRight = ui.chatPanelOpen ? panelWidth : RIGHT_RAIL_W;
+
+  // ── ART REGION insets (the flubber safe-area), CHARTER §3 ──
+  // The art centers WITHIN this rect; floating chrome docks to the walls OUTSIDE it. Derived
+  // from the persistent edge chrome (CHROME) + the live accordion width, so toggling the
+  // accordion or resizing the viewport reflows everything from one source. Mirrors the values
+  // the ArtRegionProvider exposes via context — kept inline here for the layout styles.
+  const artInsetLeft = CHROME.navW;                                  // nav rail (no extra pad → art board butts the rail edge)
+  const artInsetRight = chatPanelOpenStyleRight;                     // AI accordion
+  const artInsetTop = CHROME.topBarGap + CHROME.topBarH + CHROME.pad; // below the floating top bar
+  const artInsetBottom = CHROME.pad;
 
   // Handle save with toast feedback
   const handleSave = async () => {
@@ -472,6 +484,7 @@ export default function Studio({ children, onHome, initialPrompt }: { children?:
   };
 
   return (
+   <ArtRegionProvider rightInset={chatPanelOpenStyleRight}>
     <div className="relative h-screen w-screen overflow-hidden bg-background-primary text-text-primary font-sans">
       {/* ───────────────────────────────────────────────────────────────────────
           LIVING-CANVAS LAYOUT (first structural pass)
@@ -497,9 +510,15 @@ export default function Studio({ children, onHome, initialPrompt }: { children?:
       <main
         ref={containerRef}
         className="absolute inset-y-0 z-0 flex flex-col bg-background-primary overflow-hidden lc-anim"
-        style={{ left: 72, right: chatPanelOpenStyleRight }}
+        style={{ left: artInsetLeft, right: artInsetRight }}
       >
-        <div className="flex-1 relative flex items-center justify-center overflow-hidden">
+        {/* The art-centering area is inset top/bottom to the ART REGION safe-area, so the
+            centered art (GridCanvas / live stage) never renders under the floating top bar or
+            crowds the bottom edge. left/right are already carved by <main>. */}
+        <div
+          className="flex-1 relative flex items-center justify-center overflow-hidden lc-anim"
+          style={{ paddingTop: artInsetTop, paddingBottom: artInsetBottom }}
+        >
           <GridCanvas
             ref={canvasHandleRef}
             gridData={gridData}
@@ -663,7 +682,7 @@ export default function Studio({ children, onHome, initialPrompt }: { children?:
       </div>
 
       {/* ── FLOATING TOP BAR (glass) — overlays the top edge of the canvas. ── */}
-      <header className="absolute top-3 z-30 h-10 px-3 lc-glass rounded-xl flex items-center justify-between lc-anim" style={{ left: 72 + 12, right: chatPanelOpenStyleRight + 12 }}>
+      <header className="absolute top-3 z-30 h-10 px-3 lc-glass rounded-xl flex items-center justify-between lc-anim" style={{ left: artInsetLeft + CHROME.pad, right: artInsetRight + CHROME.pad }}>
         {/* Undo/Redo - Icon only */}
         <div className="flex items-center gap-0.5">
           <button
@@ -765,7 +784,7 @@ export default function Studio({ children, onHome, initialPrompt }: { children?:
           panel is gone. Each icon is an editing mode (Grid / Image / Anim); clicking
           one reveals its compact floating controls (toolMode). Click the active one
           again to dismiss. ── */}
-      <ToolRail mode={toolMode} onSelect={(m) => setToolMode((cur) => (cur === m ? null : m))} />
+      <ToolRail mode={toolMode} onSelect={(m) => setToolMode((cur) => (cur === m ? null : m))} dockLeft={CHROME.navW + 8} dockTop={artInsetTop} />
 
       {/* ── FLOATING MODE CONTROLS (glass) — the compact panel for the selected tool.
           Docks beside the tool rail; floats over the canvas; glides in/out. Holds the
@@ -773,7 +792,7 @@ export default function Studio({ children, onHome, initialPrompt }: { children?:
       {toolMode && (
         <aside
           className="absolute z-30 flex flex-col lc-glass rounded-xl overflow-hidden lc-anim"
-          style={{ left: 72 + 8 + 44 + 8, top: 60, bottom: 12, width: 256 }}
+          style={{ left: CHROME.navW + 8 + 44 + 8, top: artInsetTop, bottom: artInsetBottom, width: 256 }}
         >
           <div className="h-9 px-2.5 border-b border-border flex items-center justify-between shrink-0">
             <span className="text-xs font-semibold text-text-primary">
@@ -802,7 +821,7 @@ export default function Studio({ children, onHome, initialPrompt }: { children?:
       {assetsOpen && (
         <aside
           className="absolute z-30 flex flex-col lc-glass rounded-xl overflow-hidden lc-anim"
-          style={{ left: 72 + 8 + 44 + 8, top: 60, bottom: 12, width: 280 }}
+          style={{ left: CHROME.navW + 8 + 44 + 8, top: artInsetTop, bottom: artInsetBottom, width: 280 }}
         >
           <div className="h-9 px-2.5 border-b border-border flex items-center justify-between shrink-0">
             <span className="text-xs font-semibold text-text-primary">
@@ -824,7 +843,7 @@ export default function Studio({ children, onHome, initialPrompt }: { children?:
 
       {/* ── FLOATING ZOOM / TOOL CONTROLS (glass) — corner overlay near the canvas
           top-right, clear of the right accordion. ── */}
-      <div className="absolute z-30 lc-anim" style={{ top: 60, right: chatPanelOpenStyleRight + 12 }}>
+      <div className="absolute z-30 lc-anim" style={{ top: artInsetTop, right: artInsetRight + CHROME.pad }}>
         <CanvasToolbar
           bordersVisible={grid.bordersVisible}
           onToggleBorders={() => actions.toggleBorders()}
@@ -919,6 +938,7 @@ export default function Studio({ children, onHome, initialPrompt }: { children?:
       {/* Toast Notifications */}
       <ToastContainer toasts={toasts} onDismiss={dismissToast} />
     </div>
+   </ArtRegionProvider>
   );
 }
 
@@ -1002,7 +1022,7 @@ function CanvasToolbar({
    "Library" panel's mode tabs — "just the tools needed". Glass float per the DS. */
 type ToolMode = 'resolution' | 'image' | 'animation';
 
-function ToolRail({ mode, onSelect }: { mode: ToolMode | null; onSelect: (m: ToolMode) => void }) {
+function ToolRail({ mode, onSelect, dockLeft, dockTop }: { mode: ToolMode | null; onSelect: (m: ToolMode) => void; dockLeft: number; dockTop: number }) {
   const TOOLS: { id: ToolMode; label: string; icon: React.ReactNode }[] = [
     {
       id: 'resolution',
@@ -1035,7 +1055,7 @@ function ToolRail({ mode, onSelect }: { mode: ToolMode | null; onSelect: (m: Too
   return (
     <div
       className="absolute z-30 flex flex-col gap-1 p-1 rounded-xl lc-glass lc-anim"
-      style={{ left: 72 + 8, top: 60 }}
+      style={{ left: dockLeft, top: dockTop }}
     >
       {TOOLS.map((t) => {
         const active = mode === t.id;

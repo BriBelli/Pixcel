@@ -44,6 +44,12 @@ overnight; human-maintained restrictions are a **bottleneck**, not a feature.
   the prompt**, so no right panel there.
 - **Floating A2UI tool panels** — on the canvas **edges**, avoiding the central focal region (**flubber**:
   the focal art owns the center; everything migrates around it).
+- **The ART REGION (the flubber mechanism, kept simple).** One shared, responsive rect — the focal-art
+  bounds (the "orange box") = the viewport **inset by the persistent chrome** (left nav, right AI accordion,
+  top bar, + padding). The canvas **sizes + centers the art within this region**; floating panels **dock to
+  the outer walls outside it**; the rect is **exposed/readable** (context) so the agent places its A2UI
+  panels clear of the art, and it recomputes on resize / accordion-toggle. The art never crosses into the UI
+  and the UI never crosses into the art.
 - Everything above z-0 **swooshes**; the wall persists beneath.
 
 ## 4. Concrete build order

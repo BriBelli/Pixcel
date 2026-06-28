@@ -16,6 +16,12 @@ You are not building an app — you are building the **face of the Pixcel Agent*
   fluent, never static. Transitions are graceful (easing `cubic-bezier(0.22,1,0.36,1)`).
 - The agent is the **overseer / reviewer / communicator** through the whole experience, with access to all
   tools + workflows. The UI is how it talks back. **A2UI carries ~99% of that UI** — use it.
+- **The wall is POLYMORPHIC and agent-driven.** It's not just "a canvas" — the agent makes it whatever's
+  needed: a **Pixcel-art wall**, a **video wall**, a **living digital AI face / expression / animation**.
+  The wall *is* the agent's presence; it shifts modes as the agent works. The agent **also drives the top
+  z-layer** (which UI components appear / swoosh / glide). **BOTH layers persist across the entire user
+  session** — one continuous, agent-managed state, never reloaded. (`DigitalWall` is therefore a
+  mode-switchable surface, not one fixed look — idle char-sea today; pixcel/video/face modes as we build.)
 
 ## 2. Do NOT cage the agent (the statue lesson, applied to the UI)
 Every constraint we forced on the artisan (exemplars, fixed context) **hurt quality**. The AI industry moves

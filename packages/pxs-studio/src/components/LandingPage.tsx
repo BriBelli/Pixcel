@@ -9,7 +9,6 @@
 
 import { useState } from 'react';
 import NavRail from './NavRail';
-import PixcelLogo from './PixcelLogo';
 import DigitalWall from './DigitalWall';
 
 interface Props {
@@ -68,16 +67,11 @@ export default function LandingPage({ onEnter }: Props) {
 
       {/* Main column — the Chat splash */}
       <div className="relative flex-1 flex flex-col min-w-0">
-        {/* z-0 — the persistent Pixcel digital wall (the shared LED/char-grid backdrop).
-            The Pixcel logo lives ON this layer, in the canvas's coordinate space, centered
-            where it sits today — so it reads as DISPLAYED on the wall (part of the screen). */}
+        {/* z-0 — the persistent Pixcel digital wall (the REAL low-res Pixcel grid). The Pixcel
+            wordmark is painted ON the wall as REAL Pixcel cells (centered, breathing), so it reads
+            as DISPLAYED on the screen — there is ONE logo, the real-cell one on the wall. */}
         <div className="pointer-events-none absolute inset-0 z-0">
           <DigitalWall className="absolute inset-0 h-full w-full" />
-          {/* Logo painted on the wall — centered, current size/position (height 72, ~mb-8
-              from center) so it matches the frozen splash composition. */}
-          <div className="absolute inset-0 flex flex-col items-center justify-center px-6">
-            <PixcelLogo height={72} className="mb-8" />
-          </div>
         </div>
 
         {/* HIGHER z — the floating UI (prompt bar) above the wall. The layer separation is

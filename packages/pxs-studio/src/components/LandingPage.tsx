@@ -10,6 +10,7 @@
 import { useState } from 'react';
 import NavRail from './NavRail';
 import PixcelLogo from './PixcelLogo';
+import DigitalWall from './DigitalWall';
 
 interface Props {
   onEnter: (prompt?: string) => void;
@@ -41,7 +42,8 @@ export default function LandingPage({ onEnter }: Props) {
       <style>{`
         .pxl-root { background: var(--a2ui-bg-app); color: var(--a2ui-text-primary); font-family: var(--a2ui-font-family); -webkit-font-smoothing: antialiased; }
         .pxl-root ::selection { background: var(--a2ui-accent-subtle); }
-        .pxl-gridbg { background-image: linear-gradient(rgba(255,255,255,0.025) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,0.025) 1px,transparent 1px); background-size:28px 28px; -webkit-mask-image:radial-gradient(circle at 50% 34%,black,transparent 70%); mask-image:radial-gradient(circle at 50% 34%,black,transparent 70%); }
+        /* z-0 background is now the shared <DigitalWall> canvas (the persistent Pixcel digital
+           wall), not a flat CSS grid. The logo is painted on that wall; the prompt bar floats above. */
         /* Rail styles (.pxl-rail/.pxl-navbtn/etc.) now live in the shared <NavRail>. */
         .pxl-promptbar { background: var(--a2ui-bg-input); border: 1px solid var(--a2ui-border-default); transition: border-color var(--a2ui-transition-fast), box-shadow var(--a2ui-transition-fast); }
         .pxl-promptbar:focus-within { border-color: var(--a2ui-accent); box-shadow: 0 0 0 3px var(--a2ui-accent-subtle); }
@@ -66,12 +68,24 @@ export default function LandingPage({ onEnter }: Props) {
 
       {/* Main column — the Chat splash */}
       <div className="relative flex-1 flex flex-col min-w-0">
-        <div className="pxl-gridbg pointer-events-none absolute inset-0" />
+        {/* z-0 — the persistent Pixcel digital wall (the shared LED/char-grid backdrop).
+            The Pixcel logo lives ON this layer, in the canvas's coordinate space, centered
+            where it sits today — so it reads as DISPLAYED on the wall (part of the screen). */}
+        <div className="pointer-events-none absolute inset-0 z-0">
+          <DigitalWall className="absolute inset-0 h-full w-full" />
+          {/* Logo painted on the wall — centered, current size/position (height 72, ~mb-8
+              from center) so it matches the frozen splash composition. */}
+          <div className="absolute inset-0 flex flex-col items-center justify-center px-6">
+            <PixcelLogo height={72} className="mb-8" />
+          </div>
+        </div>
 
-        <div className="relative flex-1 flex flex-col items-center justify-center px-6">
-          {/* Big, centered Pixcel wordmark (Google-style). Single swap point for a
-              future animated "Doodle" — see PixcelLogo. */}
-          <PixcelLogo height={72} className="mb-8" />
+        {/* HIGHER z — the floating UI (prompt bar) above the wall. The layer separation is
+            visceral: a digital LED wall behind, the UI floating in front. */}
+        <div className="relative z-10 flex-1 flex flex-col items-center justify-center px-6">
+          {/* Spacer matching the on-wall logo's footprint, so the floating prompt bar lands
+              directly beneath the wall-painted wordmark (logo + its mb-8 gap). */}
+          <div aria-hidden="true" style={{ height: 72 }} className="mb-8" />
 
           {/* Hero prompt bar — Google-style single search; placeholder carries the supporting text */}
           <form

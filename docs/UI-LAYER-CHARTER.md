@@ -20,8 +20,13 @@ You are not building an app — you are building the **face of the Pixcel Agent*
   needed: a **Pixcel-art wall**, a **video wall**, a **living digital AI face / expression / animation**.
   The wall *is* the agent's presence; it shifts modes as the agent works. The agent **also drives the top
   z-layer** (which UI components appear / swoosh / glide). **BOTH layers persist across the entire user
-  session** — one continuous, agent-managed state, never reloaded. (`DigitalWall` is therefore a
-  mode-switchable surface, not one fixed look — idle char-sea today; pixcel/video/face modes as we build.)
+  session** — one continuous, agent-managed state, never reloaded.
+- **THE WALL IS A REAL PIXCEL GRID — NOT a fake char-matrix.** ❌ No "Matrix" character-rain, no toy/faux
+  presentation. ✅ It is the **actual PXS engine**: a living grid of colored cells with real live
+  effects/patterns (Spiral, Plasma, Radial gradient, …) — exactly the grid in `demos/index.html` and the
+  studio GRID tab (`CellAnimator` / `GridCanvas` / `PatternHelpers`). The Pixcel logo loads as **real cells,
+  centered**. The wall is mode-switchable (pixcel-grid default / video / AI-face), all on the real engine.
+  The real Pixcel grid is the product — it's cooler on its own; never fake it.
 
 ## 2. Do NOT cage the agent (the statue lesson, applied to the UI)
 Every constraint we forced on the artisan (exemplars, fixed context) **hurt quality**. The AI industry moves

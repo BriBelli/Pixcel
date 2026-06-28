@@ -6,6 +6,68 @@
 > `PLATFORM-MERGE-README.md`. Conceptual design = the Claude Design prototypes (a "statue shape," open for
 > engineering — do NOT design literally toward them yet).
 
+## THE NORTH STAR — the customer & the killer use case (2026-06-28, Brian)
+*What the whole product is ultimately FOR. Everything below serves this; refine toward it.*
+
+- **The problem we kill:** using today's AI models *properly* to make a film / masterful digital-motion-art
+  video is **completely unstructured** — you jump across companies, models, and tools to assemble one piece.
+  There IS a strong **technique** to doing it well (ref: the cinematic-AI methodology **"Tao Prompts"**). **Structuring that
+  chaos into one guided studio is Pixcel's ultimate focal point.**
+- **The customer (our first, sufficient user) = Brian** — a **20+ year digital-media professional** (Flash →
+  Adobe → WordPress → no-code → Python/AWS → all-AI). He has lived every wave; he *is* the audience.
+- **The job to be done:** create **real-time films from his own lore/canon/stories.** He authors the lore,
+  canon, and scenes/chapters and directs to cinematic detail. **He is ONLY the writer/director — Pixcel is
+  EVERYTHING ELSE: the full studio production set + autonomous "digital AI employees" working together (and
+  with him).** The finished films are the **proof** the product works.
+- **The orchestrator reframe (supersedes photolif's brittle workflows):** everything interfaces with ONE
+  **singular, persistent, stateful autonomous layer — the "Pixcel Assistant."** It orchestrates all tools /
+  MCP / sub-agents / **workflow generation**; generated workflows hand off to **micro MCP agent workflows**
+  that stay **supervised by that higher-level persistent agent.** (This is the chef/statue primitive made the
+  spine of the product — see §"THE UNIFYING PRINCIPLE".)
+- **Canvas vs A2UI focus split:** for **Pixel ART**, the z-0 real Pixcel grid canvas is PRIMARY; for
+  **IMAGE / VIDEO**, focus shifts to the agent driving the **higher-z A2UI layer** (the canvas recedes).
+- **Cadence:** fold this into Pixcel's **statue shape**, then **refine → shape → refine.** Start MICRO (the
+  splash's real low-res Pixcel wall), then move outward. We are not close yet — this is the long arc.
+
+### The end-state — living, dynamic, interactive media (movies → games → anything)
+- **Bible-as-context (richer than a prompt).** Hand the system a COMPLETE story bible — canon, lore,
+  blueprints, characters, scenes in intricate detail. The agent uses that rich context to **dynamically
+  build continuous / extended scenes off what the author built.** Architecturally this is the chef's
+  **Recipe = context-as-data** at film scale; the persistent orchestrator holds world/canon state.
+- **Living + interactive.** Dynamic films = **choose-your-own-adventure** — the viewer interacts → dynamic
+  endings/outcomes → nearly every film a unique piece. Build your own world + info-feed → the LLM generates
+  movies that evolve on their own.
+- **2D games as a real-time autonomous system.** Doom / Wolfenstein / Duck Hunt-style worlds where the AI +
+  elements are **dynamically created and act/react to the provided context/theme** → a real-time living
+  experience ("beyond a simulation — basically VR"). **This is where the PIXEL engine re-enters.**
+- **NOT full autonomy.** Preserve **granularity + hands-on control** all the way down: images → storyboard →
+  scene → film step. (The auto-default-but-honor-explicit-intent law, applied to film.)
+- **PROOF DEMO — "Don't Let the Train Stop."** A flat/3D-style film from an LLM: a train rides an
+  environment held **in STATE** (starts Wild West), **hosted live on a URL**; people **pay → submit a prompt
+  = the next scene**, generated **behind the scenes** and **stitched into the running film via the Pixcel
+  JSON substrate** (streaming/queue — "Kinesis or similar") with **transitions**. "outer space" → the train
+  is in space; "underwater" → train + fish submerge; etc. **Async-generate while others play, stitch via
+  JSON** = a living, breathing, collaborative film. Exercises persistent world-state + user-driven scenes +
+  async generation + JSON stitching/transitions + paid multiplayer + on-chain/provenance — all at once.
+- **Why JSON-as-substrate is THE unlock:** every scene is a diffable Pixcel JSON program — exactly what lets
+  scenes generate async, stitch, version, and transition. The data model is the spine of the living-media
+  vision, not just the editor.
+
+### Long-term goals (unordered, not exhaustive — Brian, 2026-06-28)
+1. **Complete the Pixcel IP** — the vision, iterated forever (never "done").
+2. **Produce the first 3 film scenes** Brian has authored (real deliverables, the proof).
+3. **Make the dynamic film + game experience real** — small, reliable prototype(s) first (e.g. the Train).
+4. **Grow the Pixcel Artisan + the statue pattern** — the crown jewel keeps deepening.
+
+### The product surface (adopt the Grok spec, swap the brains)
+The pre-artisan Grok synthesis (`PIXCEL-PRODUCT-SPEC.md`) is the canonical **product-surface** reference —
+media-as-JSON thesis, media library, A2UI persistence, multi-model access, the **video pipeline (highest
+priority for film/TV)**, node storyboarding, Tao-Prompts / 5-level prompting, Project Echelon (the film
+bible), the "cable-provider" business vision, TV-MA policy, FFmpeg. **Adopt all of it as the surface — but
+replace its orchestration (model-registry trees, rigid prompt pipelines, fixed node workflows) with the
+autonomous statue/chef pattern** (autonomous masters + context-as-data + A2UI). See the translation table in
+that doc.
+
 ## LOCKED DECISIONS (2026-06-26, Brian)
 1. **Stack = all TypeScript / Node.** Node/TS backend + React/Next front-end. The **artisan stays TS and
    UNTOUCHED** (the proven crown jewel is never risked). `a2ui-core` (the protocol) is already TS → ports

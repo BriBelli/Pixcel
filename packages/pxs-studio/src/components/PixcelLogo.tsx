@@ -1,44 +1,41 @@
 'use client';
 
+import { PIXCEL_LOGO_FRAME } from '../data/pixcel-logo';
+
 /* ─────────────────────────────────────────────────────────────────────────────
- * PixcelLogo — the big, centered Pixcel wordmark on the Chat splash (Google-style).
+ * PixcelLogo — the Pixcel wordmark rendered from REAL PXSFrame data
+ * (`data/pixcel-logo.ts`, derived exactly from the canonical wordmark). Each lit
+ * cell is one crisp square; empty cells are transparent so it blends seamlessly on
+ * the digital wall. Theme-aware (fills with the text-primary token, not a baked hex).
  *
- * SINGLE SWAP POINT. Today this renders the static pixel wordmark
- * (`/pixcel-wordmark.svg`). Later it can become the animated "Doodle": swap the
- * mask source here for a seasonal SVG, or replace the masked <span> with an
- * <img>/<video>/Lottie player — every splash that wants the big logo imports THIS,
- * so there's exactly one place to change.
- *
- * Tint note: `currentColor` does NOT inherit through `<img src>` (it renders black
- * on every surface). We use a CSS mask + `background: currentColor` so the wordmark
- * tints to whatever `color` the host sets — here `var(--a2ui-text-primary)`.
+ * SINGLE SWAP POINT + animation-ready: swap PIXCEL_LOGO_FRAME for a different frame,
+ * or animate the <rect>s per-cell, to become a living "Doodle" later.
  * ───────────────────────────────────────────────────────────────────────────── */
 
 interface PixcelLogoProps {
-  /** Rendered height of the wordmark in px. Width scales to the 459×136 aspect ratio. */
+  /** Rendered height in px. Width scales to the frame's aspect ratio. */
   height?: number;
   className?: string;
+  /** Override the fill (defaults to the theme's primary text color). */
+  fill?: string;
 }
 
-/** Wordmark intrinsic aspect ratio (viewBox 0 0 459 136). */
-const WORDMARK_RATIO = 459 / 136;
-
-export default function PixcelLogo({ height = 84, className }: PixcelLogoProps) {
+export default function PixcelLogo({ height = 72, className, fill = 'var(--a2ui-text-primary)' }: PixcelLogoProps) {
+  const { cols, rows, cells } = PIXCEL_LOGO_FRAME;
   return (
-    <span
+    <svg
       role="img"
       aria-label="Pixcel"
       className={className}
-      style={{
-        display: 'block',
-        height,
-        width: height * WORDMARK_RATIO,
-        // Tintable via the host's `color`. Swap this URL for the animated Doodle later.
-        WebkitMask: 'url(/pixcel-wordmark.svg) center / contain no-repeat',
-        mask: 'url(/pixcel-wordmark.svg) center / contain no-repeat',
-        background: 'currentColor',
-        color: 'var(--a2ui-text-primary)',
-      }}
-    />
+      width={height * (cols / rows)}
+      height={height}
+      viewBox={`0 0 ${cols} ${rows}`}
+      shapeRendering="crispEdges"
+      style={{ display: 'block' }}
+    >
+      {cells.map((c, i) => (
+        <rect key={i} x={c.x} y={c.y} width={1} height={1} fill={fill} />
+      ))}
+    </svg>
   );
 }

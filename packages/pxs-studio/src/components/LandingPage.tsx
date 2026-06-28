@@ -9,11 +9,15 @@
 
 import { useState } from 'react';
 import NavRail from './NavRail';
-import PixcelLogo from './PixcelLogo';
+import DigitalWall from './DigitalWall';
 
 interface Props {
   onEnter: (prompt?: string) => void;
 }
+
+/* The prompt bar's vertical anchor (the living-canvas "move the search" knob — the agent can
+   override `--pxl-prompt-y` later). Default lower-third so it clears the wall-painted wordmark. */
+const PROMPT_Y = '70%';
 
 /* ── Iconography (Claude Design handoff): Lucide line icons (stroke 2, currentColor,
    viewBox 0 0 24 24). Only the prompt-bar glyphs live here now — the nav rail (mark +
@@ -41,7 +45,8 @@ export default function LandingPage({ onEnter }: Props) {
       <style>{`
         .pxl-root { background: var(--a2ui-bg-app); color: var(--a2ui-text-primary); font-family: var(--a2ui-font-family); -webkit-font-smoothing: antialiased; }
         .pxl-root ::selection { background: var(--a2ui-accent-subtle); }
-        .pxl-gridbg { background-image: linear-gradient(rgba(255,255,255,0.025) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,0.025) 1px,transparent 1px); background-size:28px 28px; -webkit-mask-image:radial-gradient(circle at 50% 34%,black,transparent 70%); mask-image:radial-gradient(circle at 50% 34%,black,transparent 70%); }
+        /* z-0 background is now the shared <DigitalWall> canvas (the persistent Pixcel digital
+           wall), not a flat CSS grid. The logo is painted on that wall; the prompt bar floats above. */
         /* Rail styles (.pxl-rail/.pxl-navbtn/etc.) now live in the shared <NavRail>. */
         .pxl-promptbar { background: var(--a2ui-bg-input); border: 1px solid var(--a2ui-border-default); transition: border-color var(--a2ui-transition-fast), box-shadow var(--a2ui-transition-fast); }
         .pxl-promptbar:focus-within { border-color: var(--a2ui-accent); box-shadow: 0 0 0 3px var(--a2ui-accent-subtle); }
@@ -66,27 +71,35 @@ export default function LandingPage({ onEnter }: Props) {
 
       {/* Main column — the Chat splash */}
       <div className="relative flex-1 flex flex-col min-w-0">
-        <div className="pxl-gridbg pointer-events-none absolute inset-0" />
+        {/* z-0 — the persistent Pixcel digital wall (the REAL low-res Pixcel grid). The Pixcel
+            wordmark is painted ON the wall as REAL Pixcel cells (centered, breathing), so it reads
+            as DISPLAYED on the screen — there is ONE logo, the real-cell one on the wall. */}
+        <div className="pointer-events-none absolute inset-0 z-0">
+          <DigitalWall className="absolute inset-0 h-full w-full" />
+        </div>
 
-        <div className="relative flex-1 flex flex-col items-center justify-center px-6">
-          {/* Big, centered Pixcel wordmark (Google-style). Single swap point for a
-              future animated "Doodle" — see PixcelLogo. */}
-          <PixcelLogo height={72} className="mb-8" />
-
-          {/* Hero prompt bar — Google-style single search; placeholder carries the supporting text */}
-          <form
-            onSubmit={(e) => { e.preventDefault(); onEnter(draft.trim() || undefined); }}
-            className="pxl-promptbar flex w-full max-w-2xl items-center gap-2 rounded-full px-3.5 py-2.5"
-          >
-            <button type="button" onClick={() => onEnter()} className="pxl-iconbtn flex h-9 w-9 items-center justify-center shrink-0" title="Attach"><Ic name="plus" size={20} /></button>
-            <input
-              value={draft}
-              onChange={(e) => setDraft(e.target.value)}
-              placeholder="Ask me anything…"
-              className="pxl-input min-w-0 flex-1 text-[15px] outline-none"
-            />
-            <button type="submit" className="pxl-send flex h-9 w-9 items-center justify-center shrink-0" title="Send"><Ic name="send" size={16} /></button>
-          </form>
+        {/* HIGHER z — the floating UI (prompt bar) above the wall. The layer separation is
+            visceral: a digital LED wall behind, the UI floating in front.
+            The prompt bar's vertical position is a SINGLE controllable anchor (`--pxl-prompt-y`):
+            this is the living-canvas "move the search" knob the agent can drive later. Default is
+            the lower third so it sits clear of the wall-painted wordmark (centered above it). */}
+        <div className="relative z-10 flex-1" style={{ ['--pxl-prompt-y' as string]: PROMPT_Y }}>
+          <div className="absolute left-0 right-0 flex -translate-y-1/2 justify-center px-6" style={{ top: 'var(--pxl-prompt-y, 70%)' }}>
+            {/* Hero prompt bar — Google-style single search; placeholder carries the supporting text */}
+            <form
+              onSubmit={(e) => { e.preventDefault(); onEnter(draft.trim() || undefined); }}
+              className="pxl-promptbar flex w-full max-w-2xl items-center gap-2 rounded-full px-3.5 py-2.5"
+            >
+              <button type="button" onClick={() => onEnter()} className="pxl-iconbtn flex h-9 w-9 items-center justify-center shrink-0" title="Attach"><Ic name="plus" size={20} /></button>
+              <input
+                value={draft}
+                onChange={(e) => setDraft(e.target.value)}
+                placeholder="Ask me anything…"
+                className="pxl-input min-w-0 flex-1 text-[15px] outline-none"
+              />
+              <button type="submit" className="pxl-send flex h-9 w-9 items-center justify-center shrink-0" title="Send"><Ic name="send" size={16} /></button>
+            </form>
+          </div>
         </div>
       </div>
     </div>

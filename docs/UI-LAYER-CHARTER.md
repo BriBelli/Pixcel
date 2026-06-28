@@ -27,6 +27,16 @@ You are not building an app — you are building the **face of the Pixcel Agent*
   studio GRID tab (`CellAnimator` / `GridCanvas` / `PatternHelpers`). The Pixcel logo loads as **real cells,
   centered**. The wall is mode-switchable (pixcel-grid default / video / AI-face), all on the real engine.
   The real Pixcel grid is the product — it's cooler on its own; never fake it.
+- **Low-res, large canvas (the flagship look).** The wall is the **authentic low-res Pixcel grid**: a LARGE
+  canvas at LOW density — big chunky LED cells (~32–48 cols), with **visible 1px grid strokes** (like a
+  Photoshop worktop, but real Pixcel cells). Low res = the AI controls it cleanly with performance headroom.
+  The grid lattice should *read* even when dim — it's a real canvas, not a flat fill.
+- **The wall is the agent's FACE.** Beyond art, the agent expresses on the grid — **facial expressions /
+  emoji / color moods** pushed as `PXSFrame`s. Build the canvas so an explicit frame can take over the wall
+  (compositing over / overriding the ambient + logo).
+- **Focus split (canvas vs A2UI).** For **Pixel ART**, this z-0 grid canvas is the PRIMARY surface. For
+  **IMAGE / VIDEO** generation, focus shifts to the agent driving the **higher-z A2UI layer** — the canvas
+  recedes (it may go ambient or become a living reflection). Don't force the canvas to be central everywhere.
 
 ## 2. Do NOT cage the agent (the statue lesson, applied to the UI)
 Every constraint we forced on the artisan (exemplars, fixed context) **hurt quality**. The AI industry moves

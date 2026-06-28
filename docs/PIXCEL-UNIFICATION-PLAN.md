@@ -6,6 +6,29 @@
 > `PLATFORM-MERGE-README.md`. Conceptual design = the Claude Design prototypes (a "statue shape," open for
 > engineering — do NOT design literally toward them yet).
 
+## THE NORTH STAR — the customer & the killer use case (2026-06-28, Brian)
+*What the whole product is ultimately FOR. Everything below serves this; refine toward it.*
+
+- **The problem we kill:** using today's AI models *properly* to make a film / masterful digital-motion-art
+  video is **completely unstructured** — you jump across companies, models, and tools to assemble one piece.
+  There IS a strong **technique** to doing it well (ref: the creator **"Toa prompts"**). **Structuring that
+  chaos into one guided studio is Pixcel's ultimate focal point.**
+- **The customer (our first, sufficient user) = Brian** — a **20+ year digital-media professional** (Flash →
+  Adobe → WordPress → no-code → Python/AWS → all-AI). He has lived every wave; he *is* the audience.
+- **The job to be done:** create **real-time films from his own lore/canon/stories.** He authors the lore,
+  canon, and scenes/chapters and directs to cinematic detail. **He is ONLY the writer/director — Pixcel is
+  EVERYTHING ELSE: the full studio production set + autonomous "digital AI employees" working together (and
+  with him).** The finished films are the **proof** the product works.
+- **The orchestrator reframe (supersedes photolif's brittle workflows):** everything interfaces with ONE
+  **singular, persistent, stateful autonomous layer — the "Pixcel Assistant."** It orchestrates all tools /
+  MCP / sub-agents / **workflow generation**; generated workflows hand off to **micro MCP agent workflows**
+  that stay **supervised by that higher-level persistent agent.** (This is the chef/statue primitive made the
+  spine of the product — see §"THE UNIFYING PRINCIPLE".)
+- **Canvas vs A2UI focus split:** for **Pixel ART**, the z-0 real Pixcel grid canvas is PRIMARY; for
+  **IMAGE / VIDEO**, focus shifts to the agent driving the **higher-z A2UI layer** (the canvas recedes).
+- **Cadence:** fold this into Pixcel's **statue shape**, then **refine → shape → refine.** Start MICRO (the
+  splash's real low-res Pixcel wall), then move outward. We are not close yet — this is the long arc.
+
 ## LOCKED DECISIONS (2026-06-26, Brian)
 1. **Stack = all TypeScript / Node.** Node/TS backend + React/Next front-end. The **artisan stays TS and
    UNTOUCHED** (the proven crown jewel is never risked). `a2ui-core` (the protocol) is already TS → ports

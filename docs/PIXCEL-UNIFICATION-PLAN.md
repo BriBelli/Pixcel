@@ -11,7 +11,7 @@
 
 - **The problem we kill:** using today's AI models *properly* to make a film / masterful digital-motion-art
   video is **completely unstructured** — you jump across companies, models, and tools to assemble one piece.
-  There IS a strong **technique** to doing it well (ref: the creator **"Toa prompts"**). **Structuring that
+  There IS a strong **technique** to doing it well (ref: the cinematic-AI methodology **"Tao Prompts"**). **Structuring that
   chaos into one guided studio is Pixcel's ultimate focal point.**
 - **The customer (our first, sufficient user) = Brian** — a **20+ year digital-media professional** (Flash →
   Adobe → WordPress → no-code → Python/AWS → all-AI). He has lived every wave; he *is* the audience.
@@ -52,6 +52,21 @@
 - **Why JSON-as-substrate is THE unlock:** every scene is a diffable Pixcel JSON program — exactly what lets
   scenes generate async, stitch, version, and transition. The data model is the spine of the living-media
   vision, not just the editor.
+
+### Long-term goals (unordered, not exhaustive — Brian, 2026-06-28)
+1. **Complete the Pixcel IP** — the vision, iterated forever (never "done").
+2. **Produce the first 3 film scenes** Brian has authored (real deliverables, the proof).
+3. **Make the dynamic film + game experience real** — small, reliable prototype(s) first (e.g. the Train).
+4. **Grow the Pixcel Artisan + the statue pattern** — the crown jewel keeps deepening.
+
+### The product surface (adopt the Grok spec, swap the brains)
+The pre-artisan Grok synthesis (`PIXCEL-PRODUCT-SPEC.md`) is the canonical **product-surface** reference —
+media-as-JSON thesis, media library, A2UI persistence, multi-model access, the **video pipeline (highest
+priority for film/TV)**, node storyboarding, Tao-Prompts / 5-level prompting, Project Echelon (the film
+bible), the "cable-provider" business vision, TV-MA policy, FFmpeg. **Adopt all of it as the surface — but
+replace its orchestration (model-registry trees, rigid prompt pipelines, fixed node workflows) with the
+autonomous statue/chef pattern** (autonomous masters + context-as-data + A2UI). See the translation table in
+that doc.
 
 ## LOCKED DECISIONS (2026-06-26, Brian)
 1. **Stack = all TypeScript / Node.** Node/TS backend + React/Next front-end. The **artisan stays TS and

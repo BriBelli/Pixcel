@@ -19,10 +19,10 @@ interface Props {
    override `--pxl-prompt-y` later). It now TRACKS the wall logo: the bar sits a fixed gap below the
    wordmark's bottom edge, so it follows the logo as `logoWidth`/viewport change. Clamped to a sane
    band. DEFAULT_PROMPT_Y is the pre-measure fallback (≈ the old fixed position, so no first-paint jump). */
-const DEFAULT_PROMPT_Y = '70%';
-const PROMPT_GAP = 0.12; // gap below the logo's bottom edge, as a fraction of wall height
-const PROMPT_Y_MIN = 0.55;
-const PROMPT_Y_MAX = 0.86;
+const DEFAULT_PROMPT_Y = '62%';
+const PROMPT_GAP = 0.06; // small gap below the logo's bottom edge — keeps the bar balanced/close to the logo
+const PROMPT_Y_MIN = 0.5; // never above vertical center
+const PROMPT_Y_MAX = 0.82;
 
 /* ── Iconography (Claude Design handoff): Lucide line icons (stroke 2, currentColor,
    viewBox 0 0 24 24). Only the prompt-bar glyphs live here now — the nav rail (mark +

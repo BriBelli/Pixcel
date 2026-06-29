@@ -7,7 +7,7 @@
  * structure or copy without Brian's explicit say-so.
  * ───────────────────────────────────────────────────────────────────────────── */
 
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
 import NavRail from './NavRail';
 import DigitalWall from './DigitalWall';
 
@@ -16,8 +16,13 @@ interface Props {
 }
 
 /* The prompt bar's vertical anchor (the living-canvas "move the search" knob — the agent can
-   override `--pxl-prompt-y` later). Default lower-third so it clears the wall-painted wordmark. */
-const PROMPT_Y = '70%';
+   override `--pxl-prompt-y` later). It now TRACKS the wall logo: the bar sits a fixed gap below the
+   wordmark's bottom edge, so it follows the logo as `logoWidth`/viewport change. Clamped to a sane
+   band. DEFAULT_PROMPT_Y is the pre-measure fallback (≈ the old fixed position, so no first-paint jump). */
+const DEFAULT_PROMPT_Y = '70%';
+const PROMPT_GAP = 0.12; // gap below the logo's bottom edge, as a fraction of wall height
+const PROMPT_Y_MIN = 0.55;
+const PROMPT_Y_MAX = 0.86;
 
 /* ── Iconography (Claude Design handoff): Lucide line icons (stroke 2, currentColor,
    viewBox 0 0 24 24). Only the prompt-bar glyphs live here now — the nav rail (mark +
@@ -39,6 +44,16 @@ function Ic({ name, size = 20 }: { name: IconName; size?: number }) {
 
 export default function LandingPage({ onEnter }: Props) {
   const [draft, setDraft] = useState('');
+  const [promptY, setPromptY] = useState(DEFAULT_PROMPT_Y);
+
+  // Anchor the prompt bar a fixed gap below the wall logo's bottom edge (clamped), so it tracks the
+  // logo as logoWidth / the viewport change. Stable identity → never churns the wall's render effect.
+  const handleLogoLayout = useCallback((box: { bottomFrac: number; visible: boolean }) => {
+    const y = box.visible
+      ? Math.min(PROMPT_Y_MAX, Math.max(PROMPT_Y_MIN, box.bottomFrac + PROMPT_GAP))
+      : 0.7;
+    setPromptY(`${(y * 100).toFixed(2)}%`);
+  }, []);
 
   return (
     <div className="pxl-root flex h-screen overflow-hidden">
@@ -78,7 +93,7 @@ export default function LandingPage({ onEnter }: Props) {
           {/* Splash tuning: ONE knob — logoWidth=0.31 → the wordmark is ~31% of the wall width (~54%
               smaller than native), auto-kept crisp (the wall raises cols to ≥27/0.31≈88 for us).
               Ambient intensity nudged down to 0.12 — "double-take" subtle. */}
-          <DigitalWall className="absolute inset-0 h-full w-full" logoWidth={0.31} intensity={0.12} />
+          <DigitalWall className="absolute inset-0 h-full w-full" logoWidth={.31} intensity={0.6} onLogoLayout={handleLogoLayout} />
         </div>
 
         {/* HIGHER z — the floating UI (prompt bar) above the wall. The layer separation is
@@ -86,7 +101,7 @@ export default function LandingPage({ onEnter }: Props) {
             The prompt bar's vertical position is a SINGLE controllable anchor (`--pxl-prompt-y`):
             this is the living-canvas "move the search" knob the agent can drive later. Default is
             the lower third so it sits clear of the wall-painted wordmark (centered above it). */}
-        <div className="relative z-10 flex-1" style={{ ['--pxl-prompt-y' as string]: PROMPT_Y }}>
+        <div className="relative z-10 flex-1" style={{ ['--pxl-prompt-y' as string]: promptY }}>
           <div className="absolute left-0 right-0 flex -translate-y-1/2 justify-center px-6" style={{ top: 'var(--pxl-prompt-y, 70%)' }}>
             {/* Hero prompt bar — Google-style single search; placeholder carries the supporting text */}
             <form

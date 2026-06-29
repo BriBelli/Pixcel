@@ -249,6 +249,18 @@ export interface DigitalWallProps {
   accent?: string;
   /** Base/background color of the wall. Defaults to the theme bg token, read at runtime. */
   background?: string;
+  /**
+   * Reports the logo's bounding box as fractions of the wall (0..1), recomputed on every
+   * resize / prop change (NOT per animation frame). Lets floating UI anchor to the logo —
+   * e.g. the splash prompt bar sits just below the wordmark regardless of `logoWidth`.
+   */
+  onLogoLayout?: (box: {
+    topFrac: number;
+    bottomFrac: number;
+    centerXFrac: number;
+    heightFrac: number;
+    visible: boolean;
+  }) => void;
   className?: string;
 }
 
@@ -277,8 +289,13 @@ export default function DigitalWall({
   logoWidth,
   accent = BRAND_BLUE,
   background,
+  onLogoLayout,
   className,
 }: DigitalWallProps) {
+  // Keep the layout callback in a ref so the render effect never re-runs just because the parent
+  // passed a new inline function — geometry recompute is driven by size/props, not callback identity.
+  const onLogoLayoutRef = useRef(onLogoLayout);
+  onLogoLayoutRef.current = onLogoLayout;
   const wrapRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [box, setBox] = useState({ w: 0, h: 0 });
@@ -407,6 +424,19 @@ export default function DigitalWall({
     const logoRows = Math.max(1, Math.round((logoCols / logo.cols) * logo.rows));
     const logoOffX = Math.round((cols - logoCols) / 2);
     const logoOffY = Math.round((rows - logoRows) / 2);
+    // Report the logo's box (fractions of the wall) so floating UI can anchor to it. Done once per
+    // geometry recompute (resize/prop change), not per frame.
+    onLogoLayoutRef.current?.(
+      showLogo
+        ? {
+            topFrac: logoOffY / rows,
+            bottomFrac: (logoOffY + logoRows) / rows,
+            centerXFrac: 0.5,
+            heightFrac: logoRows / rows,
+            visible: true,
+          }
+        : { topFrac: 0.5, bottomFrac: 0.5, centerXFrac: 0.5, heightFrac: 0, visible: false },
+    );
     // Precompute a lit-cell set for O(1) source lookup.
     const litSet = new Set<number>();
     for (const c of logo.cells) litSet.add(c.y * logo.cols + c.x);

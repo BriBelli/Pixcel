@@ -237,6 +237,14 @@ export interface DigitalWallProps {
    * hand-authored cells and the letters garble — keep at native unless you want it bigger.
    */
   logoScale?: number;
+  /**
+   * ONE-KNOB logo sizing (recommended): the logo's width as a fraction of the wall (0..1). When set,
+   * this is the size source of truth (overrides `logoScale`) AND auto-raises `cols` just enough to keep
+   * the 27-wide wordmark crisp (cols ≥ 27/logoWidth) — so you never compute the crispness rule by hand.
+   * It never LOWERS an explicitly chosen `cols`; a smaller logo simply pulls the grid finer (lattice law).
+   * Omit it to use the classic `cols` + `logoScale` pair. Note: very small values (≲0.15) push cols high.
+   */
+  logoWidth?: number;
   /** Brand accent (logo cells + effect hue). Defaults to the locked brand blue. */
   accent?: string;
   /** Base/background color of the wall. Defaults to the theme bg token, read at runtime. */
@@ -266,6 +274,7 @@ export default function DigitalWall({
   // centered, ~two-thirds width. Going below native downsamples the hand-authored cells and garbles
   // the wordmark (the low-res cells can't be faithfully shrunk), so native is the tasteful floor.
   logoScale = 0.68,
+  logoWidth,
   accent = BRAND_BLUE,
   background,
   className,
@@ -348,10 +357,23 @@ export default function DigitalWall({
     // of (width / cols); rows stay proportional to the wall's aspect. minCellPx only clamps cells
     // from getting absurdly tiny on a very narrow container. This keeps the cell count tiny (~40 ×
     // ~22 ≈ 900 cells) — deep in the engine's cheap HTMLRenderer range, huge AI headroom.
+    // `logoWidth` (if set) is the logo-size source of truth and dictates the MIN columns needed to keep
+    // the 27-wide wordmark crisp (cols ≥ 27/logoWidth). effLogoScale is what the logo placement uses.
+    const effLogoScale = logoWidth != null ? logoWidth : logoScale;
+    const minColsForLogo =
+      showLogo && logoWidth != null
+        ? Math.ceil(PIXCEL_LOGO_FRAME.cols / Math.max(0.01, logoWidth))
+        : 0;
+
     let cols = Math.max(4, Math.round(targetCols));
     let px = W / cols;
     if (px < minCellPx) {
       cols = Math.max(4, Math.floor(W / minCellPx));
+      px = W / cols;
+    }
+    // Logo crispness wins over the minCellPx floor: raise cols (finer cells) so the logo never garbles.
+    if (minColsForLogo > cols) {
+      cols = minColsForLogo;
       px = W / cols;
     }
     const rows = Math.max(2, Math.round(H / px)); // proportional to aspect
@@ -381,7 +403,7 @@ export default function DigitalWall({
     // Letterbox the logo to `logoScale` of the grid width, clamped to [a few cells, grid width].
     // Below native width the source is downsampled (nearest-neighbor) onto fewer cells; this keeps
     // the wordmark tasteful at low resolutions instead of spanning the whole wall.
-    const logoCols = Math.max(4, Math.min(cols, Math.round(cols * logoScale)));
+    const logoCols = Math.max(4, Math.min(cols, Math.round(cols * effLogoScale)));
     const logoRows = Math.max(1, Math.round((logoCols / logo.cols) * logo.rows));
     const logoOffX = Math.round((cols - logoCols) / 2);
     const logoOffY = Math.round((rows - logoRows) / 2);

@@ -75,10 +75,10 @@ export default function LandingPage({ onEnter }: Props) {
             wordmark is painted ON the wall as REAL Pixcel cells (centered, breathing), so it reads
             as DISPLAYED on the screen — there is ONE logo, the real-cell one on the wall. */}
         <div className="pointer-events-none absolute inset-0 z-0">
-          {/* Splash tuning: a FINER grid (cols 88) shrinks the wall-painted wordmark to ~31% width
-              (~54% smaller) while keeping it crisp — the logo snaps to native cell-width (27 cells),
-              so logoScale ≈ 27/cols. Ambient intensity nudged down to 0.12 — "double-take" subtle. */}
-          <DigitalWall className="absolute inset-0 h-full w-full" cols={88} logoScale={0.31} intensity={0.12} />
+          {/* Splash tuning: ONE knob — logoWidth=0.31 → the wordmark is ~31% of the wall width (~54%
+              smaller than native), auto-kept crisp (the wall raises cols to ≥27/0.31≈88 for us).
+              Ambient intensity nudged down to 0.12 — "double-take" subtle. */}
+          <DigitalWall className="absolute inset-0 h-full w-full" logoWidth={0.31} intensity={0.12} />
         </div>
 
         {/* HIGHER z — the floating UI (prompt bar) above the wall. The layer separation is

@@ -17,7 +17,7 @@ interface Props {
 
 /* The prompt bar's vertical anchor (the living-canvas "move the search" knob — the agent can
    override `--pxl-prompt-y` later). It now TRACKS the wall logo: the bar sits a fixed gap below the
-   wordmark's bottom edge, so it follows the logo as `logoWidth`/viewport change. Clamped to a sane
+   wordmark's bottom edge, so it follows the logo as its size/the viewport change. Clamped to a sane
    band. DEFAULT_PROMPT_Y is the pre-measure fallback (≈ the old fixed position, so no first-paint jump). */
 const DEFAULT_PROMPT_Y = '62%';
 const PROMPT_GAP = 0.06; // small gap below the logo's bottom edge — keeps the bar balanced/close to the logo
@@ -47,7 +47,7 @@ export default function LandingPage({ onEnter }: Props) {
   const [promptY, setPromptY] = useState(DEFAULT_PROMPT_Y);
 
   // Anchor the prompt bar a fixed gap below the wall logo's bottom edge (clamped), so it tracks the
-  // logo as logoWidth / the viewport change. Stable identity → never churns the wall's render effect.
+  // logo as its size / the viewport change. Stable identity → never churns the wall's render effect.
   const handleLogoLayout = useCallback((box: { bottomFrac: number; visible: boolean }) => {
     const y = box.visible
       ? Math.min(PROMPT_Y_MAX, Math.max(PROMPT_Y_MIN, box.bottomFrac + PROMPT_GAP))
@@ -90,10 +90,11 @@ export default function LandingPage({ onEnter }: Props) {
             wordmark is painted ON the wall as REAL Pixcel cells (centered, breathing), so it reads
             as DISPLAYED on the screen — there is ONE logo, the real-cell one on the wall. */}
         <div className="pointer-events-none absolute inset-0 z-0">
-          {/* Splash tuning: ONE knob — logoWidth=0.31 → the wordmark is ~31% of the wall width (~54%
-              smaller than native), auto-kept crisp (the wall raises cols to ≥27/0.31≈88 for us).
-              Ambient intensity nudged down to 0.12 — "double-take" subtle. */}
-          <DigitalWall className="absolute inset-0 h-full w-full" logoWidth={.31} intensity={0.6} onLogoLayout={handleLogoLayout} />
+          {/* Splash tuning — two clear, independent knobs:
+              • pixels = the wall's resolution (88 cells across; lower = chunkier, higher = finer).
+              • logoScale = the logo's size as a fraction of the wall (0.31 ≈ 31% width).
+                Crisp while pixels × logoScale ≥ 27 (the wordmark's native width): 88 × 0.31 ≈ 27. ✓ */}
+          <DigitalWall className="absolute inset-0 h-full w-full" pixels={88} logoScale={0.31} intensity={0.6} onLogoLayout={handleLogoLayout} />
         </div>
 
         {/* HIGHER z — the floating UI (prompt bar) above the wall. The layer separation is

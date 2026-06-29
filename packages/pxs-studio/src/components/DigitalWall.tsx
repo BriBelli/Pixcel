@@ -205,12 +205,12 @@ export interface DigitalWallProps {
    */
   frame?: PXSFrame | null;
   /**
-   * Target COLUMN COUNT for the wall — the flagship low-res look. Resolution derives from this
-   * (rows are computed proportional to the wall's aspect), so the grid stays low-res and chunky as
-   * the viewport grows: a large canvas at low density, with huge headroom for the AI to drive.
-   * ~40 is the sweet spot ("resolution like 32, just enough to let the AI control it").
+   * The wall's RESOLUTION: how many pixels (grid cells) across. This is the one density/chunkiness
+   * knob — lower = chunkier (retro, 8-bit feel), higher = finer. Rows fill the screen automatically,
+   * so the wall always matches the window's shape (you never set width/height). ~40 ≈ chunky sweet
+   * spot. A large canvas at low density = huge headroom for the AI to drive.
    */
-  cols?: number;
+  pixels?: number;
   /**
    * Optional hard floor on cell edge length (px). The wall is column-count-driven; this only clamps
    * cells from getting absurdly tiny on a very narrow container. Leave default for the chunky look.
@@ -231,20 +231,13 @@ export interface DigitalWallProps {
   /** Show the Pixcel logo as real centered cells over the ambient. */
   showLogo?: boolean;
   /**
-   * Logo footprint as a fraction of the grid width (0..1), centered. The 27-wide logo frame maps to
-   * `round(cols * logoScale)` columns via nearest-neighbor (stays on the lattice). At/above its
-   * native width (~0.68 on a 40-col grid) the wordmark is crisp; BELOW native it downsamples the
-   * hand-authored cells and the letters garble — keep at native unless you want it bigger.
+   * Logo size as a fraction of the wall width (0..1), centered. The 27-wide logo frame maps to
+   * `round(pixels * logoScale)` cells via nearest-neighbor (stays on the lattice). Stays crisp while
+   * that lands at/above its native 27 cells (i.e. pixels × logoScale ≥ 27); below native it downsamples
+   * the hand-authored cells and the letters garble. The logo is just current content — independent of
+   * the wall's `pixels` resolution, which persists when the logo is swapped for other content.
    */
   logoScale?: number;
-  /**
-   * ONE-KNOB logo sizing (recommended): the logo's width as a fraction of the wall (0..1). When set,
-   * this is the size source of truth (overrides `logoScale`) AND auto-raises `cols` just enough to keep
-   * the 27-wide wordmark crisp (cols ≥ 27/logoWidth) — so you never compute the crispness rule by hand.
-   * It never LOWERS an explicitly chosen `cols`; a smaller logo simply pulls the grid finer (lattice law).
-   * Omit it to use the classic `cols` + `logoScale` pair. Note: very small values (≲0.15) push cols high.
-   */
-  logoWidth?: number;
   /** Brand accent (logo cells + effect hue). Defaults to the locked brand blue. */
   accent?: string;
   /** Base/background color of the wall. Defaults to the theme bg token, read at runtime. */
@@ -252,7 +245,7 @@ export interface DigitalWallProps {
   /**
    * Reports the logo's bounding box as fractions of the wall (0..1), recomputed on every
    * resize / prop change (NOT per animation frame). Lets floating UI anchor to the logo —
-   * e.g. the splash prompt bar sits just below the wordmark regardless of `logoWidth`.
+   * e.g. the splash prompt bar sits just below the wordmark regardless of its size.
    */
   onLogoLayout?: (box: {
     topFrac: number;
@@ -273,7 +266,7 @@ export default function DigitalWall({
   mode = 'pixcel',
   effect = 'radialPulse',
   frame = null,
-  cols: targetCols = 40,
+  pixels: targetCols = 40,
   minCellPx = 12,
   gridLines = true,
   gridLineColor,
@@ -286,7 +279,6 @@ export default function DigitalWall({
   // centered, ~two-thirds width. Going below native downsamples the hand-authored cells and garbles
   // the wordmark (the low-res cells can't be faithfully shrunk), so native is the tasteful floor.
   logoScale = 0.68,
-  logoWidth,
   accent = BRAND_BLUE,
   background,
   onLogoLayout,
@@ -369,31 +361,18 @@ export default function DigitalWall({
       window.matchMedia &&
       window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-    // LOW-RES, LARGE CANVAS: resolution is COLUMN-COUNT driven, not pixel driven, so the wall stays
-    // chunky/low-density as the viewport grows. cols derives from targetCols; the cell px falls out
-    // of (width / cols); rows stay proportional to the wall's aspect. minCellPx only clamps cells
-    // from getting absurdly tiny on a very narrow container. This keeps the cell count tiny (~40 ×
-    // ~22 ≈ 900 cells) — deep in the engine's cheap HTMLRenderer range, huge AI headroom.
-    // `logoWidth` (if set) is the logo-size source of truth and dictates the MIN columns needed to keep
-    // the 27-wide wordmark crisp (cols ≥ 27/logoWidth). effLogoScale is what the logo placement uses.
-    const effLogoScale = logoWidth != null ? logoWidth : logoScale;
-    const minColsForLogo =
-      showLogo && logoWidth != null
-        ? Math.ceil(PIXCEL_LOGO_FRAME.cols / Math.max(0.01, logoWidth))
-        : 0;
-
+    // LOW-RES, LARGE CANVAS: the wall is PIXELS-ACROSS driven (not screen-pixel driven), so it stays
+    // chunky/low-density as the viewport grows. `cols` = the `pixels` prop (how many cells across, the
+    // wall's resolution); the cell edge px falls out of (width / cols); rows fill the screen (H / px),
+    // so the wall always matches the window's shape. minCellPx only clamps cells from getting absurdly
+    // tiny on a very narrow container. ~40 × ~22 ≈ 900 cells — deep in the engine's cheap range.
     let cols = Math.max(4, Math.round(targetCols));
     let px = W / cols;
     if (px < minCellPx) {
       cols = Math.max(4, Math.floor(W / minCellPx));
       px = W / cols;
     }
-    // Logo crispness wins over the minCellPx floor: raise cols (finer cells) so the logo never garbles.
-    if (minColsForLogo > cols) {
-      cols = minColsForLogo;
-      px = W / cols;
-    }
-    const rows = Math.max(2, Math.round(H / px)); // proportional to aspect
+    const rows = Math.max(2, Math.round(H / px)); // fills the screen → wall matches the window shape
     const cellCount = cols * rows;
 
     const dpr = Math.min(2, typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1);
@@ -420,7 +399,7 @@ export default function DigitalWall({
     // Letterbox the logo to `logoScale` of the grid width, clamped to [a few cells, grid width].
     // Below native width the source is downsampled (nearest-neighbor) onto fewer cells; this keeps
     // the wordmark tasteful at low resolutions instead of spanning the whole wall.
-    const logoCols = Math.max(4, Math.min(cols, Math.round(cols * effLogoScale)));
+    const logoCols = Math.max(4, Math.min(cols, Math.round(cols * logoScale)));
     const logoRows = Math.max(1, Math.round((logoCols / logo.cols) * logo.rows));
     const logoOffX = Math.round((cols - logoCols) / 2);
     const logoOffY = Math.round((rows - logoRows) / 2);

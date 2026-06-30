@@ -16,14 +16,17 @@ interface Props {
   onEnter: (prompt?: string) => void;
 }
 
-/* The prompt bar's vertical anchor (the living-canvas "move the search" knob — the agent can
-   override `--pxl-prompt-y` later). It now TRACKS the wall logo: the bar sits a fixed gap below the
-   wordmark's bottom edge, so it follows the logo as its size/the viewport change. Clamped to a sane
-   band. DEFAULT_PROMPT_Y is the pre-measure fallback (≈ the old fixed position, so no first-paint jump). */
-const DEFAULT_PROMPT_Y = '62%';
-const PROMPT_GAP = 0.06; // small gap below the logo's bottom edge — keeps the bar balanced/close to the logo
-const PROMPT_Y_MIN = 0.5; // never above vertical center
-const PROMPT_Y_MAX = 0.82;
+/* The prompt bar TRACKS the wall logo — it sits a fixed gap below the wordmark and follows it as the
+   logo size / viewport change. (`--pxl-prompt-y` stays the living-canvas anchor the agent can drive.)
+
+   ┌─ THE KNOB ─────────────────────────────────────────────────────────────────────────────────┐
+   │ PROMPT_GAP — the space between the logo and the prompt bar. A CSS length: bigger = more space │
+   │ (bar lower), smaller = tighter. Clamped to [MIN, MAX] so it never collides or runs off-screen.│
+   └───────────────────────────────────────────────────────────────────────────────────────────────┘ */
+const PROMPT_GAP = '3.5rem';     // ← set the spacing here
+const PROMPT_Y_MIN = '52%';      // bar never higher than this
+const PROMPT_Y_MAX = '82%';      // bar never lower than this
+const DEFAULT_PROMPT_Y = '70%';  // fallback before the logo is measured / when hidden
 
 /* ── Iconography (Claude Design handoff): Lucide line icons (stroke 2, currentColor,
    viewBox 0 0 24 24). Only the prompt-bar glyphs live here now — the nav rail (mark +
@@ -50,10 +53,13 @@ export default function LandingPage({ onEnter }: Props) {
   // Anchor the prompt bar a fixed gap below the wall logo's bottom edge (clamped), so it tracks the
   // logo as its size / the viewport change. Stable identity → never churns the wall's render effect.
   const handleLogoLayout = useCallback((box: { bottomFrac: number; visible: boolean }) => {
-    const y = box.visible
-      ? Math.min(PROMPT_Y_MAX, Math.max(PROMPT_Y_MIN, box.bottomFrac + PROMPT_GAP))
-      : 0.7;
-    setPromptY(`${(y * 100).toFixed(2)}%`);
+    if (!box.visible) {
+      setPromptY(DEFAULT_PROMPT_Y);
+      return;
+    }
+    // Bar center = a fixed gap below the logo's bottom edge, clamped to a sane band (CSS does the math).
+    const belowLogo = `calc(${(box.bottomFrac * 100).toFixed(2)}% + ${PROMPT_GAP})`;
+    setPromptY(`clamp(${PROMPT_Y_MIN}, ${belowLogo}, ${PROMPT_Y_MAX})`);
   }, []);
 
   return (

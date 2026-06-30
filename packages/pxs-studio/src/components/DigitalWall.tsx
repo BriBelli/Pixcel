@@ -205,11 +205,10 @@ export interface DigitalWallProps {
    */
   frame?: PXSFrame | null;
   /**
-   * The screen's RESOLUTION: how many pixels (grid cells) across — the one density/chunkiness knob
-   * (lower = chunkier/retro, higher = finer). Rows fill the screen automatically, so the wall always
-   * matches the window shape (you never set width/height). This is a TARGET/baseline: when the logo is
-   * shown, the screen auto-raises its resolution if needed to keep the wordmark crisp (you set the logo
-   * size, the screen finds the resolution). ~40 ≈ chunky sweet spot; huge headroom for the AI to drive.
+   * The screen's RESOLUTION — how many pixels (grid cells) across. YOU set it; it NEVER auto-changes.
+   * Lower = chunkier (retro/8-bit), higher = finer. Rows fill the screen automatically, so the wall
+   * always matches the window shape (you never set width/height). The logo fits INSIDE this resolution
+   * (see `logoScale`) — to get a SMALLER logo, raise this. ~40 ≈ chunky sweet spot; huge AI headroom.
    */
   pixels?: number;
   /**
@@ -232,10 +231,11 @@ export interface DigitalWallProps {
   /** Show the Pixcel logo as real centered cells over the ambient. */
   showLogo?: boolean;
   /**
-   * Logo SIZE as a fraction of the screen width (0..1), centered. Just set the size you want — the
-   * screen auto-raises its resolution so the wordmark is always crisp (no 27-cell math to worry about).
-   * The logo is REAL content made of the screen's own cells (same resolution as the ambient grid, like
-   * a picture on a TV), so the whole screen can later animate around / through / into the logo.
+   * Logo SIZE as a fraction of the screen width (0..1), centered — the logo auto-FITS the resolution
+   * you set in `pixels`. It's REAL content made of the screen's own cells (like a picture on a TV), so
+   * the whole screen can later animate around / through / into it. It never shrinks below its native
+   * 27-cell width (so it can't garble); if you ask for smaller than the resolution allows, it holds at
+   * that minimum — raise `pixels` to actually go smaller. No math either way.
    */
   logoScale?: number;
   /** Brand accent (logo cells + effect hue). Defaults to the locked brand blue. */
@@ -361,21 +361,13 @@ export default function DigitalWall({
       window.matchMedia &&
       window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-    // ONE screen, ONE resolution. `cols` = the `pixels` prop (cells across), BUT auto-raised so the
-    // logo always has enough cells to render crisp: you set the logo SIZE (`logoScale`) and the screen
-    // finds the resolution — no 27-math to worry about. (A smaller logo needs a finer screen; that's
-    // just how one real screen works.) rows fill the screen, so the wall matches the window shape.
-    // minCellPx only clamps cells from getting absurdly tiny on a very narrow container.
-    const minColsForLogo = showLogo ? Math.ceil(PIXCEL_LOGO_FRAME.cols / Math.max(0.05, logoScale)) : 0;
-    let cols = Math.max(4, Math.round(targetCols), minColsForLogo);
+    // ONE screen, ONE resolution — and YOU set it. `cols` = the `pixels` prop (cells across); it NEVER
+    // auto-changes. The cell edge px falls out of (W / cols); rows fill the screen so the wall matches
+    // the window shape. minCellPx only clamps cells from getting absurdly tiny on a very narrow container.
+    let cols = Math.max(4, Math.round(targetCols));
     let px = W / cols;
     if (px < minCellPx) {
       cols = Math.max(4, Math.floor(W / minCellPx));
-      px = W / cols;
-    }
-    // Logo crispness floor wins over the minCellPx clamp on narrow screens, so the wordmark never breaks.
-    if (minColsForLogo > cols) {
-      cols = minColsForLogo;
       px = W / cols;
     }
     const rows = Math.max(2, Math.round(H / px)); // fills the screen → wall matches the window shape
@@ -405,7 +397,9 @@ export default function DigitalWall({
     // the picture is the screen's pixels) — letterboxed to `logoScale` of the width, centered. The
     // screen auto-raised its resolution (above) so the wordmark always has enough cells to be crisp.
     const logo = PIXCEL_LOGO_FRAME;
-    const logoCols = Math.max(4, Math.min(cols, Math.round(cols * logoScale)));
+    // The logo auto-FITS the resolution YOU set: letterboxed to `logoScale` of the width, but never
+    // below its native 27-cell width — so it can't garble. Want it smaller? Raise `pixels`.
+    const logoCols = Math.min(cols, Math.max(logo.cols, Math.round(cols * logoScale)));
     const logoRows = Math.max(1, Math.round((logoCols / logo.cols) * logo.rows));
     const logoOffX = Math.round((cols - logoCols) / 2);
     const logoOffY = Math.round((rows - logoRows) / 2);

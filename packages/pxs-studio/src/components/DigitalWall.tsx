@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { PIXCEL_LOGO_FRAME } from '../data/pixcel-logo';
 import type { PXSFrame } from '../store/pxs-store';
+import { RES } from '../lib/resolutions';
 
 /**
  * DigitalWall — the persistent z-0 Pixcel digital wall (charter §1/§3, build-order step 1).
@@ -18,10 +19,9 @@ import type { PXSFrame } from '../store/pxs-store';
  * REAL cells, centered. The splash is meant to "feel not there" — the logo + UI read clearly — so
  * the ambient intensity is deliberately LOW. It's a living backdrop, not a loud demo.
  *
- * AI-controllable: the wall is driven entirely by props (`mode` / `effect` / `frame` / `palette`
- * / `intensity` / `paused` …) so the agent can later flip it between pixcel-grid / video / face
- * modes, push an explicit PXSFrame onto it, or tune the ambient — all on the real engine. Keep
- * `<DigitalWall>` the export LandingPage already uses.
+ * AI-controllable: the wall is driven entirely by props (`effect` / `frame` / `intensity` / `paused`
+ * …) so the agent can push an explicit PXSFrame onto it (a video frame / face / mood) or tune the
+ * ambient — all on the real engine. Keep `<DigitalWall>` the export LandingPage already uses.
  *
  * CROWN JEWEL: this is a NEW consumer of the engine. It does not import or touch pxs-core engine
  * logic, MatrixArtStage, live-jobs, the live-art store, or /api.
@@ -188,14 +188,7 @@ const EFFECTS: Record<WallEffect, (buf: Uint8ClampedArray, c: EffectCtx) => void
 // ---------------------------------------------------------------------------
 // Props — the AI-controllable surface.
 // ---------------------------------------------------------------------------
-export type WallMode = 'pixcel' | 'video' | 'face';
-
 export interface DigitalWallProps {
-  /**
-   * Wall mode. `pixcel` (default) = the ambient grid + logo. `video`/`face` are reserved hooks for
-   * the agent to drive later (they currently fall back to the pixcel grid so the wall is never blank).
-   */
-  mode?: WallMode;
   /** Ambient effect when no explicit `frame` is supplied. */
   effect?: WallEffect;
   /**
@@ -205,17 +198,13 @@ export interface DigitalWallProps {
    */
   frame?: PXSFrame | null;
   /**
-   * The screen's RESOLUTION — how many pixels (grid cells) across. YOU set it; it NEVER auto-changes.
-   * Lower = chunkier (retro/8-bit), higher = finer. Rows fill the screen automatically, so the wall
-   * always matches the window shape (you never set width/height). The logo fits INSIDE this resolution
-   * (see `logoScale`) — to get a SMALLER logo, raise this. ~40 ≈ chunky sweet spot; huge AI headroom.
+   * The screen's RESOLUTION — how many pixels (grid cells) across, from the canonical ladder (`RES`).
+   * YOU set it; it NEVER auto-changes. Lower = chunkier (retro/8-bit), higher = finer. Rows fill the
+   * screen automatically, so the wall always matches the window shape (you never set width/height).
+   * The logo fits INSIDE this resolution (see `logoScale`). Default `RES.retro` (128); pick a lower
+   * tier (`RES.sprite`) for chunkier, higher for finer.
    */
   pixels?: number;
-  /**
-   * Optional hard floor on cell edge length (px). The wall is column-count-driven; this only clamps
-   * cells from getting absurdly tiny on a very narrow container. Leave default for the chunky look.
-   */
-  minCellPx?: number;
   /** Visible 1px gridlines on every cell (the Pixcel worktop/LED lattice). ON for the wall. */
   gridLines?: boolean;
   /** Gridline stroke color. Defaults to the theme border token, read at runtime. */
@@ -263,11 +252,9 @@ const LOGO_INK = '#e4e4e8';
 const GRIDLINE_FALLBACK = '#30363d'; // --a2ui-border-default family
 
 export default function DigitalWall({
-  mode = 'pixcel',
   effect = 'radialPulse',
   frame = null,
-  pixels: targetCols = 40,
-  minCellPx = 12,
+  pixels: targetCols = RES.retro,
   gridLines = true,
   gridLineColor,
   gridLineAlpha = 0.08,
@@ -294,9 +281,6 @@ export default function DigitalWall({
   const bgRef = useRef(BG_FALLBACK);
   const gridLineRef = useRef(GRIDLINE_FALLBACK);
 
-  // `video`/`face` are reserved hooks; until the agent wires those modes, every mode renders the
-  // pixcel grid so the wall is never blank. `mode` is read here to keep it a live prop.
-  void mode;
   const activeEffect: WallEffect = effect;
 
   // Brand hue (for effect tinting) derived once from the accent.
@@ -361,15 +345,11 @@ export default function DigitalWall({
       window.matchMedia &&
       window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-    // ONE screen, ONE resolution — and YOU set it. `cols` = the `pixels` prop (cells across); it NEVER
-    // auto-changes. The cell edge px falls out of (W / cols); rows fill the screen so the wall matches
-    // the window shape. minCellPx only clamps cells from getting absurdly tiny on a very narrow container.
-    let cols = Math.max(4, Math.round(targetCols));
-    let px = W / cols;
-    if (px < minCellPx) {
-      cols = Math.max(4, Math.floor(W / minCellPx));
-      px = W / cols;
-    }
+    // ONE screen, ONE resolution — and YOU set it (Model A). `cols` = the `pixels` prop (cells across);
+    // it NEVER auto-changes. The cell edge px falls out of (W / cols); rows fill the screen so the wall
+    // matches the window shape. High tiers naturally render fine/smooth — the film end of the ladder.
+    const cols = Math.max(4, Math.round(targetCols));
+    const px = W / cols;
     const rows = Math.max(2, Math.round(H / px)); // fills the screen → wall matches the window shape
     const cellCount = cols * rows;
 
@@ -552,7 +532,6 @@ export default function DigitalWall({
     box.w,
     box.h,
     targetCols,
-    minCellPx,
     gridLines,
     gridLineColor,
     gridLineAlpha,

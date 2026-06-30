@@ -96,7 +96,7 @@ export default function LandingPage({ onEnter }: Props) {
               • pixels = RES.retro (128 across; pick a lower tier for chunkier, higher for finer).
               • logoScale = the logo's size; auto-fits crisp inside the resolution, held to its native
                 floor (at retro/128 the floor is ~21% — so 0.25 renders at a true 25%). */}
-          <DigitalWall className="absolute inset-0 h-full w-full" pixels={RES.retro} logoScale={0.25} intensity={0.3} onLogoLayout={handleLogoLayout} />
+          <DigitalWall className="absolute inset-0 h-full w-full" pixels={RES.retro} logoScale={0.25} intensity={0.14} onLogoLayout={handleLogoLayout} />
         </div>
 
         {/* HIGHER z — the floating UI (prompt bar) above the wall. The layer separation is

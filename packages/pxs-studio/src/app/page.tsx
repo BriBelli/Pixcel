@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import dynamic from 'next/dynamic';
 import LandingPage from '../components/LandingPage';
+import ChatView from '../components/ChatView';
 import AuthProvider from '../components/AuthProvider';
 import LoginModalProvider from '../components/LoginModalProvider';
 
@@ -48,7 +49,8 @@ function LoadingScreen() {
 
 export default function Home() {
   const [mounted, setMounted] = useState(false);
-  const [entered, setEntered] = useState(false);
+  // The front door is now CHAT: splash → chat (the Pixcel Agent) → optionally the Studio (IDE).
+  const [stage, setStage] = useState<'splash' | 'chat' | 'studio'>('splash');
   const [initialPrompt, setInitialPrompt] = useState<string | undefined>();
 
   useEffect(() => {
@@ -59,16 +61,23 @@ export default function Home() {
     return <LoadingScreen />;
   }
 
-  // The product's front door: a landing/splash page → launch into the Studio (the IDE).
-  // AuthProvider wraps both so LandingPage + Studio (and thus NavRail/useCurrentUser)
-  // share the same Auth0 session context.
+  // The product's front door: splash → the chat-orchestrator (Pixcel Agent) conversation. The
+  // Studio (the art IDE, with LiveArtisanPanel etc.) stays reachable — entered from chat (a
+  // medium choice / nav item). AuthProvider wraps all three so they share the Auth0 session.
   return (
     <AuthProvider>
       <LoginModalProvider>
-        {!entered ? (
-          <LandingPage onEnter={(p) => { setInitialPrompt(p); setEntered(true); }} />
+        {stage === 'splash' ? (
+          // The splash routes its prompt into CHAT (the front door), not straight into the Studio.
+          <LandingPage onEnter={(p) => { setInitialPrompt(p); setStage('chat'); }} />
+        ) : stage === 'chat' ? (
+          <ChatView
+            initialPrompt={initialPrompt}
+            onEnterStudio={(p) => { if (p) setInitialPrompt(p); setStage('studio'); }}
+            onHome={() => setStage('splash')}
+          />
         ) : (
-          <Studio onHome={() => setEntered(false)} initialPrompt={initialPrompt} />
+          <Studio onHome={() => setStage('chat')} initialPrompt={initialPrompt} />
         )}
       </LoginModalProvider>
     </AuthProvider>

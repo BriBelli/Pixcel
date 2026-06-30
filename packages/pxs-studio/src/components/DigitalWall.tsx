@@ -275,9 +275,9 @@ export default function DigitalWall({
   fps = 18,
   paused = false,
   showLogo = true,
-  // ~0.68 on a 40-col grid = the logo at its NATIVE 27-cell width (no resampling) → crisp letters,
-  // centered, ~two-thirds width. Going below native downsamples the hand-authored cells and garbles
-  // the wordmark (the low-res cells can't be faithfully shrunk), so native is the tasteful floor.
+  // Logo width as a fraction of the screen. The wordmark holds to its native 27-cell width (it can't
+  // show fewer cells, like a TV), so asking for smaller than the resolution allows just keeps it at
+  // that floor — raise `pixels` to actually go smaller. ~0.68 ≈ native two-thirds on a 40-wide screen.
   logoScale = 0.68,
   accent = BRAND_BLUE,
   background,

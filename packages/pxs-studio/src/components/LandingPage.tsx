@@ -10,6 +10,7 @@
 import { useCallback, useState } from 'react';
 import NavRail from './NavRail';
 import DigitalWall from './DigitalWall';
+import { RES } from '../lib/resolutions';
 
 interface Props {
   onEnter: (prompt?: string) => void;
@@ -90,11 +91,12 @@ export default function LandingPage({ onEnter }: Props) {
             wordmark is painted ON the wall as REAL Pixcel cells (centered, breathing), so it reads
             as DISPLAYED on the screen — there is ONE logo, the real-cell one on the wall. */}
         <div className="pointer-events-none absolute inset-0 z-0">
-          {/* ONE screen, ONE resolution (like a TV) — YOU set the resolution; it never auto-changes:
-              • pixels = the screen's resolution / chunkiness (lower = chunkier, higher = finer).
-              • logoScale = the logo's size; it auto-fits crisp inside that resolution and won't go
-                below its minimum (at pixels=88 the floor is ~31% width — raise pixels for a smaller logo). */}
-          <DigitalWall className="absolute inset-0 h-full w-full" pixels={88} logoScale={0.25} intensity={0.3} onLogoLayout={handleLogoLayout} />
+          {/* ONE screen, ONE resolution (like a TV), named from the canonical ladder — YOU set it; it
+              never auto-changes. One vocabulary from the splash to the final film (see lib/resolutions).
+              • pixels = RES.retro (128 across; pick a lower tier for chunkier, higher for finer).
+              • logoScale = the logo's size; auto-fits crisp inside the resolution, held to its native
+                floor (at retro/128 the floor is ~21% — so 0.25 renders at a true 25%). */}
+          <DigitalWall className="absolute inset-0 h-full w-full" pixels={RES.retro} logoScale={0.25} intensity={0.3} onLogoLayout={handleLogoLayout} />
         </div>
 
         {/* HIGHER z — the floating UI (prompt bar) above the wall. The layer separation is

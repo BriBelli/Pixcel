@@ -205,10 +205,11 @@ export interface DigitalWallProps {
    */
   frame?: PXSFrame | null;
   /**
-   * The wall's RESOLUTION: how many pixels (grid cells) across. This is the one density/chunkiness
-   * knob — lower = chunkier (retro, 8-bit feel), higher = finer. Rows fill the screen automatically,
-   * so the wall always matches the window's shape (you never set width/height). ~40 ≈ chunky sweet
-   * spot. A large canvas at low density = huge headroom for the AI to drive.
+   * The screen's RESOLUTION: how many pixels (grid cells) across — the one density/chunkiness knob
+   * (lower = chunkier/retro, higher = finer). Rows fill the screen automatically, so the wall always
+   * matches the window shape (you never set width/height). This is a TARGET/baseline: when the logo is
+   * shown, the screen auto-raises its resolution if needed to keep the wordmark crisp (you set the logo
+   * size, the screen finds the resolution). ~40 ≈ chunky sweet spot; huge headroom for the AI to drive.
    */
   pixels?: number;
   /**
@@ -231,11 +232,10 @@ export interface DigitalWallProps {
   /** Show the Pixcel logo as real centered cells over the ambient. */
   showLogo?: boolean;
   /**
-   * Logo size as a fraction of the wall width (0..1), centered. The 27-wide logo frame maps to
-   * `round(pixels * logoScale)` cells via nearest-neighbor (stays on the lattice). Stays crisp while
-   * that lands at/above its native 27 cells (i.e. pixels × logoScale ≥ 27); below native it downsamples
-   * the hand-authored cells and the letters garble. The logo is just current content — independent of
-   * the wall's `pixels` resolution, which persists when the logo is swapped for other content.
+   * Logo SIZE as a fraction of the screen width (0..1), centered. Just set the size you want — the
+   * screen auto-raises its resolution so the wordmark is always crisp (no 27-cell math to worry about).
+   * The logo is REAL content made of the screen's own cells (same resolution as the ambient grid, like
+   * a picture on a TV), so the whole screen can later animate around / through / into the logo.
    */
   logoScale?: number;
   /** Brand accent (logo cells + effect hue). Defaults to the locked brand blue. */
@@ -361,15 +361,21 @@ export default function DigitalWall({
       window.matchMedia &&
       window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-    // LOW-RES, LARGE CANVAS: the wall is PIXELS-ACROSS driven (not screen-pixel driven), so it stays
-    // chunky/low-density as the viewport grows. `cols` = the `pixels` prop (how many cells across, the
-    // wall's resolution); the cell edge px falls out of (width / cols); rows fill the screen (H / px),
-    // so the wall always matches the window's shape. minCellPx only clamps cells from getting absurdly
-    // tiny on a very narrow container. ~40 × ~22 ≈ 900 cells — deep in the engine's cheap range.
-    let cols = Math.max(4, Math.round(targetCols));
+    // ONE screen, ONE resolution. `cols` = the `pixels` prop (cells across), BUT auto-raised so the
+    // logo always has enough cells to render crisp: you set the logo SIZE (`logoScale`) and the screen
+    // finds the resolution — no 27-math to worry about. (A smaller logo needs a finer screen; that's
+    // just how one real screen works.) rows fill the screen, so the wall matches the window shape.
+    // minCellPx only clamps cells from getting absurdly tiny on a very narrow container.
+    const minColsForLogo = showLogo ? Math.ceil(PIXCEL_LOGO_FRAME.cols / Math.max(0.05, logoScale)) : 0;
+    let cols = Math.max(4, Math.round(targetCols), minColsForLogo);
     let px = W / cols;
     if (px < minCellPx) {
       cols = Math.max(4, Math.floor(W / minCellPx));
+      px = W / cols;
+    }
+    // Logo crispness floor wins over the minCellPx clamp on narrow screens, so the wordmark never breaks.
+    if (minColsForLogo > cols) {
+      cols = minColsForLogo;
       px = W / cols;
     }
     const rows = Math.max(2, Math.round(H / px)); // fills the screen → wall matches the window shape
@@ -395,16 +401,16 @@ export default function DigitalWall({
     // the grid width) and centered, so at low resolutions it stays tasteful instead of spanning the
     // whole wall. Each destination grid cell samples the logo source by nearest-neighbor, so the
     // logo stays ON the lattice (real cells, no sub-grid blur). Returns the lit source cell or null.
+    // ONE screen, ONE resolution. The logo is REAL content made of the SAME wall cells (like a TV:
+    // the picture is the screen's pixels) — letterboxed to `logoScale` of the width, centered. The
+    // screen auto-raised its resolution (above) so the wordmark always has enough cells to be crisp.
     const logo = PIXCEL_LOGO_FRAME;
-    // Letterbox the logo to `logoScale` of the grid width, clamped to [a few cells, grid width].
-    // Below native width the source is downsampled (nearest-neighbor) onto fewer cells; this keeps
-    // the wordmark tasteful at low resolutions instead of spanning the whole wall.
     const logoCols = Math.max(4, Math.min(cols, Math.round(cols * logoScale)));
     const logoRows = Math.max(1, Math.round((logoCols / logo.cols) * logo.rows));
     const logoOffX = Math.round((cols - logoCols) / 2);
     const logoOffY = Math.round((rows - logoRows) / 2);
-    // Report the logo's box (fractions of the wall) so floating UI can anchor to it. Done once per
-    // geometry recompute (resize/prop change), not per frame.
+    // Report the logo's box (fractions of the wall) so floating UI can anchor to it. Recomputed on
+    // resize/prop change, not per frame.
     onLogoLayoutRef.current?.(
       showLogo
         ? {
@@ -416,14 +422,13 @@ export default function DigitalWall({
           }
         : { topFrac: 0.5, bottomFrac: 0.5, centerXFrac: 0.5, heightFrac: 0, visible: false },
     );
-    // Precompute a lit-cell set for O(1) source lookup.
+    // Precompute a lit-cell set for O(1) source lookup (logo cell → is it part of the wordmark).
     const litSet = new Set<number>();
     for (const c of logo.cells) litSet.add(c.y * logo.cols + c.x);
     const logoLitAt = (gx: number, gy: number): boolean => {
       const lx = gx - logoOffX;
       const ly = gy - logoOffY;
       if (lx < 0 || ly < 0 || lx >= logoCols || ly >= logoRows) return false;
-      // Map destination cell → source cell (nearest neighbor).
       const sx = Math.min(logo.cols - 1, Math.floor((lx / logoCols) * logo.cols));
       const sy = Math.min(logo.rows - 1, Math.floor((ly / logoRows) * logo.rows));
       return litSet.has(sy * logo.cols + sx);
@@ -490,7 +495,8 @@ export default function DigitalWall({
     };
 
     const overlayLogo = (glow: number) => {
-      // Blend the (letterboxed, centered) logo cells over the ambient buffer — subtle, breathing.
+      // Blend the (letterboxed, centered) logo cells INTO the ambient buffer — the logo is part of the
+      // same screen/grid, subtle and breathing, so the whole wall can later animate around/through it.
       for (let gy = logoOffY; gy < logoOffY + logoRows; gy++) {
         if (gy < 0 || gy >= rows) continue;
         for (let gx = logoOffX; gx < logoOffX + logoCols; gx++) {

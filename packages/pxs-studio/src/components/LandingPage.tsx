@@ -90,11 +90,11 @@ export default function LandingPage({ onEnter }: Props) {
             wordmark is painted ON the wall as REAL Pixcel cells (centered, breathing), so it reads
             as DISPLAYED on the screen — there is ONE logo, the real-cell one on the wall. */}
         <div className="pointer-events-none absolute inset-0 z-0">
-          {/* Splash tuning — two clear, independent knobs:
-              • pixels = the wall's resolution (88 cells across; lower = chunkier, higher = finer).
-              • logoScale = the logo's size as a fraction of the wall (0.31 ≈ 31% width).
-                Crisp while pixels × logoScale ≥ 27 (the wordmark's native width): 88 × 0.31 ≈ 27. ✓ */}
-          <DigitalWall className="absolute inset-0 h-full w-full" pixels={88} logoScale={0.31} intensity={0.6} onLogoLayout={handleLogoLayout} />
+          {/* ONE screen, ONE resolution (like a TV). Just two knobs, no math:
+              • logoScale = the logo's SIZE (fraction of the screen width). Set it to anything — the
+                screen auto-raises its resolution so the wordmark stays crisp.
+              • pixels = the screen's baseline chunkiness (when nothing forces it finer). */}
+          <DigitalWall className="absolute inset-0 h-full w-full" pixels={88} logoScale={0.25} intensity={0.6} onLogoLayout={handleLogoLayout} />
         </div>
 
         {/* HIGHER z — the floating UI (prompt bar) above the wall. The layer separation is

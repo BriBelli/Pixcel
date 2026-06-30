@@ -397,8 +397,8 @@ export default function DigitalWall({
     // the picture is the screen's pixels) — letterboxed to `logoScale` of the width, centered. The
     // screen auto-raised its resolution (above) so the wordmark always has enough cells to be crisp.
     const logo = PIXCEL_LOGO_FRAME;
-    // The logo auto-FITS the resolution YOU set: letterboxed to `logoScale` of the width, but never
-    // below its native 27-cell width — so it can't garble. Want it smaller? Raise `pixels`.
+    // Simple, like a TV: the wordmark is authored at 27 cells, so it can't show fewer than 27 — clamp to
+    // native (sized to `logoScale` above that). Nothing to "manage"; raise `pixels` to go smaller.
     const logoCols = Math.min(cols, Math.max(logo.cols, Math.round(cols * logoScale)));
     const logoRows = Math.max(1, Math.round((logoCols / logo.cols) * logo.rows));
     const logoOffX = Math.round((cols - logoCols) / 2);

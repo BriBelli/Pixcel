@@ -101,6 +101,7 @@ spine; the **CONDUIT** is Frontend→UI. Design them as one unit. Don't polish a
 - 🟡 **Loading experience** — the end-to-end streamed reveal is a "work of art"; Loading Detail/Style/Thought; pacing target (Opus ~16–30s, instant→text→a2ui).
 - ✅ **Splash** — FROZEN gold-reference (real low-res wall + prompt bar).
 - 🟡 **Component 7-state coverage** (default/hover/focus/active/disabled/loading/error).
+- 🟡 **Dark + light theme** (Brian, 2026-07-01) — dark canonical + a **light (or "lighter") mode, NOT flashlight-white**. Token system ALREADY has both (`:root[data-theme="light"]`, a soft `#f8f9fa`); needs a **theme toggle** (Settings has "Light mode") + a light-theme design pass. Design later; the plumbing exists.
 - ✅ **A2UI ≈ 99% of the UI** (dynamic). A2UI element library: stat/card/chart/gallery/dashboard/table/options/alert…
 
 ## G. SURFACES — the category workflows  *(product + conduit)*

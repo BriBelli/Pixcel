@@ -71,6 +71,7 @@ spine; the **CONDUIT** is Frontend→UI. Design them as one unit. Don't polish a
 - ✅ **SSE streaming contract** (loading → text → a2ui → suggestions → done); async pipelines.
 - 🟡 **API routes** (Node/TS): `chat-turn` (built, stub), `generate-art`, `live-art`, + workflow routes.
 - 🟡 **Multi-model providers** (image: FLUX/Ideogram/Recraft/Stability/Gemini/GPT/Grok/Nano-Banana; video: Veo 3/fal/Replicate) + **routing as a reasoning ORACLE** (not a brittle tree) + fallbacks.
+  - **Dev API keys available NOW (env vars — NEVER echo/expose; some may be removed pre-live):** `OPENAI` · `ANTHROPIC` · `GEMINI` · `XAI` (LLMs) · `TAVILY` (web-search tool) · `RECRAFT` · `IDEOGRAM` · `STABILITY` · `REPLICATE` · `FAL` (image). Enough to wire real LLMs + web search + image pipelines when those PRs land.
 - 🟡 **Async workflow execution + executor management** (detached jobs, refer-back, resume).
 - 🟡 **Fan-out execution + user-controlled spend** (routing balanced ↔ MAX, model count, Loading Detail/Style).
 - 🟡 **Media-as-JSON substrate + async stitch/transition** (the film pipeline — generate scenes async, stitch, transition; "Kinesis-like").

@@ -9,7 +9,8 @@
 ## Why
 Seed the **powerful UI component library**, unified in brand/style with the A2UI React library. Build the
 primitives the chat + workflows need — correct to the CLAUDE.md rules — so later PRs consume them instead of
-reinventing. **The star of this PR is the Composer** (the prompt bar), matched to Brian's photolif reference.
+reinventing. The Composer (the prompt bar) is included, but **kept simple**: the prompt bar isn't fully
+designed yet — both the Claude Design and photolif have gaps — so we do NOT chase a rich version here.
 
 ## Scope
 
@@ -21,21 +22,17 @@ easing `cubic-bezier(0.22,1,0.36,1)`, glass only on float chrome).
 - Brand-asset consumers: **`PixcelMark`** (Pixel-X via `<use href="/brand/logo-mark.svg#pixcel-x">` / CSS mask —
   currentColor-tintable) and **`Icon`** (Lucide, from `public/brand/icons`).
 
-### 2. The Composer ★ (matched to the photolif prompt-bar)
-One component, a **framed card**: optional **header strip** (context/routing summary), the **prompt textarea**
-body, and a **footer strip** — with the footer **configurable per surface** (built once, adapts):
+### 2. The Composer (start SIMPLE)
+Take what we already have in the splash search bar and give it the clean, correct CSS — to the **Claude
+Design**: a tokens-only prompt input (attach · textarea · send), all 7 states, the design's radii/borders/
+focus-halo/easing. Used by the splash search + the chat composer. Nothing fancy.
 
-| Variant | Footer contents |
-| --- | --- |
-| **Chat / splash-search** (front door) | attach · word count · **send** |
-| **Image-generate** (the screenshot) | model chip (provider icon · "N models" · ▾) · word count · **quality pill** · primary **Generate ×N** |
-
-Exact photolif styling: framed dark card, darker header strip, pill controls, the primary button. Real **word
-count** + **send/attach** are wired. The **not-yet-built controls** (quality %, model count, Generate ×N) render
-as **styled placeholders** — pixel-correct, inert — until their features land.
+**DEFERRED (NOT this PR — the prompt bar isn't fully designed; both sources have gaps):** the rich footer
+(model chip · quality pill · Generate ×N). We add those only once they're actually designed and their
+features exist. No rich "photolif" version now.
 
 ### 3. Preview page (`app/preview/`)
-Storybook-lite: every primitive × 7 states + **both Composer variants**, for review in isolation.
+Storybook-lite: every primitive × 7 states + the Composer, for review in isolation.
 
 ## Out of scope
 No real model routing / quality scoring / generation (later PRs). No DB. No app wiring — PR 4 swaps the current
@@ -50,10 +47,11 @@ Additive library + a preview page; **zero app behavior change**; every state/var
 the Composer is checkable side-by-side against the photolif reference.
 
 ## Verify
-tsc + build green · `/preview` renders each primitive × 7 states + both Composer variants · matches the design
-(dark, tokens, glass only on float chrome) and the photolif Composer reference.
+tsc + build green · `/preview` renders each primitive × 7 states + the Composer · matches the design (dark,
+tokens, glass only on float chrome).
 
 ## ⬜ Confirm in review (my defaults, override any)
-1. **Surfaces:** build ONE Composer used by BOTH the splash search and the chat composer (footer adapts). ✅ default.
-2. **Unbuilt controls** (quality %, model count, Generate ×N): **styled placeholders** now, wired later. ✅ default.
-3. **Footer sets** per variant as in the table above — add/remove any control?
+1. **Composer stays simple** — a clean, design-correct prompt input (attach · textarea · send); the rich
+   footer (model / quality / Generate) is deferred until it's designed. ✅ default.
+2. **One Composer** used by both the splash search and the chat composer. ✅ default.
+3. **Primitive set** — Button/Input/Card/Chip/IconButton/Avatar/Tooltip enough for now, or add any?

@@ -126,7 +126,7 @@ spine; the **CONDUIT** is Frontend→UI. Design them as one unit. Don't polish a
 - 🟡 **Accessibility** — alt text / screen-reader fields already in the Assets metadata; carry through.
 
 ## I. OPEN — what we're waiting on / must decide before/at the core
-1. ⬜ **Brian's DB-chat design handoff** (the gate — schema, tables, sessions, assets store).
+1. ✅ **DB-chat design + schema decisions — LOCKED** (2026-07-01; detail in `docs/pr-plan/PR-3-chat-db-layer.md`): one-table-per-**entity** + `category`, Prompt as a first-class entity, `Usage` row + per-user hard cap, `a2ui_version` stamp, central/shared/project-linked Assets, `archived` audit-only + `parent_interaction_id`, simple GSI search (embeddings = phase 2), **repository interface + in-memory dev adapter** (DynamoDB adapter later).
 2. ⬜ **A2UI v10+** protocol + data design (modern pattern; the general renderer contract).
 3. ⬜ **The persistence "bridge"** (hoist the wall; one continuous state).
 4. ⬜ **The film stitch/transition pipeline** (async scene generation → stitch → transition).

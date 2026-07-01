@@ -1,15 +1,12 @@
 import type { Metadata } from 'next';
-import { Inter } from 'next/font/google';
 import './globals.css';
 
-const inter = Inter({ 
-  subsets: ['latin'],
-  variable: '--font-inter',
-});
+// Typography is IBM Plex Sans / Mono (Claude Design — the only font families). It loads via the
+// CDN @import in tokens.css and is applied through `--a2ui-font-family`. No Inter (design rule §2).
 
 export const metadata: Metadata = {
-  title: 'PXS Studio - Pixel Cell Animation Platform',
-  description: 'Professional pixel art animation application powered by React, Next.js, and WebAssembly',
+  title: 'Pixcel',
+  description: 'AI-native creative studio — media as structured data.',
 };
 
 export default function RootLayout({
@@ -18,7 +15,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" className={inter.variable}>
+    <html lang="en">
       <body>
         {children}
       </body>

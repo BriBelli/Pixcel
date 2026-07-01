@@ -77,11 +77,15 @@ const UTILITY: { id: string; label: string; icon: IconName }[] = [
    splash's own inline <style> (which scopes under .pxl-root). */
 const RAIL_CSS = `
   .pxl-rail-scope { font-family: var(--a2ui-font-family); -webkit-font-smoothing: antialiased; }
-  .pxl-rail { background: var(--a2ui-bg-primary); border-right: 1px solid var(--a2ui-border-subtle); }
+  /* Rail sits on the near-black cool-950 (Claude Design PrimaryNav) — NOT the lighter bg-primary,
+     which washed the tertiary labels out ("light grey on medium grey"). */
+  .pxl-rail { background: var(--a2ui-cool-950); border-right: 1px solid var(--a2ui-border-subtle); }
   .pxl-navbtn { color: var(--a2ui-text-tertiary); border-radius: var(--a2ui-radius-lg); transition: color var(--a2ui-transition-fast), background var(--a2ui-transition-fast); position: relative; }
   .pxl-navbtn:hover { color: var(--a2ui-text-secondary); background: var(--a2ui-bg-hover); }
-  .pxl-navbtn[data-active="true"] { color: var(--a2ui-text-primary); background: var(--a2ui-bg-tertiary); }
-  .pxl-rail-mark { color: var(--a2ui-text-secondary); border-radius: var(--a2ui-radius-lg); transition: color var(--a2ui-transition-fast), background var(--a2ui-transition-fast); }
+  /* Active: subtle bg-active tint + the 2.5px accent bar (design spec), not a grey fill. */
+  .pxl-navbtn[data-active="true"] { color: var(--a2ui-text-primary); background: var(--a2ui-bg-active); }
+  .pxl-navbtn[data-active="true"]::before { content: ''; position: absolute; left: -8px; top: 50%; transform: translateY(-50%); width: 2.5px; height: 20px; border-radius: 9999px; background: var(--pxs-accent-focus); }
+  .pxl-rail-mark { color: var(--a2ui-text-primary); border-radius: var(--a2ui-radius-lg); transition: color var(--a2ui-transition-fast), background var(--a2ui-transition-fast); }
   .pxl-rail-mark:hover { color: var(--a2ui-text-primary); background: var(--a2ui-bg-hover); }
   .pxl-avatar { width: 34px; height: 34px; border-radius: var(--a2ui-radius-full); border: 1px solid var(--a2ui-border-default); overflow: hidden; display: flex; align-items: center; justify-content: center; transition: border-color var(--a2ui-transition-fast); }
   .pxl-avatar:hover { border-color: var(--a2ui-border-strong); }

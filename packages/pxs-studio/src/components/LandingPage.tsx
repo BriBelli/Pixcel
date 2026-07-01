@@ -23,10 +23,10 @@ interface Props {
    │ PROMPT_GAP — the space between the logo and the prompt bar. A CSS length: bigger = more space │
    │ (bar lower), smaller = tighter. Clamped to [MIN, MAX] so it never collides or runs off-screen.│
    └───────────────────────────────────────────────────────────────────────────────────────────────┘ */
-const PROMPT_GAP = '3.5rem';     // ← set the spacing here
+const PROMPT_GAP = '4rem';     // ← set the spacing here
 const PROMPT_Y_MIN = '52%';      // bar never higher than this
 const PROMPT_Y_MAX = '82%';      // bar never lower than this
-const DEFAULT_PROMPT_Y = '70%';  // fallback before the logo is measured / when hidden
+const DEFAULT_PROMPT_Y = '72%';  // fallback before the logo is measured / when hidden
 
 /* ── Iconography (Claude Design handoff): Lucide line icons (stroke 2, currentColor,
    viewBox 0 0 24 24). Only the prompt-bar glyphs live here now — the nav rail (mark +

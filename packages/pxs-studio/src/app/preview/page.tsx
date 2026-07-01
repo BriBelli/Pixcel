@@ -29,7 +29,9 @@ const ICON_NAMES: IconName[] = [
 ];
 
 const PAGE_CSS = `
-.pv-root { min-height: 100vh; background: var(--a2ui-bg-app); color: var(--a2ui-text-primary);
+/* Own scroll container: the app sets a global body{overflow:hidden} for the full-bleed studio,
+   which would clip this long page — so the preview root scrolls itself. */
+.pv-root { height: 100vh; overflow-y: auto; background: var(--a2ui-bg-app); color: var(--a2ui-text-primary);
   font-family: var(--a2ui-font-family); -webkit-font-smoothing: antialiased;
   padding: var(--a2ui-space-10) var(--a2ui-space-8) var(--a2ui-space-16); }
 .pv-wrap { max-width: 920px; margin: 0 auto; }

@@ -31,7 +31,7 @@ export interface ComposerProps {
 
 const CSS = `
 .a2-composer {
-  display: flex; align-items: flex-end; gap: var(--a2ui-space-2); width: 100%;
+  display: flex; align-items: center; gap: var(--a2ui-space-2); width: 100%;
   padding: var(--a2ui-space-2) var(--a2ui-space-3);
   background: var(--a2ui-bg-input); color: var(--a2ui-text-primary);
   border: 1px solid var(--a2ui-border-default); border-radius: var(--a2ui-radius-lg);
@@ -61,7 +61,7 @@ const CSS = `
 .a2-composer__input:disabled { color: var(--a2ui-text-disabled); cursor: not-allowed; }
 .a2-composer__input:disabled::placeholder { color: var(--a2ui-text-disabled); }
 
-.a2-composer__actions { display: flex; align-items: center; gap: var(--a2ui-space-1); flex-shrink: 0; align-self: flex-end; }
+.a2-composer__actions { display: flex; align-items: center; gap: var(--a2ui-space-1); flex-shrink: 0; align-self: center; }
 `;
 
 export function Composer({
@@ -112,7 +112,7 @@ export function Composer({
           submit();
         }}
       >
-        <div className="a2-composer__actions" style={{ alignSelf: 'flex-end' }}>
+        <div className="a2-composer__actions">
           <IconButton icon="paperclip" label="Attach" boxSize={34} size={18} disabled={locked || busy} tabIndex={-1} />
         </div>
 

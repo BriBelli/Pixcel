@@ -48,9 +48,12 @@ export interface Interaction extends BaseRecord {
   prompt: {
     text: string;
     attachments?: string[];
+    /** INPUT tokens this turn's prompt consumed. Pairs with `response.tokens_used` (output). */
+    tokens?: number;
   };
   response: {
     text: string;
+    /** OUTPUT tokens the model generated (NOT input — the prompt's input lives on `prompt.tokens`). */
     tokens_used: number;
     a2ui: unknown | null;
     /** Stamped from {@link A2UI_VERSION} on every stored a2ui snapshot (Decision 4). */
@@ -67,6 +70,8 @@ export interface Prompt extends BaseRecord {
   category: 'prompt';
   text: string;
   tags?: string[];
+  /** The prompt's own token size — a recipe-IP metric ("quality > tokens, trim only fat"). */
+  tokens?: number;
 }
 
 /** Per-interaction metering row: tokens + cost (Decision 3). */

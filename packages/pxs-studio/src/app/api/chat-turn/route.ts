@@ -230,12 +230,14 @@ export async function POST(req: Request) {
           // TODO: adaptive thinking may split output across fields; input/output_tokens is the
           // best available signal from the current SDK. Estimate 0 if usage is absent.
           const outputTokens = usage?.output_tokens ?? 0;
-          const tokensUsed = inputTokens + outputTokens;
 
+          // Attribute tokens to their side of the exchange: INPUT tokens belong to the prompt,
+          // OUTPUT tokens to the response. recordUsage still meters both (no double-count).
           await db.update('interaction', interactionId, {
+            prompt: { text: prompt, tokens: inputTokens },
             response: {
               text: assistantText,
-              tokens_used: tokensUsed,
+              tokens_used: outputTokens,
               a2ui: STUB_A2UI,
               a2ui_version: A2UI_VERSION,
             },

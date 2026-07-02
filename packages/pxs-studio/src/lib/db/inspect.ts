@@ -58,10 +58,11 @@ async function seedDemo(repo: Repository): Promise<void> {
     updated_at: now,
     thread_id: thread.id,
     model: 'claude-opus-4-8',
-    prompt: { text: 'Make a pixel-art dragon' },
+    // INPUT tokens attributed to the prompt; OUTPUT tokens to the response (they sum to 1234).
+    prompt: { text: 'Make a pixel-art dragon', tokens: 834 },
     response: {
       text: 'Great — a dragon works well as pixel art. How do you want to make it?',
-      tokens_used: 1234,
+      tokens_used: 400,
       a2ui: DEMO_A2UI,
       a2ui_version: A2UI_VERSION,
     },

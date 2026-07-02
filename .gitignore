@@ -58,6 +58,10 @@ packages/pxs-studio/ab-old-bundle.mjs
 packages/pxs-studio/ab-bundle-entry.ts
 packages/pxs-studio/ab-results/
 
+# Dev DB (file-backed dev adapter — process-local, never committed)
+packages/pxs-studio/.pxs-dev-db.json
+packages/pxs-studio/*.pxs-dev-db.json
+
 # Painter dev-scratch run output (regenerated each run)
 packages/pxs-studio/painter-out/
 

@@ -28,9 +28,13 @@
   tokens_used, a2ui, `a2ui_version`}, `parent_interaction_id`), `Prompt` (first-class), `Usage` (per-interaction
   tokens/$). Every record carries **`user_id`** (Auth0).
 - **Status enum + transitions** — `active`/`pending`/`edited`/`deleted`/`archived`/`failed`/`cancelled`; only
-  `active` is visible; edit/delete cascade downstream to `archived`.
+  `active` is visible; edit/delete cascade downstream to `archived`. **Transitions ONLY touch records currently
+  `active`** — never re-mutate a non-active row (skip if already `archived`/`deleted`): preserves the pre-existing
+  audit trail + is more optimal (Brian).
 - **Living context** (`src/lib/db/living-context.ts`) — memory-first / DB-async: open→hydrate active, new→append+
   insert, delete→mark deleted, edit→mark edited+insert+cascade. Addressable by `interaction_id`.
+- **Pagination** — reads use `limit` / `offset` **over the ACTIVE records only**; the active-status filter and
+  the pagination run TOGETHER in the backend (async) — pagination lives off active rows, not the audit set (Brian).
 - **Metering** — persist `tokens_used`; write a `Usage` row; a **cap-gate** helper (reject/flag when the user's
   running total ≥ their hard cap).
 - **Wire the `chat-turn` route** to read/write through the repository (persist the turn + its a2ui snapshot).

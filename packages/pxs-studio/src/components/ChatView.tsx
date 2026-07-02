@@ -211,11 +211,6 @@ export default function ChatView({ initialPrompt, onEnterStudio, onHome }: Props
           {/* Scrollable conversation */}
           <div ref={scrollRef} className="flex-1 overflow-y-auto">
             <div className="mx-auto w-full max-w-2xl px-6 py-8 space-y-6">
-              {turns.length === 0 && (
-                <div className="text-center text-[14px] pt-16" style={{ color: 'var(--a2ui-text-tertiary)' }}>
-                  Ask me what you want to make.
-                </div>
-              )}
               {turns.map((t) => (
                 <TurnBlock key={t.id} turn={t} onOption={handleOption} onSuggestion={submit} />
               ))}

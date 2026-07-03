@@ -89,7 +89,7 @@ export async function POST(req: Request) {
 
   // ── PR-3 persistence wiring (memory-first / DB-async; never breaks the stream) ──
   const userId = (body.user_id ?? '').trim() || DEV_USER_ID;
-  const db = getDb();
+  const db = await getDb();
   const living = createLivingContext(db);
 
   // Carry prior turns so follow-ups are coherent. Keep only valid alternating text turns.

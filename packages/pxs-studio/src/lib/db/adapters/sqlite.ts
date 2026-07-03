@@ -17,24 +17,19 @@
  */
 
 import path from 'node:path';
-import { createRequire } from 'node:module';
-import type { DatabaseSync } from 'node:sqlite';
+import { DatabaseSync } from 'node:sqlite';
 
 import type { BaseRecord } from '../models';
 import type { QueryParams, QueryResult, Repository } from '../repository';
 
-/**
- * Lazily load the BUILT-IN `node:sqlite` at construction time — NOT via a static top-level
- * import. A static `import { DatabaseSync } from 'node:sqlite'` evaluates the moment this
- * module is imported, which throws `ERR_UNKNOWN_BUILTIN_MODULE` on Node < 24 and takes down
- * the whole module graph (every route that imports the db layer 500s) BEFORE getDb()'s
- * try/catch can fall back to memory. Requiring it here defers the failure to construction so
- * the fallback actually works. `node:sqlite` ships in Node 24.
+/*
+ * NOTE on loading: this module statically imports `node:sqlite`, which only exists on
+ * Node >= 24. That's intentional and safe BECAUSE index.ts imports THIS module *dynamically*
+ * (`await import('./adapters/sqlite')`) inside a try/catch — so on older Node the import
+ * rejects and getDb() falls back to the memory store, and the whole module graph never
+ * crashes. Keep this a plain static import (bundler-friendly); never let index.ts import it
+ * statically.
  */
-function loadDatabaseSync(): typeof DatabaseSync {
-  const req = createRequire(import.meta.url);
-  return (req('node:sqlite') as typeof import('node:sqlite')).DatabaseSync;
-}
 
 const pk = (category: string, id: string) => `${category}:${id}`;
 
@@ -87,8 +82,7 @@ export function createSqliteRepository(
   filePath?: string
 ): Repository & { getPath(): string } {
   const resolved = resolveDevDbPath(filePath);
-  const DatabaseSyncCtor = loadDatabaseSync();
-  const db = new DatabaseSyncCtor(resolved);
+  const db = new DatabaseSync(resolved);
   createSchema(db);
 
   const upsert = db.prepare(`

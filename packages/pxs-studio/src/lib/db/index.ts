@@ -27,7 +27,12 @@ export function getDb(): Repository {
       singleton = createSqliteRepository();
       return singleton;
     } catch (err) {
-      console.warn('[db] sqlite adapter unavailable, falling back to memory:', err);
+      console.warn(
+        `[db] SQLite dev store unavailable on Node ${process.versions.node} — using the ` +
+          `in-memory store (chat works, but nothing persists). node:sqlite needs Node >= 24; ` +
+          `run \`nvm use\` in the repo (reads .nvmrc), then restart. Details:`,
+        err
+      );
     }
   }
   singleton = createMemoryRepository();

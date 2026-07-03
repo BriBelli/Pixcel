@@ -17,10 +17,24 @@
  */
 
 import path from 'node:path';
-import { DatabaseSync } from 'node:sqlite';
+import { createRequire } from 'node:module';
+import type { DatabaseSync } from 'node:sqlite';
 
 import type { BaseRecord } from '../models';
 import type { QueryParams, QueryResult, Repository } from '../repository';
+
+/**
+ * Lazily load the BUILT-IN `node:sqlite` at construction time — NOT via a static top-level
+ * import. A static `import { DatabaseSync } from 'node:sqlite'` evaluates the moment this
+ * module is imported, which throws `ERR_UNKNOWN_BUILTIN_MODULE` on Node < 24 and takes down
+ * the whole module graph (every route that imports the db layer 500s) BEFORE getDb()'s
+ * try/catch can fall back to memory. Requiring it here defers the failure to construction so
+ * the fallback actually works. `node:sqlite` ships in Node 24.
+ */
+function loadDatabaseSync(): typeof DatabaseSync {
+  const req = createRequire(import.meta.url);
+  return (req('node:sqlite') as typeof import('node:sqlite')).DatabaseSync;
+}
 
 const pk = (category: string, id: string) => `${category}:${id}`;
 
@@ -73,7 +87,8 @@ export function createSqliteRepository(
   filePath?: string
 ): Repository & { getPath(): string } {
   const resolved = resolveDevDbPath(filePath);
-  const db = new DatabaseSync(resolved);
+  const DatabaseSyncCtor = loadDatabaseSync();
+  const db = new DatabaseSyncCtor(resolved);
   createSchema(db);
 
   const upsert = db.prepare(`

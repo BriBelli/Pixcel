@@ -77,6 +77,13 @@ export default function Home() {
   const rafId = useRef<number | null>(null);
 
   useEffect(() => {
+    // Reload restores the last conversation: if a chat thread was persisted, boot straight
+    // into chat (ChatView hydrates it from the SQLite store); otherwise land on the splash
+    // front door. DECISION (flip if reload should ALWAYS show the splash): returning users
+    // with an active conversation resume it; first-time / no-history users see the splash.
+    if (typeof window !== 'undefined' && window.localStorage.getItem('pxs-chat-thread')) {
+      setStage('chat');
+    }
     setMounted(true);
   }, []);
 

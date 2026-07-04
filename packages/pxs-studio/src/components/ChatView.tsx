@@ -49,20 +49,35 @@ const COLUMN_STYLE = { maxWidth: 'var(--a2ui-chat-max-width)' } as const;
 export default function ChatView({ initialPrompt, onEnterStudio, onHome }: Props) {
   const turns = useChatTurnsStore((s) => s.turns);
   const send = useChatTurnsStore((s) => s.send);
+  const loadThread = useChatTurnsStore((s) => s.loadThread);
+  const reset = useChatTurnsStore((s) => s.reset);
 
   const [draft, setDraft] = useState('');
   const scrollRef = useRef<HTMLDivElement>(null);
   const sentInitial = useRef(false);
 
-  // Fire the splash prompt once (the front door → first chat turn).
+  // On mount, run exactly once (sent-once ref):
+  //  • a splash prompt present → send it (a NEW conversation).
+  //  • otherwise, if a thread id was persisted last session → RESTORE it from the SQLite store,
+  //    so a plain reload / reopening chat brings the last conversation back.
   useEffect(() => {
     if (sentInitial.current) return;
     const p = initialPrompt?.trim();
     if (p) {
+      // Fresh conversation from the splash → reset first so this starts a NEW thread
+      // (never appends onto a thread left over from an earlier chat this session).
       sentInitial.current = true;
+      reset();
       send(p);
+      return;
     }
-  }, [initialPrompt, send]);
+    if (typeof window === 'undefined') return;
+    const storedId = window.localStorage.getItem('pxs-chat-thread');
+    if (storedId) {
+      sentInitial.current = true;
+      void loadThread(storedId);
+    }
+  }, [initialPrompt, send, loadThread, reset]);
 
   // Keep the conversation scrolled to the latest as it streams in.
   useEffect(() => {

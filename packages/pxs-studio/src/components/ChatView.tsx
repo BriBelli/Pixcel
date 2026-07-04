@@ -105,9 +105,12 @@ export default function ChatView({ initialPrompt, onEnterStudio, onHome }: Props
       />
 
       <div className="relative flex-1 flex flex-col min-w-0">
-        {/* z-0 — the persistent Pixcel digital wall, full-bleed BEHIND the chat. */}
+        {/* z-0 — the Pixcel digital wall, full-bleed BEHIND the chat, but DORMANT here: no logo
+            watermark (logoScale 0) and very low intensity, so it's ambient texture that never
+            competes with the conversation. This is the settled END-STATE; the animated splash→chat
+            hand-off that eases the wall down into this dormancy is the front-door lifecycle work. */}
         <div className="pointer-events-none absolute inset-0 z-0">
-          <DigitalWall className="absolute inset-0 h-full w-full" pixels={RES.retro} logoScale={0.25} intensity={0.1} />
+          <DigitalWall className="absolute inset-0 h-full w-full" pixels={RES.retro} logoScale={0} intensity={0.04} />
         </div>
 
         {/* z-10 — the chat, floating above the wall, column-capped. */}

@@ -16,7 +16,7 @@
  * ───────────────────────────────────────────────────────────────────────────── */
 
 import type { ChatTurn } from '../../store/chat-turns-store';
-import { Button, Card } from '../ui';
+import { Button, Card, IconButton } from '../ui';
 import { AssistantHeader } from './AssistantHeader';
 import { PlanRows, type PlanStep } from './PlanRows';
 import { StreamingCursor } from './StreamingCursor';
@@ -27,6 +27,8 @@ export interface MessageTurnProps {
   turn: ChatTurn;
   onOption: (id: string, label: string) => void;
   onSuggestion: (text: string) => void;
+  /** When provided (LAST, done turn only), renders a hover-revealed ghost delete affordance. */
+  onDelete?: () => void;
 }
 
 /** Map the single `status` phase into one plan row (extends to many later). */
@@ -67,6 +69,17 @@ const CSS = `
 
 .pxc-turn {
   animation: pxc-turn-in 320ms var(--a2ui-ease-entrance) both;
+  position: relative;
+}
+/* Delete affordance — hidden until the turn is hovered, then eased in (calm, no scale). */
+.pxc-turn-delete {
+  position: absolute; top: 0; right: 0;
+  opacity: 0; pointer-events: none;
+  transition: opacity var(--a2ui-transition-fast);
+}
+.pxc-turn:hover .pxc-turn-delete,
+.pxc-turn:focus-within .pxc-turn-delete {
+  opacity: 1; pointer-events: auto;
 }
 .pxc-user-bubble {
   max-width: 80%;
@@ -96,9 +109,10 @@ const CSS = `
 }
 `;
 
-export function MessageTurn({ turn, onOption, onSuggestion }: MessageTurnProps) {
+export function MessageTurn({ turn, onOption, onSuggestion, onDelete }: MessageTurnProps) {
   const thinking = turn.status === 'thinking' && !turn.text;
   const streaming = turn.status === 'streaming';
+  const canDelete = Boolean(onDelete) && turn.status === 'done';
 
   return (
     <div
@@ -106,6 +120,20 @@ export function MessageTurn({ turn, onOption, onSuggestion }: MessageTurnProps) 
       style={{ display: 'flex', flexDirection: 'column', gap: 'var(--a2ui-space-3)' }}
     >
       <style>{CSS}</style>
+
+      {/* Hover-revealed soft-delete (reversible; no confirm dialog this pass). */}
+      {canDelete && (
+        <div className="pxc-turn-delete">
+          <IconButton
+            icon="trash-2"
+            variant="ghost"
+            size={15}
+            boxSize={28}
+            label="Delete"
+            onClick={onDelete}
+          />
+        </div>
+      )}
 
       {/* User message — right aligned */}
       {turn.userPrompt && (

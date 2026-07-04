@@ -50,6 +50,7 @@ export default function ChatView({ initialPrompt, onEnterStudio, onHome }: Props
   const turns = useChatTurnsStore((s) => s.turns);
   const send = useChatTurnsStore((s) => s.send);
   const loadThread = useChatTurnsStore((s) => s.loadThread);
+  const deleteTurn = useChatTurnsStore((s) => s.deleteTurn);
   const reset = useChatTurnsStore((s) => s.reset);
 
   const [draft, setDraft] = useState('');
@@ -134,9 +135,21 @@ export default function ChatView({ initialPrompt, onEnterStudio, onHome }: Props
           <div ref={scrollRef} className="flex-1 overflow-y-auto">
             <div className="mx-auto w-full px-6 py-8" style={COLUMN_STYLE}>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--a2ui-space-6)' }}>
-                {turns.map((t) => (
-                  <MessageTurn key={t.id} turn={t} onOption={handleOption} onSuggestion={submit} />
-                ))}
+                {turns.map((t, i) => {
+                  // Delete affordance on the LAST turn only, and only once it's a persisted,
+                  // completed turn (has an interactionId + status 'done'). PR-4b: delete last turn.
+                  const isLast = i === turns.length - 1;
+                  const canDelete = isLast && t.status === 'done' && Boolean(t.interactionId);
+                  return (
+                    <MessageTurn
+                      key={t.id}
+                      turn={t}
+                      onOption={handleOption}
+                      onSuggestion={submit}
+                      onDelete={canDelete ? () => deleteTurn(t.interactionId!) : undefined}
+                    />
+                  );
+                })}
               </div>
             </div>
           </div>

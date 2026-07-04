@@ -38,6 +38,9 @@ export interface ChatTurn {
   suggestions: string[];
   error?: string;
   createdAt: number;
+  /** The persisted Interaction id this turn maps to — captured from the `done` event (streaming)
+   *  or from the Interaction on `loadThread`. Present once the turn is stored; drives delete. */
+  interactionId?: string;
 }
 
 interface ChatTurnsState {
@@ -48,6 +51,8 @@ interface ChatTurnsState {
   send: (prompt: string) => string;
   /** Restore a persisted conversation from the SQLite store (reload/reopen hydration). */
   loadThread: (threadId: string) => Promise<void>;
+  /** Soft-delete a persisted turn by its interaction id (audit-preserving; NO spend). */
+  deleteTurn: (interactionId: string) => Promise<void>;
   /** Clear the whole conversation (turns + thread id + stored key). */
   reset: () => void;
 }
@@ -114,7 +119,14 @@ export const useChatTurnsStore = create<ChatTurnsState>((set, get) => {
           } else if (evt.type === 'suggestions') {
             patch(id, { suggestions: Array.isArray(evt.items) ? evt.items : [] });
           } else if (evt.type === 'done') {
-            patch(id, { status: 'done', statusMessage: '' });
+            patch(id, {
+              status: 'done',
+              statusMessage: '',
+              // Capture the persisted Interaction id so this turn can be deleted later.
+              ...(typeof evt.interaction_id === 'string' && evt.interaction_id
+                ? { interactionId: evt.interaction_id }
+                : {}),
+            });
             // Capture the thread id so follow-ups (and reloads) target the SAME thread. The route
             // creates a thread when none is supplied and returns it here.
             if (typeof evt.thread_id === 'string' && evt.thread_id) {
@@ -206,12 +218,41 @@ export const useChatTurnsStore = create<ChatTurnsState>((set, get) => {
             a2ui: a2ui && a2ui.kind === 'options' ? a2ui : null,
             suggestions: [],
             createdAt: it.created_at,
+            interactionId: it.id,
           };
         });
 
         set({ turns, threadId });
       } catch (err) {
         console.warn('[chat-turns] loadThread error (leaving conversation empty):', err);
+      }
+    },
+    deleteTurn: async (interactionId) => {
+      // Audit-preserving SOFT delete: the route flips the interaction to 'deleted' behind the
+      // Repository port (NO spend, no model). On success we resync from the DB (so the deleted
+      // turn drops), or optimistically remove it if there's no thread yet. On failure: warn only.
+      try {
+        const res = await fetch('/api/chat-mutate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            action: 'delete',
+            thread_id: get().threadId ?? undefined,
+            interaction_id: interactionId,
+          }),
+        });
+        if (!res.ok) {
+          console.warn(`[chat-turns] deleteTurn failed: HTTP ${res.status}`);
+          return;
+        }
+        const threadId = get().threadId;
+        if (threadId) {
+          await get().loadThread(threadId);
+        } else {
+          set((s) => ({ turns: s.turns.filter((t) => t.interactionId !== interactionId) }));
+        }
+      } catch (err) {
+        console.warn('[chat-turns] deleteTurn error (leaving conversation as-is):', err);
       }
     },
     reset: () => {

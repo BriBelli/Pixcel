@@ -2,7 +2,7 @@
  * STATUS TRANSITIONS — guarded lifecycle moves + the edit/delete cascade.
  *
  * MODIFICATION 1 (Brian): transitions ONLY touch records currently `active`. A row that
- * is already archived/deleted/edited is SKIPPED — returned unchanged with NO write — so the
+ * is already inactive/deleted/edited is SKIPPED — returned unchanged with NO write — so the
  * pre-existing audit trail is preserved (and it's cheaper). This makes the cascade idempotent.
  *
  * Pure TS — no React/Next/DOM — so it runs under `node:test`.
@@ -30,11 +30,14 @@ export async function transitionStatus(
 }
 
 /**
- * Archive every ACTIVE interaction in `thread_id` whose `created_at >= from_created_at`.
- * Non-active rows are skipped automatically (transitionStatus guards them). Returns the
- * count actually archived. This is the downstream half of the edit/delete cascade.
+ * Deactivate every ACTIVE interaction in `thread_id` whose `created_at >= from_created_at` —
+ * transitions them to `inactive` (the programmatic cascade state: downstream turns superseded
+ * when a turn is edited/deleted). Non-active rows are skipped automatically (transitionStatus
+ * guards them). Returns the count actually deactivated. This is the downstream half of the
+ * edit/delete cascade. NOTE: `inactive` here is distinct from the RESERVED `archived` status
+ * (explicit thread/project cold-storage — see RecordStatus).
  */
-export async function cascadeArchiveDownstream(
+export async function cascadeDeactivateDownstream(
   repo: Repository,
   thread_id: string,
   from_created_at: number
@@ -52,15 +55,15 @@ export async function cascadeArchiveDownstream(
     filter: { thread_id, status: 'active' },
   });
 
-  let archived = 0;
+  let deactivated = 0;
   for (const it of items) {
     if (it.created_at >= from_created_at) {
-      const result = await transitionStatus(repo, 'interaction', it.id, 'archived');
+      const result = await transitionStatus(repo, 'interaction', it.id, 'inactive');
       // Count only rows we actually flipped (guard returns the row unchanged otherwise).
-      if (result && result.status === 'archived') archived += 1;
+      if (result && result.status === 'inactive') deactivated += 1;
     }
   }
-  return archived;
+  return deactivated;
 }
 
 /**

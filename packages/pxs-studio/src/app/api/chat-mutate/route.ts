@@ -1,6 +1,6 @@
 import {
   DEV_USER_ID,
-  cascadeArchiveDownstream,
+  cascadeDeactivateDownstream,
   getDb,
   transitionStatus,
 } from '../../../lib/db';
@@ -18,12 +18,13 @@ export const runtime = 'nodejs';
  * Body: { action, user_id?, thread_id, interaction_id }
  *   action         'delete' (else 400 "unsupported action")
  *   user_id        default DEV_USER_ID
- *   thread_id      the conversation thread (used to cascade-archive downstream turns)
+ *   thread_id      the conversation thread (used to cascade-deactivate downstream turns → inactive)
  *   interaction_id the turn to soft-delete (404 if missing)
  *
  * Delete flow: read the target interaction → transitionStatus → 'deleted' (guarded: only flips
- * an `active` row, so it's idempotent and audit-safe) → cascadeArchiveDownstream to archive any
- * turns after it (a no-op for a last turn, but correct for future middle-delete). Returns { ok }.
+ * an `active` row, so it's idempotent and audit-safe) → cascadeDeactivateDownstream to deactivate
+ * any turns after it → 'inactive' (a no-op for a last turn, but correct for future middle-delete).
+ * Returns { ok }.
  */
 export async function POST(req: Request) {
   try {
@@ -58,10 +59,10 @@ export async function POST(req: Request) {
     // Soft-delete: flip active → 'deleted' (guarded; preserves the audit trail).
     await transitionStatus(db, 'interaction', interactionId, 'deleted');
 
-    // Cascade any downstream turns to 'archived'. For a LAST turn this archives nothing, but it
+    // Cascade any downstream turns to 'inactive'. For a LAST turn this deactivates nothing, but it
     // keeps the endpoint correct once middle-turn delete lands.
     if (threadId) {
-      await cascadeArchiveDownstream(db, threadId, it.created_at);
+      await cascadeDeactivateDownstream(db, threadId, it.created_at);
     }
 
     return Response.json({ ok: true });

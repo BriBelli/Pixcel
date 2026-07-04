@@ -13,7 +13,7 @@
 3. **Usage + cap:** a `Usage` row per interaction (tokens/$) + a running total & **hard cap** on the user record.
 4. **`a2ui_version`** stamped on every stored A2UI snapshot.
 5. **Assets** are central + shared + project-linked (Asset/Project tables land with the generation PRs — schema reserved now).
-6. **`archived`** = audit-only for v1, but store `parent_interaction_id` so branch-viewing is a later no-migration add.
+6. **Status:** the edit/delete cascade sets downstream turns to **`inactive`** (programmatic, per-interaction; audit-only for v1) — store `parent_interaction_id` so branch-viewing is a later no-migration add. **`archived`** is RESERVED (defined, unused for the cascade) for an EXPLICIT thread/project-level cold-storage concept — a future two-tier active-DB / archive-DB partitioned by last-viewed (Brian, 2026-07-04).
 7. **Search:** simple for v1 (DynamoDB + GSIs on `asset_type`/`tags`); embeddings-over-8-Part is phase 2.
 8. **Dev DB:** a thin **repository interface** + an **in-memory/local adapter** for dev; a DynamoDB adapter behind
    the same interface for prod.
@@ -27,10 +27,10 @@
   `context`), `Interaction` (id, thread_id, **status** enum, model, prompt{text,attachments}, response{text,
   tokens_used, a2ui, `a2ui_version`}, `parent_interaction_id`), `Prompt` (first-class), `Usage` (per-interaction
   tokens/$). Every record carries **`user_id`** (Auth0).
-- **Status enum + transitions** — `active`/`pending`/`edited`/`deleted`/`archived`/`failed`/`cancelled`; only
-  `active` is visible; edit/delete cascade downstream to `archived`. **Transitions ONLY touch records currently
-  `active`** — never re-mutate a non-active row (skip if already `archived`/`deleted`): preserves the pre-existing
-  audit trail + is more optimal (Brian).
+- **Status enum + transitions** — `active`/`pending`/`edited`/`deleted`/`inactive`/`archived`/`failed`/`cancelled`;
+  only `active` is visible; edit/delete cascade downstream to **`inactive`** (`archived` is RESERVED — see Decision 6).
+  **Transitions ONLY touch records currently `active`** — never re-mutate a non-active row (skip if already
+  `inactive`/`deleted`): preserves the pre-existing audit trail + is more optimal (Brian).
 - **Living context** (`src/lib/db/living-context.ts`) — memory-first / DB-async: open→hydrate active, new→append+
   insert, delete→mark deleted, edit→mark edited+insert+cascade. Addressable by `interaction_id`.
 - **Pagination** — reads use `limit` / `offset` **over the ACTIVE records only**; the active-status filter and

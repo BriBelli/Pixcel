@@ -9,12 +9,21 @@
  * layer runs under `node:test`. The server route imports them at the nodejs runtime.
  */
 
-/** Lifecycle status. Only `active` records are user-visible; the rest are audit/terminal. */
+/**
+ * Lifecycle status. Only `active` records are user-visible; the rest are audit/terminal.
+ *
+ * `inactive` is the output of the per-interaction edit/delete CASCADE — downstream turns are
+ * superseded (programmatically) when a turn is edited or deleted. `archived` is RESERVED: an
+ * explicit, thread/project-level cold-storage concept for a future two-tier active-DB / archive-DB
+ * (partitioned by last-viewed) — NOT the per-interaction cascade. Defined now, unused for it.
+ */
 export type RecordStatus =
   | 'active'
   | 'pending'
   | 'edited'
   | 'deleted'
+  | 'inactive'
+  /** RESERVED — explicit thread/project cold-storage (future two-tier DB); NOT the cascade. */
   | 'archived'
   | 'failed'
   | 'cancelled';

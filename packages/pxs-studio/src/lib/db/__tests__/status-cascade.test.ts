@@ -7,7 +7,7 @@ import test from 'node:test';
 
 import { createMemoryRepository } from '../adapters/memory';
 import type { Interaction, Thread } from '../models';
-import { cascadeArchiveDownstream, transitionStatus } from '../status';
+import { cascadeDeactivateDownstream, transitionStatus } from '../status';
 
 async function seedThread(repo: ReturnType<typeof createMemoryRepository>) {
   const now = Date.now();
@@ -41,49 +41,49 @@ function interaction(id: string, created_at: number, status: Interaction['status
 test('transitionStatus flips an active record', async () => {
   const repo = createMemoryRepository();
   await repo.put(interaction('i1', 100));
-  const result = (await transitionStatus(repo, 'interaction', 'i1', 'archived')) as Interaction;
-  assert.equal(result.status, 'archived');
+  const result = (await transitionStatus(repo, 'interaction', 'i1', 'inactive')) as Interaction;
+  assert.equal(result.status, 'inactive');
 });
 
 test('MOD 1: transitioning a non-active record is a no-op (no write, unchanged)', async () => {
   const repo = createMemoryRepository();
-  await repo.put(interaction('i1', 100, 'archived'));
+  await repo.put(interaction('i1', 100, 'inactive'));
   const before = (await repo.get('interaction', 'i1')) as Interaction;
   const result = (await transitionStatus(repo, 'interaction', 'i1', 'deleted')) as Interaction;
   // Returned unchanged.
-  assert.equal(result.status, 'archived');
+  assert.equal(result.status, 'inactive');
   // No write happened → updated_at identical to the pre-existing audit row.
   const after = (await repo.get('interaction', 'i1')) as Interaction;
-  assert.equal(after.status, 'archived');
+  assert.equal(after.status, 'inactive');
   assert.equal(after.updated_at, before.updated_at, 'updated_at unchanged (no write)');
 });
 
 test('transitionStatus returns null for a missing record', async () => {
   const repo = createMemoryRepository();
-  assert.equal(await transitionStatus(repo, 'interaction', 'ghost', 'archived'), null);
+  assert.equal(await transitionStatus(repo, 'interaction', 'ghost', 'inactive'), null);
 });
 
-test('cascade: downstream active turns archive; a pre-archived downstream stays untouched', async () => {
+test('cascade: downstream active turns deactivate; a pre-inactive downstream stays untouched', async () => {
   const repo = createMemoryRepository();
   await seedThread(repo);
   await repo.put(interaction('i1', 100)); // the edited turn (caller flips it separately)
   await repo.put(interaction('i2', 200)); // downstream active
-  await repo.put(interaction('i3', 300, 'archived')); // downstream already archived
+  await repo.put(interaction('i3', 300, 'inactive')); // downstream already inactive
   await repo.put(interaction('i4', 400)); // downstream active
 
   const before3 = (await repo.get('interaction', 'i3')) as Interaction;
 
-  // Cascade archives everything at-or-after i2's timestamp that's still active.
-  const count = await cascadeArchiveDownstream(repo, 't1', 200);
-  assert.equal(count, 2, 'i2 + i4 archived (i3 skipped by the guard)');
+  // Cascade deactivates everything at-or-after i2's timestamp that's still active.
+  const count = await cascadeDeactivateDownstream(repo, 't1', 200);
+  assert.equal(count, 2, 'i2 + i4 deactivated (i3 skipped by the guard)');
 
-  assert.equal(((await repo.get('interaction', 'i2')) as Interaction).status, 'archived');
-  assert.equal(((await repo.get('interaction', 'i4')) as Interaction).status, 'archived');
+  assert.equal(((await repo.get('interaction', 'i2')) as Interaction).status, 'inactive');
+  assert.equal(((await repo.get('interaction', 'i4')) as Interaction).status, 'inactive');
 
-  // i3 was already archived → untouched (updated_at identical).
+  // i3 was already inactive → untouched (updated_at identical).
   const after3 = (await repo.get('interaction', 'i3')) as Interaction;
-  assert.equal(after3.status, 'archived');
-  assert.equal(after3.updated_at, before3.updated_at, 'pre-archived row untouched');
+  assert.equal(after3.status, 'inactive');
+  assert.equal(after3.updated_at, before3.updated_at, 'pre-inactive row untouched');
 
   // i1 was upstream of `from_created_at` → still active.
   assert.equal(((await repo.get('interaction', 'i1')) as Interaction).status, 'active');

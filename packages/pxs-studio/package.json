@@ -12,7 +12,8 @@
     "start": "next start",
     "lint": "eslint \"src/**/*.{ts,tsx,js,jsx}\" --max-warnings=0",
     "type-check": "tsc --noEmit",
-    "test:db": "tsx --test src/lib/db/__tests__/*.test.ts",
+    "test": "tsx --test \"src/lib/**/__tests__/*.test.ts\"",
+    "test:db": "tsx --test \"src/lib/**/__tests__/*.test.ts\"",
     "db:inspect": "tsx src/lib/db/inspect.ts"
   },
   "dependencies": {

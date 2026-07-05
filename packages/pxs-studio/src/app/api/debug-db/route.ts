@@ -24,7 +24,7 @@ export async function GET(req: Request) {
   const url = new URL(req.url);
   const userId = url.searchParams.get('user_id') || 'dev-user';
 
-  const db = getDb();
+  const db = await getDb();
   const grouped: Record<string, unknown[]> = {};
   for (const category of CATEGORIES) {
     const { items } = await db.query({ category, user_id: userId });

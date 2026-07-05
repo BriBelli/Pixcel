@@ -56,7 +56,7 @@ test('hydrate loads only active interactions, paginated', async () => {
   const repo = createMemoryRepository();
   await seedThread(repo);
   for (let i = 0; i < 4; i++) await repo.put(interaction(`i${i}`, 100 + i));
-  await repo.put({ ...interaction('arch', 500), status: 'archived' });
+  await repo.put({ ...interaction('arch', 500), status: 'inactive' });
 
   const ctx = createLivingContext(repo);
   const items = await ctx.hydrate('dev-user', 't1', { limit: 2, offset: 1 });
@@ -67,7 +67,7 @@ test('hydrate loads only active interactions, paginated', async () => {
   assert.ok(items.every((i) => i.status === 'active'));
 });
 
-test('markEdited: target → edited, child inserted with parent_interaction_id, downstream archived', async () => {
+test('markEdited: target → edited, child inserted with parent_interaction_id, downstream inactive', async () => {
   const repo = createMemoryRepository();
   await seedThread(repo);
   await ctxAppendAll(repo, ['i1:100', 'i2:200', 'i3:300']);
@@ -82,17 +82,17 @@ test('markEdited: target → edited, child inserted with parent_interaction_id, 
   assert.equal(((await repo.get('interaction', 'i1')) as Interaction).status, 'edited');
   const child = (await repo.get('interaction', 'i1b')) as Interaction;
   assert.equal(child.parent_interaction_id, 'i1');
-  // Downstream active turns archived.
-  assert.equal(((await repo.get('interaction', 'i2')) as Interaction).status, 'archived');
-  assert.equal(((await repo.get('interaction', 'i3')) as Interaction).status, 'archived');
+  // Downstream active turns deactivated (inactive).
+  assert.equal(((await repo.get('interaction', 'i2')) as Interaction).status, 'inactive');
+  assert.equal(((await repo.get('interaction', 'i3')) as Interaction).status, 'inactive');
 
-  // Memory reflects the swap: edited/archived gone, child present.
+  // Memory reflects the swap: edited/inactive gone, child present.
   const ids = ctx.peek('t1').map((i) => i.id);
   assert.ok(!ids.includes('i1'));
   assert.ok(ids.includes('i1b'));
 });
 
-test('markDeleted cascades downstream to archived', async () => {
+test('markDeleted cascades downstream to inactive', async () => {
   const repo = createMemoryRepository();
   await seedThread(repo);
   await ctxAppendAll(repo, ['i1:100', 'i2:200', 'i3:300']);
@@ -105,7 +105,7 @@ test('markDeleted cascades downstream to archived', async () => {
 
   assert.equal(((await repo.get('interaction', 'i1')) as Interaction).status, 'active');
   assert.equal(((await repo.get('interaction', 'i2')) as Interaction).status, 'deleted');
-  assert.equal(((await repo.get('interaction', 'i3')) as Interaction).status, 'archived');
+  assert.equal(((await repo.get('interaction', 'i3')) as Interaction).status, 'inactive');
 });
 
 /** Helper: put several `id:created_at` interactions directly. */

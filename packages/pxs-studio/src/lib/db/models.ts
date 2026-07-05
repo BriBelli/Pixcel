@@ -9,12 +9,21 @@
  * layer runs under `node:test`. The server route imports them at the nodejs runtime.
  */
 
-/** Lifecycle status. Only `active` records are user-visible; the rest are audit/terminal. */
+/**
+ * Lifecycle status. Only `active` records are user-visible; the rest are audit/terminal.
+ *
+ * `inactive` is the output of the per-interaction edit/delete CASCADE — downstream turns are
+ * superseded (programmatically) when a turn is edited or deleted. `archived` is RESERVED: an
+ * explicit, thread/project-level cold-storage concept for a future two-tier active-DB / archive-DB
+ * (partitioned by last-viewed) — NOT the per-interaction cascade. Defined now, unused for it.
+ */
 export type RecordStatus =
   | 'active'
   | 'pending'
   | 'edited'
   | 'deleted'
+  | 'inactive'
+  /** RESERVED — explicit thread/project cold-storage (future two-tier DB); NOT the cascade. */
   | 'archived'
   | 'failed'
   | 'cancelled';
@@ -48,9 +57,12 @@ export interface Interaction extends BaseRecord {
   prompt: {
     text: string;
     attachments?: string[];
+    /** INPUT tokens this turn's prompt consumed. Pairs with `response.tokens_used` (output). */
+    tokens?: number;
   };
   response: {
     text: string;
+    /** OUTPUT tokens the model generated (NOT input — the prompt's input lives on `prompt.tokens`). */
     tokens_used: number;
     a2ui: unknown | null;
     /** Stamped from {@link A2UI_VERSION} on every stored a2ui snapshot (Decision 4). */
@@ -67,6 +79,8 @@ export interface Prompt extends BaseRecord {
   category: 'prompt';
   text: string;
   tags?: string[];
+  /** The prompt's own token size — a recipe-IP metric ("quality > tokens, trim only fat"). */
+  tokens?: number;
 }
 
 /** Per-interaction metering row: tokens + cost (Decision 3). */

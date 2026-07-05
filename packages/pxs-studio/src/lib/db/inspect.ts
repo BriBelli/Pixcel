@@ -1,16 +1,16 @@
 /**
  * DB INSPECT — a dev script to SEE the persisted chat data. ZERO API/model calls: pure DB writes.
  *
- * Opens the file adapter, and if the store is EMPTY seeds one authentic demo set (thread +
+ * Opens the SQLite dev DB, and if the store is EMPTY seeds one authentic demo set (thread +
  * interaction with a filled response incl. a2ui/a2ui_version + a usage row + the user record)
  * using the real models/usage helpers so the shapes match production. Then prints the resolved
- * file path and the full store as pretty JSON grouped by category.
+ * `.db` path and the full store as pretty JSON grouped by category.
  *
  * Idempotent: running it twice does NOT re-seed (it only seeds when the store is empty). Safe to
  * run repeatedly. Run via `npm run db:inspect`.
  */
 
-import { createFileRepository } from './adapters/file';
+import { createSqliteRepository } from './adapters/sqlite';
 import {
   A2UI_VERSION,
   type Interaction,
@@ -58,10 +58,11 @@ async function seedDemo(repo: Repository): Promise<void> {
     updated_at: now,
     thread_id: thread.id,
     model: 'claude-opus-4-8',
-    prompt: { text: 'Make a pixel-art dragon' },
+    // INPUT tokens attributed to the prompt; OUTPUT tokens to the response (they sum to 1234).
+    prompt: { text: 'Make a pixel-art dragon', tokens: 834 },
     response: {
       text: 'Great — a dragon works well as pixel art. How do you want to make it?',
-      tokens_used: 1234,
+      tokens_used: 400,
       a2ui: DEMO_A2UI,
       a2ui_version: A2UI_VERSION,
     },
@@ -90,7 +91,7 @@ async function dumpByCategory(repo: Repository): Promise<Record<string, unknown[
 }
 
 async function main(): Promise<void> {
-  const repo = createFileRepository();
+  const repo = createSqliteRepository();
   const filePath = repo.getPath();
 
   // Idempotent seed: only when the store has no data for the demo user (any category).
@@ -105,7 +106,7 @@ async function main(): Promise<void> {
 
   const grouped = await dumpByCategory(repo);
 
-  console.log(`\nDev DB file: ${filePath}\n`);
+  console.log(`\nDev DB (.db) path: ${filePath}\n`);
   console.log(JSON.stringify(grouped, null, 2));
 }
 

@@ -1,24 +1,34 @@
 'use client';
 
 /* ─────────────────────────────────────────────────────────────────────────────
- * ChatView — the chat-orchestrator front door (Slice 1).
+ * ChatView — the chat-orchestrator front door (PR-4a: design-true shell).
  *
- * The splash prompt now lands HERE (the Pixcel Agent conversation), rendered ABOVE the
- * persistent <DigitalWall> (z-0) so the same LED-wall backdrop continues behind the chat.
- * It renders the streamed conversation: a user bubble, then the assistant turn — a loading
- * indicator (from status) → streamed text → the stub A2UI options block (tasteful buttons,
- * NOT a general renderer yet) → follow-up suggestion chips. A composer at the bottom (reusing
- * the LandingPage prompt-bar tokens) sends follow-up turns.
+ * The splash prompt lands HERE (the Pixcel Agent conversation), rendered ABOVE the
+ * persistent <DigitalWall> (z-0) so the same LED-wall backdrop continues behind the
+ * chat. Each turn is composed on the PR-2 primitives via <MessageTurn>: the user
+ * bubble, the assistant identity badge ("Opus 4.8"), the pre-text plan rows, the
+ * streamed text + a blinking block cursor, the stub A2UI options (Button/Card), and
+ * follow-up suggestion chips. A <Composer> at the bottom sends follow-up turns.
  *
- * Slice 1 wires the bones only: the option buttons + suggestion chips just feed the composer /
- * send a follow-up. Real routing into Pixcel Studio vs an image model comes in later slices.
+ * Rebuilt to the Claude Design standard (PR-4a): the bespoke CHAT_CSS promptbar /
+ * option / chip / user-bubble rules are gone — everything routes through the
+ * tokens-only primitives. The chat column is HARD-CAPPED at --a2ui-chat-max-width
+ * (rule #8, never full-bleed); the wall stays full-bleed behind at z-0.
+ *
+ * PR-4a wires the bones only: option choices that pick a medium enter the full
+ * Studio; other choices / suggestions continue the chat. DB persistence + edit /
+ * delete / regenerate land in PR-4b.
  * ───────────────────────────────────────────────────────────────────────────── */
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import NavRail from './NavRail';
 import DigitalWall from './DigitalWall';
+import SettingsPanel from './SettingsPanel';
 import { RES } from '../lib/resolutions';
-import { useChatTurnsStore, type ChatTurn } from '../store/chat-turns-store';
+import { useChatTurnsStore } from '../store/chat-turns-store';
+import { useSettings } from '../store/settings-store';
+import { Composer } from './ui';
+import { MessageTurn } from './chat/MessageTurn';
 
 interface Props {
   /** The prompt typed on the splash (front door). Auto-sent once on mount. */
@@ -29,136 +39,60 @@ interface Props {
   onHome?: () => void;
 }
 
-const CHAT_CSS = `
-  .pxc-root { background: var(--a2ui-bg-app); color: var(--a2ui-text-primary); font-family: var(--a2ui-font-family); -webkit-font-smoothing: antialiased; }
-  .pxc-root ::selection { background: var(--a2ui-accent-subtle); }
-  .pxc-promptbar { background: var(--a2ui-bg-input); border: 1px solid var(--a2ui-border-default); transition: border-color var(--a2ui-transition-fast), box-shadow var(--a2ui-transition-fast); }
-  .pxc-promptbar:focus-within { border-color: var(--a2ui-accent); box-shadow: 0 0 0 3px var(--a2ui-accent-subtle); }
-  .pxc-input { background: transparent; color: var(--a2ui-text-primary); }
-  .pxc-input::placeholder { color: var(--a2ui-text-tertiary); }
-  .pxc-send { background: var(--a2ui-accent); color: var(--a2ui-text-inverse); border-radius: 9999px; transition: background var(--a2ui-transition-fast); }
-  .pxc-send:hover { background: var(--a2ui-accent-hover); }
-  .pxc-send:disabled { opacity: 0.45; cursor: default; }
-  /* user bubble */
-  .pxc-user { background: var(--a2ui-accent); color: var(--a2ui-text-inverse); border-radius: var(--a2ui-radius-lg); }
-  /* assistant surface */
-  .pxc-assistant { color: var(--a2ui-text-primary); }
-  /* a2ui option button */
-  .pxc-option { background: var(--a2ui-bg-secondary); border: 1px solid var(--a2ui-border-default); color: var(--a2ui-text-primary); border-radius: var(--a2ui-radius-md); transition: border-color var(--a2ui-transition-fast), background var(--a2ui-transition-fast); }
-  .pxc-option:hover { border-color: var(--a2ui-accent); background: var(--a2ui-bg-hover); }
-  /* suggestion chip */
-  .pxc-chip { background: transparent; border: 1px solid var(--a2ui-border-subtle); color: var(--a2ui-text-secondary); border-radius: var(--a2ui-radius-full); transition: border-color var(--a2ui-transition-fast), color var(--a2ui-transition-fast); }
-  .pxc-chip:hover { border-color: var(--a2ui-border-strong); color: var(--a2ui-text-primary); }
-  .pxc-panel { background: var(--a2ui-bg-secondary); border: 1px solid var(--a2ui-border-subtle); border-radius: var(--a2ui-radius-lg); }
-  @keyframes pxc-blink { 0%, 80%, 100% { opacity: 0.25; } 40% { opacity: 1; } }
-  .pxc-dot { animation: pxc-blink 1.2s infinite both; }
+const ROOT_CSS = `
+.pxc-root { background: var(--a2ui-bg-app); color: var(--a2ui-text-primary);
+  font-family: var(--a2ui-font-family); -webkit-font-smoothing: antialiased; }
+.pxc-root ::selection { background: var(--a2ui-accent-subtle); }
 `;
 
-function TypingDots() {
-  return (
-    <span className="inline-flex items-center gap-1" aria-label="thinking">
-      <span className="pxc-dot inline-block w-1.5 h-1.5 rounded-full" style={{ background: 'var(--a2ui-text-tertiary)' }} />
-      <span className="pxc-dot inline-block w-1.5 h-1.5 rounded-full" style={{ background: 'var(--a2ui-text-tertiary)', animationDelay: '0.15s' }} />
-      <span className="pxc-dot inline-block w-1.5 h-1.5 rounded-full" style={{ background: 'var(--a2ui-text-tertiary)', animationDelay: '0.3s' }} />
-    </span>
-  );
-}
-
-function TurnBlock({
-  turn,
-  onOption,
-  onSuggestion,
-}: {
-  turn: ChatTurn;
-  onOption: (id: string, label: string) => void;
-  onSuggestion: (text: string) => void;
-}) {
-  return (
-    <div className="space-y-3">
-      {/* User bubble — right aligned */}
-      <div className="flex justify-end">
-        <div className="pxc-user max-w-[80%] px-3.5 py-2 text-[15px] leading-relaxed">
-          {turn.userPrompt}
-        </div>
-      </div>
-
-      {/* Assistant turn */}
-      <div className="pxc-assistant max-w-[88%]">
-        {turn.status === 'thinking' && !turn.text ? (
-          <div className="flex items-center gap-2 text-[14px]" style={{ color: 'var(--a2ui-text-tertiary)' }}>
-            <TypingDots />
-            <span>{turn.statusMessage || 'Thinking…'}</span>
-          </div>
-        ) : turn.status === 'error' ? (
-          <div className="text-[14px]" style={{ color: 'var(--a2ui-error)' }}>
-            {turn.error || 'Something went wrong.'}
-          </div>
-        ) : (
-          <>
-            {turn.text && (
-              <div className="text-[15px] leading-relaxed whitespace-pre-wrap">{turn.text}</div>
-            )}
-
-            {/* Stub A2UI options block — tasteful buttons (not a general renderer). */}
-            {turn.a2ui && turn.a2ui.kind === 'options' && (
-              <div className="pxc-panel mt-3 p-3">
-                <div className="text-[13px] font-semibold mb-2" style={{ color: 'var(--a2ui-text-secondary)' }}>
-                  {turn.a2ui.title}
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  {turn.a2ui.options.map((o) => (
-                    <button
-                      key={o.id}
-                      type="button"
-                      onClick={() => onOption(o.id, o.label)}
-                      className="pxc-option px-3 py-1.5 text-[13px] font-medium"
-                    >
-                      {o.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Follow-up suggestions — trailing chips. */}
-            {turn.suggestions.length > 0 && (
-              <div className="mt-3 flex flex-wrap gap-2">
-                {turn.suggestions.map((s, i) => (
-                  <button
-                    key={i}
-                    type="button"
-                    onClick={() => onSuggestion(s)}
-                    className="pxc-chip px-3 py-1 text-[12px]"
-                  >
-                    {s}
-                  </button>
-                ))}
-              </div>
-            )}
-          </>
-        )}
-      </div>
-    </div>
-  );
-}
+/** The chat column cap (rule #8 — capped, never full-bleed). */
+const COLUMN_STYLE = { maxWidth: 'var(--a2ui-chat-max-width)' } as const;
 
 export default function ChatView({ initialPrompt, onEnterStudio, onHome }: Props) {
   const turns = useChatTurnsStore((s) => s.turns);
   const send = useChatTurnsStore((s) => s.send);
+  const loadThread = useChatTurnsStore((s) => s.loadThread);
+  const deleteTurn = useChatTurnsStore((s) => s.deleteTurn);
+  const reset = useChatTurnsStore((s) => s.reset);
 
   const [draft, setDraft] = useState('');
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const sentInitial = useRef(false);
 
-  // Fire the splash prompt once (the front door → first chat turn).
+  // Settings the chat honors directly (the two WIRED fields):
+  //  • theme       → applied to <html data-theme> below (tokens.css swaps dark/light)
+  //  • showActions → gates the MessageActions footer per turn
+  const theme = useSettings((st) => st.theme);
+  const showActions = useSettings((st) => st.showActions);
+
+  // Apply the persisted theme to <html> on mount + whenever it changes.
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', theme);
+  }, [theme]);
+
+  // On mount, run exactly once (sent-once ref):
+  //  • a splash prompt present → send it (a NEW conversation).
+  //  • otherwise, if a thread id was persisted last session → RESTORE it from the SQLite store,
+  //    so a plain reload / reopening chat brings the last conversation back.
   useEffect(() => {
     if (sentInitial.current) return;
     const p = initialPrompt?.trim();
     if (p) {
+      // Fresh conversation from the splash → reset first so this starts a NEW thread
+      // (never appends onto a thread left over from an earlier chat this session).
       sentInitial.current = true;
+      reset();
       send(p);
+      return;
     }
-  }, [initialPrompt, send]);
+    if (typeof window === 'undefined') return;
+    const storedId = window.localStorage.getItem('pxs-chat-thread');
+    if (storedId) {
+      sentInitial.current = true;
+      void loadThread(storedId);
+    }
+  }, [initialPrompt, send, loadThread, reset]);
 
   // Keep the conversation scrolled to the latest as it streams in.
   useEffect(() => {
@@ -175,8 +109,8 @@ export default function ChatView({ initialPrompt, onEnterStudio, onHome }: Props
     [send]
   );
 
-  // Slice 1: option choices that pick a medium enter the full Studio; "more guidance"/unknown
-  // simply continues the chat. Suggestions feed a follow-up turn.
+  // PR-4a: option choices that pick a medium enter the full Studio; "more guidance" /
+  // unknown simply continues the chat. Suggestions feed a follow-up turn.
   const handleOption = useCallback(
     (id: string, label: string) => {
       if (id === 'pixcel' || id === 'image' || id === 'both') {
@@ -191,59 +125,65 @@ export default function ChatView({ initialPrompt, onEnterStudio, onHome }: Props
 
   return (
     <div className="pxc-root flex h-screen overflow-hidden">
-      <style>{CHAT_CSS}</style>
+      <style>{ROOT_CSS}</style>
 
       <NavRail
         activeSection="chat"
         onHome={onHome ?? (() => {})}
         onSection={() => onEnterStudio()}
         onUtility={() => onEnterStudio()}
+        onOpenSettings={() => setSettingsOpen(true)}
       />
 
+      <SettingsPanel open={settingsOpen} onClose={() => setSettingsOpen(false)} />
+
       <div className="relative flex-1 flex flex-col min-w-0">
-        {/* z-0 — the persistent Pixcel digital wall, BEHIND the chat (same backdrop as the splash). */}
+        {/* z-0 — the Pixcel digital wall, full-bleed BEHIND the chat, but DORMANT here: the logo is
+            OFF (showLogo=false — logoScale can't remove it, it floors to native width) and intensity
+            is very low, so it's ambient texture that never competes with the conversation. This is
+            the settled END-STATE; the animated hand-off that eases the wall into it is lifecycle work. */}
         <div className="pointer-events-none absolute inset-0 z-0">
-          <DigitalWall className="absolute inset-0 h-full w-full" pixels={RES.retro} logoScale={0.25} intensity={0.1} />
+          <DigitalWall className="absolute inset-0 h-full w-full" pixels={RES.retro} showLogo={false} intensity={0.04} />
         </div>
 
-        {/* z-10 — the chat, floating above the wall. */}
+        {/* z-10 — the chat, floating above the wall, column-capped. */}
         <div className="relative z-10 flex-1 flex flex-col min-h-0">
           {/* Scrollable conversation */}
           <div ref={scrollRef} className="flex-1 overflow-y-auto">
-            <div className="mx-auto w-full max-w-2xl px-6 py-8 space-y-6">
-              {turns.map((t) => (
-                <TurnBlock key={t.id} turn={t} onOption={handleOption} onSuggestion={submit} />
-              ))}
+            <div className="mx-auto w-full px-6 py-8" style={COLUMN_STYLE}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--a2ui-space-6)' }}>
+                {turns.map((t, i) => {
+                  const isLast = i === turns.length - 1;
+                  const isDone = t.status === 'done';
+                  // Delete + regenerate act on the LAST turn only. Delete additionally
+                  // requires a persisted turn (has an interactionId). Copy is on every done turn.
+                  const canDelete = isLast && isDone && Boolean(t.interactionId);
+                  const canRegenerate = isLast && isDone && Boolean(t.userPrompt);
+                  return (
+                    <MessageTurn
+                      key={t.id}
+                      turn={t}
+                      showActions={showActions}
+                      onOption={handleOption}
+                      onSuggestion={submit}
+                      // Copy the assistant text to the clipboard (silent on failure).
+                      onCopy={() => navigator.clipboard.writeText(t.text).catch(() => {})}
+                      // Regenerate = re-send this turn's userPrompt → appends a fresh turn.
+                      // NOTE: this SPENDS a model call (expected for a regenerate button).
+                      onRegenerate={canRegenerate ? () => send(t.userPrompt) : undefined}
+                      onDelete={canDelete ? () => deleteTurn(t.interactionId!) : undefined}
+                    />
+                  );
+                })}
+              </div>
             </div>
           </div>
 
-          {/* Composer — reuses the splash prompt-bar styling/tokens. */}
+          {/* Composer — the PR-2 primitive, column-capped to match the conversation. */}
           <div className="shrink-0 px-6 pb-6 pt-2">
-            <form
-              onSubmit={(e) => {
-                e.preventDefault();
-                submit(draft);
-              }}
-              className="pxc-promptbar mx-auto flex w-full max-w-2xl items-center gap-2 rounded-full px-3.5 py-2.5"
-            >
-              <input
-                value={draft}
-                onChange={(e) => setDraft(e.target.value)}
-                placeholder="Ask me anything…"
-                className="pxc-input min-w-0 flex-1 text-[15px] outline-none"
-              />
-              <button
-                type="submit"
-                disabled={!draft.trim()}
-                className="pxc-send flex h-9 w-9 items-center justify-center shrink-0"
-                title="Send"
-              >
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                  <path d="M5 12h14" />
-                  <path d="m12 5 7 7-7 7" />
-                </svg>
-              </button>
-            </form>
+            <div className="mx-auto w-full" style={COLUMN_STYLE}>
+              <Composer value={draft} onChange={setDraft} onSubmit={submit} />
+            </div>
           </div>
         </div>
       </div>

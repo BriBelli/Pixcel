@@ -58,7 +58,12 @@ packages/pxs-studio/ab-old-bundle.mjs
 packages/pxs-studio/ab-bundle-entry.ts
 packages/pxs-studio/ab-results/
 
-# Dev DB (file-backed dev adapter — process-local, never committed)
+# Dev DB (SQLite dev adapter — process-local, never committed)
+packages/pxs-studio/.pxs-dev.db
+packages/pxs-studio/.pxs-dev.db-wal
+packages/pxs-studio/.pxs-dev.db-shm
+
+# Dev DB (legacy file-backed dev adapter — harmless leftover ignores)
 packages/pxs-studio/.pxs-dev-db.json
 packages/pxs-studio/*.pxs-dev-db.json
 

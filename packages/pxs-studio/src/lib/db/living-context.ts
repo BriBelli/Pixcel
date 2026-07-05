@@ -14,7 +14,7 @@
 import type { Interaction } from './models';
 import { listActiveInteractions, type PageParams } from './queries';
 import type { Repository } from './repository';
-import { cascadeArchiveDownstream, transitionStatus } from './status';
+import { cascadeDeactivateDownstream, transitionStatus } from './status';
 
 export class LivingContext {
   private cache = new Map<string, Interaction[]>();
@@ -54,8 +54,8 @@ export class LivingContext {
   }
 
   /**
-   * Mark an interaction deleted (guarded transition) + cascade-archive the downstream ACTIVE
-   * interactions. Memory is updated immediately; the DB work is fired async.
+   * Mark an interaction deleted (guarded transition) + cascade-deactivate the downstream ACTIVE
+   * interactions (they go `inactive`). Memory is updated immediately; the DB work is fired async.
    */
   markDeleted(
     user_id: string,
@@ -68,17 +68,17 @@ export class LivingContext {
 
     const flushed = (async () => {
       await transitionStatus(this.repo, 'interaction', interaction_id, 'deleted');
-      // Cascade archives everything at-or-after the deleted turn that is still active
+      // Cascade deactivates everything at-or-after the deleted turn that is still active → inactive
       // (the deleted turn itself is now non-active, so it's skipped by the guard).
-      if (target) await cascadeArchiveDownstream(this.repo, thread_id, target.created_at);
+      if (target) await cascadeDeactivateDownstream(this.repo, thread_id, target.created_at);
     })();
     return { flushed };
   }
 
   /**
    * Edit: mark the target `edited`, insert `newInteraction` as its replacement
-   * (parent_interaction_id = the edited id), and cascade-archive the downstream active turns.
-   * Memory reflects the swap immediately; the DB work is fired async.
+   * (parent_interaction_id = the edited id), and cascade-deactivate the downstream active turns
+   * (they go `inactive`). Memory reflects the swap immediately; the DB work is fired async.
    */
   markEdited(
     user_id: string,
@@ -97,9 +97,9 @@ export class LivingContext {
 
     const flushed = (async () => {
       await transitionStatus(this.repo, 'interaction', interaction_id, 'edited');
-      // Cascade downstream ACTIVE turns to archived. The edited turn is now non-active
-      // and is skipped by the guard, so it lands as `edited`, not `archived`.
-      if (target) await cascadeArchiveDownstream(this.repo, thread_id, target.created_at);
+      // Cascade downstream ACTIVE turns to inactive. The edited turn is now non-active
+      // and is skipped by the guard, so it lands as `edited`, not `inactive`.
+      if (target) await cascadeDeactivateDownstream(this.repo, thread_id, target.created_at);
       await this.repo.put(child);
     })();
     return { flushed };

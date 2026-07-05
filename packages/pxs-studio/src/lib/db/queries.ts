@@ -3,7 +3,7 @@
  *
  * Reads run the active-status filter AND pagination TOGETHER in ONE backend query (Brian):
  * `filter: { status:'active', thread_id }` + `limit`/`offset` in a single `repo.query`. The
- * returned `total` is the ACTIVE count only — audit rows (archived/deleted/edited) are
+ * returned `total` is the ACTIVE count only — non-active rows (inactive/deleted/edited) are
  * excluded from both the page and the total.
  *
  * Pure TS — no React/Next/DOM — so it runs under `node:test`.

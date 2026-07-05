@@ -38,6 +38,8 @@ export interface ChatTurn {
   suggestions: string[];
   error?: string;
   createdAt: number;
+  /** Wall-clock time (ms) from `createdAt` to the `done` event — surfaced in the message footer. */
+  durationMs?: number;
   /** The persisted Interaction id this turn maps to — captured from the `done` event (streaming)
    *  or from the Interaction on `loadThread`. Present once the turn is stored; drives delete. */
   interactionId?: string;
@@ -119,9 +121,12 @@ export const useChatTurnsStore = create<ChatTurnsState>((set, get) => {
           } else if (evt.type === 'suggestions') {
             patch(id, { suggestions: Array.isArray(evt.items) ? evt.items : [] });
           } else if (evt.type === 'done') {
+            const createdAt = get().turns.find((t) => t.id === id)?.createdAt ?? Date.now();
             patch(id, {
               status: 'done',
               statusMessage: '',
+              // Wall-clock duration of the response, for the message footer.
+              durationMs: Date.now() - createdAt,
               // Capture the persisted Interaction id so this turn can be deleted later.
               ...(typeof evt.interaction_id === 'string' && evt.interaction_id
                 ? { interactionId: evt.interaction_id }

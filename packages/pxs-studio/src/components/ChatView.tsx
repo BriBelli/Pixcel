@@ -136,16 +136,23 @@ export default function ChatView({ initialPrompt, onEnterStudio, onHome }: Props
             <div className="mx-auto w-full px-6 py-8" style={COLUMN_STYLE}>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--a2ui-space-6)' }}>
                 {turns.map((t, i) => {
-                  // Delete affordance on the LAST turn only, and only once it's a persisted,
-                  // completed turn (has an interactionId + status 'done'). PR-4b: delete last turn.
                   const isLast = i === turns.length - 1;
-                  const canDelete = isLast && t.status === 'done' && Boolean(t.interactionId);
+                  const isDone = t.status === 'done';
+                  // Delete + regenerate act on the LAST turn only. Delete additionally
+                  // requires a persisted turn (has an interactionId). Copy is on every done turn.
+                  const canDelete = isLast && isDone && Boolean(t.interactionId);
+                  const canRegenerate = isLast && isDone && Boolean(t.userPrompt);
                   return (
                     <MessageTurn
                       key={t.id}
                       turn={t}
                       onOption={handleOption}
                       onSuggestion={submit}
+                      // Copy the assistant text to the clipboard (silent on failure).
+                      onCopy={() => navigator.clipboard.writeText(t.text).catch(() => {})}
+                      // Regenerate = re-send this turn's userPrompt → appends a fresh turn.
+                      // NOTE: this SPENDS a model call (expected for a regenerate button).
+                      onRegenerate={canRegenerate ? () => send(t.userPrompt) : undefined}
                       onDelete={canDelete ? () => deleteTurn(t.interactionId!) : undefined}
                     />
                   );

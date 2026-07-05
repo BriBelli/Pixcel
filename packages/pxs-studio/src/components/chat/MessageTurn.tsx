@@ -16,8 +16,9 @@
  * ───────────────────────────────────────────────────────────────────────────── */
 
 import type { ChatTurn } from '../../store/chat-turns-store';
-import { Button, Card, IconButton } from '../ui';
+import { Button, Card } from '../ui';
 import { AssistantHeader } from './AssistantHeader';
+import { MessageActions } from './MessageActions';
 import { PlanRows, type PlanStep } from './PlanRows';
 import { StreamingCursor } from './StreamingCursor';
 import { SuggestionsRow } from './SuggestionsRow';
@@ -27,7 +28,11 @@ export interface MessageTurnProps {
   turn: ChatTurn;
   onOption: (id: string, label: string) => void;
   onSuggestion: (text: string) => void;
-  /** When provided (LAST, done turn only), renders a hover-revealed ghost delete affordance. */
+  /** Copy this turn's assistant text to the clipboard (every done turn). */
+  onCopy: () => void;
+  /** Re-run the model for this turn (LAST done turn only) — SPENDS a model call. */
+  onRegenerate?: () => void;
+  /** Soft-delete this turn (LAST done, persisted turn only). */
   onDelete?: () => void;
 }
 
@@ -71,15 +76,19 @@ const CSS = `
   animation: pxc-turn-in 320ms var(--a2ui-ease-entrance) both;
   position: relative;
 }
-/* Delete affordance — hidden until the turn is hovered, then eased in (calm, no scale). */
-.pxc-turn-delete {
-  position: absolute; top: 0; right: 0;
-  opacity: 0; pointer-events: none;
+/* Footer actions — hidden until the turn is hovered/focused, then eased in (calm, no scale).
+   The meta (duration + timestamp) always shows; only the action buttons reveal. */
+.pxc-actions {
+  opacity: 0;
   transition: opacity var(--a2ui-transition-fast);
 }
-.pxc-turn:hover .pxc-turn-delete,
-.pxc-turn:focus-within .pxc-turn-delete {
-  opacity: 1; pointer-events: auto;
+.pxc-turn:hover .pxc-actions,
+.pxc-turn:focus-within .pxc-actions {
+  opacity: 1;
+}
+/* Touch / narrow viewports have no hover — keep the actions always visible. */
+@media (max-width: 480px) {
+  .pxc-actions { opacity: 1; }
 }
 .pxc-user-bubble {
   max-width: 80%;
@@ -109,10 +118,17 @@ const CSS = `
 }
 `;
 
-export function MessageTurn({ turn, onOption, onSuggestion, onDelete }: MessageTurnProps) {
+export function MessageTurn({
+  turn,
+  onOption,
+  onSuggestion,
+  onCopy,
+  onRegenerate,
+  onDelete,
+}: MessageTurnProps) {
   const thinking = turn.status === 'thinking' && !turn.text;
   const streaming = turn.status === 'streaming';
-  const canDelete = Boolean(onDelete) && turn.status === 'done';
+  const done = turn.status === 'done';
 
   return (
     <div
@@ -120,20 +136,6 @@ export function MessageTurn({ turn, onOption, onSuggestion, onDelete }: MessageT
       style={{ display: 'flex', flexDirection: 'column', gap: 'var(--a2ui-space-3)' }}
     >
       <style>{CSS}</style>
-
-      {/* Hover-revealed soft-delete (reversible; no confirm dialog this pass). */}
-      {canDelete && (
-        <div className="pxc-turn-delete">
-          <IconButton
-            icon="trash-2"
-            variant="ghost"
-            size={15}
-            boxSize={28}
-            label="Delete"
-            onClick={onDelete}
-          />
-        </div>
-      )}
 
       {/* User message — right aligned */}
       {turn.userPrompt && (
@@ -181,6 +183,18 @@ export function MessageTurn({ turn, onOption, onSuggestion, onDelete }: MessageT
 
             <SuggestionsRow suggestions={turn.suggestions} onSelect={onSuggestion} />
             <SourcesRow />
+
+            {/* Footer meta + action bar — DONE turns only (never while thinking/streaming/error). */}
+            {done && (
+              <MessageActions
+                createdAt={turn.createdAt}
+                durationMs={turn.durationMs}
+                text={turn.text}
+                onCopy={onCopy}
+                onRegenerate={onRegenerate}
+                onDelete={onDelete}
+              />
+            )}
           </>
         )}
       </div>

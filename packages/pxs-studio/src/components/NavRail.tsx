@@ -34,7 +34,7 @@ function PixcelMark({ size = 22 }: { size?: number }) {
   );
 }
 
-type IconName = 'chat' | 'scribble' | 'image' | 'video' | 'export' | 'assets' | 'assistant' | 'user' | 'login';
+type IconName = 'chat' | 'scribble' | 'image' | 'video' | 'export' | 'assets' | 'assistant' | 'user' | 'login' | 'settings';
 
 const PATHS: Record<IconName, string[]> = {
   chat: ['M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z'],
@@ -48,6 +48,8 @@ const PATHS: Record<IconName, string[]> = {
   user: ['M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2', 'M12 7a4 4 0 1 0 0 8 4 4 0 0 0 0-8z'],
   // Lucide `log-in` — the signed-out "Sign in" affordance.
   login: ['M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4', 'M10 17l5-5-5-5', 'M15 12H3'],
+  // Lucide `settings` (gear) — opens the settings slide-over.
+  settings: ['M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z', 'M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z'],
 };
 
 function Ic({ name, size = 20 }: { name: IconName; size?: number }) {
@@ -168,9 +170,11 @@ interface NavRailProps {
   activeUtility?: string;
   /** Optional count badges per utility id (e.g. { assets: 12 } → the unified Assets catalog size). */
   utilityBadges?: Partial<Record<string, number>>;
+  /** Open the settings slide-over (the gear affordance above the avatar). */
+  onOpenSettings?: () => void;
 }
 
-export default function NavRail({ activeSection = 'art', onHome, onSection, onUtility, activeUtility, utilityBadges }: NavRailProps) {
+export default function NavRail({ activeSection = 'art', onHome, onSection, onUtility, activeUtility, utilityBadges, onOpenSettings }: NavRailProps) {
   const handleSection = (id: string) => {
     if (id === 'chat') return onHome?.();
     (onSection ?? (() => onHome?.()))(id);
@@ -223,8 +227,19 @@ export default function NavRail({ activeSection = 'art', onHome, onSection, onUt
 
       {/* FUTURE: Alerts/notification icon goes HERE (above the avatar), with a
           push-style unread badge dot rendered on the avatar below. Not built yet —
-          for now just the avatar. */}
-      <div className="mt-3 flex flex-col items-center">
+          for now the settings gear + the avatar. */}
+      <div className="mt-3 flex flex-col items-center gap-1.5">
+        {onOpenSettings && (
+          <button
+            onClick={onOpenSettings}
+            title="Settings"
+            aria-label="Settings"
+            className="pxl-navbtn flex flex-col items-center gap-1 w-14 py-2"
+          >
+            <Ic name="settings" size={18} />
+            <span className="text-[10px] font-medium">Settings</span>
+          </button>
+        )}
         <UserAvatar />
       </div>
     </nav>

@@ -23,8 +23,10 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import NavRail from './NavRail';
 import DigitalWall from './DigitalWall';
+import SettingsPanel from './SettingsPanel';
 import { RES } from '../lib/resolutions';
 import { useChatTurnsStore } from '../store/chat-turns-store';
+import { useSettings } from '../store/settings-store';
 import { Composer } from './ui';
 import { MessageTurn } from './chat/MessageTurn';
 
@@ -54,8 +56,20 @@ export default function ChatView({ initialPrompt, onEnterStudio, onHome }: Props
   const reset = useChatTurnsStore((s) => s.reset);
 
   const [draft, setDraft] = useState('');
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const sentInitial = useRef(false);
+
+  // Settings the chat honors directly (the two WIRED fields):
+  //  • theme       → applied to <html data-theme> below (tokens.css swaps dark/light)
+  //  • showActions → gates the MessageActions footer per turn
+  const theme = useSettings((st) => st.theme);
+  const showActions = useSettings((st) => st.showActions);
+
+  // Apply the persisted theme to <html> on mount + whenever it changes.
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', theme);
+  }, [theme]);
 
   // On mount, run exactly once (sent-once ref):
   //  • a splash prompt present → send it (a NEW conversation).
@@ -118,7 +132,10 @@ export default function ChatView({ initialPrompt, onEnterStudio, onHome }: Props
         onHome={onHome ?? (() => {})}
         onSection={() => onEnterStudio()}
         onUtility={() => onEnterStudio()}
+        onOpenSettings={() => setSettingsOpen(true)}
       />
+
+      <SettingsPanel open={settingsOpen} onClose={() => setSettingsOpen(false)} />
 
       <div className="relative flex-1 flex flex-col min-w-0">
         {/* z-0 — the Pixcel digital wall, full-bleed BEHIND the chat, but DORMANT here: the logo is
@@ -146,6 +163,7 @@ export default function ChatView({ initialPrompt, onEnterStudio, onHome }: Props
                     <MessageTurn
                       key={t.id}
                       turn={t}
+                      showActions={showActions}
                       onOption={handleOption}
                       onSuggestion={submit}
                       // Copy the assistant text to the clipboard (silent on failure).

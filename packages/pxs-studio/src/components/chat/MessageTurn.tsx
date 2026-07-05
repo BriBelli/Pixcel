@@ -25,6 +25,8 @@ import { SourcesRow } from './SourcesRow';
 
 export interface MessageTurnProps {
   turn: ChatTurn;
+  /** Show the assistant action-bar footer (copy · regenerate · feedback). Default true. */
+  showActions?: boolean;
   onOption: (id: string, label: string) => void;
   onSuggestion: (text: string) => void;
   /** Copy this turn's assistant text to the clipboard (every done turn). */
@@ -112,6 +114,7 @@ const CSS = `
 
 export function MessageTurn({
   turn,
+  showActions = true,
   onOption,
   onSuggestion,
   onCopy,
@@ -175,8 +178,9 @@ export function MessageTurn({
             <SuggestionsRow suggestions={turn.suggestions} onSelect={onSuggestion} />
             <SourcesRow />
 
-            {/* Footer meta + action bar — DONE turns only (never while thinking/streaming/error). */}
-            {done && (
+            {/* Footer meta + action bar — DONE turns only (never while thinking/streaming/error),
+                and only when the Action bar setting is on (Settings → Chat display). */}
+            {done && showActions && (
               <MessageActions
                 createdAt={turn.createdAt}
                 durationMs={turn.durationMs}

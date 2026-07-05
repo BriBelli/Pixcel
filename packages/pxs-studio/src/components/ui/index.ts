@@ -34,3 +34,12 @@ export type { TooltipProps, TooltipSide } from './Tooltip';
 
 export { Composer } from './Composer';
 export type { ComposerProps } from './Composer';
+
+export { Toggle } from './Toggle';
+export type { ToggleProps } from './Toggle';
+
+export { Select } from './Select';
+export type { SelectProps, SelectOption } from './Select';
+
+export { NumberField } from './NumberField';
+export type { NumberFieldProps } from './NumberField';

@@ -38,6 +38,9 @@ export const maxDuration = 120;
  *
  * The event contract (emitted in THIS order, one NDJSON object per line):
  *   { type:'status', phase, message }     — initial loading/thinking status (emitted immediately)
+ *   { type:'step', id, label?, status }   — honest phase steps for the thinking reel:
+ *                                            'reading' start→done (bracket the streamed text),
+ *                                            'choosing' start→done (bracket the classify pass)
  *   { type:'text', delta }                — model text deltas, streamed as they arrive
  *   { type:'a2ui', block }                — the medium options block (SKIPPED for general chat)
  *   { type:'suggestions', items }         — short list of contextual follow-up suggestion strings
@@ -176,10 +179,14 @@ export async function POST(req: Request) {
 
       // Accumulate the assistant text + the a2ui snapshot so we can persist after `done`.
       let assistantText = '';
+      // Guard so the first text delta marks the 'reading' step done exactly once.
+      let firstToken = false;
 
       try {
         // 1) Loading/thinking status — emitted immediately so the UI can show a spinner.
         send({ type: 'status', phase: 'thinking', message: 'Thinking…' });
+        // Honest phase 1: reading/generating — starts now, completes on the first text delta.
+        send({ type: 'step', id: 'reading', label: 'Reading your request…', status: 'start' });
 
         // 2) Stream the quick high-level support response. Streaming + adaptive thinking is the
         //    claude-opus-4-8 pattern (see lib/artisan-loop.ts): iterate content_block_delta →
@@ -206,12 +213,20 @@ export async function POST(req: Request) {
             event.delta.type === 'text_delta' &&
             event.delta.text
           ) {
+            if (!firstToken) {
+              firstToken = true;
+              // The model has started producing text — the reading phase is done.
+              send({ type: 'step', id: 'reading', status: 'done' });
+            }
             assistantText += event.delta.text;
             send({ type: 'text', delta: event.delta.text });
           }
         }
         // Surface any terminal stream error rather than silently finishing.
         const finalMessage = await llmStream.finalMessage();
+
+        // Honest phase 2: choosing next steps — the classify pass over the exchange.
+        send({ type: 'step', id: 'choosing', label: 'Choosing your next steps…', status: 'start' });
 
         // 3) CLASSIFY PASS — one extra non-streaming claude-opus-4-8 call over the exchange.
         //    Derives the a2ui + suggestions contextually. On ANY failure we fall back to the
@@ -254,6 +269,9 @@ export async function POST(req: Request) {
 
           const result = parseClassifyResult(classifyText);
 
+          // Classify resolved — the choosing phase is done (before revealing a2ui/suggestions).
+          send({ type: 'step', id: 'choosing', status: 'done' });
+
           // Options: emit ONLY for a create intent; general chat must not force the picker.
           if (result.showOptions) {
             emittedA2UI = buildA2UI(result.optionsTitle);
@@ -265,6 +283,8 @@ export async function POST(req: Request) {
         } catch (classifyErr) {
           // Robust fallback — restore the Slice-1 behavior so the turn always completes.
           console.warn('[chat-turn] classify failed, falling back to stubs:', classifyErr);
+          // Still close the choosing phase so the reel never hangs on the fallback path.
+          send({ type: 'step', id: 'choosing', status: 'done' });
           emittedA2UI = STUB_A2UI;
           send({ type: 'a2ui', block: STUB_A2UI });
           suggestionsToSend = STUB_SUGGESTIONS;

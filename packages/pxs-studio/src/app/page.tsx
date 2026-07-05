@@ -42,19 +42,23 @@ function LoadingScreen() {
 
 type Stage = 'splash' | 'chat' | 'studio';
 
-// ── Front-door cross-fade lifecycle ─────────────────────────────────────────────
-// The splash → chat move is a choreographed CROSS-FADE, not a hard swap: both layers
-// stay mounted briefly — the outgoing view eases opacity 1→0 (and recedes a touch),
-// the incoming view eases opacity 0→1 — over CROSSFADE_MS on the design entrance
-// easing, then the outgoing layer unmounts. The prompt fades and the splash's logo-wall
-// recedes as the chat's dormant wall fades in — no "collision of UIs."
+// ── Front-door STAGGERED hand-off lifecycle ─────────────────────────────────────
+// The splash → chat move is a paced sequence, NOT a hard swap and NOT a simultaneous
+// cross-dissolve: the outgoing view (its wall too) eases opacity 1→0 + recedes over OUT_MS,
+// THEN — after a beat — the incoming view eases in over IN_MS, revealing the chat + its
+// thinking loader (that reveal is the beat). The chat mounts + starts processing during the
+// out-fade, so it reveals already working — an intelligent-interface feel, not a fake snap.
 //
 // NOTE (next evolution): the DigitalWall is still a SEPARATE instance per view (splash's
 // logo-wall vs chat's dormant wall), so the cross-fade dissolves one into the other. The
 // deliberate LATER increment is to hoist the wall into ONE persistent instance that merely
 // re-tunes (logoScale/intensity) across the hand-off — not built yet.
-const CROSSFADE_MS = 440;
-const CROSSFADE_EASE = 'var(--a2ui-ease-entrance)'; // cubic-bezier(0.22, 1, 0.36, 1)
+// Paced splash↔chat hand-off — a STAGGERED sequence, not a cross-dissolve: the outgoing view
+// (with its wall) eases OUT first, THEN — after a beat — the incoming view eases IN, revealing
+// the chat + its thinking loader (that reveal IS the "processing" beat; nothing fake/timed).
+const OUT_MS = 320; // outgoing fades + recedes out
+const IN_MS = 380; // incoming eases in (starts after OUT_MS)
+const EASE = 'var(--a2ui-ease-entrance)'; // cubic-bezier(0.22, 1, 0.36, 1)
 
 function prefersReducedMotion(): boolean {
   return typeof window !== 'undefined'
@@ -68,12 +72,14 @@ export default function Home() {
   const [stage, setStage] = useState<Stage>('splash');
   const [initialPrompt, setInitialPrompt] = useState<string | undefined>();
 
-  // Cross-fade state: `outgoing` is the view still fading out on top of `stage` (the
-  // incoming view). `entered` flips false→true on the next frame so the incoming layer's
-  // CSS transition actually plays (mounts at opacity 0, then eases to 1).
+  // Staggered hand-off state: `outgoing` = the view fading OUT (top layer); `phase`:
+  //   'out'  → outgoing fades/recedes, incoming held hidden
+  //   'in'   → outgoing gone, incoming eases in (chat + loader reveal)
+  //   null   → steady (no transition)
   const [outgoing, setOutgoing] = useState<Stage | null>(null);
-  const [entered, setEntered] = useState(true);
-  const unmountTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [phase, setPhase] = useState<'out' | 'in' | null>(null);
+  const outTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const doneTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const rafId = useRef<number | null>(null);
 
   useEffect(() => {
@@ -89,12 +95,13 @@ export default function Home() {
 
   // Clear any pending timers on unmount.
   useEffect(() => () => {
-    if (unmountTimer.current) clearTimeout(unmountTimer.current);
+    if (outTimer.current) clearTimeout(outTimer.current);
+    if (doneTimer.current) clearTimeout(doneTimer.current);
     if (rafId.current !== null) cancelAnimationFrame(rafId.current);
   }, []);
 
-  // Drive a choreographed hand-off to `next`. Both layers stay mounted for CROSSFADE_MS,
-  // then the outgoing layer unmounts. Reduced motion → instant, still correct.
+  // Drive the staggered hand-off to `next`: OUT (outgoing fades) → beat → IN (incoming eases in).
+  // Reduced motion → instant, still correct.
   const transitionTo = useCallback((next: Stage, prompt?: string, keepPrompt = true) => {
     setStage((current) => {
       if (next === current) return current;
@@ -102,27 +109,28 @@ export default function Home() {
       else if (!keepPrompt) setInitialPrompt(undefined);
 
       if (prefersReducedMotion()) {
-        // No motion: swap instantly, no overlap layer.
+        // No motion: swap instantly, no layers.
         setOutgoing(null);
-        setEntered(true);
+        setPhase(null);
         return next;
       }
 
-      // Overlap: the current view keeps rendering as the `outgoing` layer (fading out) while
-      // `next` mounts underneath at opacity 0, then eases in on the next frame.
-      if (unmountTimer.current) clearTimeout(unmountTimer.current);
+      if (outTimer.current) clearTimeout(outTimer.current);
+      if (doneTimer.current) clearTimeout(doneTimer.current);
       if (rafId.current !== null) cancelAnimationFrame(rafId.current);
 
+      // 1) OUT — the current view (its wall too) fades + recedes out; the incoming view is
+      //    mounted underneath but held hidden.
       setOutgoing(current);
-      setEntered(false);
-      // Flip to entered on the next frame so the incoming transition plays from 0→1.
-      rafId.current = requestAnimationFrame(() => {
-        rafId.current = requestAnimationFrame(() => setEntered(true));
-      });
-      unmountTimer.current = setTimeout(() => {
+      setPhase('out');
+      // 2) after OUT_MS — drop the outgoing layer, then (next frame) flip to 'in' so the incoming
+      //    view eases in from hidden, revealing the chat + its loader. The beat is that reveal.
+      outTimer.current = setTimeout(() => {
         setOutgoing(null);
-        unmountTimer.current = null;
-      }, CROSSFADE_MS);
+        rafId.current = requestAnimationFrame(() => setPhase('in'));
+      }, OUT_MS);
+      // 3) after the full sequence — back to a plain steady layout.
+      doneTimer.current = setTimeout(() => setPhase(null), OUT_MS + IN_MS);
       return next;
     });
   }, []);
@@ -152,29 +160,26 @@ export default function Home() {
     }
   };
 
-  const transitioning = outgoing !== null;
+  const transitioning = phase !== null;
 
-  // The layer wrapper: during a transition each layer is absolutely stacked and opacity/
-  // transform are driven by CSS transitions on the design entrance easing. `incoming`
-  // starts hidden (opacity 0, translateY 6px) and eases to rest once `entered` flips.
+  // Staggered layer styling. OUTGOING: fades opacity 1→0 + lifts, over OUT_MS, on top. INCOMING:
+  // held hidden (opacity 0, sunk 12px) during 'out', then eases to rest over IN_MS once phase='in'.
   const layerStyle = (kind: 'incoming' | 'outgoing'): CSSProperties => {
-    if (!transitioning) return {}; // steady state — no wrapper styling, view fills naturally.
-    const active = kind === 'outgoing' || entered; // outgoing is "at rest" until it starts fading
-    const isOutgoing = kind === 'outgoing';
+    if (!transitioning) return {}; // steady state — plain, view fills naturally.
+    if (kind === 'outgoing') {
+      return {
+        position: 'absolute', inset: 0, zIndex: 2, pointerEvents: 'none',
+        transition: `opacity ${OUT_MS}ms ${EASE}, transform ${OUT_MS}ms ${EASE}`,
+        opacity: 0, // was 1 (steady, keyed element) → transitions out
+        transform: 'translateY(-6px) scale(0.995)',
+      };
+    }
+    const shown = phase === 'in';
     return {
-      position: 'absolute',
-      inset: 0,
-      transition: `opacity ${CROSSFADE_MS}ms ${CROSSFADE_EASE}, transform ${CROSSFADE_MS}ms ${CROSSFADE_EASE}`,
-      opacity: isOutgoing ? 0 : active ? 1 : 0,
-      // Gentle, no-bounce recede/settle: outgoing lifts up 8px, incoming rises from 6px.
-      transform: isOutgoing
-        ? 'translateY(-8px)'
-        : active
-          ? 'translateY(0)'
-          : 'translateY(6px)',
-      // Outgoing is on top and non-interactive while it dissolves.
-      zIndex: isOutgoing ? 2 : 1,
-      pointerEvents: isOutgoing ? 'none' : 'auto',
+      position: 'absolute', inset: 0, zIndex: 1, pointerEvents: shown ? 'auto' : 'none',
+      transition: `opacity ${IN_MS}ms ${EASE}, transform ${IN_MS}ms ${EASE}`,
+      opacity: shown ? 1 : 0,
+      transform: shown ? 'translateY(0)' : 'translateY(12px)',
     };
   };
 

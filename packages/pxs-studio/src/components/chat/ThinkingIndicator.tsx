@@ -27,6 +27,8 @@
 export type ThinkingStepState = 'pending' | 'active' | 'done';
 
 export interface ThinkingStep {
+  /** Backend step id (e.g. 'reading', 'choosing') — used to match start/done events. */
+  id?: string;
   label: string;
   state: ThinkingStepState;
 }
@@ -99,6 +101,11 @@ const CSS = `
 .pxc-think__step-label {
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
+/* Done steps carry a small check glyph before the label (dimmed, matches the row). */
+.pxc-think__step-check {
+  flex-shrink: 0; width: 12px; height: 12px;
+  color: var(--a2ui-text-tertiary);
+}
 
 @media (prefers-reduced-motion: reduce) {
   .pxc-think__label {
@@ -133,7 +140,23 @@ function ReelSteps({ steps }: { steps: ThinkingStep[] }) {
                 ? 'pxc-think__step pxc-think__step--done'
                 : 'pxc-think__step';
           return (
-            <div key={i} className={cls}>
+            <div key={step.id ?? i} className={cls}>
+              {step.state === 'done' && (
+                <svg
+                  className="pxc-think__step-check"
+                  viewBox="0 0 12 12"
+                  fill="none"
+                  aria-hidden="true"
+                >
+                  <path
+                    d="M2.5 6.5 L5 9 L9.5 3.5"
+                    stroke="currentColor"
+                    strokeWidth="1.5"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                </svg>
+              )}
               <span className="pxc-think__step-label">{step.label}</span>
             </div>
           );

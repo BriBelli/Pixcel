@@ -3,6 +3,7 @@
 import { create } from 'zustand';
 import { DEV_USER_ID } from '../lib/db/models';
 import type { Interaction } from '../lib/db/models';
+import type { ThinkingStep } from '../components/chat/ThinkingIndicator';
 
 /** localStorage key holding the active thread id so a reload can restore the conversation. */
 const THREAD_STORAGE_KEY = 'pxs-chat-thread';
@@ -34,6 +35,8 @@ export interface ChatTurn {
   status: ChatTurnStatus;
   statusMessage: string;
   text: string;
+  /** Honest backend phase steps for the thinking reel — fed by `step` SSE events (keyed by id). */
+  steps: ThinkingStep[];
   a2ui: A2UIOptionsBlock | null;
   suggestions: string[];
   error?: string;
@@ -107,6 +110,30 @@ export const useChatTurnsStore = create<ChatTurnsState>((set, get) => {
           }
           if (evt.type === 'status') {
             patch(id, { statusMessage: evt.message || '' });
+          } else if (evt.type === 'step') {
+            // Honest phase steps feed the thinking reel. `start` pushes/activates a step keyed by
+            // id (deduped); `done` flips that step to done. Unknown ids on `done` are ignored.
+            const stepId: string | undefined =
+              typeof evt.id === 'string' ? evt.id : undefined;
+            set((s) => ({
+              turns: s.turns.map((t) => {
+                if (t.id !== id) return t;
+                const steps = t.steps.slice();
+                const idx = stepId != null ? steps.findIndex((st) => st.id === stepId) : -1;
+                if (evt.status === 'start') {
+                  const next: ThinkingStep = {
+                    id: stepId,
+                    label: typeof evt.label === 'string' ? evt.label : '',
+                    state: 'active',
+                  };
+                  if (idx >= 0) steps[idx] = { ...steps[idx], ...next };
+                  else steps.push(next);
+                } else if (evt.status === 'done' && idx >= 0) {
+                  steps[idx] = { ...steps[idx], state: 'done' };
+                }
+                return { ...t, steps };
+              }),
+            }));
           } else if (evt.type === 'text') {
             // First text delta flips the turn from 'thinking' to 'streaming'.
             set((s) => ({
@@ -184,6 +211,7 @@ export const useChatTurnsStore = create<ChatTurnsState>((set, get) => {
             status: 'thinking',
             statusMessage: 'Thinking…',
             text: '',
+            steps: [],
             a2ui: null,
             suggestions: [],
             createdAt: Date.now(),
@@ -220,6 +248,7 @@ export const useChatTurnsStore = create<ChatTurnsState>((set, get) => {
             status: 'done',
             statusMessage: '',
             text: it.response?.text ?? '',
+            steps: [],
             a2ui: a2ui && a2ui.kind === 'options' ? a2ui : null,
             suggestions: [],
             createdAt: it.created_at,

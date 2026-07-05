@@ -101,6 +101,10 @@ const CSS = `
 .pxc-a2ui-reveal {
   animation: pxc-a2ui-in 420ms var(--a2ui-ease-entrance) 140ms both;
 }
+/* The post-text "choosing" indicator eases in under the text (same curve, no delay). */
+.pxc-choosing-reveal {
+  animation: pxc-a2ui-in 300ms var(--a2ui-ease-entrance) both;
+}
 .pxc-a2ui-title {
   font-size: var(--a2ui-text-sm); font-weight: var(--a2ui-font-semibold);
   color: var(--a2ui-text-secondary); margin-bottom: var(--a2ui-space-3);
@@ -109,7 +113,7 @@ const CSS = `
   font-size: var(--a2ui-text-md); color: var(--a2ui-error);
 }
 @media (prefers-reduced-motion: reduce) {
-  .pxc-turn, .pxc-assistant-text, .pxc-a2ui-reveal { animation: none; }
+  .pxc-turn, .pxc-assistant-text, .pxc-a2ui-reveal, .pxc-choosing-reveal { animation: none; }
 }
 `;
 
@@ -125,6 +129,18 @@ export function MessageTurn({
   const thinking = turn.status === 'thinking' && !turn.text;
   const streaming = turn.status === 'streaming';
   const done = turn.status === 'done';
+
+  // POST-text "choosing" phase — the visible 2nd honest phase. Show a compact inline reel under
+  // the streamed text WHILE the classify step is active and no options/suggestions have landed yet
+  // (and the turn isn't done). It's replaced by the a2ui/suggestions reveal the moment they arrive.
+  const choosingStep = turn.steps.find((s) => s.id === 'choosing');
+  const optionsArrived =
+    (turn.a2ui && turn.a2ui.kind === 'options') || turn.suggestions.length > 0;
+  const showChoosing =
+    !done &&
+    !!turn.text &&
+    choosingStep?.state === 'active' &&
+    !optionsArrived;
 
   return (
     <div
@@ -146,13 +162,21 @@ export function MessageTurn({
         {turn.status === 'error' ? (
           <div className="pxc-turn-error">{turn.error || 'Something went wrong.'}</div>
         ) : thinking ? (
-          <ThinkingIndicator message={turn.statusMessage} />
+          <ThinkingIndicator message={turn.statusMessage} steps={turn.steps} />
         ) : (
           <>
             {turn.text && (
               <div className="pxc-assistant-text">
                 <Markdown>{turn.text}</Markdown>
                 {streaming && <StreamingCursor />}
+              </div>
+            )}
+
+            {/* POST-text "choosing" phase — a compact inline reel shown briefly after the text
+                while the classify pass runs, then replaced by the options/suggestions reveal. */}
+            {showChoosing && choosingStep && (
+              <div className="pxc-choosing-reveal" style={{ marginTop: 'var(--a2ui-space-3)' }}>
+                <ThinkingIndicator steps={[choosingStep]} />
               </div>
             )}
 

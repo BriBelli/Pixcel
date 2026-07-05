@@ -6,7 +6,7 @@
  *   • the user message (right-aligned bubble)
  *   • the assistant block:
  *       - AssistantHeader (model badge — the agent speaks AS "Opus 4.8")
- *       - PlanRows while thinking (pre-text only; collapses once text streams)
+ *       - ThinkingIndicator while thinking (pre-text only; collapses once text streams)
  *       - the streamed `text` + a blinking block StreamingCursor while streaming
  *       - the stub A2UI options block → Button primitives inside a Card
  *       - SuggestionsRow (Chip primitives) + SourcesRow (empty scaffold)
@@ -18,7 +18,7 @@
 import type { ChatTurn } from '../../store/chat-turns-store';
 import { Button, Card } from '../ui';
 import { MessageActions } from './MessageActions';
-import { PlanRows, type PlanStep } from './PlanRows';
+import { ThinkingIndicator } from './ThinkingIndicator';
 import { StreamingCursor } from './StreamingCursor';
 import { SuggestionsRow } from './SuggestionsRow';
 import { SourcesRow } from './SourcesRow';
@@ -33,13 +33,6 @@ export interface MessageTurnProps {
   onRegenerate?: () => void;
   /** Soft-delete this turn (LAST done, persisted turn only). */
   onDelete?: () => void;
-}
-
-/** Map the single `status` phase into one plan row (extends to many later). */
-function planForTurn(turn: ChatTurn): PlanStep[] {
-  const label = turn.statusMessage || 'Thinking';
-  const state = turn.status === 'thinking' ? 'active' : 'done';
-  return [{ label, state }];
 }
 
 /* ─────────────────────────────────────────────────────────────────────────────
@@ -149,7 +142,7 @@ export function MessageTurn({
         {turn.status === 'error' ? (
           <div className="pxc-turn-error">{turn.error || 'Something went wrong.'}</div>
         ) : thinking ? (
-          <PlanRows steps={planForTurn(turn)} />
+          <ThinkingIndicator message={turn.statusMessage} />
         ) : (
           <>
             {turn.text && (

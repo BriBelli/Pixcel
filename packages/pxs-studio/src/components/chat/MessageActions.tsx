@@ -3,24 +3,24 @@
 /* ─────────────────────────────────────────────────────────────────────────────
  * MessageActions — the footer meta + action row under a DONE assistant turn.
  *
- * Layout (single flex row, margin-top --a2ui-space-2):
- *   LEFT   duration ("38.1s") + timestamp ("06:03 PM") — muted, --a2ui-text-xs.
+ * Photolif-exact meta row (all in the FOOTER, left→right):
+ *   LEFT   [provider icon] model name · duration ("38.1s") · timestamp ("06:03 PM")
  *   RIGHT  (margin-left:auto) the action buttons, hover-revealed by the parent
- *          .pxc-turn (see MessageTurn.tsx): thumbs-up, thumbs-down | divider |
- *          regenerate, copy, delete.
+ *          .pxc-turn: thumbs-up, thumbs-down | divider | regenerate, copy, delete.
  *
- * The model badge is NOT here — it stays at the TOP in <AssistantHeader>. This is
- * the FOOTER (our adaptation of the photolif meta row).
- *
- * Presentational: feedback is LOCAL state (toggle vote), copy flashes a 1.5s
- * "copied" check, regenerate/delete are supplied by the parent only when valid.
+ * The MODEL BADGE lives HERE now (footer left) with the real PROVIDER icon
+ * (Anthropic for Opus) — NOT a separate top header. Presentational: feedback is
+ * LOCAL state, copy flashes a 1.5s check, regenerate/delete supplied only when valid.
  * Tokens-only, sentence case, no scale-pop.
  * ───────────────────────────────────────────────────────────────────────────── */
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { IconButton } from '../ui';
+import { modelDisplayName, DEFAULT_MODEL_ID } from './AssistantHeader';
 
 export interface MessageActionsProps {
+  /** The model the turn was produced by — drives the badge name + provider icon. */
+  modelId?: string;
   createdAt: number;
   durationMs?: number;
   text: string;
@@ -30,6 +30,16 @@ export interface MessageActionsProps {
 }
 
 type Vote = 'up' | 'down' | null;
+
+/** Map a model id → its provider brand icon (public/brand/provider-icons/*). */
+function providerIconSrc(modelId: string): string {
+  const id = modelId.toLowerCase();
+  if (/(gpt|openai|\bo[13]\b)/.test(id)) return '/brand/provider-icons/gpt.ico';
+  if (/gemini/.test(id)) return '/brand/provider-icons/gemini.ico';
+  if (/(grok|xai)/.test(id)) return '/brand/provider-icons/xai.ico';
+  // claude / opus / sonnet / haiku / anthropic → Anthropic (also the default).
+  return '/brand/provider-icons/anthropic.ico';
+}
 
 /** Format the response duration as "38.1s" (one decimal). */
 function formatDuration(ms: number): string {
@@ -42,6 +52,7 @@ function formatTime(createdAt: number): string {
 }
 
 export function MessageActions({
+  modelId = DEFAULT_MODEL_ID,
   createdAt,
   durationMs,
   text,
@@ -76,7 +87,7 @@ export function MessageActions({
       className="flex items-center"
       style={{ marginTop: 'var(--a2ui-space-2)', gap: 'var(--a2ui-space-2)' }}
     >
-      {/* LEFT — muted meta (duration + timestamp) */}
+      {/* LEFT — model badge (provider icon + name) + duration + timestamp */}
       <div
         className="flex items-center"
         style={{
@@ -85,6 +96,27 @@ export function MessageActions({
           color: 'var(--a2ui-text-tertiary)',
         }}
       >
+        <span
+          style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: 4,
+            padding: '2px 6px',
+            background: 'var(--a2ui-bg-tertiary)',
+            borderRadius: 'var(--a2ui-radius-sm)',
+            color: 'var(--a2ui-text-secondary)',
+          }}
+        >
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={providerIconSrc(modelId)}
+            alt=""
+            width={14}
+            height={14}
+            style={{ borderRadius: 2, flexShrink: 0, display: 'block' }}
+          />
+          {modelDisplayName(modelId)}
+        </span>
         {durationMs != null && <span>{formatDuration(durationMs)}</span>}
         <span>{formatTime(createdAt)}</span>
       </div>

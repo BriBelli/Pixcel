@@ -17,7 +17,6 @@
 
 import type { ChatTurn } from '../../store/chat-turns-store';
 import { Button, Card } from '../ui';
-import { AssistantHeader } from './AssistantHeader';
 import { MessageActions } from './MessageActions';
 import { PlanRows, type PlanStep } from './PlanRows';
 import { StreamingCursor } from './StreamingCursor';
@@ -144,10 +143,9 @@ export function MessageTurn({
         </div>
       )}
 
-      {/* Assistant block */}
+      {/* Assistant block — no top header; the model badge lives in the footer meta
+          (MessageActions), photolif-style. */}
       <div style={{ maxWidth: '100%' }}>
-        <AssistantHeader />
-
         {turn.status === 'error' ? (
           <div className="pxc-turn-error">{turn.error || 'Something went wrong.'}</div>
         ) : thinking ? (

@@ -20,6 +20,7 @@ import { Button, Card } from '../ui';
 import { MessageActions } from './MessageActions';
 import { ThinkingIndicator } from './ThinkingIndicator';
 import { StreamingCursor } from './StreamingCursor';
+import { Markdown } from './Markdown';
 import { SuggestionsRow } from './SuggestionsRow';
 import { SourcesRow } from './SourcesRow';
 
@@ -150,7 +151,7 @@ export function MessageTurn({
           <>
             {turn.text && (
               <div className="pxc-assistant-text">
-                {turn.text}
+                <Markdown>{turn.text}</Markdown>
                 {streaming && <StreamingCursor />}
               </div>
             )}

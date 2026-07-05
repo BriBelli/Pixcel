@@ -109,18 +109,14 @@ export default function ChatView({ initialPrompt, onEnterStudio, onHome }: Props
     [send]
   );
 
-  // PR-4a: option choices that pick a medium enter the full Studio; "more guidance" /
-  // unknown simply continues the chat. Suggestions feed a follow-up turn.
+  // A medium choice CONTINUES the conversation (the agent acknowledges + proceeds) — it must
+  // NOT dump the user into the Pixel-Art Studio workflow. Real medium routing (Pixcel Studio vs
+  // an image model) lands with the pipeline; until then every option feeds a follow-up turn.
   const handleOption = useCallback(
-    (id: string, label: string) => {
-      if (id === 'pixcel' || id === 'image' || id === 'both') {
-        const lastPrompt = [...turns].reverse().find((t) => t.userPrompt)?.userPrompt;
-        onEnterStudio(lastPrompt);
-      } else {
-        submit(label);
-      }
+    (_id: string, label: string) => {
+      submit(label);
     },
-    [turns, onEnterStudio, submit]
+    [submit]
   );
 
   return (
@@ -143,7 +139,17 @@ export default function ChatView({ initialPrompt, onEnterStudio, onHome }: Props
             is very low, so it's ambient texture that never competes with the conversation. This is
             the settled END-STATE; the animated hand-off that eases the wall into it is lifecycle work. */}
         <div className="pointer-events-none absolute inset-0 z-0">
-          <DigitalWall className="absolute inset-0 h-full w-full" pixels={RES.retro} showLogo={false} intensity={0.04} />
+          {/* Chat backdrop: almost invisible + STATIC (paused = no motion; a moving background is a
+              distraction during work). No logo, near-zero intensity, no lattice — barely-there texture.
+              The paced hand-off quiets the loud splash wall down to this before the chat begins. */}
+          <DigitalWall
+            className="absolute inset-0 h-full w-full"
+            pixels={RES.retro}
+            showLogo={false}
+            intensity={0.02}
+            paused
+            gridLines={false}
+          />
         </div>
 
         {/* z-10 — the chat, floating above the wall, column-capped. */}

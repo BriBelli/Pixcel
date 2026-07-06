@@ -14,9 +14,15 @@ const MEDIUM_OPTIONS = [
   { id: 'guidance', label: 'More guidance' },
 ] as const;
 
-/** Build the options A2UI block with a (contextual) title, reusing the stable option set. */
+/** Build the options A2UI block with a (contextual) title, reusing the stable option set.
+ *  The medium picker is single-choice (one path), so it renders as a stacked RADIO group. */
 export function buildA2UI(title: string) {
-  return { kind: 'options', title, options: MEDIUM_OPTIONS.map((o) => ({ ...o })) };
+  return {
+    kind: 'options',
+    title,
+    select: 'single' as const,
+    options: MEDIUM_OPTIONS.map((o) => ({ ...o })),
+  };
 }
 
 /** Fallback A2UI block — fixed options for "how do you want to make it?" (used when classify fails). */

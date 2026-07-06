@@ -1,18 +1,14 @@
 'use client';
 
 /* ─────────────────────────────────────────────────────────────────────────────
- * AssistantHeader — the assistant identity row for a chat turn.
+ * Model-identity helpers — shared by the turn footer (MessageActions).
  *
- * The Pixcel Agent speaks AS its model badge — never as "I" / "Assistant". This
- * row is the badge: the locked Pixcel-X mark + the derived model display name
- * ("Opus 4.8"). Subtle / secondary by design (the message body owns the emphasis).
- *
- * `modelDisplayName(id)` derives the badge from the model id (`claude-opus-4-8`)
- * so the label is never hardcoded in JSX — swap the id, the badge follows.
- * Tokens-only, no raw hex.
+ * The Pixcel Agent's identity is the LEFT avatar (the Pixcel-X mark) + the footer
+ * model badge, exactly like photolif's `a2ui-chat-message` — there is no separate
+ * top "AsstHead" line. These helpers derive the badge name + provider icon from
+ * the model id so nothing is hardcoded in JSX. The model is LOCKED to the best
+ * (not user-selectable) — the badge shows who is speaking, it is not a picker.
  * ───────────────────────────────────────────────────────────────────────────── */
-
-import { PixcelMark } from '../ui';
 
 /** The default model the agent speaks as (locked to the best — not user-selectable). */
 export const DEFAULT_MODEL_ID = 'claude-opus-4-8';
@@ -40,29 +36,12 @@ export function modelDisplayName(id: string = DEFAULT_MODEL_ID): string {
     .trim();
 }
 
-export interface AssistantHeaderProps {
-  /** The model id the agent is speaking as. Defaults to the locked best model. */
-  modelId?: string;
+/** Map a model id → its provider brand icon (public/brand/provider-icons/*). */
+export function providerIconSrc(modelId: string = DEFAULT_MODEL_ID): string {
+  const id = modelId.toLowerCase();
+  if (/(gpt|openai|\bo[13]\b)/.test(id)) return '/brand/provider-icons/gpt.ico';
+  if (/gemini/.test(id)) return '/brand/provider-icons/gemini.ico';
+  if (/(grok|xai)/.test(id)) return '/brand/provider-icons/xai.ico';
+  // claude / opus / sonnet / haiku / anthropic → Anthropic (also the default).
+  return '/brand/provider-icons/anthropic.ico';
 }
-
-export function AssistantHeader({ modelId = DEFAULT_MODEL_ID }: AssistantHeaderProps) {
-  return (
-    <div
-      className="flex items-center gap-2"
-      style={{ marginBottom: 'var(--a2ui-space-2)', color: 'var(--a2ui-text-secondary)' }}
-    >
-      <PixcelMark size={16} style={{ color: 'var(--a2ui-accent)' }} />
-      <span
-        style={{
-          fontSize: 'var(--a2ui-text-sm)',
-          fontWeight: 'var(--a2ui-font-medium)',
-          color: 'var(--a2ui-text-secondary)',
-        }}
-      >
-        {modelDisplayName(modelId)}
-      </span>
-    </div>
-  );
-}
-
-export default AssistantHeader;

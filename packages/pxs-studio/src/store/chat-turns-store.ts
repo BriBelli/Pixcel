@@ -4,6 +4,7 @@ import { create } from 'zustand';
 import { DEV_USER_ID } from '../lib/db/models';
 import type { Interaction } from '../lib/db/models';
 import type { ThinkingStep } from '../components/chat/ThinkingIndicator';
+import type { Source } from '../components/chat/SourcesRow';
 
 /** localStorage key holding the active thread id so a reload can restore the conversation. */
 const THREAD_STORAGE_KEY = 'pxs-chat-thread';
@@ -24,6 +25,9 @@ const THREAD_STORAGE_KEY = 'pxs-chat-thread';
 export interface A2UIOptionsBlock {
   kind: 'options';
   title: string;
+  /** 'single' → stacked radio group (pick one, submits on select); 'multiple' → stacked
+   *  checkboxes + a Continue button. Defaults to 'single' when absent. */
+  select?: 'single' | 'multiple';
   options: { id: string; label: string }[];
 }
 
@@ -39,6 +43,10 @@ export interface ChatTurn {
   steps: ThinkingStep[];
   a2ui: A2UIOptionsBlock | null;
   suggestions: string[];
+  /** Grounded citations for the turn (web / model / data). The SourcesRow renders these as
+   *  chips. Populated by the coordinator (P4) + rehydrated from a persisted response; the P1
+   *  chat path leaves it empty (no live sources event yet). */
+  sources: Source[];
   error?: string;
   createdAt: number;
   /** Wall-clock time (ms) from `createdAt` to the `done` event — surfaced in the message footer. */
@@ -214,6 +222,7 @@ export const useChatTurnsStore = create<ChatTurnsState>((set, get) => {
             steps: [],
             a2ui: null,
             suggestions: [],
+            sources: [],
             createdAt: Date.now(),
           },
         ],
@@ -242,6 +251,7 @@ export const useChatTurnsStore = create<ChatTurnsState>((set, get) => {
         // query already sorts asc; keep the order it returns).
         const turns: ChatTurn[] = interactions.map((it) => {
           const a2ui = it.response?.a2ui as A2UIOptionsBlock | null;
+          const persistedSources = (it.response as { sources?: Source[] } | undefined)?.sources;
           return {
             id: it.id,
             userPrompt: it.prompt?.text ?? '',
@@ -251,6 +261,7 @@ export const useChatTurnsStore = create<ChatTurnsState>((set, get) => {
             steps: [],
             a2ui: a2ui && a2ui.kind === 'options' ? a2ui : null,
             suggestions: [],
+            sources: Array.isArray(persistedSources) ? persistedSources : [],
             createdAt: it.created_at,
             interactionId: it.id,
           };

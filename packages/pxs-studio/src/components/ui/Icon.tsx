@@ -27,6 +27,8 @@ export type IconName =
   | 'thumbs-down'
   | 'eye'
   | 'download'
+  | 'globe'
+  | 'arrow-right'
   | 'loader';
 
 /* Each entry is the raw child markup of the Lucide SVG (paths / circles / rects). */
@@ -143,6 +145,21 @@ const PATHS: Record<IconName, JSX.Element> = {
       <path d="M12 15V3" />
       <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
       <path d="m7 10 5 5 5-5" />
+    </>
+  ),
+  /* arrow-right — follow-up suggestion glyph (photolif .followup-icon). */
+  'arrow-right': (
+    <>
+      <path d="M5 12h14" />
+      <path d="m12 5 7 7-7 7" />
+    </>
+  ),
+  /* globe — web / external source glyph (used by SourcesRow for cited web results). */
+  globe: (
+    <>
+      <circle cx="12" cy="12" r="10" />
+      <path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20" />
+      <path d="M2 12h20" />
     </>
   ),
   /* loader — spinner glyph; pair with the .a2-spin utility (see index.ts / preview). */

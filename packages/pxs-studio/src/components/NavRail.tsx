@@ -60,11 +60,14 @@ function Ic({ name, size = 20 }: { name: IconName; size?: number }) {
   );
 }
 
-/* Nav rail — Chat (the universal A2UI assistant) + the creative studios.
-   Verbatim from the frozen LandingPage.tsx. */
+/* Nav rail — Chat (the universal A2UI assistant / front door) + the creative mediums.
+   NOTE: the pixel-art medium is DELIBERATELY NOT in the nav right now (Brian, 2026-07-06).
+   It is Pixcel's PROPRIETARY IP (the reasoning-based pixel engine), not "just another model",
+   and "Art" was a nonsense label for it. It returns later as its own named medium ("Pixel Art")
+   once the platform is dialed in — we are NOT competing with image models via a generic "Art" tab.
+   Current focus = the IMAGE medium/workflow. */
 const SECTIONS: { id: string; label: string; icon: IconName }[] = [
   { id: 'chat', label: 'Chat', icon: 'chat' },
-  { id: 'art', label: 'Art', icon: 'scribble' },
   { id: 'image', label: 'Image', icon: 'image' },
   { id: 'video', label: 'Video', icon: 'video' },
 ];

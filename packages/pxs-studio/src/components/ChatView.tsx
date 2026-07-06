@@ -22,9 +22,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import NavRail from './NavRail';
-import DigitalWall from './DigitalWall';
 import SettingsPanel from './SettingsPanel';
-import { RES } from '../lib/resolutions';
 import { useChatTurnsStore } from '../store/chat-turns-store';
 import { useSettings } from '../store/settings-store';
 import { Composer } from './ui';
@@ -43,6 +41,24 @@ const ROOT_CSS = `
 .pxc-root { background: var(--a2ui-bg-app); color: var(--a2ui-text-primary);
   font-family: var(--a2ui-font-family); -webkit-font-smoothing: antialiased; }
 .pxc-root ::selection { background: var(--a2ui-accent-subtle); }
+
+/* Chat backdrop — a clean solid charcoal (the root bg) with a BARELY-perceptible
+   ambient drift: two faint accent-tinted radial glows that slowly breathe + rise.
+   Tasteful, almost-not-there — no LED lattice, no frozen frame. Reduced-motion → still. */
+.pxc-ambient {
+  background:
+    radial-gradient(58% 46% at 50% 6%,  color-mix(in srgb, var(--a2ui-accent) 5%,   transparent), transparent 70%),
+    radial-gradient(52% 42% at 84% 96%, color-mix(in srgb, var(--a2ui-accent) 3.5%, transparent), transparent 66%);
+  animation: pxc-ambient-breathe 26s ease-in-out infinite alternate;
+  will-change: opacity, transform;
+}
+@keyframes pxc-ambient-breathe {
+  from { opacity: 0.5;  transform: translate3d(0, 0, 0)     scale(1); }
+  to   { opacity: 1;    transform: translate3d(0, -1.2%, 0) scale(1.06); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .pxc-ambient { animation: none; opacity: 0.7; }
+}
 `;
 
 /** The chat column cap (rule #8 — capped, never full-bleed). */
@@ -138,19 +154,9 @@ export default function ChatView({ initialPrompt, onEnterStudio, onHome }: Props
             OFF (showLogo=false — logoScale can't remove it, it floors to native width) and intensity
             is very low, so it's ambient texture that never competes with the conversation. This is
             the settled END-STATE; the animated hand-off that eases the wall into it is lifecycle work. */}
-        <div className="pointer-events-none absolute inset-0 z-0">
-          {/* Chat backdrop: almost invisible + STATIC (paused = no motion; a moving background is a
-              distraction during work). No logo, near-zero intensity, no lattice — barely-there texture.
-              The paced hand-off quiets the loud splash wall down to this before the chat begins. */}
-          <DigitalWall
-            className="absolute inset-0 h-full w-full"
-            pixels={RES.retro}
-            showLogo={false}
-            intensity={0.02}
-            paused
-            gridLines={false}
-          />
-        </div>
+        {/* Chat backdrop — solid charcoal (the root) + a barely-there ambient drift (.pxc-ambient).
+            Replaces the frozen low-res LED wall that read as static grey blotches. */}
+        <div className="pxc-ambient pointer-events-none absolute inset-0 z-0" aria-hidden="true" />
 
         {/* z-10 — the chat, floating above the wall, column-capped. */}
         <div className="relative z-10 flex-1 flex flex-col min-h-0">

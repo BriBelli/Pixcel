@@ -5,64 +5,35 @@
  * riskiest logic) can be unit-tested under `node:test`. No React / Next / DOM — pure TS.
  */
 
-/** The four REAL medium options. Ids/labels are stable so the client + stored a2ui snapshot
- *  stay compatible; only the block `title` is contextualized per turn by the classify pass. */
-const MEDIUM_OPTIONS = [
-  { id: 'pixcel', label: 'Use Pixcel Studio' },
-  { id: 'image', label: 'Use Image Model' },
-  { id: 'both', label: 'Both' },
-  { id: 'guidance', label: 'More guidance' },
-] as const;
-
-/** Build the options A2UI block with a (contextual) title, reusing the stable option set.
- *  The medium picker is single-choice (one path), so it renders as a stacked RADIO group. */
-export function buildA2UI(title: string) {
-  return {
-    kind: 'options',
-    title,
-    select: 'single' as const,
-    options: MEDIUM_OPTIONS.map((o) => ({ ...o })),
-  };
-}
-
-/** Fallback A2UI block — fixed options for "how do you want to make it?" (used when classify fails). */
-export const STUB_A2UI = buildA2UI('How do you want to make it?');
-
-/** Fallback generic follow-up suggestions (used when the classify pass fails or returns nothing). */
+/** Fallback quick-picks (used when the classify pass fails or returns nothing). Deliberately
+ *  answer-shaped (things a user might tap in reply), never tool names or meta-instructions. */
 export const STUB_SUGGESTIONS = [
-  'Show me a few style directions',
-  'What size and shape works best?',
-  'Make a simple version first',
+  'Sleek and modern',
+  'Chunky retro',
+  'Cute cartoon',
 ];
 
 /** The structured result the classify pass produces. */
 export interface ClassifyResult {
-  /** Is the user trying to MAKE something (art/image/logo/etc.)? */
+  /** Is the user trying to MAKE something (art/image/logo/etc.)? Drives internal routing later. */
   intent: 'create' | 'chat' | 'other';
-  /** Surface the medium options? (true only for a create intent). */
-  showOptions: boolean;
-  /** Contextual options title, e.g. "How do you want to make your dragon?" (used iff showOptions). */
-  optionsTitle: string;
-  /** 2–4 SHORT contextual follow-ups derived from THIS conversation. */
+  /** 2–4 SHORT quick-pick suggestions — possible ANSWERS to the agent's question, tappable. */
   suggestions: string[];
 }
 
 /** The classify system prompt — asks for ONLY JSON matching {@link ClassifyResult}. */
-export const CLASSIFY_SYSTEM = `You are the routing brain behind the Pixcel Agent. You are given the user's latest message, the assistant's reply, and brief prior history. Classify the exchange and produce follow-up UI.
+export const CLASSIFY_SYSTEM = `You are the routing brain behind the Pixcel Agent. You are given the user's latest message, the assistant's reply, and brief prior history. Classify the exchange and produce tappable quick-pick suggestions.
 
 Reply with ONLY a JSON object (no prose, no markdown, no code fences) with EXACTLY these keys:
 {
   "intent": "create" | "chat" | "other",
-  "showOptions": boolean,
-  "optionsTitle": string,
   "suggestions": string[]
 }
 
 Rules:
-- "intent" is "create" if the user is trying to MAKE something (pixel art, an image, a logo, an icon, a sprite, a design, etc.). Use "chat" for general conversation/questions, and "other" for anything that fits neither.
-- "showOptions" is true ONLY when intent is "create" (they're about to pick how to make it). Otherwise false — general chat must NOT force the medium picker.
-- "optionsTitle" is a short, warm, subject-specific question, e.g. "How do you want to make your dragon?". Only matters when showOptions is true; still provide a reasonable string otherwise.
-- "suggestions" is an array of 2 to 4 SHORT (a few words each) follow-up prompts a user might tap next, derived from THIS specific conversation — not generic filler.
+- "intent" is "create" if the user is trying to MAKE something (pixel art, an image, a logo, an icon, a sprite, a design, etc.). Use "chat" for general conversation/questions, and "other" for anything else.
+- "suggestions" is an array of 2 to 4 SHORT quick-picks the user could TAP AS AN ANSWER to what the assistant just asked — concrete directions grounded in THIS conversation (e.g. if the assistant asked what kind of car: "Sleek sports car", "Boxy retro", "Chunky pickup", "Cute cartoon").
+- Suggestions are ANSWERS, never tools or mediums. NEVER output tool/technique choices like "Use Pixcel Studio", "Use an image model", "pixel vs vector", or meta-instructions like "Show me styles". The user describes what they want; the agent picks the tools.
 
 Output the JSON object and nothing else.`;
 
@@ -86,11 +57,6 @@ export function parseClassifyResult(raw: string): ClassifyResult {
   const obj = JSON.parse(text) as Record<string, unknown>;
 
   const intent = obj.intent === 'create' || obj.intent === 'chat' || obj.intent === 'other' ? obj.intent : 'other';
-  const showOptions = obj.showOptions === true && intent === 'create';
-  const optionsTitle =
-    typeof obj.optionsTitle === 'string' && obj.optionsTitle.trim().length > 0
-      ? obj.optionsTitle.trim()
-      : STUB_A2UI.title;
 
   // Clamp to ≤4 non-empty strings.
   const suggestions = Array.isArray(obj.suggestions)
@@ -100,5 +66,5 @@ export function parseClassifyResult(raw: string): ClassifyResult {
         .slice(0, 4)
     : [];
 
-  return { intent, showOptions, optionsTitle, suggestions };
+  return { intent, suggestions };
 }

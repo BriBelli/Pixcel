@@ -1,9 +1,7 @@
 import Anthropic from '@anthropic-ai/sdk';
 import {
-  buildA2UI,
   CLASSIFY_SYSTEM,
   parseClassifyResult,
-  STUB_A2UI,
   STUB_SUGGESTIONS,
 } from '../../../lib/chat-classify';
 import { chatOrchestratorSystemPrompt } from '../../../lib/chat-orchestrator-prompt';
@@ -27,14 +25,14 @@ export const maxDuration = 120;
  * This is a PARALLEL path to the art engine: the splash prompt now lands here (the Pixcel Agent
  * conversation), NOT straight into the artisan loop. It mirrors api/generate-art's proven SSE
  * structure (nodejs runtime, NDJSON ReadableStream, env-key check) but instead of drawing, it:
- *   1) streams a quick high-level support response from claude-opus-4-8 (adaptive thinking), then
+ *   1) streams a quick consultative response from claude-opus-4-8 (adaptive thinking) — a natural
+ *      question about the WORK (style/type/use-case), never about tools, then
  *   2) runs ONE non-streaming classify pass (also claude-opus-4-8) over the exchange, then
- *   3) emits the medium options block ONLY when the classify pass says the user wants to MAKE
- *      something (contextual title), and always emits contextual follow-up suggestions, then `done`.
+ *   3) emits contextual quick-pick suggestions (possible ANSWERS the user can tap), then `done`.
  *
- * Cut-2: the classify pass replaces the Slice-1 fixed STUB_A2UI / STUB_SUGGESTIONS. The stubs
- * remain as the robust fallback — if the classify call throws or returns unparseable/invalid JSON,
- * we fall back to the old behavior so a chat turn never breaks.
+ * There is NO tool/medium picker — the agent chooses the medium itself (a doctor asks about
+ * symptoms, not which surgery). The classify yields { intent, suggestions }; STUB_SUGGESTIONS is
+ * the robust fallback if the classify call throws or returns unparseable/invalid JSON.
  *
  * The event contract (emitted in THIS order, one NDJSON object per line):
  *   { type:'status', phase, message }     — initial loading/thinking status (emitted immediately)
@@ -42,8 +40,7 @@ export const maxDuration = 120;
  *                                            'reading' start→done (bracket the streamed text),
  *                                            'choosing' start→done (bracket the classify pass)
  *   { type:'text', delta }                — model text deltas, streamed as they arrive
- *   { type:'a2ui', block }                — the medium options block (SKIPPED for general chat)
- *   { type:'suggestions', items }         — short list of contextual follow-up suggestion strings
+ *   { type:'suggestions', items }         — short list of tappable quick-pick answer strings
  *   { type:'done' }  | { type:'error', message }
  *
  * COST: two claude-opus-4-8 calls per turn — the streamed text + one non-streaming classify pass.
@@ -229,11 +226,9 @@ export async function POST(req: Request) {
         send({ type: 'step', id: 'choosing', label: 'Choosing your next steps…', status: 'start' });
 
         // 3) CLASSIFY PASS — one extra non-streaming claude-opus-4-8 call over the exchange.
-        //    Derives the a2ui + suggestions contextually. On ANY failure we fall back to the
-        //    Slice-1 stubs so a chat turn never breaks (see the try/catch below).
-        //    `emittedA2UI` is the a2ui snapshot we actually sent (null when no options shown) —
-        //    it's what we persist so hydrate/replay stays truthful.
-        let emittedA2UI: ReturnType<typeof buildA2UI> | null = null;
+        //    Derives the tappable quick-pick suggestions (possible ANSWERS to the agent's
+        //    question). NO tool/medium picker — the agent chooses the medium itself. On ANY
+        //    failure we fall back to the stub quick-picks so a chat turn never breaks.
         let suggestionsToSend: string[] = STUB_SUGGESTIONS;
 
         try {
@@ -269,28 +264,20 @@ export async function POST(req: Request) {
 
           const result = parseClassifyResult(classifyText);
 
-          // Classify resolved — the choosing phase is done (before revealing a2ui/suggestions).
+          // Classify resolved — the choosing phase is done (before revealing suggestions).
           send({ type: 'step', id: 'choosing', status: 'done' });
 
-          // Options: emit ONLY for a create intent; general chat must not force the picker.
-          if (result.showOptions) {
-            emittedA2UI = buildA2UI(result.optionsTitle);
-            send({ type: 'a2ui', block: emittedA2UI });
-          }
-
-          // Suggestions: use the contextual ones, else fall back to the stub list.
+          // Quick-pick suggestions: the contextual ones, else fall back to the stub list.
           suggestionsToSend = result.suggestions.length > 0 ? result.suggestions : STUB_SUGGESTIONS;
         } catch (classifyErr) {
-          // Robust fallback — restore the Slice-1 behavior so the turn always completes.
+          // Robust fallback — stub quick-picks so the turn always completes.
           console.warn('[chat-turn] classify failed, falling back to stubs:', classifyErr);
           // Still close the choosing phase so the reel never hangs on the fallback path.
           send({ type: 'step', id: 'choosing', status: 'done' });
-          emittedA2UI = STUB_A2UI;
-          send({ type: 'a2ui', block: STUB_A2UI });
           suggestionsToSend = STUB_SUGGESTIONS;
         }
 
-        // 4) The contextual (or fallback) follow-up suggestions.
+        // 4) The contextual (or fallback) quick-pick suggestions.
         send({ type: 'suggestions', items: suggestionsToSend });
 
         // ── PERSIST THE COMPLETED TURN (best-effort; never breaks the stream) ──
@@ -309,9 +296,9 @@ export async function POST(req: Request) {
             response: {
               text: assistantText,
               tokens_used: outputTokens,
-              // Store the a2ui that was ACTUALLY emitted (the real options block, or null when
-              // no options were shown) so hydrate/replay stays truthful.
-              a2ui: emittedA2UI,
+              // No tool-picker card is emitted — the agent chooses the medium itself. A2UI
+              // surfaces (e.g. a generated gallery) are persisted here when they land.
+              a2ui: null,
               a2ui_version: A2UI_VERSION,
             },
           } as Partial<Interaction>);

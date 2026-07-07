@@ -23,6 +23,7 @@ import type { ChatTurn } from '../../store/chat-turns-store';
 import { Avatar, Icon, PixcelMark } from '../ui';
 import { QuestionBlock } from './QuestionBlock';
 import { ProposalBlock } from './ProposalBlock';
+import { ReferencesBlock } from './ReferencesBlock';
 import { MessageActions } from './MessageActions';
 import { ThinkingIndicator } from './ThinkingIndicator';
 import { StreamingCursor } from './StreamingCursor';
@@ -327,6 +328,14 @@ export function MessageTurn({
                   </div>
                 ))}
                 {turn.generating && <div className="pxc-tile pxc-tile-loading">Generating…</div>}
+              </div>
+            )}
+
+            {/* A2UI references — the Image agent's grounded capability recommendation (Model agent),
+                shown under the anchor render: what the chosen model supports + what to attach next. */}
+            {turn.a2ui && turn.a2ui.kind === 'references' && (
+              <div className="pxc-a2ui-reveal" style={{ marginTop: 'var(--a2ui-space-4)' }}>
+                <ReferencesBlock block={turn.a2ui} />
               </div>
             )}
 

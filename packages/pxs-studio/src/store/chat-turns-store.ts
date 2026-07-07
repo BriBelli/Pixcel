@@ -44,8 +44,24 @@ export interface A2UIQuestionBlock {
   chips?: string[];
 }
 
+/** A reference-recommendation block — the Image agent's grounded capability response: what the
+ *  chosen model actually supports (from the Model agent) + which references to attach next. */
+export interface A2UIReferencesBlock {
+  kind: 'references';
+  /** The model whose limits these are (e.g. "Nano Banana (Gemini 2.5 Flash Image)"). */
+  modelLabel: string;
+  /** How many reference images the model accepts (the fact, not a guess). */
+  maxReferences: number;
+  /** Capability highlights the user may not have known (e.g. "style-transfer variants", "editing"). */
+  supports: string[];
+  /** Recommended reference types to attach for a precise result. */
+  recommend: string[];
+  /** One-line framing. */
+  note?: string;
+}
+
 /** Any A2UI block a turn can carry. */
-export type A2UIBlock = A2UIOptionsBlock | A2UIQuestionBlock;
+export type A2UIBlock = A2UIOptionsBlock | A2UIQuestionBlock | A2UIReferencesBlock;
 
 /** One generated image tile streamed into the turn (the dispatched image workflow's output). */
 export interface GalleryImage {
@@ -341,7 +357,10 @@ export const useChatTurnsStore = create<ChatTurnsState>((set, get) => {
             statusMessage: '',
             text: it.response?.text ?? '',
             steps: [],
-            a2ui: a2ui && (a2ui.kind === 'options' || a2ui.kind === 'question') ? a2ui : null,
+            a2ui:
+              a2ui && (a2ui.kind === 'options' || a2ui.kind === 'question' || a2ui.kind === 'references')
+                ? a2ui
+                : null,
             suggestions: [],
             sources: Array.isArray(persistedSources) ? persistedSources : [],
             images: [],

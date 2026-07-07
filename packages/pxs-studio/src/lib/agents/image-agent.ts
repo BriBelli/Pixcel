@@ -14,6 +14,8 @@ import Anthropic from '@anthropic-ai/sdk';
 import { coordinateImage } from '../engine/coordinator';
 import type { Capability } from '../engine/model-registry';
 import type { RoutingRequest } from '../engine/routing';
+import { describeModelCapabilities, type ModelCapabilityFacts } from './model-agent';
+import { imageAgentSkills } from './skills';
 import { assertFrameBudget, type EpistemicFrame } from './epistemic-frame';
 
 const MODEL = 'claude-opus-4-8';
@@ -33,7 +35,8 @@ You OWN the image specs (the Operator handed only the brief):
 - prompt: a rich, model-ready image prompt built from the brief (subject, style, scene, lighting, composition).
 - needs: capability tags the model MUST have, chosen from: text_in_image, editing, multi_reference, photorealism, vector, high_resolution, fast, cheap. Only include what the brief truly requires (e.g. a photoreal brief → ["photorealism"]).
 - aspectRatio: optional (e.g. "16:9" for a video-scene frame).
-- count: how many takes (default 2).`;
+- count: how many takes (default 2).
+- referenceRecommendation: 1–3 SHORT reference TYPES to attach for a precise result, tailored to the brief (e.g. "A character reference to keep the Camaro consistent", "A style reference for the era", "Start & end frames"). The exact reference COUNT the chosen model accepts is a fact supplied to you — never invent it.`;
 
 const PLAN_TOOL = {
   name: 'plan_render',
@@ -45,20 +48,41 @@ const PLAN_TOOL = {
       needs: { type: 'array', items: { type: 'string' } },
       aspectRatio: { type: 'string' },
       count: { type: 'number' },
+      referenceRecommendation: { type: 'array', items: { type: 'string' } },
     },
     required: ['prompt'],
     additionalProperties: false,
   },
 } as const;
 
+/** The grounded reference-recommendation the agent surfaces (mirrors A2UIReferencesBlock). */
+export interface ReferencesRecommendation {
+  kind: 'references';
+  modelLabel: string;
+  maxReferences: number;
+  supports: string[];
+  recommend: string[];
+  note?: string;
+}
+
 /** Events the Image agent streams (the route forwards / meters these). */
 export type ImageAgentEvent =
   | { type: 'agent_start' }
   | { type: 'agent_text'; delta: string }
   | { type: 'agent_usage'; inputTokens: number; outputTokens: number }
+  | { type: 'agent_a2ui'; block: ReferencesRecommendation }
   | { type: 'image'; url: string; modelLabel: string; index: number }
   | { type: 'gen_error'; message: string }
   | { type: 'gen_done'; costUsd: number };
+
+/** Build the grounded capability highlights list from the Model agent's facts. */
+function capabilityHighlights(f: ModelCapabilityFacts): string[] {
+  const out: string[] = [`Holds up to ${f.maxReferenceImages} reference image${f.maxReferenceImages === 1 ? '' : 's'}`];
+  if (f.styleTransfer) out.push('Style-transfer variants');
+  if (f.multiReference) out.push('Multi-image compositing');
+  if (f.supportsEditing) out.push('Editing / inpaint');
+  return out;
+}
 
 /**
  * Run the Image agent's leg for a transferred Epistemic Frame. Yields its opener, then the
@@ -68,15 +92,16 @@ export async function* runImageAgent(frame: EpistemicFrame): AsyncIterable<Image
   assertFrameBudget(frame);
   yield { type: 'agent_start' };
 
-  // 1) The Image agent's brain: brief → render plan (opener text + plan_render tool call).
-  let plan: { prompt?: unknown; needs?: unknown; aspectRatio?: unknown; count?: unknown } = {};
+  // 1) The Image agent's brain: brief → render plan (opener text + plan_render tool call). Its craft
+  //    (plan-then-generate, reference workflows, prompt formulas) is loaded from its skills.
+  let plan: { prompt?: unknown; needs?: unknown; aspectRatio?: unknown; count?: unknown; referenceRecommendation?: unknown } = {};
   try {
     const client = new Anthropic();
     const params = {
       model: MODEL,
       max_tokens: 1200,
       thinking: { type: 'adaptive', display: 'summarized' },
-      system: IMAGE_AGENT_SYSTEM,
+      system: IMAGE_AGENT_SYSTEM + imageAgentSkills(),
       tools: [PLAN_TOOL],
       messages: [{ role: 'user' as const, content: `BRIEF (verified — start at Decide):\n${JSON.stringify(frame)}` }],
     };
@@ -113,6 +138,35 @@ export async function* runImageAgent(frame: EpistemicFrame): AsyncIterable<Image
     references: frame.assetRefs,
     budgetUsd: frame.budgetUsd,
   };
+
+  // 2b) Consult the MODEL AGENT for the capability TRUTH of the model that will serve this request
+  //     (reference count, style transfer, editing) and surface a grounded reference recommendation.
+  //     This is the "attach up to N — and here's support you didn't know about" moment; it never
+  //     invents a limit. Best-effort — a lookup miss just skips the recommendation, never blocks gen.
+  try {
+    const facts = await describeModelCapabilities(req);
+    if (facts) {
+      const recommend = (Array.isArray(plan.referenceRecommendation)
+        ? plan.referenceRecommendation.filter((r): r is string => typeof r === 'string' && r.trim().length > 0).map((r) => r.trim())
+        : []
+      ).slice(0, Math.max(1, facts.maxReferenceImages));
+      if (recommend.length > 0) {
+        yield {
+          type: 'agent_a2ui',
+          block: {
+            kind: 'references',
+            modelLabel: facts.modelLabel,
+            maxReferences: facts.maxReferenceImages,
+            supports: capabilityHighlights(facts),
+            recommend,
+            note: `To make the next pass precise, attach up to ${facts.maxReferenceImages} reference image${facts.maxReferenceImages === 1 ? '' : 's'}.`,
+          },
+        };
+      }
+    }
+  } catch (err) {
+    console.warn('[image-agent] capability lookup failed (skipping recommendation):', err);
+  }
 
   // 3) Generate — coordinateImage consults the Model agent for selection, then dispatches.
   let cost = 0;

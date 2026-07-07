@@ -278,6 +278,7 @@ export async function POST(req: Request) {
         let emittedBlock:
           | { kind: 'question'; label: string; placeholder?: string; chips?: string[] }
           | { kind: 'options'; title: string; select: 'single'; options: { id: string; label: string; detail?: string }[] }
+          | { kind: 'references'; modelLabel: string; maxReferences: number; supports: string[]; recommend: string[]; note?: string }
           | null = null;
         let didRespond = false;
         let genCostTotal = 0; // realized image spend, metered against the cap
@@ -332,6 +333,11 @@ export async function POST(req: Request) {
               } else if (ev.type === 'gen_done') {
                 genCostTotal = ev.costUsd;
                 send(ev);
+              } else if (ev.type === 'agent_a2ui') {
+                // The Image agent's grounded reference recommendation (Model-agent capability truth).
+                // Forward as an a2ui block + persist it so a reload rehydrates the recommendation.
+                emittedBlock = ev.block;
+                send({ type: 'a2ui', block: ev.block });
               } else {
                 send(ev); // agent_start · agent_text · image · gen_error
               }

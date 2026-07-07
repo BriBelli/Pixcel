@@ -9,7 +9,7 @@
  */
 
 import './../engine/adapters'; // register provider adapters (readyProviders reflects them)
-import { IMAGE_MODELS } from '../engine/model-registry';
+import { getModel, IMAGE_MODELS } from '../engine/model-registry';
 import { readyProviders } from '../engine/executor';
 import { route, type RoutingRequest, type RoutingDecision } from '../engine/routing';
 
@@ -32,4 +32,38 @@ export async function selectModels(req: RoutingRequest): Promise<RoutingDecision
     decision = await route({ ...req, needs: [] }, { catalog });
   }
   return decision;
+}
+
+/**
+ * The capability TRUTH for the model that would serve `req` — read straight from the registry, the
+ * source of truth (never guessed). The Image agent consults this before it recommends references, so
+ * "attach up to N" is a fact (e.g. nano-banana = 3, not the user's assumed 5), and it can surface
+ * support the user didn't ask for (style transfer, editing, multi-reference). See the
+ * capability-lookup skill.
+ */
+export interface ModelCapabilityFacts {
+  modelId: string;
+  modelLabel: string;
+  /** How many reference images the model actually accepts (the fact that validates "attach N"). */
+  maxReferenceImages: number;
+  supportsEditing: boolean;
+  multiReference: boolean;
+  /** Style-transfer / variant "blast" styles — strong style range or multi-reference compositing. */
+  styleTransfer: boolean;
+  costPerImageUsd: [number, number];
+}
+
+export async function describeModelCapabilities(req: RoutingRequest): Promise<ModelCapabilityFacts | null> {
+  const decision = await selectModels(req);
+  const model = decision ? getModel(decision.primary.modelId) : null;
+  if (!model) return null;
+  return {
+    modelId: model.id,
+    modelLabel: model.label,
+    maxReferenceImages: model.maxReferenceImages,
+    supportsEditing: model.supportsEditing,
+    multiReference: model.capabilities.includes('multi_reference'),
+    styleTransfer: model.strengths.style_versatility >= 4 || model.capabilities.includes('multi_reference'),
+    costPerImageUsd: model.costPerImageUsd,
+  };
 }

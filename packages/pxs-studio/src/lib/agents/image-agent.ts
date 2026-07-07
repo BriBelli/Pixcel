@@ -84,26 +84,47 @@ function capabilityHighlights(f: ModelCapabilityFacts): string[] {
   return out;
 }
 
+/** A follow-up turn INSIDE the Image workspace (Option A — the workspace talks straight to the
+ *  Image agent, no Operator re-diagnosis). Absent on the first leg (the transfer). */
+export interface ImageAgentTurn {
+  /** The user's workspace instruction (e.g. "make it dusk", "wider shot", "more variations"). */
+  userMessage?: string;
+  /** Prior workspace turns for coherence. */
+  history?: { role: 'user' | 'assistant'; content: string }[];
+  /** Reference images (data/https URLs) the user attached this turn — override the frame's. */
+  references?: string[];
+}
+
 /**
- * Run the Image agent's leg for a transferred Epistemic Frame. Yields its opener, then the
- * generated tiles. Never throws — failures surface as gen_error.
+ * Run the Image agent's leg. On the FIRST leg (a transfer) pass just the frame — it renders an
+ * anchor + a grounded reference recommendation. On a workspace FOLLOW-UP pass the frame + `turn`
+ * (the user's instruction + attached references) and it iterates directly. Never throws — failures
+ * surface as gen_error.
  */
-export async function* runImageAgent(frame: EpistemicFrame): AsyncIterable<ImageAgentEvent> {
+export async function* runImageAgent(frame: EpistemicFrame, turn: ImageAgentTurn = {}): AsyncIterable<ImageAgentEvent> {
   assertFrameBudget(frame);
   yield { type: 'agent_start' };
 
-  // 1) The Image agent's brain: brief → render plan (opener text + plan_render tool call). Its craft
-  //    (plan-then-generate, reference workflows, prompt formulas) is loaded from its skills.
+  const followUp = typeof turn.userMessage === 'string' && turn.userMessage.trim().length > 0;
+
+  // 1) The Image agent's brain: brief (+ any follow-up) → render plan (opener text + plan_render
+  //    tool call). Its craft (plan-then-generate, reference workflows, prompt formulas) is skills.
   let plan: { prompt?: unknown; needs?: unknown; aspectRatio?: unknown; count?: unknown; referenceRecommendation?: unknown } = {};
   try {
     const client = new Anthropic();
+    const userContent = followUp
+      ? `BRIEF (verified):\n${JSON.stringify(frame)}\n\nFOLLOW-UP INSTRUCTION FROM THE USER — apply it to the render plan:\n${turn.userMessage!.trim()}`
+      : `BRIEF (verified — start at Decide):\n${JSON.stringify(frame)}`;
     const params = {
       model: MODEL,
       max_tokens: 1200,
       thinking: { type: 'adaptive', display: 'summarized' },
       system: IMAGE_AGENT_SYSTEM + imageAgentSkills(),
       tools: [PLAN_TOOL],
-      messages: [{ role: 'user' as const, content: `BRIEF (verified — start at Decide):\n${JSON.stringify(frame)}` }],
+      messages: [
+        ...(turn.history ?? []).map((m) => ({ role: m.role, content: m.content })),
+        { role: 'user' as const, content: userContent },
+      ],
     };
     const stream = client.messages.stream(params as any);
     for await (const event of stream) {
@@ -135,7 +156,7 @@ export async function* runImageAgent(frame: EpistemicFrame): AsyncIterable<Image
     needs,
     aspectRatio: typeof plan.aspectRatio === 'string' ? plan.aspectRatio : undefined,
     count: typeof plan.count === 'number' && plan.count > 0 ? Math.min(8, Math.floor(plan.count)) : frame.count,
-    references: frame.assetRefs,
+    references: turn.references && turn.references.length > 0 ? turn.references : frame.assetRefs,
     budgetUsd: frame.budgetUsd,
   };
 
@@ -143,7 +164,8 @@ export async function* runImageAgent(frame: EpistemicFrame): AsyncIterable<Image
   //     (reference count, style transfer, editing) and surface a grounded reference recommendation.
   //     This is the "attach up to N — and here's support you didn't know about" moment; it never
   //     invents a limit. Best-effort — a lookup miss just skips the recommendation, never blocks gen.
-  try {
+  //     Only on the FIRST leg (the transfer) — don't repeat the recommendation on every follow-up.
+  if (!followUp) try {
     const facts = await describeModelCapabilities(req);
     if (facts) {
       const recommend = (Array.isArray(plan.referenceRecommendation)

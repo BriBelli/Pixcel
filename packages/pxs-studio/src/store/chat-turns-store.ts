@@ -111,6 +111,9 @@ interface ChatTurnsState {
   /** The active workflow medium — flips to 'image'/'video' when the Operator TRANSFERS,
    *  driving the left-nav highlight (and, in Slice 2, the Image IDE surface). */
   activeMedium: 'chat' | 'image' | 'video';
+  /** The active workflow's Epistemic Frame — captured on transfer. While set + in a workspace,
+   *  follow-up turns go STRAIGHT to the Image agent (Option A), not back through the Operator. */
+  activeFrame: { goal: string; subject?: string; medium: 'image' | 'video' } | null;
   /** Send a prompt — appends a new turn and streams its response. Returns the new turn id. */
   send: (prompt: string) => string;
   /** Restore a persisted conversation from the SQLite store (reload/reopen hydration). */
@@ -129,25 +132,44 @@ export const useChatTurnsStore = create<ChatTurnsState>((set, get) => {
 
   async function run(id: string, prompt: string) {
     // Carry the COMPLETED prior turns as history so follow-ups stay coherent. (The just-added
-    // turn is excluded — its assistant text doesn't exist yet.)
+    // turn is excluded — its assistant text doesn't exist yet.) An image-agent turn's reply lives
+    // in `agentText` (not `text`), so fall back to it for workspace coherence.
     const history = get()
-      .turns.filter((t) => t.id !== id && t.status === 'done' && t.text.trim())
+      .turns.filter((t) => t.id !== id && t.status === 'done')
+      .map((t) => ({ user: t.userPrompt, assistant: t.text.trim() || (t.agentText ?? '').trim() }))
+      .filter((t) => t.assistant)
       .flatMap((t) => [
-        { role: 'user' as const, content: t.userPrompt },
-        { role: 'assistant' as const, content: t.text },
+        { role: 'user' as const, content: t.user },
+        { role: 'assistant' as const, content: t.assistant },
       ]);
 
+    // Option A routing: while in a workspace WITH an active frame, follow-ups talk STRAIGHT to the
+    // Image agent (no Operator re-diagnosis). Otherwise the Operator front door handles the turn.
+    const st = get();
+    const toImageAgent = st.activeMedium !== 'chat' && st.activeFrame != null;
+
     try {
-      const res = await fetch('/api/chat-turn', {
+      const res = await fetch(toImageAgent ? '/api/image-agent' : '/api/chat-turn', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          prompt,
-          history,
-          thread_id: get().threadId ?? undefined,
-          // The entry section sets the Operator's prior (chat / image / video).
-          section: get().activeMedium,
-        }),
+        body: JSON.stringify(
+          toImageAgent
+            ? {
+                prompt,
+                history,
+                thread_id: st.threadId ?? undefined,
+                frame: st.activeFrame,
+                section: st.activeMedium,
+                references: [], // reference upload lands in 2B-c.2
+              }
+            : {
+                prompt,
+                history,
+                thread_id: st.threadId ?? undefined,
+                // The entry section sets the Operator's prior (chat / image / video).
+                section: st.activeMedium,
+              }
+        ),
       });
 
       if (!res.ok || !res.body) {
@@ -215,19 +237,37 @@ export const useChatTurnsStore = create<ChatTurnsState>((set, get) => {
           } else if (evt.type === 'suggestions') {
             patch(id, { suggestions: Array.isArray(evt.items) ? evt.items : [] });
           } else if (evt.type === 'transfer') {
-            // The Operator transferred to a specialist — flip the active medium (nav) + attribute
+            // The Operator transferred to a specialist — flip the active medium (nav), capture the
+            // Epistemic Frame (so workspace follow-ups go straight to the Image agent), + attribute
             // this turn to that agent.
             const to: 'image' | 'video' = evt.to === 'video' ? 'video' : 'image';
-            set({ activeMedium: to });
+            const f = evt.frame && typeof evt.frame === 'object' ? evt.frame : {};
+            const frame =
+              typeof f.goal === 'string' && f.goal.trim()
+                ? {
+                    goal: f.goal.trim(),
+                    subject: typeof f.subject === 'string' ? f.subject.trim() : undefined,
+                    medium: to,
+                  }
+                : null;
+            set({ activeMedium: to, ...(frame ? { activeFrame: frame } : {}) });
             patch(id, { transferredTo: to });
           } else if (evt.type === 'agent_start') {
             // The specialist agent (Image agent) began its leg.
             patch(id, { generating: true });
           } else if (evt.type === 'agent_text') {
-            // Stream the specialist's opener into its own field (distinct from the Operator's).
+            // Stream the specialist's opener into its own field (distinct from the Operator's). On a
+            // dedicated image-agent turn there's no Operator `text`, so flip out of 'thinking' here
+            // (otherwise the turn shows only the thinking reel until done).
             set((s) => ({
               turns: s.turns.map((t) =>
-                t.id === id ? { ...t, agentText: (t.agentText ?? '') + (evt.delta || '') } : t
+                t.id === id
+                  ? {
+                      ...t,
+                      status: t.status === 'thinking' ? 'streaming' : t.status,
+                      agentText: (t.agentText ?? '') + (evt.delta || ''),
+                    }
+                  : t
               ),
             }));
           } else if (evt.type === 'gen_start') {
@@ -301,6 +341,7 @@ export const useChatTurnsStore = create<ChatTurnsState>((set, get) => {
     turns: [],
     threadId: null,
     activeMedium: 'chat',
+    activeFrame: null,
     send: (prompt) => {
       const clean = prompt.trim();
       const id =
@@ -410,7 +451,7 @@ export const useChatTurnsStore = create<ChatTurnsState>((set, get) => {
           /* non-fatal */
         }
       }
-      set({ turns: [], threadId: null, activeMedium: 'chat' });
+      set({ turns: [], threadId: null, activeMedium: 'chat', activeFrame: null });
     },
     setActiveMedium: (medium) => set({ activeMedium: medium }),
   };

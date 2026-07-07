@@ -1,9 +1,11 @@
 import Anthropic from '@anthropic-ai/sdk';
 import {
   CLASSIFY_SYSTEM,
+  CLASSIFY_SCHEMA,
   parseClassifyResult,
   STUB_SUGGESTIONS,
 } from '../../../lib/chat-classify';
+import { coordinateImage } from '../../../lib/engine/coordinator';
 import { chatOrchestratorSystemPrompt } from '../../../lib/chat-orchestrator-prompt';
 import {
   A2UI_VERSION,
@@ -230,6 +232,9 @@ export async function POST(req: Request) {
         //    question). NO tool/medium picker — the agent chooses the medium itself. On ANY
         //    failure we fall back to the stub quick-picks so a chat turn never breaks.
         let suggestionsToSend: string[] = STUB_SUGGESTIONS;
+        // The A2UI block actually emitted (persisted for truthful hydrate). Question | null.
+        let emittedBlock: { kind: 'question'; label: string; placeholder?: string; chips?: string[] } | null = null;
+        let didRespond = false; // true once a branch has emitted its result (skip the fallback suggestions)
 
         try {
           // Give the classifier the user prompt + the assistant's response text (+ brief history).
@@ -246,16 +251,15 @@ export async function POST(req: Request) {
 
           // Same adaptive-thinking + `as any` pattern as the streaming call; modest max_tokens
           // since the classify output is small JSON.
+          // Structured output → clean JSON (no regex). Classify is simple; no thinking needed.
           const classifyParams = {
             model: MODEL,
-            max_tokens: 400,
-            thinking: { type: 'adaptive' },
+            max_tokens: 700,
             system: CLASSIFY_SYSTEM,
             messages: classifyMessages,
+            output_config: { format: { type: 'json_schema', schema: CLASSIFY_SCHEMA } },
           };
           const classifyMsg = await client.messages.create(classifyParams as any);
-
-          // Pull the text out of the (possibly thinking + text) content blocks.
           const classifyText = ((classifyMsg.content ?? []) as Array<{ type: string; text?: string }>)
             .filter((b) => b.type === 'text')
             .map((b) => b.text ?? '')
@@ -263,22 +267,46 @@ export async function POST(req: Request) {
             .trim();
 
           const result = parseClassifyResult(classifyText);
-
-          // Classify resolved — the choosing phase is done (before revealing suggestions).
           send({ type: 'step', id: 'choosing', status: 'done' });
 
-          // Quick-pick suggestions: the contextual ones, else fall back to the stub list.
-          suggestionsToSend = result.suggestions.length > 0 ? result.suggestions : STUB_SUGGESTIONS;
+          // The DETECTIVE's verdict → ONE of three actions.
+          if (result.action === 'dispatch' && result.generationPrompt) {
+            // DISPATCH the image workflow: generate + stream tiles into the chat.
+            didRespond = true;
+            send({ type: 'gen_start' });
+            let genCost = 0;
+            for await (const ev of coordinateImage({ intent: result.generationPrompt, needs: [], count: 2 })) {
+              if (ev.type === 'tile') {
+                send({ type: 'image', url: ev.tile.image.url, modelLabel: ev.tile.modelLabel, index: ev.totalSoFar - 1 });
+              } else if (ev.type === 'done') {
+                genCost = ev.costUsd;
+              } else if (ev.type === 'error') {
+                send({ type: 'gen_error', message: ev.message });
+              }
+            }
+            send({ type: 'gen_done', costUsd: genCost });
+          } else if (result.action === 'ask' && result.question) {
+            // ASK via the A2UI question affordance (never prose).
+            didRespond = true;
+            emittedBlock = {
+              kind: 'question',
+              label: result.question.label,
+              placeholder: result.question.placeholder,
+              chips: result.question.chips,
+            };
+            send({ type: 'a2ui', block: emittedBlock });
+          } else {
+            // REPLY: contextual quick-pick follow-ups.
+            didRespond = true;
+            suggestionsToSend = result.suggestions.length > 0 ? result.suggestions : STUB_SUGGESTIONS;
+            send({ type: 'suggestions', items: suggestionsToSend });
+          }
         } catch (classifyErr) {
           // Robust fallback — stub quick-picks so the turn always completes.
           console.warn('[chat-turn] classify failed, falling back to stubs:', classifyErr);
-          // Still close the choosing phase so the reel never hangs on the fallback path.
           send({ type: 'step', id: 'choosing', status: 'done' });
-          suggestionsToSend = STUB_SUGGESTIONS;
+          if (!didRespond) send({ type: 'suggestions', items: STUB_SUGGESTIONS });
         }
-
-        // 4) The contextual (or fallback) quick-pick suggestions.
-        send({ type: 'suggestions', items: suggestionsToSend });
 
         // ── PERSIST THE COMPLETED TURN (best-effort; never breaks the stream) ──
         // Update the interaction's response + record usage. Any failure only warns.
@@ -296,9 +324,9 @@ export async function POST(req: Request) {
             response: {
               text: assistantText,
               tokens_used: outputTokens,
-              // No tool-picker card is emitted — the agent chooses the medium itself. A2UI
-              // surfaces (e.g. a generated gallery) are persisted here when they land.
-              a2ui: null,
+              // Persist the A2UI block actually emitted (the question, or null). Generated images
+              // aren't persisted yet — that lands with the baton/living-context record.
+              a2ui: emittedBlock,
               a2ui_version: A2UI_VERSION,
             },
           } as Partial<Interaction>);

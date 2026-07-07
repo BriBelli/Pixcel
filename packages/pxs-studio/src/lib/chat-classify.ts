@@ -13,58 +13,103 @@ export const STUB_SUGGESTIONS = [
   'Cute cartoon',
 ];
 
-/** The structured result the classify pass produces. */
+/** An agent question rendered as an A2UI affordance (label + text-area + optional chips). */
+export interface ClassifyQuestion {
+  label: string;
+  placeholder?: string;
+  chips?: string[];
+}
+
+/**
+ * The DETECTIVE's verdict. The primary agent classifies, then decides ONE action:
+ *   • 'dispatch' — enough to run a workflow now → hand to the image workflow (which generates).
+ *   • 'ask'      — genuinely blocked → ask ONE thing via the A2UI question affordance.
+ *   • 'reply'    — just conversation → follow-up suggestions.
+ */
 export interface ClassifyResult {
-  /** Is the user trying to MAKE something (art/image/logo/etc.)? Drives internal routing later. */
   intent: 'create' | 'chat' | 'other';
-  /** 2–4 SHORT quick-pick suggestions — possible ANSWERS to the agent's question, tappable. */
+  action: 'dispatch' | 'ask' | 'reply';
+  /** The workflow to dispatch (action='dispatch'). Only 'image' is wired today. */
+  workflow?: 'image';
+  /** The assembled generation prompt for the workflow (action='dispatch'). */
+  generationPrompt?: string;
+  /** The A2UI question (action='ask'). */
+  question?: ClassifyQuestion;
+  /** Follow-up quick-picks (action='reply'). */
   suggestions: string[];
 }
 
-/** The classify system prompt — asks for ONLY JSON matching {@link ClassifyResult}. */
-export const CLASSIFY_SYSTEM = `You are the routing brain behind the Pixcel Agent. You are given the user's latest message, the assistant's reply, and brief prior history. Classify the exchange and produce tappable quick-pick suggestions.
+/** The classify system prompt. Deliberately SHORT — the model returns structured JSON
+ *  (see CLASSIFY_SCHEMA); no regex, no parsing gymnastics. Any capable model handles this. */
+export const CLASSIFY_SYSTEM = `You are the detective behind the Pixcel Agent. Read the exchange and decide ONE next action. Act decisively on solid evidence — don't keep interviewing.
 
-Reply with ONLY a JSON object (no prose, no markdown, no code fences) with EXACTLY these keys:
-{
-  "intent": "create" | "chat" | "other",
-  "suggestions": string[]
-}
+- action "dispatch": the user named something makeable (even loosely — "photoreal car image", "z28 camaro photoreal", "a cute cat logo"). This is the DEFAULT for a create intent with a nameable subject. Set workflow "image" and generationPrompt = a rich, model-ready image prompt built from the whole conversation.
+- action "ask": ONLY when it's too vague to make anything (just "a car", "make me something"). Give one question: label (the single thing you need), placeholder, and 3-4 short chip answers.
+- action "reply": conversation/other. Give 2-4 short follow-up suggestions.
 
-Rules:
-- "intent" is "create" if the user is trying to MAKE something (pixel art, an image, a logo, an icon, a sprite, a design, etc.). Use "chat" for general conversation/questions, and "other" for anything else.
-- "suggestions" is an array of 2 to 4 SHORT quick-picks the user could TAP AS AN ANSWER to what the assistant just asked — concrete directions grounded in THIS conversation (e.g. if the assistant asked what kind of car: "Sleek sports car", "Boxy retro", "Chunky pickup", "Cute cartoon").
-- Suggestions are ANSWERS, never tools or mediums. NEVER output tool/technique choices like "Use Pixcel Studio", "Use an image model", "pixel vs vector", or meta-instructions like "Show me styles". The user describes what they want; the agent picks the tools.
+intent is create / chat / other.`;
 
-Output the JSON object and nothing else.`;
+/** The structured-output JSON schema the classify call is constrained to — so the model
+ *  returns clean, valid JSON and we never regex-scrape prose. */
+export const CLASSIFY_SCHEMA = {
+  type: 'object',
+  properties: {
+    intent: { type: 'string', enum: ['create', 'chat', 'other'] },
+    action: { type: 'string', enum: ['dispatch', 'ask', 'reply'] },
+    workflow: { type: 'string', enum: ['image'] },
+    generationPrompt: { type: 'string' },
+    question: {
+      type: 'object',
+      properties: {
+        label: { type: 'string' },
+        placeholder: { type: 'string' },
+        chips: { type: 'array', items: { type: 'string' } },
+      },
+      required: ['label'],
+      additionalProperties: false,
+    },
+    suggestions: { type: 'array', items: { type: 'string' } },
+  },
+  required: ['intent', 'action'],
+  additionalProperties: false,
+} as const;
 
 /**
- * Extract a {@link ClassifyResult} from raw model text. Tolerates stray prose / code fences by
- * grabbing the first balanced-looking JSON object. Throws on anything unparseable or invalid so
- * the caller can fall back to the stubs.
+ * Validate the classify output into a {@link ClassifyResult}. The classify call uses a
+ * structured-output SCHEMA (CLASSIFY_SCHEMA), so `raw` is already clean JSON — this is a plain
+ * `JSON.parse` + defaulting, NO regex. Throws on unparseable input so the caller falls back.
  */
 export function parseClassifyResult(raw: string): ClassifyResult {
-  let text = raw.trim();
-  // Strip a leading/trailing ```json ... ``` fence if the model added one.
-  const fence = text.match(/```(?:json)?\s*([\s\S]*?)\s*```/i);
-  if (fence) text = fence[1].trim();
-  // Otherwise, isolate the first {...} span.
-  if (!text.startsWith('{')) {
-    const start = text.indexOf('{');
-    const end = text.lastIndexOf('}');
-    if (start === -1 || end === -1 || end <= start) throw new Error('no JSON object in classify output');
-    text = text.slice(start, end + 1);
-  }
-  const obj = JSON.parse(text) as Record<string, unknown>;
+  const obj = JSON.parse(raw) as Record<string, unknown>;
 
-  const intent = obj.intent === 'create' || obj.intent === 'chat' || obj.intent === 'other' ? obj.intent : 'other';
+  const intent =
+    obj.intent === 'create' || obj.intent === 'chat' || obj.intent === 'other' ? obj.intent : 'other';
+  const action =
+    obj.action === 'dispatch' || obj.action === 'ask' || obj.action === 'reply' ? obj.action : 'reply';
 
-  // Clamp to ≤4 non-empty strings.
   const suggestions = Array.isArray(obj.suggestions)
-    ? obj.suggestions
-        .filter((s): s is string => typeof s === 'string' && s.trim().length > 0)
-        .map((s) => s.trim())
-        .slice(0, 4)
+    ? obj.suggestions.filter((s): s is string => typeof s === 'string' && s.trim().length > 0).map((s) => s.trim()).slice(0, 4)
     : [];
 
-  return { intent, suggestions };
+  const result: ClassifyResult = { intent, action, suggestions };
+
+  if (action === 'dispatch') {
+    result.workflow = 'image';
+    result.generationPrompt = typeof obj.generationPrompt === 'string' ? obj.generationPrompt.trim() : '';
+  }
+
+  if (action === 'ask' && obj.question && typeof obj.question === 'object') {
+    const q = obj.question as Record<string, unknown>;
+    if (typeof q.label === 'string' && q.label.trim()) {
+      result.question = {
+        label: q.label.trim(),
+        placeholder: typeof q.placeholder === 'string' ? q.placeholder.trim() : undefined,
+        chips: Array.isArray(q.chips)
+          ? q.chips.filter((c): c is string => typeof c === 'string' && c.trim().length > 0).map((c) => c.trim()).slice(0, 4)
+          : undefined,
+      };
+    }
+  }
+
+  return result;
 }

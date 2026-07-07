@@ -10,8 +10,8 @@
  */
 
 import './adapters';
-import { getModel } from './model-registry';
-import { getExecutor } from './executor';
+import { getModel, IMAGE_MODELS } from './model-registry';
+import { getExecutor, readyProviders } from './executor';
 import { route, type RoutingRequest, type RoutingDecision } from './routing';
 import type { GenImage } from './executor';
 
@@ -48,9 +48,18 @@ export async function* coordinateImage(
 ): AsyncIterable<CoordEvent> {
   const maxCost = opts.maxCostUsd ?? DEFAULT_MAX_COST_USD;
 
+  // Only route to providers that actually have a configured adapter — otherwise the router
+  // could pick a model whose key/adapter isn't wired and the leg would produce nothing.
+  const ready = new Set(readyProviders());
+  const catalog = IMAGE_MODELS.filter((m) => ready.has(m.provider));
+  if (catalog.length === 0) {
+    yield { type: 'error', message: 'No image provider is configured (no adapter/key).' };
+    return;
+  }
+
   let decision: RoutingDecision | null;
   try {
-    decision = await route(req);
+    decision = await route(req, { catalog });
   } catch (err) {
     yield { type: 'error', message: err instanceof Error ? err.message : 'Routing failed' };
     return;

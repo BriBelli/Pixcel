@@ -22,6 +22,7 @@
 import type { ChatTurn } from '../../store/chat-turns-store';
 import { Avatar, PixcelMark } from '../ui';
 import { OptionsBlock } from './OptionsBlock';
+import { QuestionBlock } from './QuestionBlock';
 import { MessageActions } from './MessageActions';
 import { ThinkingIndicator } from './ThinkingIndicator';
 import { StreamingCursor } from './StreamingCursor';
@@ -112,6 +113,34 @@ const CSS = `
 .pxc-choosing-reveal { animation: pxc-a2ui-in 300ms var(--a2ui-ease-entrance) both; }
 .pxc-turn-error { font-size: var(--a2ui-text-md); color: var(--a2ui-error); }
 
+/* Generated gallery — a 2-up grid of tiles that stream in. */
+.pxc-gallery {
+  margin-top: var(--a2ui-space-4);
+  display: grid; grid-template-columns: repeat(2, 1fr); gap: var(--a2ui-space-2);
+  max-width: 520px;
+}
+.pxc-tile {
+  position: relative; display: block; aspect-ratio: 1 / 1; overflow: hidden;
+  border-radius: var(--a2ui-radius-md); background: var(--a2ui-bg-tertiary);
+  box-shadow: 0 0 0 1px var(--pxs-border-subtle);
+  transition: transform var(--a2ui-transition-fast), box-shadow var(--a2ui-transition-fast);
+}
+.pxc-tile:hover { transform: scale(1.01); box-shadow: 0 0 0 1px var(--a2ui-border-default); }
+.pxc-tile img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.pxc-tile-badge {
+  position: absolute; left: 6px; bottom: 6px;
+  padding: 2px 7px; border-radius: var(--a2ui-radius-full);
+  font-size: var(--a2ui-text-xs); color: var(--a2ui-text-primary);
+  background: var(--a2ui-glass-dark); backdrop-filter: blur(8px);
+  border: 1px solid var(--pxs-glass-border);
+}
+.pxc-tile-loading {
+  display: flex; align-items: center; justify-content: center;
+  color: var(--a2ui-text-tertiary); font-size: var(--a2ui-text-sm);
+  animation: pxc-tile-pulse 1.4s ease-in-out infinite;
+}
+@keyframes pxc-tile-pulse { 0%,100% { opacity: 0.5; } 50% { opacity: 1; } }
+
 @media (prefers-reduced-motion: reduce) {
   .pxc-msg, .pxc-a2ui-reveal, .pxc-choosing-reveal { animation: none; }
 }
@@ -186,6 +215,33 @@ export function MessageTurn({
             {turn.a2ui && turn.a2ui.kind === 'options' && (
               <div className="pxc-a2ui-reveal" style={{ marginTop: 'var(--a2ui-space-4)' }}>
                 <OptionsBlock block={turn.a2ui} onSubmit={onOption} />
+              </div>
+            )}
+
+            {/* A2UI question — the agent's ask affordance (label + text-area + chips). */}
+            {turn.a2ui && turn.a2ui.kind === 'question' && (
+              <div className="pxc-a2ui-reveal" style={{ marginTop: 'var(--a2ui-space-4)' }}>
+                <QuestionBlock block={turn.a2ui} onSubmit={onSuggestion} />
+              </div>
+            )}
+
+            {/* Generated gallery — tiles stream in from the dispatched image workflow. */}
+            {(turn.images.length > 0 || turn.generating) && (
+              <div className="pxc-gallery pxc-a2ui-reveal">
+                {turn.images.map((img) => (
+                  <a
+                    key={img.index}
+                    className="pxc-tile"
+                    href={img.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={img.url} alt={img.modelLabel || 'generated image'} />
+                    {img.modelLabel && <span className="pxc-tile-badge">{img.modelLabel}</span>}
+                  </a>
+                ))}
+                {turn.generating && <div className="pxc-tile pxc-tile-loading">Generating…</div>}
               </div>
             )}
 

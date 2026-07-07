@@ -1,7 +1,7 @@
 /**
- * Unit tests for the chat-turn classify helper — `parseClassifyResult`, the tolerant JSON parser
- * that turns the classify model's output into `{ intent, suggestions }`. There is NO tool/medium
- * picker anymore — the agent chooses the medium itself; the classify only yields intent + quick-picks.
+ * Unit tests for `parseClassifyResult` — the DETECTIVE's verdict validator. The classify call
+ * uses a structured-output SCHEMA, so input is clean JSON (no regex, no fence-stripping). These
+ * assert the action branches (dispatch / ask / reply) + defaulting.
  */
 
 import assert from 'node:assert/strict';
@@ -9,65 +9,47 @@ import test from 'node:test';
 
 import { parseClassifyResult } from '../chat-classify';
 
-test('parseClassifyResult: clean valid JSON → intent + suggestions', () => {
-  const raw = JSON.stringify({
-    intent: 'create',
-    suggestions: ['Sleek sports car', 'Boxy retro'],
-  });
-  const result = parseClassifyResult(raw);
-  assert.equal(result.intent, 'create');
-  assert.deepEqual(result.suggestions, ['Sleek sports car', 'Boxy retro']);
+test('dispatch: carries workflow + generationPrompt', () => {
+  const r = parseClassifyResult(
+    JSON.stringify({ intent: 'create', action: 'dispatch', workflow: 'image', generationPrompt: 'a photoreal Z28 Camaro on a leafy road' })
+  );
+  assert.equal(r.intent, 'create');
+  assert.equal(r.action, 'dispatch');
+  assert.equal(r.workflow, 'image');
+  assert.equal(r.generationPrompt, 'a photoreal Z28 Camaro on a leafy road');
 });
 
-test('parseClassifyResult: JSON wrapped in a ```json fence → parsed', () => {
-  const raw = '```json\n' + JSON.stringify({ intent: 'create', suggestions: ['Fluffy tail'] }) + '\n```';
-  const result = parseClassifyResult(raw);
-  assert.equal(result.intent, 'create');
-  assert.deepEqual(result.suggestions, ['Fluffy tail']);
+test('ask: carries the A2UI question (label + placeholder + chips)', () => {
+  const r = parseClassifyResult(
+    JSON.stringify({ intent: 'create', action: 'ask', question: { label: 'What kind of car?', placeholder: 'e.g. sleek sports car', chips: ['Sports car', 'Pickup', 'Cartoon'] } })
+  );
+  assert.equal(r.action, 'ask');
+  assert.equal(r.question?.label, 'What kind of car?');
+  assert.equal(r.question?.placeholder, 'e.g. sleek sports car');
+  assert.deepEqual(r.question?.chips, ['Sports car', 'Pickup', 'Cartoon']);
 });
 
-test('parseClassifyResult: prose before/after a {...} → isolates + parses', () => {
-  const raw =
-    'Sure, here is the classification you asked for:\n' +
-    JSON.stringify({ intent: 'chat', suggestions: ['Tell me more', 'Why?'] }) +
-    '\nHope that helps!';
-  const result = parseClassifyResult(raw);
-  assert.equal(result.intent, 'chat');
-  assert.deepEqual(result.suggestions, ['Tell me more', 'Why?']);
+test('reply: carries suggestions, clamped to ≤4 non-empty', () => {
+  const r = parseClassifyResult(
+    JSON.stringify({ intent: 'chat', action: 'reply', suggestions: ['  a  ', '', 'b', 'c', 'd', 'e'] })
+  );
+  assert.equal(r.action, 'reply');
+  assert.deepEqual(r.suggestions, ['a', 'b', 'c', 'd']);
 });
 
-test('parseClassifyResult: unparseable / no-JSON → throws', () => {
-  assert.throws(() => parseClassifyResult('there is no json object here at all'));
+test('invalid action → reply; invalid intent → other', () => {
+  const r = parseClassifyResult(JSON.stringify({ intent: 'banana', action: 'nope', suggestions: [] }));
+  assert.equal(r.intent, 'other');
+  assert.equal(r.action, 'reply');
+});
+
+test('ask with a blank label → no question attached', () => {
+  const r = parseClassifyResult(JSON.stringify({ intent: 'create', action: 'ask', question: { label: '   ' } }));
+  assert.equal(r.action, 'ask');
+  assert.equal(r.question, undefined);
+});
+
+test('non-JSON → throws (caller falls back to stubs)', () => {
+  assert.throws(() => parseClassifyResult('not json at all'));
   assert.throws(() => parseClassifyResult(''));
-  // Has braces but is not valid JSON → JSON.parse throws.
-  assert.throws(() => parseClassifyResult('prose {not valid json} more prose'));
-});
-
-test('parseClassifyResult: suggestions >4 / empty / whitespace → clamped to ≤4, trimmed, non-empty', () => {
-  const raw = JSON.stringify({
-    intent: 'create',
-    suggestions: ['  one  ', '', '   ', 'two', 'three', 'four', 'five', 42, null],
-  });
-  const result = parseClassifyResult(raw);
-  // Empty/whitespace/non-string dropped; trimmed; capped at 4.
-  assert.deepEqual(result.suggestions, ['one', 'two', 'three', 'four']);
-  assert.ok(result.suggestions.length <= 4);
-});
-
-test('parseClassifyResult: non-array suggestions → empty array', () => {
-  const raw = JSON.stringify({ intent: 'chat', suggestions: 'not an array' });
-  const result = parseClassifyResult(raw);
-  assert.deepEqual(result.suggestions, []);
-});
-
-test("parseClassifyResult: invalid intent value → coerced to 'other'", () => {
-  const raw = JSON.stringify({ intent: 'banana', suggestions: [] });
-  const result = parseClassifyResult(raw);
-  assert.equal(result.intent, 'other');
-});
-
-test('parseClassifyResult: valid intents pass through', () => {
-  assert.equal(parseClassifyResult('{"intent":"create","suggestions":[]}').intent, 'create');
-  assert.equal(parseClassifyResult('{"intent":"chat","suggestions":[]}').intent, 'chat');
-  assert.equal(parseClassifyResult('{"intent":"other","suggestions":[]}').intent, 'other');
 });

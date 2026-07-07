@@ -19,6 +19,23 @@ test('dispatch: carries workflow + generationPrompt', () => {
   assert.equal(r.generationPrompt, 'a photoreal Z28 Camaro on a leafy road');
 });
 
+test('transfer: carries the Epistemic Frame (goal/subject/medium)', () => {
+  const r = parseClassifyResult(
+    JSON.stringify({ intent: 'create', action: 'transfer', workflow: 'image', frame: { goal: 'photoreal Camaro for a childhood video scene', subject: 'Camaro Z28', medium: 'video' } })
+  );
+  assert.equal(r.action, 'transfer');
+  assert.equal(r.workflow, 'image');
+  assert.equal(r.frame?.goal, 'photoreal Camaro for a childhood video scene');
+  assert.equal(r.frame?.subject, 'Camaro Z28');
+  assert.equal(r.frame?.medium, 'video');
+});
+
+test('transfer with a blank goal → no frame attached', () => {
+  const r = parseClassifyResult(JSON.stringify({ intent: 'create', action: 'transfer', frame: { goal: '  ' } }));
+  assert.equal(r.action, 'transfer');
+  assert.equal(r.frame, undefined);
+});
+
 test('ask: carries the A2UI question (label + placeholder + chips)', () => {
   const r = parseClassifyResult(
     JSON.stringify({ intent: 'create', action: 'ask', question: { label: 'What kind of car?', placeholder: 'e.g. sleek sports car', chips: ['Sports car', 'Pickup', 'Cartoon'] } })

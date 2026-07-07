@@ -70,6 +70,9 @@ export interface ChatTurn {
   images: GalleryImage[];
   /** True while a dispatched image workflow is generating (drives the gallery loading state). */
   generating?: boolean;
+  /** Set when the Operator TRANSFERRED this turn to a specialist (large workflow) — attributes the
+   *  work to the Image/Video agent and drove the nav flip. */
+  transferredTo?: 'image' | 'video';
   /** Grounded citations for the turn (web / model / data). The SourcesRow renders these as
    *  chips. Populated by the coordinator (P4) + rehydrated from a persisted response; the P1
    *  chat path leaves it empty (no live sources event yet). */
@@ -87,6 +90,9 @@ interface ChatTurnsState {
   turns: ChatTurn[];
   /** The active thread id — captured from the `done` event, persisted to localStorage. */
   threadId: string | null;
+  /** The active workflow medium — flips to 'image'/'video' when the Operator TRANSFERS,
+   *  driving the left-nav highlight (and, in Slice 2, the Image IDE surface). */
+  activeMedium: 'chat' | 'image' | 'video';
   /** Send a prompt — appends a new turn and streams its response. Returns the new turn id. */
   send: (prompt: string) => string;
   /** Restore a persisted conversation from the SQLite store (reload/reopen hydration). */
@@ -182,6 +188,12 @@ export const useChatTurnsStore = create<ChatTurnsState>((set, get) => {
             patch(id, { a2ui: evt.block });
           } else if (evt.type === 'suggestions') {
             patch(id, { suggestions: Array.isArray(evt.items) ? evt.items : [] });
+          } else if (evt.type === 'transfer') {
+            // The Operator transferred to a specialist — flip the active medium (nav) + attribute
+            // this turn to that agent.
+            const to: 'image' | 'video' = evt.to === 'video' ? 'video' : 'image';
+            set({ activeMedium: to });
+            patch(id, { transferredTo: to });
           } else if (evt.type === 'gen_start') {
             patch(id, { generating: true });
           } else if (evt.type === 'image') {
@@ -252,6 +264,7 @@ export const useChatTurnsStore = create<ChatTurnsState>((set, get) => {
   return {
     turns: [],
     threadId: null,
+    activeMedium: 'chat',
     send: (prompt) => {
       const clean = prompt.trim();
       const id =
@@ -358,7 +371,7 @@ export const useChatTurnsStore = create<ChatTurnsState>((set, get) => {
           /* non-fatal */
         }
       }
-      set({ turns: [], threadId: null });
+      set({ turns: [], threadId: null, activeMedium: 'chat' });
     },
   };
 });

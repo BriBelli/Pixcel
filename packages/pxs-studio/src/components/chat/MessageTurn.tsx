@@ -225,6 +225,20 @@ export function MessageTurn({
               </div>
             )}
 
+            {/* Transfer attribution — the Operator handed this turn to the Image agent. */}
+            {turn.transferredTo && (
+              <div
+                className="pxc-a2ui-reveal flex items-center"
+                style={{
+                  marginTop: 'var(--a2ui-space-3)', gap: 'var(--a2ui-space-2)',
+                  fontSize: 'var(--a2ui-text-sm)', color: 'var(--pxs-accent-text)', fontWeight: 'var(--a2ui-font-medium)',
+                }}
+              >
+                <PixcelMark size={14} />
+                Transferred to the Image agent
+              </div>
+            )}
+
             {/* Generated gallery — tiles stream in from the dispatched image workflow. */}
             {(turn.images.length > 0 || turn.generating) && (
               <div className="pxc-gallery pxc-a2ui-reveal">

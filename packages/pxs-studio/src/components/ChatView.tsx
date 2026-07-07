@@ -66,6 +66,7 @@ const COLUMN_STYLE = { maxWidth: 'var(--a2ui-chat-max-width)' } as const;
 
 export default function ChatView({ initialPrompt, onEnterStudio, onHome }: Props) {
   const turns = useChatTurnsStore((s) => s.turns);
+  const activeMedium = useChatTurnsStore((s) => s.activeMedium);
   const send = useChatTurnsStore((s) => s.send);
   const loadThread = useChatTurnsStore((s) => s.loadThread);
   const deleteTurn = useChatTurnsStore((s) => s.deleteTurn);
@@ -140,7 +141,7 @@ export default function ChatView({ initialPrompt, onEnterStudio, onHome }: Props
       <style>{ROOT_CSS}</style>
 
       <NavRail
-        activeSection="chat"
+        activeSection={activeMedium}
         onHome={onHome ?? (() => {})}
         onSection={() => onEnterStudio()}
         onUtility={() => onEnterStudio()}

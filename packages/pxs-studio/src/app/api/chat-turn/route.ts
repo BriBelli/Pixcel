@@ -285,6 +285,28 @@ export async function POST(req: Request) {
               }
             }
             send({ type: 'gen_done', costUsd: genCost });
+          } else if (result.action === 'transfer' && result.frame) {
+            // TRANSFER (large workflow): hand off to the Image agent. Emit the transfer signal
+            // (carries the Epistemic Frame) so the client flips the nav + attributes the work to
+            // the Image agent, then the Image agent runs the generation. (Slice 1: same surface;
+            // the full Image IDE morph is Slice 2.)
+            didRespond = true;
+            // Even a VIDEO goal transfers to the IMAGE agent first — you need the images the video
+            // will use (your Camaro flow). frame.medium records the ultimate goal; the target is
+            // 'image' until a Video agent + a pure-video path exist.
+            send({ type: 'transfer', to: 'image', frame: result.frame });
+            send({ type: 'gen_start' });
+            let genCost = 0;
+            for await (const ev of coordinateImage({ intent: result.frame.goal, needs: [], count: 2 })) {
+              if (ev.type === 'tile') {
+                send({ type: 'image', url: ev.tile.image.url, modelLabel: ev.tile.modelLabel, index: ev.totalSoFar - 1 });
+              } else if (ev.type === 'done') {
+                genCost = ev.costUsd;
+              } else if (ev.type === 'error') {
+                send({ type: 'gen_error', message: ev.message });
+              }
+            }
+            send({ type: 'gen_done', costUsd: genCost });
           } else if (result.action === 'ask' && result.question) {
             // ASK via the A2UI question affordance (never prose).
             didRespond = true;

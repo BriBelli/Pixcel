@@ -28,7 +28,7 @@ const VALID_CAPS: readonly Capability[] = [
 const IMAGE_AGENT_SYSTEM = `You are the IMAGE AGENT — a specialist that turns a handed-off creative brief into a concrete image render plan. You have ALREADY been oriented: the brief is VERIFIED, do not re-question it — start at DECIDE.
 
 Respond in TWO parts, in order:
-1) a SHORT opener as plain text — one calm sentence noting what you're rendering (no fluff, no exclamation).
+1) a SHORT opener as plain text — one calm sentence, no fluff, no exclamation. Match it to the leg: on a CONSULTATION hand-off, invite the user to set up the pass (specs + references) and NEVER claim you're rendering; on a GENERATION turn, note what you're rendering.
 2) call the \`plan_render\` tool with your render plan.
 
 You OWN the image specs (the Operator handed only the brief):
@@ -71,6 +71,7 @@ export type ImageAgentEvent =
   | { type: 'agent_text'; delta: string }
   | { type: 'agent_usage'; inputTokens: number; outputTokens: number }
   | { type: 'agent_a2ui'; block: ReferencesRecommendation }
+  | { type: 'gen_start' }
   | { type: 'image'; url: string; modelLabel: string; index: number }
   | { type: 'gen_error'; message: string }
   | { type: 'gen_done'; costUsd: number };
@@ -118,7 +119,12 @@ export async function* runImageAgent(frame: EpistemicFrame, turn: ImageAgentTurn
     const client = new Anthropic();
     let userContent: string;
     if (!followUp) {
-      userContent = `BRIEF (verified — start at Decide):\n${JSON.stringify(frame)}`;
+      userContent =
+        `BRIEF (verified — start at Decide):\n${JSON.stringify(frame)}\n\n` +
+        `This is the CONSULTATION leg (reference-first): do NOT render — no images are generated now. ` +
+        `Your opener invites the user to set up the pass (key specs like year/color/era, and reference images), ` +
+        `calm and consultative, never claiming you're rendering. Still produce a plan_render plan (prompt + needs) ` +
+        `so the reference recommendation is grounded — it just won't run until the user commits.`;
     } else {
       const parts = [`BRIEF (verified):\n${JSON.stringify(frame)}`];
       if (instruction) parts.push(`FOLLOW-UP INSTRUCTION FROM THE USER — apply it to the render plan:\n${instruction}`);
@@ -197,7 +203,7 @@ export async function* runImageAgent(frame: EpistemicFrame, turn: ImageAgentTurn
             maxReferences: facts.maxReferenceImages,
             supports: capabilityHighlights(facts),
             recommend,
-            note: `To make the next pass precise, attach up to ${facts.maxReferenceImages} reference image${facts.maxReferenceImages === 1 ? '' : 's'}.`,
+            note: `Attach up to ${facts.maxReferenceImages} reference image${facts.maxReferenceImages === 1 ? '' : 's'} (or tell me the specs), then I'll render.`,
           },
         };
       }
@@ -206,7 +212,17 @@ export async function* runImageAgent(frame: EpistemicFrame, turn: ImageAgentTurn
     console.warn('[image-agent] capability lookup failed (skipping recommendation):', err);
   }
 
-  // 3) Generate — coordinateImage consults the Model agent for selection, then dispatches.
+  // REFERENCE-FIRST: the first hand-off is a CONSULTATION — never spend on a render. The user
+  // commits later (attaches refs / says generate) in the workspace, which routes to /api/image-agent
+  // as a follow-up (followUp === true) and generates then. dispatch stays the only eager-gen path.
+  if (!followUp) {
+    yield { type: 'gen_done', costUsd: 0 };
+    return;
+  }
+
+  // 3) Generate — coordinateImage consults the Model agent for selection, then dispatches. Only
+  //    NOW does the "Generating…" state turn on (gen_start) — the consult leg above never reaches here.
+  yield { type: 'gen_start' };
   let cost = 0;
   for await (const ev of coordinateImage(req, { maxCostUsd: frame.budgetUsd })) {
     if (ev.type === 'tile') {

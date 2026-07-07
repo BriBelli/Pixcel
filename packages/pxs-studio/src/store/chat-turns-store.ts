@@ -256,8 +256,9 @@ export const useChatTurnsStore = create<ChatTurnsState>((set, get) => {
             set({ activeMedium: to, ...(frame ? { activeFrame: frame } : {}) });
             patch(id, { transferredTo: to });
           } else if (evt.type === 'agent_start') {
-            // The specialist agent (Image agent) began its leg.
-            patch(id, { generating: true });
+            // The specialist agent (Image agent) began its leg. Do NOT flag `generating` here — that
+            // belongs to actual image generation (gen_start), so the CONSULTATION leg (reference-first
+            // hand-off) never shows a false "Generating…".
           } else if (evt.type === 'agent_text') {
             // Stream the specialist's opener into its own field (distinct from the Operator's). On a
             // dedicated image-agent turn there's no Operator `text`, so flip out of 'thinking' here

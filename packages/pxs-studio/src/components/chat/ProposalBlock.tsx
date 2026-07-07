@@ -12,6 +12,7 @@
  * Tokens-only, gospel-styled: calm cards, no gradient on chrome, no scale-pop.
  * ───────────────────────────────────────────────────────────────────────────── */
 
+import { useState } from 'react';
 import { Icon } from '../ui';
 import type { A2UIOptionsBlock } from '../../store/chat-turns-store';
 
@@ -45,7 +46,12 @@ const CSS = `
   cursor: pointer; font-family: var(--a2ui-font-family);
   transition: border-color var(--a2ui-transition-fast), background var(--a2ui-transition-fast);
 }
-.pxc-prop-opt:hover { border-color: var(--a2ui-border-default); background: var(--a2ui-bg-elevated); }
+.pxc-prop-opt:hover:not(:disabled) { border-color: var(--a2ui-border-default); background: var(--a2ui-bg-elevated); }
+/* Locked after a pick: the chosen option stays accented; the rest fade + go inert. */
+.pxc-prop-opt:disabled { cursor: default; }
+.pxc-prop-opt:disabled:not([data-chosen]) { opacity: 0.5; }
+.pxc-prop-opt[data-chosen] { border-color: var(--a2ui-accent); background: var(--a2ui-bg-elevated); }
+.pxc-prop-opt[data-chosen] .pxc-prop-opt-arrow { color: var(--pxs-accent-text); }
 .pxc-prop-opt-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
 .pxc-prop-opt-label { font-size: var(--a2ui-text-md); line-height: var(--a2ui-leading-tight); }
 .pxc-prop-opt-detail { font-size: var(--a2ui-text-sm); color: var(--a2ui-text-tertiary); line-height: var(--a2ui-leading-normal); }
@@ -54,6 +60,16 @@ const CSS = `
 `;
 
 export function ProposalBlock({ block, onSelect }: ProposalBlockProps) {
+  // Single-use: once a path is picked, lock the block (highlight the choice, disable the rest) so a
+  // second click can't double-fire the turn.
+  const [chosen, setChosen] = useState<string | null>(null);
+
+  const pick = (o: { id: string; label: string }) => {
+    if (chosen) return;
+    setChosen(o.id);
+    onSelect(o.label);
+  };
+
   return (
     <div className="pxc-prop">
       <style>{CSS}</style>
@@ -69,13 +85,20 @@ export function ProposalBlock({ block, onSelect }: ProposalBlockProps) {
             key={o.id}
             type="button"
             className="pxc-prop-opt"
-            onClick={() => onSelect(o.label)}
+            data-chosen={chosen === o.id || undefined}
+            disabled={chosen != null}
+            aria-disabled={chosen != null}
+            onClick={() => pick(o)}
           >
             <div className="pxc-prop-opt-body">
               <span className="pxc-prop-opt-label">{o.label}</span>
               {o.detail && <span className="pxc-prop-opt-detail">{o.detail}</span>}
             </div>
-            <Icon name="arrow-right" size={16} className="pxc-prop-opt-arrow" />
+            {chosen === o.id ? (
+              <Icon name="check" size={16} className="pxc-prop-opt-arrow" />
+            ) : (
+              <Icon name="arrow-right" size={16} className="pxc-prop-opt-arrow" />
+            )}
           </button>
         ))}
       </div>

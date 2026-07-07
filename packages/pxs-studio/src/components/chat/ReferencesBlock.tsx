@@ -14,6 +14,7 @@
  * Tokens-only, gospel-styled.
  * ───────────────────────────────────────────────────────────────────────────── */
 
+import { useState } from 'react';
 import { Icon } from '../ui';
 import type { A2UIReferencesBlock } from '../../store/chat-turns-store';
 
@@ -29,8 +30,14 @@ const CSS = `
   padding: var(--a2ui-space-4);
   display: flex; flex-direction: column; gap: var(--a2ui-space-3);
 }
-.pxc-ref-head { display: flex; align-items: center; gap: var(--a2ui-space-2); }
-.pxc-ref-head > svg { color: var(--pxs-accent-text); }
+.pxc-ref-head {
+  display: flex; align-items: center; gap: var(--a2ui-space-2); width: 100%;
+  background: none; border: none; padding: 0; cursor: pointer; text-align: left;
+  color: var(--a2ui-text-primary); font-family: var(--a2ui-font-family);
+}
+.pxc-ref-head > svg:first-child { color: var(--pxs-accent-text); flex-shrink: 0; }
+.pxc-ref-chevron { margin-left: auto; color: var(--a2ui-text-tertiary); transition: transform var(--a2ui-transition-fast); }
+.pxc-ref-chevron.is-collapsed { transform: rotate(-90deg); }
 .pxc-ref-title {
   font-size: var(--a2ui-text-md); font-weight: var(--a2ui-font-semibold);
   color: var(--a2ui-text-primary); line-height: var(--a2ui-leading-tight);
@@ -64,19 +71,29 @@ const CSS = `
 `;
 
 export function ReferencesBlock({ block }: ReferencesBlockProps) {
+  // Collapsed by default — the full capability breakdown is heavy for the narrow chat column; the
+  // compact header stays, the detail expands on demand. (The real home is the Prompt Guide panel, PR-9.)
+  const [open, setOpen] = useState(false);
+
   return (
     <div className="pxc-ref">
       <style>{CSS}</style>
 
-      <div className="pxc-ref-head">
+      <button
+        type="button"
+        className="pxc-ref-head"
+        onClick={() => setOpen((v) => !v)}
+        aria-expanded={open}
+      >
         <Icon name="image" size={16} />
         <div>
           <div className="pxc-ref-title">References for a precise pass</div>
           <div className="pxc-ref-model">{block.modelLabel}</div>
         </div>
-      </div>
+        <Icon name="chevron-down" size={16} className={`pxc-ref-chevron${open ? '' : ' is-collapsed'}`} />
+      </button>
 
-      {block.supports.length > 0 && (
+      {open && block.supports.length > 0 && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--a2ui-space-2)' }}>
           <span className="pxc-ref-section-label">Supports</span>
           <div className="pxc-ref-chips">
@@ -89,7 +106,7 @@ export function ReferencesBlock({ block }: ReferencesBlockProps) {
         </div>
       )}
 
-      {block.recommend.length > 0 && (
+      {open && block.recommend.length > 0 && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--a2ui-space-2)' }}>
           <span className="pxc-ref-section-label">Attach next</span>
           <div className="pxc-ref-recos">
@@ -107,6 +124,7 @@ export function ReferencesBlock({ block }: ReferencesBlockProps) {
           <Icon name="paperclip" size={14} /> {block.note}
         </div>
       )}
+      {/* Collapsed: keep the single actionable line visible so the user still knows the next move. */}
     </div>
   );
 }

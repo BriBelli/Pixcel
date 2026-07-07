@@ -173,6 +173,9 @@ export async function POST(req: Request) {
       try {
         send({ type: 'status', phase: 'thinking', message: 'Thinking…' });
 
+        // NOTE: the frame is BOUNDED (paths/intent, never inline content) — assertFrameBudget caps
+        // it at ~500 tokens. Reference image DATA URLs are big payloads, so they ride ALONGSIDE the
+        // frame via the turn (straight to the generation adapter), never inside frame.assetRefs.
         const frame: EpistemicFrame = {
           goal,
           subject,
@@ -180,7 +183,6 @@ export async function POST(req: Request) {
           section,
           budgetUsd: remainingUsd,
           count: 2,
-          assetRefs: references.length > 0 ? references : undefined,
         };
 
         for await (const ev of runImageAgent(frame, { userMessage: prompt, history, references })) {

@@ -68,7 +68,7 @@ function prefersReducedMotion(): boolean {
 
 export default function Home() {
   const [mounted, setMounted] = useState(false);
-  // The front door is now CHAT: splash → chat (the Pixcel Agent) → optionally the Studio (IDE).
+  // The front door is now CHAT: splash → chat (the Operator) → optionally the Studio (IDE).
   const [stage, setStage] = useState<Stage>('splash');
   const [initialPrompt, setInitialPrompt] = useState<string | undefined>();
 
@@ -183,7 +183,7 @@ export default function Home() {
     };
   };
 
-  // The product's front door: splash → the chat-orchestrator (Pixcel Agent) conversation. The
+  // The product's front door: splash → the Operator conversation. The
   // Studio (the art IDE, with LiveArtisanPanel etc.) stays reachable — entered from chat (a
   // medium choice / nav item). AuthProvider wraps all three so they share the Auth0 session.
   return (

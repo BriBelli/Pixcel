@@ -14,7 +14,7 @@ An autonomous, AI-native creative platform. **One chat engine**, configured into
 ## Where we are now (built + working)
 - ✅ Front-door **Operator** chat (photolif-faithful UI) — ONE tool-use call: streams a hospitable opener, then emits its OODA verdict (ask / dispatch / transfer / reply). Orient-first on the deliverable.
 - ✅ Image engine: model registry + two-gate router + provider-agnostic executor + Gemini adapter (proven live).
-- ✅ **Sized** flow: casual → quick inline image in chat; deep ("Camaro for a video scene") → **real transfer** (opener names + explains it, nav flips, first reference render). Vague → a two-prong A2UI question (text-area).
+- ✅ **Sized** flow: casual → quick inline image in chat; deep ("Camaro for a video scene") → **Slice-1 transfer UX** (opener names + explains it, nav flips, first reference render) — hospitable, but the same generation path as dispatch; the real Image-agent-with-its-own-loop is Slice 2. Vague → a two-prong A2UI question (text-area).
 - ✅ Spend fully metered + hard-capped (tokens + image cost); section prior threaded in.
 - ✅ Nav focused on Image (pixel-art pulled — proprietary IP, later); tasteful backdrop.
 

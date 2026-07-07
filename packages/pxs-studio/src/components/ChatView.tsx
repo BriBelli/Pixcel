@@ -3,7 +3,7 @@
 /* ─────────────────────────────────────────────────────────────────────────────
  * ChatView — the chat-orchestrator front door (PR-4a: design-true shell).
  *
- * The splash prompt lands HERE (the Pixcel Agent conversation), rendered ABOVE the
+ * The splash prompt lands HERE (the Operator conversation), rendered ABOVE the
  * persistent <DigitalWall> (z-0) so the same LED-wall backdrop continues behind the
  * chat. Each turn is composed on the PR-2 primitives via <MessageTurn>: the user
  * bubble, the assistant identity badge ("Opus 4.8"), the pre-text plan rows, the

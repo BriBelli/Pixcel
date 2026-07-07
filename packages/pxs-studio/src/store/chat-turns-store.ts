@@ -10,15 +10,13 @@ import type { Source } from '../components/chat/SourcesRow';
 const THREAD_STORAGE_KEY = 'pxs-chat-thread';
 
 /**
- * THE CHAT TURNS STORE — Slice 1 of the chat-orchestrator front door.
+ * THE CHAT TURNS STORE — the Operator front door's view-model.
  *
- * Mirrors gen-jobs-store's proven shape: `send(prompt)` POSTs to /api/chat-turn, reads the
- * NDJSON stream (reader.read() + TextDecoder + '\n'-split + JSON.parse), and reduces the events
- * into a ChatTurn view-model. It holds an ARRAY of turns so the conversation is continuous —
- * each `send` appends a new turn (carrying the prior turns as history for coherence).
- *
- * This is the chat path ONLY — it never touches the art engine. Real classify/route into
- * Pixcel Studio vs an image model lands in later slices.
+ * `send(prompt)` POSTs to /api/chat-turn (with the entry `section`), reads the NDJSON stream
+ * (reader.read() + TextDecoder + '\n'-split + JSON.parse), and reduces the events into a ChatTurn
+ * view-model. It holds an ARRAY of turns so the conversation is continuous — each `send` appends a
+ * new turn (carrying prior turns as history). The Operator may dispatch/transfer image generation,
+ * whose tiles stream in as `image` events; a `transfer` flips `activeMedium` (the nav).
  */
 
 /** A stacked options block (radio/checkbox). */

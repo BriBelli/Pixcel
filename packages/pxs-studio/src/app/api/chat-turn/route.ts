@@ -9,6 +9,7 @@ import { coordinateImage } from '../../../lib/engine/coordinator';
 import {
   A2UI_VERSION,
   checkCap,
+  costUsd,
   createLivingContext,
   DEV_USER_ID,
   getDb,
@@ -24,22 +25,25 @@ export const maxDuration = 120;
  * THE OPERATOR TURN — the front-door OODA loop.
  *
  * Mirrors api/generate-art's SSE structure (nodejs runtime, NDJSON ReadableStream, env-key check).
- * Per turn:
- *   1) stream the Operator's one-line OPENER (claude-opus-4-8), then
- *   2) run the OODA classify pass (claude-opus-4-8, structured output = CLASSIFY_SCHEMA) that
- *      Observes → Orients on the deliverable → Decides ONE sized action, then
- *   3) ACT on the verdict:
- *        dispatch (small)  → generate images inline (runImageGen)
- *        transfer (large)  → emit {transfer,frame} (nav flip) then generate via the Image agent
+ * ONE Operator call per turn (claude-opus-4-8, adaptive thinking + the `decide` tool):
+ *   1) stream the hospitable OPENER as text, and in the SAME call the model emits its OODA verdict
+ *      as the `decide` tool call (Observe → Orient on the deliverable → Decide ONE sized action) —
+ *      so the opener reflects the decision. No separate classify pass.
+ *   2) ACT on the verdict:
+ *        dispatch (small)  → generate a quick image inline (runImageGen)
+ *        transfer (large)  → emit {transfer,frame} (nav flip) + render the first reference image
+ *                            [Slice-1 UX: same surface + same generation path as dispatch; the real
+ *                             Image-agent-with-its-own-loop + Image IDE is Slice 2]
  *        ask               → emit the A2UI question block (never prose)
  *        reply             → contextual quick-pick suggestions
  *      then persist + `done`.
  *
  * The Operator chooses the medium itself — no tool/medium picker. STUB_SUGGESTIONS is the fallback
- * if the classify call fails.
+ * if the verdict is missing/invalid.
  *
- * SPEND: metered end-to-end — the streamed call + the classify call tokens + realized image cost
- * ALL hit recordUsage, gated against the user's remaining hard cap (see runImageGen / recordUsage).
+ * SPEND: metered end-to-end — the ONE Operator call's tokens + realized image cost ALL hit
+ * recordUsage, gated against the user's remaining hard cap. `remainingUsd` is reduced by the
+ * Operator call's cost BEFORE image generation (per-turn tightening; see below).
  *
  * Event contract (NDJSON, one per line): status · step(reading/choosing) · text · transfer ·
  * gen_start · image · gen_done · gen_error · a2ui · suggestions · done | error.
@@ -240,6 +244,13 @@ export async function POST(req: Request) {
         const finalMessage = await llmStream.finalMessage();
         // Close the reading step even if the model went straight to the tool call (no opener text).
         if (!firstToken) send({ type: 'step', id: 'reading', status: 'done' });
+
+        // Per-turn cap tightening: subtract THIS Operator call's cost from the remaining budget
+        // BEFORE any image generation, so Opus + images can't stack past the cap within one turn.
+        remainingUsd = Math.max(
+          0,
+          remainingUsd - costUsd(finalMessage?.usage?.input_tokens ?? 0, finalMessage?.usage?.output_tokens ?? 0)
+        );
 
         // Phase 2: the Operator's verdict = the `decide` tool call it just emitted.
         send({ type: 'step', id: 'choosing', label: 'Choosing your next steps…', status: 'start' });

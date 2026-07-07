@@ -3,7 +3,7 @@
 /* ─────────────────────────────────────────────────────────────────────────────
  * Model-identity helpers — shared by the turn footer (MessageActions).
  *
- * The Pixcel Agent's identity is the LEFT avatar (the Pixcel-X mark) + the footer
+ * The Operator's identity is the LEFT avatar (the Pixcel-X mark) + the footer
  * model badge, exactly like photolif's `a2ui-chat-message` — there is no separate
  * top "AsstHead" line. These helpers derive the badge name + provider icon from
  * the model id so nothing is hardcoded in JSX. The model is LOCKED to the best

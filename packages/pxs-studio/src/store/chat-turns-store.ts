@@ -101,6 +101,8 @@ interface ChatTurnsState {
   deleteTurn: (interactionId: string) => Promise<void>;
   /** Clear the whole conversation (turns + thread id + stored key). */
   reset: () => void;
+  /** Switch the active workflow medium (drives the nav + the surface layout). */
+  setActiveMedium: (medium: 'chat' | 'image' | 'video') => void;
 }
 
 export const useChatTurnsStore = create<ChatTurnsState>((set, get) => {
@@ -389,5 +391,6 @@ export const useChatTurnsStore = create<ChatTurnsState>((set, get) => {
       }
       set({ turns: [], threadId: null, activeMedium: 'chat' });
     },
+    setActiveMedium: (medium) => set({ activeMedium: medium }),
   };
 });

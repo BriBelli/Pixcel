@@ -27,6 +27,7 @@ import { useChatTurnsStore } from '../store/chat-turns-store';
 import { useSettings } from '../store/settings-store';
 import { Composer } from './ui';
 import { MessageTurn } from './chat/MessageTurn';
+import { ImageStage, type StageImage } from './chat/ImageStage';
 
 interface Props {
   /** The prompt typed on the splash (front door). Auto-sent once on mount. */
@@ -67,6 +68,7 @@ const COLUMN_STYLE = { maxWidth: 'var(--a2ui-chat-max-width)' } as const;
 export default function ChatView({ initialPrompt, onEnterStudio, onHome }: Props) {
   const turns = useChatTurnsStore((s) => s.turns);
   const activeMedium = useChatTurnsStore((s) => s.activeMedium);
+  const setActiveMedium = useChatTurnsStore((s) => s.setActiveMedium);
   const send = useChatTurnsStore((s) => s.send);
   const loadThread = useChatTurnsStore((s) => s.loadThread);
   const deleteTurn = useChatTurnsStore((s) => s.deleteTurn);
@@ -126,69 +128,115 @@ export default function ChatView({ initialPrompt, onEnterStudio, onHome }: Props
     [send]
   );
 
+  // The workspace surface is on whenever a specialist medium is active (Image/Video). It's entered
+  // by a TRANSFER, a transfer CTA click, or the nav Image/Video item — never a dead-end.
+  const inWorkspace = activeMedium !== 'chat';
+  const workspaceMedium: 'image' | 'video' = activeMedium === 'video' ? 'video' : 'image';
+
+  // Every generated image across the conversation, newest first — the workspace stage's content.
+  const stageImages: StageImage[] = [...turns]
+    .reverse()
+    .flatMap((t) => t.images.map((img) => ({ ...img, turnId: t.id })));
+  const generating = turns.some((t) => t.generating);
+
+  const openWorkflow = useCallback(
+    (medium: 'image' | 'video') => setActiveMedium(medium),
+    [setActiveMedium]
+  );
+
+  // Home / Chat from WITHIN a workspace returns to the conversation column; from the plain chat it
+  // goes all the way home (the splash). So the front door never traps you in a specialist surface.
+  const handleHome = useCallback(() => {
+    if (inWorkspace) setActiveMedium('chat');
+    else onHome?.();
+  }, [inWorkspace, setActiveMedium, onHome]);
+
+  // The conversation (scrollable turns + composer) — shared by the chat column and the workspace's
+  // right pane. `capped` centers it under the chat-width cap (chat home); the pane fills its column.
+  const conversation = (capped: boolean) => (
+    <div className="relative z-10 flex-1 flex flex-col min-h-0">
+      <div ref={scrollRef} className="flex-1 overflow-y-auto">
+        <div className={capped ? 'mx-auto w-full px-6 py-8' : 'w-full px-5 py-6'} style={capped ? COLUMN_STYLE : undefined}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--a2ui-space-6)' }}>
+            {turns.map((t, i) => {
+              const isLast = i === turns.length - 1;
+              const isDone = t.status === 'done';
+              // Delete + regenerate act on the LAST turn only. Delete additionally
+              // requires a persisted turn (has an interactionId). Copy is on every done turn.
+              const canDelete = isLast && isDone && Boolean(t.interactionId);
+              const canRegenerate = isLast && isDone && Boolean(t.userPrompt);
+              return (
+                <MessageTurn
+                  key={t.id}
+                  turn={t}
+                  showActions={showActions}
+                  onSuggestion={submit}
+                  onOpenWorkflow={openWorkflow}
+                  // Copy the assistant text to the clipboard (silent on failure).
+                  onCopy={() => navigator.clipboard.writeText(t.text).catch(() => {})}
+                  // Regenerate = re-send this turn's userPrompt → appends a fresh turn.
+                  // NOTE: this SPENDS a model call (expected for a regenerate button).
+                  onRegenerate={canRegenerate ? () => send(t.userPrompt) : undefined}
+                  onDelete={canDelete ? () => deleteTurn(t.interactionId!) : undefined}
+                />
+              );
+            })}
+          </div>
+        </div>
+      </div>
+
+      {/* Composer — the PR-2 primitive, column-capped in chat, pane-width in the workspace. */}
+      <div className={capped ? 'shrink-0 px-6 pb-6 pt-2' : 'shrink-0 px-5 pb-5 pt-2'}>
+        <div className={capped ? 'mx-auto w-full' : 'w-full'} style={capped ? COLUMN_STYLE : undefined}>
+          <Composer value={draft} onChange={setDraft} onSubmit={submit} />
+        </div>
+      </div>
+    </div>
+  );
+
   return (
     <div className="pxc-root flex h-screen overflow-hidden">
       <style>{ROOT_CSS}</style>
 
       <NavRail
         activeSection={activeMedium}
-        onHome={onHome ?? (() => {})}
-        onSection={() => onEnterStudio()}
+        onHome={handleHome}
+        onSection={(id) =>
+          id === 'image' || id === 'video'
+            ? setActiveMedium(id)
+            : setActiveMedium('chat')
+        }
         onUtility={() => onEnterStudio()}
         onOpenSettings={() => setSettingsOpen(true)}
       />
 
       <SettingsPanel open={settingsOpen} onClose={() => setSettingsOpen(false)} />
 
-      <div className="relative flex-1 flex flex-col min-w-0">
-        {/* z-0 — the Pixcel digital wall, full-bleed BEHIND the chat, but DORMANT here: the logo is
-            OFF (showLogo=false — logoScale can't remove it, it floors to native width) and intensity
-            is very low, so it's ambient texture that never competes with the conversation. This is
-            the settled END-STATE; the animated hand-off that eases the wall into it is lifecycle work. */}
-        {/* Chat backdrop — solid charcoal (the root) + a barely-there ambient drift (.pxc-ambient).
-            Replaces the frozen low-res LED wall that read as static grey blotches. */}
-        <div className="pxc-ambient pointer-events-none absolute inset-0 z-0" aria-hidden="true" />
-
-        {/* z-10 — the chat, floating above the wall, column-capped. */}
-        <div className="relative z-10 flex-1 flex flex-col min-h-0">
-          {/* Scrollable conversation */}
-          <div ref={scrollRef} className="flex-1 overflow-y-auto">
-            <div className="mx-auto w-full px-6 py-8" style={COLUMN_STYLE}>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--a2ui-space-6)' }}>
-                {turns.map((t, i) => {
-                  const isLast = i === turns.length - 1;
-                  const isDone = t.status === 'done';
-                  // Delete + regenerate act on the LAST turn only. Delete additionally
-                  // requires a persisted turn (has an interactionId). Copy is on every done turn.
-                  const canDelete = isLast && isDone && Boolean(t.interactionId);
-                  const canRegenerate = isLast && isDone && Boolean(t.userPrompt);
-                  return (
-                    <MessageTurn
-                      key={t.id}
-                      turn={t}
-                      showActions={showActions}
-                      onSuggestion={submit}
-                      // Copy the assistant text to the clipboard (silent on failure).
-                      onCopy={() => navigator.clipboard.writeText(t.text).catch(() => {})}
-                      // Regenerate = re-send this turn's userPrompt → appends a fresh turn.
-                      // NOTE: this SPENDS a model call (expected for a regenerate button).
-                      onRegenerate={canRegenerate ? () => send(t.userPrompt) : undefined}
-                      onDelete={canDelete ? () => deleteTurn(t.interactionId!) : undefined}
-                    />
-                  );
-                })}
-              </div>
-            </div>
-          </div>
-
-          {/* Composer — the PR-2 primitive, column-capped to match the conversation. */}
-          <div className="shrink-0 px-6 pb-6 pt-2">
-            <div className="mx-auto w-full" style={COLUMN_STYLE}>
-              <Composer value={draft} onChange={setDraft} onSubmit={submit} />
-            </div>
-          </div>
+      {inWorkspace ? (
+        /* ── WORKSPACE surface — the transfer lands here: center stage (generated images LARGE) +
+              the conversation continuing in a right pane. This is what makes a transfer read as a
+              WORKFLOW, not a dead-end in the chat scroll. ── */
+        <div className="relative flex-1 flex min-w-0">
+          <ImageStage images={stageImages} generating={generating} medium={workspaceMedium} />
+          <aside
+            className="w-[400px] shrink-0 flex flex-col min-h-0"
+            style={{ borderLeft: '1px solid var(--a2ui-border-subtle)', background: 'var(--a2ui-bg-app)' }}
+          >
+            {conversation(false)}
+          </aside>
         </div>
-      </div>
+      ) : (
+        <div className="relative flex-1 flex flex-col min-w-0">
+          {/* z-0 — the Pixcel digital wall, full-bleed BEHIND the chat, but DORMANT here: the logo is
+              OFF (showLogo=false — logoScale can't remove it, it floors to native width) and intensity
+              is very low, so it's ambient texture that never competes with the conversation. This is
+              the settled END-STATE; the animated hand-off that eases the wall into it is lifecycle work. */}
+          {/* Chat backdrop — solid charcoal (the root) + a barely-there ambient drift (.pxc-ambient).
+              Replaces the frozen low-res LED wall that read as static grey blotches. */}
+          <div className="pxc-ambient pointer-events-none absolute inset-0 z-0" aria-hidden="true" />
+          {conversation(true)}
+        </div>
+      )}
     </div>
   );
 }

@@ -34,6 +34,8 @@ export interface MessageTurnProps {
   /** Show the assistant action-bar footer (copy · regenerate · feedback). Default true. */
   showActions?: boolean;
   onSuggestion: (text: string) => void;
+  /** Enter the specialist workspace for this turn's transfer (the clickable transfer CTA). */
+  onOpenWorkflow?: (medium: 'image' | 'video') => void;
   /** Copy this turn's assistant text to the clipboard (every done turn). */
   onCopy: () => void;
   /** Re-run the model for this turn (LAST done turn only) — SPENDS a model call. */
@@ -111,6 +113,33 @@ const CSS = `
 .pxc-choosing-reveal { animation: pxc-a2ui-in 300ms var(--a2ui-ease-entrance) both; }
 .pxc-turn-error { font-size: var(--a2ui-text-md); color: var(--a2ui-error); }
 
+/* Transfer CTA — the clickable hand-off row into the specialist workspace. A calm
+   elevated card (no gradient on chrome, no scale-pop); the arrow nudges on hover. */
+.pxc-transfer-cta {
+  margin-top: var(--a2ui-space-3);
+  display: flex; align-items: center; gap: var(--a2ui-space-3);
+  width: 100%; max-width: 320px; text-align: left;
+  padding: var(--a2ui-space-2) var(--a2ui-space-3);
+  border-radius: var(--a2ui-radius-lg);
+  border: 1px solid var(--a2ui-border-subtle); background: var(--a2ui-bg-elevated);
+  color: var(--a2ui-text-primary); cursor: pointer; font-family: var(--a2ui-font-family);
+  transition: border-color var(--a2ui-transition-fast), background var(--a2ui-transition-fast);
+}
+.pxc-transfer-cta:hover { border-color: var(--a2ui-border-default); background: var(--a2ui-bg-hover); }
+.pxc-transfer-avatar {
+  width: 26px; height: 26px; flex-shrink: 0;
+  border-radius: var(--a2ui-radius-full);
+  background: var(--a2ui-bg-tertiary); color: var(--pxs-accent-text);
+  display: flex; align-items: center; justify-content: center;
+}
+.pxc-transfer-label {
+  flex: 1; min-width: 0; display: flex; flex-direction: column;
+  font-size: var(--a2ui-text-sm); line-height: var(--a2ui-leading-tight);
+}
+.pxc-transfer-sub { font-size: var(--a2ui-text-xs); color: var(--a2ui-text-tertiary); }
+.pxc-transfer-arrow { color: var(--a2ui-text-tertiary); transition: transform var(--a2ui-transition-fast); }
+.pxc-transfer-cta:hover .pxc-transfer-arrow { transform: translateX(2px); }
+
 /* Generated gallery — a 2-up grid of tiles that stream in. */
 .pxc-gallery {
   margin-top: var(--a2ui-space-4);
@@ -125,6 +154,25 @@ const CSS = `
 }
 .pxc-tile:hover { box-shadow: 0 0 0 1px var(--a2ui-border-default); }
 .pxc-tile img { width: 100%; height: 100%; object-fit: cover; display: block; }
+/* Hover overlay — the ONLY gradient allowed on chrome (gospel §6). Actions bottom-right. */
+.pxc-tile-overlay {
+  position: absolute; inset: 0;
+  display: flex; align-items: flex-end; justify-content: flex-end; gap: var(--a2ui-space-2);
+  padding: var(--a2ui-space-2);
+  background: linear-gradient(180deg, transparent 40%, rgba(0,0,0,0.6) 100%);
+  opacity: 0; transition: opacity var(--a2ui-transition-fast);
+}
+.pxc-tile:hover .pxc-tile-overlay, .pxc-tile:focus-within .pxc-tile-overlay { opacity: 1; }
+.pxc-tile-action {
+  display: inline-flex; align-items: center; gap: 5px; height: 28px; padding: 0 10px;
+  border-radius: var(--a2ui-radius-md);
+  border: 1px solid var(--pxs-glass-border); background: var(--a2ui-glass-dark);
+  backdrop-filter: blur(8px);
+  color: var(--a2ui-text-primary); font-size: var(--a2ui-text-xs);
+  font-family: var(--a2ui-font-family); text-decoration: none; cursor: pointer;
+  transition: background var(--a2ui-transition-fast);
+}
+.pxc-tile-action:hover { background: var(--a2ui-bg-elevated); }
 .pxc-tile-badge {
   position: absolute; left: 6px; bottom: 6px;
   padding: 2px 7px; border-radius: var(--a2ui-radius-full);
@@ -153,6 +201,7 @@ export function MessageTurn({
   turn,
   showActions = true,
   onSuggestion,
+  onOpenWorkflow,
   onCopy,
   onRegenerate,
   onDelete,
@@ -214,18 +263,24 @@ export function MessageTurn({
               </div>
             )}
 
-            {/* Transfer attribution — the Operator handed this turn to the Image agent. */}
+            {/* Transfer CTA — the Operator handed this turn to the Image agent; the row is a
+                clickable affordance that opens the specialist WORKSPACE (never a dead-end). */}
             {turn.transferredTo && (
-              <div
-                className="pxc-a2ui-reveal flex items-center"
-                style={{
-                  marginTop: 'var(--a2ui-space-3)', gap: 'var(--a2ui-space-2)',
-                  fontSize: 'var(--a2ui-text-sm)', color: 'var(--a2ui-text-secondary)',
-                }}
+              <button
+                type="button"
+                className="pxc-transfer-cta pxc-a2ui-reveal"
+                onClick={() => onOpenWorkflow?.(turn.transferredTo!)}
+                title={`Open the ${turn.transferredTo === 'video' ? 'Video' : 'Image'} workspace`}
               >
-                <Icon name="arrow-right" size={14} style={{ color: 'var(--a2ui-text-tertiary)' }} />
-                Transferred to the Image agent
-              </div>
+                <span className="pxc-transfer-avatar" aria-hidden="true">
+                  <PixcelMark size={13} />
+                </span>
+                <span className="pxc-transfer-label">
+                  {turn.transferredTo === 'video' ? 'Video' : 'Image'} agent
+                  <span className="pxc-transfer-sub">Open workspace</span>
+                </span>
+                <Icon name="arrow-right" size={15} className="pxc-transfer-arrow" />
+              </button>
             )}
 
             {/* The Image agent's own opener (streamed after the transfer). */}
@@ -239,17 +294,29 @@ export function MessageTurn({
             {(turn.images.length > 0 || turn.generating) && (
               <div className="pxc-gallery pxc-a2ui-reveal">
                 {turn.images.map((img) => (
-                  <a
-                    key={img.index}
-                    className="pxc-tile"
-                    href={img.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                  >
+                  <div key={img.index} className="pxc-tile">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img src={img.url} alt={img.modelLabel || 'generated image'} />
+                    <div className="pxc-tile-overlay">
+                      <a
+                        className="pxc-tile-action"
+                        href={img.url}
+                        download={`pixcel-${img.index + 1}.png`}
+                        title="Download"
+                      >
+                        <Icon name="download" size={13} /> Download
+                      </a>
+                      <button
+                        type="button"
+                        className="pxc-tile-action"
+                        onClick={() => onSuggestion('Make a few more variations of this.')}
+                        title="Make variations"
+                      >
+                        <Icon name="refresh-cw" size={13} /> Variations
+                      </button>
+                    </div>
                     {img.modelLabel && <span className="pxc-tile-badge">{img.modelLabel}</span>}
-                  </a>
+                  </div>
                 ))}
                 {turn.generating && <div className="pxc-tile pxc-tile-loading">Generating…</div>}
               </div>

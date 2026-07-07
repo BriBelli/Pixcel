@@ -1,12 +1,11 @@
 import Anthropic from '@anthropic-ai/sdk';
 import {
-  CLASSIFY_SYSTEM,
-  CLASSIFY_SCHEMA,
+  OPERATOR_SYSTEM,
+  DECIDE_TOOL,
   parseClassifyResult,
   STUB_SUGGESTIONS,
 } from '../../../lib/chat-classify';
 import { coordinateImage } from '../../../lib/engine/coordinator';
-import { chatOrchestratorSystemPrompt } from '../../../lib/chat-orchestrator-prompt';
 import {
   A2UI_VERSION,
   checkCap,
@@ -70,7 +69,7 @@ export async function POST(req: Request) {
     );
   }
 
-  let body: { prompt?: string; history?: HistoryMsg[]; thread_id?: string; user_id?: string };
+  let body: { prompt?: string; history?: HistoryMsg[]; thread_id?: string; user_id?: string; section?: string };
   try {
     body = await req.json();
   } catch {
@@ -78,6 +77,8 @@ export async function POST(req: Request) {
   }
 
   const prompt = (body.prompt ?? '').trim();
+  // The entry nav SECTION sets the Operator's prior (chat = broad · image/video = assume medium).
+  const section = ((body.section ?? 'chat').trim() || 'chat').toLowerCase();
   if (!prompt) return Response.json({ error: 'prompt is required' }, { status: 400 });
 
   // ── PR-3 persistence wiring (memory-first / DB-async; never breaks the stream) ──
@@ -203,21 +204,21 @@ export async function POST(req: Request) {
         // Honest phase 1: reading/generating — starts now, completes on the first text delta.
         send({ type: 'step', id: 'reading', label: 'Reading your request…', status: 'start' });
 
-        // 2) Stream the quick high-level support response. Streaming + adaptive thinking is the
-        //    claude-opus-4-8 pattern (see lib/artisan-loop.ts): iterate content_block_delta →
-        //    text_delta and forward each text chunk.
+        // 2) ONE Operator call: stream the hospitable OPENER (text), then the model calls the
+        //    `decide` tool with its OODA verdict — so the opener reflects the decision (Orient +
+        //    Decide + speak in one pass). No separate classify call.
         const messages: Anthropic.MessageParam[] = [
           ...history.map((m) => ({ role: m.role, content: m.content })),
           { role: 'user' as const, content: prompt },
         ];
 
-        // Cast params as any at the call site (the installed SDK's request types lag adaptive
-        // thinking) — the SAME pattern the artisan core uses; see lib/artisan-loop.ts.
+        // `as any` at the call site (the SDK's request types lag adaptive thinking).
         const params = {
           model: MODEL,
           max_tokens: 2048,
           thinking: { type: 'adaptive', display: 'summarized' },
-          system: chatOrchestratorSystemPrompt,
+          system: `${OPERATOR_SYSTEM}\n\nEntry section: "${section}".`,
+          tools: [DECIDE_TOOL],
           messages,
         };
         const llmStream = client.messages.stream(params as any);
@@ -230,85 +231,44 @@ export async function POST(req: Request) {
           ) {
             if (!firstToken) {
               firstToken = true;
-              // The model has started producing text — the reading phase is done.
               send({ type: 'step', id: 'reading', status: 'done' });
             }
             assistantText += event.delta.text;
             send({ type: 'text', delta: event.delta.text });
           }
         }
-        // Surface any terminal stream error rather than silently finishing.
         const finalMessage = await llmStream.finalMessage();
+        // Close the reading step even if the model went straight to the tool call (no opener text).
+        if (!firstToken) send({ type: 'step', id: 'reading', status: 'done' });
 
-        // Honest phase 2: choosing next steps — the classify pass over the exchange.
+        // Phase 2: the Operator's verdict = the `decide` tool call it just emitted.
         send({ type: 'step', id: 'choosing', label: 'Choosing your next steps…', status: 'start' });
 
-        // 3) CLASSIFY PASS — one extra non-streaming claude-opus-4-8 call over the exchange.
-        //    Derives the tappable quick-pick suggestions (possible ANSWERS to the agent's
-        //    question). NO tool/medium picker — the agent chooses the medium itself. On ANY
-        //    failure we fall back to the stub quick-picks so a chat turn never breaks.
         let suggestionsToSend: string[] = STUB_SUGGESTIONS;
         // The A2UI block actually emitted (persisted for truthful hydrate). Question | null.
         let emittedBlock: { kind: 'question'; label: string; placeholder?: string; chips?: string[] } | null = null;
-        let didRespond = false; // true once a branch has emitted its result (skip the fallback suggestions)
-        // Metering accumulators — the classify call's tokens AND the realized image-gen cost must
-        // ALL reach recordUsage, or the hard cap only ever gates the streamed Opus call (money bug).
-        let classifyInTok = 0;
-        let classifyOutTok = 0;
-        let genCostTotal = 0;
+        let didRespond = false;
+        let genCostTotal = 0; // realized image spend, metered against the cap
 
         try {
-          // Give the classifier the user prompt + the assistant's response text (+ brief history).
-          const classifyMessages: Anthropic.MessageParam[] = [
-            ...history.slice(-6).map((m) => ({ role: m.role, content: m.content })),
-            {
-              role: 'user' as const,
-              content:
-                `USER MESSAGE:\n${prompt}\n\n` +
-                `ASSISTANT RESPONSE:\n${assistantText}\n\n` +
-                `Classify this exchange and produce the follow-up UI JSON.`,
-            },
-          ];
-
-          // Same adaptive-thinking + `as any` pattern as the streaming call; modest max_tokens
-          // since the classify output is small JSON.
-          // Structured output → clean JSON (no regex). Classify is simple; no thinking needed.
-          const classifyParams = {
-            model: MODEL,
-            max_tokens: 700,
-            system: CLASSIFY_SYSTEM,
-            messages: classifyMessages,
-            output_config: { format: { type: 'json_schema', schema: CLASSIFY_SCHEMA } },
-          };
-          const classifyMsg = await client.messages.create(classifyParams as any);
-          // Meter this second Opus call too (previously dropped on the floor).
-          classifyInTok = (classifyMsg as { usage?: { input_tokens?: number } })?.usage?.input_tokens ?? 0;
-          classifyOutTok = (classifyMsg as { usage?: { output_tokens?: number } })?.usage?.output_tokens ?? 0;
-          const classifyText = ((classifyMsg.content ?? []) as Array<{ type: string; text?: string }>)
-            .filter((b) => b.type === 'text')
-            .map((b) => b.text ?? '')
-            .join('')
-            .trim();
-
-          const result = parseClassifyResult(classifyText);
+          // The verdict is the `decide` tool call from the ONE Operator stream above.
+          const toolUse = ((finalMessage?.content ?? []) as Array<{ type: string; name?: string; input?: unknown }>)
+            .find((b) => b.type === 'tool_use' && b.name === 'decide');
+          if (!toolUse) throw new Error('Operator emitted no decide verdict');
+          const result = parseClassifyResult(JSON.stringify(toolUse.input ?? {}));
           send({ type: 'step', id: 'choosing', status: 'done' });
 
-          // The Operator's verdict → ONE of three actions.
           if (result.action === 'dispatch' && result.generationPrompt) {
-            // DISPATCH the image workflow: generate + stream tiles into the chat.
+            // DISPATCH (small): generate a quick image inline.
             didRespond = true;
             genCostTotal = await runImageGen(result.generationPrompt);
           } else if (result.action === 'transfer' && result.frame) {
-            // TRANSFER (large workflow): hand off to the Image agent. Emit the transfer signal
-            // (carries the Epistemic Frame) so the client flips the nav + attributes the work to
-            // the Image agent, then the Image agent runs the generation. (Slice 1: same surface;
-            // the full Image IDE morph is Slice 2.)
+            // TRANSFER (large): flip the nav to the Image agent (Epistemic Frame), then render the
+            // first reference image from the Operator's generationPrompt (a real image prompt — the
+            // opener explains the why). Slice 1: same surface; the Image IDE morph is Slice 2.
             didRespond = true;
-            // Even a VIDEO goal transfers to the IMAGE agent first — you need the images the video
-            // will use (your Camaro flow). frame.medium records the ultimate goal; the target is
-            // 'image' until a Video agent + a pure-video path exist.
             send({ type: 'transfer', to: 'image', frame: result.frame });
-            genCostTotal = await runImageGen(result.frame.goal);
+            genCostTotal = await runImageGen(result.generationPrompt || result.frame.goal);
           } else if (result.action === 'ask' && result.question) {
             // ASK via the A2UI question affordance (never prose).
             didRespond = true;
@@ -325,9 +285,9 @@ export async function POST(req: Request) {
             suggestionsToSend = result.suggestions.length > 0 ? result.suggestions : STUB_SUGGESTIONS;
             send({ type: 'suggestions', items: suggestionsToSend });
           }
-        } catch (classifyErr) {
-          // Robust fallback — stub quick-picks so the turn always completes.
-          console.warn('[chat-turn] classify failed, falling back to stubs:', classifyErr);
+        } catch (verdictErr) {
+          // No/invalid verdict → the streamed opener stands as a plain reply; add stub quick-picks.
+          console.warn('[chat-turn] no/invalid Operator verdict, falling back:', verdictErr);
           send({ type: 'step', id: 'choosing', status: 'done' });
           if (!didRespond) send({ type: 'suggestions', items: STUB_SUGGESTIONS });
         }
@@ -354,13 +314,13 @@ export async function POST(req: Request) {
               a2ui_version: A2UI_VERSION,
             },
           } as Partial<Interaction>);
-          // Meter EVERYTHING this turn spent: the streamed Opus call + the classify Opus call
-          // + the realized image-generation cost — so the hard cap gates real spend.
+          // Meter EVERYTHING this turn spent: the ONE Operator call's tokens + the realized
+          // image-generation cost — so the hard cap gates real spend.
           await recordUsage(db, {
             user_id: userId,
             interaction_id: interactionId,
-            input_tokens: inputTokens + classifyInTok,
-            output_tokens: outputTokens + classifyOutTok,
+            input_tokens: inputTokens,
+            output_tokens: outputTokens,
             gen_cost_usd: genCostTotal,
           });
         } catch (err) {

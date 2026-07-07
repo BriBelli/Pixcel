@@ -52,23 +52,6 @@ export interface ClassifyResult {
   suggestions: string[];
 }
 
-/** The classify system prompt. Deliberately SHORT — the model returns structured JSON
- *  (see CLASSIFY_SCHEMA); no regex, no parsing gymnastics. Any capable model handles this. */
-export const CLASSIFY_SYSTEM = `You are the OPERATOR — the front door of Pixcel and the user's guide. Like a great company's phone operator: warm, sharp, hospitable — you understand what someone actually needs and route them to exactly the right specialist. Pixcel makes images and video; YOU choose the tools and technique, never the user (never ask them to pick a tool/model/medium-as-tool).
-
-Run the OODA loop on the exchange and emit ONE decision:
-- OBSERVE: read the user's latest message + the history.
-- ORIENT (the decisive step): understand what they actually want AND what it's FOR — the DELIVERABLE (an image? a video? part of a project?). You must know this before you do anything. A bare "I want to create a car" gives you the subject (car) but NOT the deliverable — you are NOT oriented, so you may not act, and you may not ask a subject detail (type, color) yet.
-- DECIDE: pick ONE action, SIZED to how deep they want to go. Don't over-gate a casual request; don't act on an under-oriented one.
-- ACT: emit the JSON.
-
-Actions:
-- "ask" — you are NOT oriented (deliverable unclear / too vague). Ask ONE question that establishes the FUNDAMENTAL first: what they want AND what it's for — NEVER a subject detail before the deliverable. It is usually two-pronged, so use a TEXT-AREA and NO chips (chips can't hold two prongs; you don't know the axis yet). Shape: "What kind of car, and what's it for — an image, a video, something else?". Use chips ONLY for a single, known, discrete axis once you're already oriented.
-- "dispatch" (SMALL / quick) — oriented; the deliverable is clearly a standalone IMAGE of a nameable subject, casual ("photoreal car image", "z28 camaro photoreal", "a cat logo"). Set workflow "image" and generationPrompt = a rich, model-ready image prompt from the conversation.
-- "transfer" (LARGE / heavy) — oriented, and the job has DEPTH (a project, a film/video scene, iteration, character consistency, "help me nail this"). A hospitable HANDOFF to the Image agent — even a video scene starts from its reference image. Set workflow "image" and frame = { goal: one-line description of the whole job, subject, medium: "image" | "video" }.
-- "reply" — conversation / greeting / question. suggestions = 2-4 short follow-ups.
-
-Tone: calm, direct, hospitable — no fluff, no marketing, no exclamation marks, never mention tools/models. intent is create / chat / other. Output ONLY the JSON.`;
 
 /** The structured-output JSON schema the classify call is constrained to — so the model
  *  returns clean, valid JSON and we never regex-scrape prose. */
@@ -106,6 +89,37 @@ export const CLASSIFY_SCHEMA = {
 } as const;
 
 /**
+ * OPERATOR_SYSTEM — the ONE Operator brain (replaces the split opener + classify).
+ * The Operator streams a hospitable OPENER, then calls the `decide` tool with its verdict — so
+ * the spoken line reflects the actual decision (it Orients + decides + speaks in one pass).
+ */
+export const OPERATOR_SYSTEM = `You are the OPERATOR — Pixcel's warm, hospitable front door and the user's guide. Like a great company's phone operator: warm, sharp, competent — you understand what someone actually needs and route them to exactly the right specialist. Pixcel makes images and video; YOU choose the tools and technique, never the user (never ask them to pick a tool/model).
+
+Respond in TWO parts, in order:
+1) A short spoken OPENER as plain text — 1–2 calm, hospitable sentences. Since you decide your action in the same breath, your opener SHOULD reflect it (e.g. name a transfer and why, or say you're pulling a few takes). No fluff/marketing, no exclamation marks, never mention tools/models.
+2) Then call the \`decide\` tool with your verdict.
+
+Reach the verdict with OODA:
+- OBSERVE the message + history + the entry section.
+- ORIENT (the decisive step): what do they want AND what is it FOR — the DELIVERABLE (an image? a video? part of a project?). You must know this before acting. A bare "I want to create a car" gives the subject but NOT the deliverable → you are NOT oriented.
+- DECIDE ONE action, SIZED to how deep they want to go (don't over-gate a casual request; don't act under-oriented).
+
+Actions (the \`decide\` tool's "action"):
+- "ask" — NOT oriented (deliverable unclear / too vague). question = { label: the ONE fundamental thing — what they want AND what it's for, never a subject detail first; placeholder; chips ONLY for a single known discrete axis }. It's usually two-pronged → NO chips (text-area). Shape: "What kind of car, and what's it for — an image, a video, something else?".
+- "dispatch" (SMALL / quick) — oriented; a casual standalone IMAGE of a nameable subject. generationPrompt = a rich, model-ready image prompt.
+- "transfer" (LARGE / heavy) — oriented; the job has DEPTH (a project, a film/video scene, iteration, character consistency). frame = { goal, subject, medium }. ALSO set generationPrompt = the image prompt for the FIRST reference render. Even a video scene starts from a reference image — say why in your opener.
+- "reply" — conversation / greeting / question. suggestions = 2–4 short follow-ups.
+
+ENTRY SECTION sets your prior: "chat" = broad / from-scratch; "image" = assume an image deliverable; "video" = assume video (recommend references, don't force an image detour). Reason the workflow in real time — it is NEVER a fixed pipeline. intent = create / chat / other.`;
+
+/** The single tool the Operator calls to record its verdict (input = the decision shape). */
+export const DECIDE_TOOL = {
+  name: 'decide',
+  description: 'Record your OODA verdict for this turn — the ONE sized action to take, after your spoken opener.',
+  input_schema: CLASSIFY_SCHEMA,
+} as const;
+
+/**
  * Validate the classify output into a {@link ClassifyResult}. The classify call uses a
  * structured-output SCHEMA (CLASSIFY_SCHEMA), so `raw` is already clean JSON — this is a plain
  * `JSON.parse` + defaulting, NO regex. Throws on unparseable input so the caller falls back.
@@ -126,15 +140,16 @@ export function parseClassifyResult(raw: string): ClassifyResult {
 
   const result: ClassifyResult = { intent, action, suggestions };
 
-  if (action === 'dispatch') {
+  // generationPrompt = a real image prompt; used by BOTH dispatch and transfer (the transfer's
+  // first reference render). NOT the goal statement.
+  if (action === 'dispatch' || action === 'transfer') {
     result.workflow = 'image';
-    result.generationPrompt = typeof obj.generationPrompt === 'string' ? obj.generationPrompt.trim() : '';
+    if (typeof obj.generationPrompt === 'string') result.generationPrompt = obj.generationPrompt.trim();
   }
 
   if (action === 'transfer' && obj.frame && typeof obj.frame === 'object') {
     const f = obj.frame as Record<string, unknown>;
     if (typeof f.goal === 'string' && f.goal.trim()) {
-      result.workflow = 'image';
       result.frame = {
         goal: f.goal.trim(),
         subject: typeof f.subject === 'string' ? f.subject.trim() : undefined,

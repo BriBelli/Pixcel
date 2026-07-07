@@ -121,7 +121,13 @@ export const useChatTurnsStore = create<ChatTurnsState>((set, get) => {
       const res = await fetch('/api/chat-turn', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ prompt, history, thread_id: get().threadId ?? undefined }),
+        body: JSON.stringify({
+          prompt,
+          history,
+          thread_id: get().threadId ?? undefined,
+          // The entry section sets the Operator's prior (chat / image / video).
+          section: get().activeMedium,
+        }),
       });
 
       if (!res.ok || !res.body) {

@@ -21,7 +21,7 @@
 
 import { useEffect, useRef } from 'react';
 import { useSettings } from '../store/settings-store';
-import { modelDisplayName, DEFAULT_MODEL_ID } from './chat/AssistantHeader';
+import { modelDisplayName, DEFAULT_MODEL_ID } from './chat/model-identity';
 import { Icon } from './ui';
 import { Toggle } from './ui/Toggle';
 import { Select } from './ui/Select';

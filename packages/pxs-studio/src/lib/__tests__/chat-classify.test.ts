@@ -1,5 +1,5 @@
 /**
- * Unit tests for `parseClassifyResult` — the DETECTIVE's verdict validator. The classify call
+ * Unit tests for `parseClassifyResult` — the Operator's verdict validator. The classify call
  * uses a structured-output SCHEMA, so input is clean JSON (no regex, no fence-stripping). These
  * assert the action branches (dispatch / ask / reply) + defaulting.
  */

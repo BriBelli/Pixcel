@@ -4,19 +4,18 @@
  * MessageActions — the footer meta + action row under a DONE assistant turn.
  *
  * Meta row (all in the FOOTER, left→right):
- *   LEFT   duration ("38.1s") · timestamp ("06:03 PM")
+ *   LEFT   model badge (provider icon + name) · duration ("38.1s") · timestamp ("06:03 PM")
  *   RIGHT  (margin-left:auto) the action buttons, hover-revealed by the parent
  *          .pxc-msg: thumbs-up, thumbs-down | divider | regenerate, copy, delete.
  *
- * The MODEL BADGE lives at the TOP now (AssistantHeader / the gospel AsstHead) —
- * the agent speaks AS its badge before the text — so the footer no longer repeats
- * it. Presentational: feedback is LOCAL state, copy flashes a 1.5s check,
- * regenerate/delete supplied only when valid. Tokens-only, sentence case, no scale-pop.
+ * The model-identity helpers live in ./model-identity. Presentational: feedback is
+ * LOCAL state (no /api/feedback route yet), copy flashes a 1.5s check, regenerate/
+ * delete supplied only when valid. Tokens-only, sentence case, no scale-pop.
  * ───────────────────────────────────────────────────────────────────────────── */
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { IconButton } from '../ui';
-import { modelDisplayName, providerIconSrc, DEFAULT_MODEL_ID } from './AssistantHeader';
+import { modelDisplayName, providerIconSrc, DEFAULT_MODEL_ID } from './model-identity';
 
 export interface MessageActionsProps {
   /** The model the turn was produced by — drives the badge name + provider icon. */
@@ -102,8 +101,8 @@ export function MessageActions({
           <img
             src={providerIconSrc(modelId)}
             alt=""
-            width={12}
-            height={12}
+            width={16}
+            height={16}
             style={{ borderRadius: 2, flexShrink: 0, display: 'block' }}
           />
           {modelDisplayName(modelId)}

@@ -21,7 +21,7 @@ export interface ClassifyQuestion {
 }
 
 /**
- * The DETECTIVE's verdict. The primary agent classifies, then decides ONE action:
+ * The Operator's verdict. The Operator classifies, then decides ONE action:
  *   • 'dispatch' — enough to run a workflow now → hand to the image workflow (which generates).
  *   • 'ask'      — genuinely blocked → ask ONE thing via the A2UI question affordance.
  *   • 'reply'    — just conversation → follow-up suggestions.

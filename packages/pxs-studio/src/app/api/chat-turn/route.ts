@@ -22,34 +22,28 @@ export const runtime = 'nodejs';
 export const maxDuration = 120;
 
 /**
- * THE STREAMED CHAT TURN — Slice 1 of the chat-orchestrator front door.
+ * THE OPERATOR TURN — the front-door OODA loop.
  *
- * This is a PARALLEL path to the art engine: the splash prompt now lands here (the Pixcel Agent
- * conversation), NOT straight into the artisan loop. It mirrors api/generate-art's proven SSE
- * structure (nodejs runtime, NDJSON ReadableStream, env-key check) but instead of drawing, it:
- *   1) streams a quick consultative response from claude-opus-4-8 (adaptive thinking) — a natural
- *      question about the WORK (style/type/use-case), never about tools, then
- *   2) runs ONE non-streaming classify pass (also claude-opus-4-8) over the exchange, then
- *   3) emits contextual quick-pick suggestions (possible ANSWERS the user can tap), then `done`.
+ * Mirrors api/generate-art's SSE structure (nodejs runtime, NDJSON ReadableStream, env-key check).
+ * Per turn:
+ *   1) stream the Operator's one-line OPENER (claude-opus-4-8), then
+ *   2) run the OODA classify pass (claude-opus-4-8, structured output = CLASSIFY_SCHEMA) that
+ *      Observes → Orients on the deliverable → Decides ONE sized action, then
+ *   3) ACT on the verdict:
+ *        dispatch (small)  → generate images inline (runImageGen)
+ *        transfer (large)  → emit {transfer,frame} (nav flip) then generate via the Image agent
+ *        ask               → emit the A2UI question block (never prose)
+ *        reply             → contextual quick-pick suggestions
+ *      then persist + `done`.
  *
- * There is NO tool/medium picker — the agent chooses the medium itself (a doctor asks about
- * symptoms, not which surgery). The classify yields { intent, suggestions }; STUB_SUGGESTIONS is
- * the robust fallback if the classify call throws or returns unparseable/invalid JSON.
+ * The Operator chooses the medium itself — no tool/medium picker. STUB_SUGGESTIONS is the fallback
+ * if the classify call fails.
  *
- * The event contract (emitted in THIS order, one NDJSON object per line):
- *   { type:'status', phase, message }     — initial loading/thinking status (emitted immediately)
- *   { type:'step', id, label?, status }   — honest phase steps for the thinking reel:
- *                                            'reading' start→done (bracket the streamed text),
- *                                            'choosing' start→done (bracket the classify pass)
- *   { type:'text', delta }                — model text deltas, streamed as they arrive
- *   { type:'suggestions', items }         — short list of tappable quick-pick answer strings
- *   { type:'done' }  | { type:'error', message }
+ * SPEND: metered end-to-end — the streamed call + the classify call tokens + realized image cost
+ * ALL hit recordUsage, gated against the user's remaining hard cap (see runImageGen / recordUsage).
  *
- * COST: two claude-opus-4-8 calls per turn — the streamed text + one non-streaming classify pass.
- * That extra classify call is the intended, deliberate spend for contextual routing.
- *
- * No art generation, no tools — pure conversation + a lightweight classify. Real routing into the
- * artisan loop / an image model comes in later slices.
+ * Event contract (NDJSON, one per line): status · step(reading/choosing) · text · transfer ·
+ * gen_start · image · gen_done · gen_error · a2ui · suggestions · done | error.
  */
 
 const MODEL = 'claude-opus-4-8';
@@ -299,7 +293,7 @@ export async function POST(req: Request) {
           const result = parseClassifyResult(classifyText);
           send({ type: 'step', id: 'choosing', status: 'done' });
 
-          // The DETECTIVE's verdict → ONE of three actions.
+          // The Operator's verdict → ONE of three actions.
           if (result.action === 'dispatch' && result.generationPrompt) {
             // DISPATCH the image workflow: generate + stream tiles into the chat.
             didRespond = true;

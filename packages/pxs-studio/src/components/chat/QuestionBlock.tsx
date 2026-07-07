@@ -32,7 +32,7 @@ const CSS = `
 .pxc-q-head > svg { color: var(--pxs-accent-text); margin-top: 1px; }
 .pxc-q-label {
   font-size: var(--a2ui-text-md); font-weight: var(--a2ui-font-semibold);
-  color: var(--a2ui-text-primary); line-height: var(--a2ui-leading-snug);
+  color: var(--a2ui-text-primary); line-height: var(--a2ui-leading-tight);
 }
 .pxc-q-chips { display: flex; flex-wrap: wrap; gap: var(--a2ui-space-2); }
 .pxc-q-chip {

@@ -20,8 +20,7 @@
  * ───────────────────────────────────────────────────────────────────────────── */
 
 import type { ChatTurn } from '../../store/chat-turns-store';
-import { Avatar, PixcelMark } from '../ui';
-import { OptionsBlock } from './OptionsBlock';
+import { Avatar, Icon, PixcelMark } from '../ui';
 import { QuestionBlock } from './QuestionBlock';
 import { MessageActions } from './MessageActions';
 import { ThinkingIndicator } from './ThinkingIndicator';
@@ -34,7 +33,6 @@ export interface MessageTurnProps {
   turn: ChatTurn;
   /** Show the assistant action-bar footer (copy · regenerate · feedback). Default true. */
   showActions?: boolean;
-  onOption: (id: string, label: string) => void;
   onSuggestion: (text: string) => void;
   /** Copy this turn's assistant text to the clipboard (every done turn). */
   onCopy: () => void;
@@ -125,7 +123,7 @@ const CSS = `
   box-shadow: 0 0 0 1px var(--pxs-border-subtle);
   transition: transform var(--a2ui-transition-fast), box-shadow var(--a2ui-transition-fast);
 }
-.pxc-tile:hover { transform: scale(1.01); box-shadow: 0 0 0 1px var(--a2ui-border-default); }
+.pxc-tile:hover { box-shadow: 0 0 0 1px var(--a2ui-border-default); }
 .pxc-tile img { width: 100%; height: 100%; object-fit: cover; display: block; }
 .pxc-tile-badge {
   position: absolute; left: 6px; bottom: 6px;
@@ -154,7 +152,6 @@ function formatTime(ms: number): string {
 export function MessageTurn({
   turn,
   showActions = true,
-  onOption,
   onSuggestion,
   onCopy,
   onRegenerate,
@@ -165,11 +162,10 @@ export function MessageTurn({
   const done = turn.status === 'done';
 
   // POST-text "choosing" phase — a compact inline reel shown briefly after the text
-  // while the classify pass runs, replaced by the options/suggestions reveal on arrival.
+  // while the classify pass runs, replaced by the a2ui/suggestions reveal on arrival.
   const choosingStep = turn.steps.find((s) => s.id === 'choosing');
-  const optionsArrived =
-    (turn.a2ui && turn.a2ui.kind === 'options') || turn.suggestions.length > 0;
-  const showChoosing = !done && !!turn.text && choosingStep?.state === 'active' && !optionsArrived;
+  const resultArrived = !!turn.a2ui || turn.suggestions.length > 0 || turn.images.length > 0;
+  const showChoosing = !done && !!turn.text && choosingStep?.state === 'active' && !resultArrived;
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--a2ui-space-4)' }}>
@@ -211,13 +207,6 @@ export function MessageTurn({
               </div>
             )}
 
-            {/* A2UI options block — a stacked radio (single) / checkbox (multiple) choice group. */}
-            {turn.a2ui && turn.a2ui.kind === 'options' && (
-              <div className="pxc-a2ui-reveal" style={{ marginTop: 'var(--a2ui-space-4)' }}>
-                <OptionsBlock block={turn.a2ui} onSubmit={onOption} />
-              </div>
-            )}
-
             {/* A2UI question — the agent's ask affordance (label + text-area + chips). */}
             {turn.a2ui && turn.a2ui.kind === 'question' && (
               <div className="pxc-a2ui-reveal" style={{ marginTop: 'var(--a2ui-space-4)' }}>
@@ -231,10 +220,10 @@ export function MessageTurn({
                 className="pxc-a2ui-reveal flex items-center"
                 style={{
                   marginTop: 'var(--a2ui-space-3)', gap: 'var(--a2ui-space-2)',
-                  fontSize: 'var(--a2ui-text-sm)', color: 'var(--pxs-accent-text)', fontWeight: 'var(--a2ui-font-medium)',
+                  fontSize: 'var(--a2ui-text-sm)', color: 'var(--a2ui-text-secondary)',
                 }}
               >
-                <PixcelMark size={14} />
+                <Icon name="arrow-right" size={14} style={{ color: 'var(--a2ui-text-tertiary)' }} />
                 Transferred to the Image agent
               </div>
             )}

@@ -126,16 +126,6 @@ export default function ChatView({ initialPrompt, onEnterStudio, onHome }: Props
     [send]
   );
 
-  // A medium choice CONTINUES the conversation (the agent acknowledges + proceeds) — it must
-  // NOT dump the user into the Pixel-Art Studio workflow. Real medium routing (Pixcel Studio vs
-  // an image model) lands with the pipeline; until then every option feeds a follow-up turn.
-  const handleOption = useCallback(
-    (_id: string, label: string) => {
-      submit(label);
-    },
-    [submit]
-  );
-
   return (
     <div className="pxc-root flex h-screen overflow-hidden">
       <style>{ROOT_CSS}</style>
@@ -177,7 +167,6 @@ export default function ChatView({ initialPrompt, onEnterStudio, onHome }: Props
                       key={t.id}
                       turn={t}
                       showActions={showActions}
-                      onOption={handleOption}
                       onSuggestion={submit}
                       // Copy the assistant text to the clipboard (silent on failure).
                       onCopy={() => navigator.clipboard.writeText(t.text).catch(() => {})}

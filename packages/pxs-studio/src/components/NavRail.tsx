@@ -176,7 +176,7 @@ interface NavRailProps {
   onOpenSettings?: () => void;
 }
 
-export default function NavRail({ activeSection = 'art', onHome, onSection, onUtility, activeUtility, utilityBadges, onOpenSettings }: NavRailProps) {
+export default function NavRail({ activeSection = 'chat', onHome, onSection, onUtility, activeUtility, utilityBadges, onOpenSettings }: NavRailProps) {
   const handleSection = (id: string) => {
     if (id === 'chat') return onHome?.();
     (onSection ?? (() => onHome?.()))(id);

@@ -7,6 +7,7 @@ import {
 } from '../../../lib/chat-classify';
 import { coordinateImage } from '../../../lib/engine/coordinator';
 import { runImageAgent } from '../../../lib/agents/image-agent';
+import { operatorSkills } from '../../../lib/agents/skills';
 import type { EpistemicFrame } from '../../../lib/agents/epistemic-frame';
 import {
   A2UI_VERSION,
@@ -229,11 +230,16 @@ export async function POST(req: Request) {
         ];
 
         // `as any` at the call site (the SDK's request types lag adaptive thinking).
+        // Thin role prompt + the ONLY relevant skill shards for this turn (Context Sharding —
+        // the Operator's craft is loaded on Orient, not baked into one bloated prompt).
+        const operatorSystem =
+          `${OPERATOR_SYSTEM}\n\nEntry section: "${section}".` +
+          operatorSkills({ section, text: prompt });
         const params = {
           model: MODEL,
           max_tokens: 2048,
           thinking: { type: 'adaptive', display: 'summarized' },
-          system: `${OPERATOR_SYSTEM}\n\nEntry section: "${section}".`,
+          system: operatorSystem,
           tools: [DECIDE_TOOL],
           messages,
         };
@@ -268,8 +274,11 @@ export async function POST(req: Request) {
         send({ type: 'step', id: 'choosing', label: 'Choosing your next steps…', status: 'start' });
 
         let suggestionsToSend: string[] = STUB_SUGGESTIONS;
-        // The A2UI block actually emitted (persisted for truthful hydrate). Question | null.
-        let emittedBlock: { kind: 'question'; label: string; placeholder?: string; chips?: string[] } | null = null;
+        // The A2UI block actually emitted (persisted for truthful hydrate). Question | options | null.
+        let emittedBlock:
+          | { kind: 'question'; label: string; placeholder?: string; chips?: string[] }
+          | { kind: 'options'; title: string; select: 'single'; options: { id: string; label: string; detail?: string }[] }
+          | null = null;
         let didRespond = false;
         let genCostTotal = 0; // realized image spend, metered against the cap
         let agentInTok = 0; // the Image agent's own brain tokens (transfer path), metered too
@@ -287,6 +296,18 @@ export async function POST(req: Request) {
             // DISPATCH (small): generate a quick image inline.
             didRespond = true;
             genCostTotal = await runImageGen(result.generationPrompt);
+          } else if (result.action === 'propose' && result.proposal) {
+            // PROPOSE: oriented, but a real fork in HOW to do it well → present WORKFLOW PATHS as an
+            // A2UI options block. SPENDS NOTHING. The user's pick returns as their next turn, which
+            // the Operator then sizes into a transfer. This is the anti-"blowing your load" valve.
+            didRespond = true;
+            emittedBlock = {
+              kind: 'options',
+              title: result.proposal.title,
+              select: 'single',
+              options: result.proposal.options,
+            };
+            send({ type: 'a2ui', block: emittedBlock });
           } else if (result.action === 'transfer' && result.frame) {
             // TRANSFER (large): the Operator hands an Epistemic Frame ONLY (no image specs) to the
             // IMAGE AGENT, which owns the prompt + routing and runs its own leg. Nav flips per the

@@ -22,6 +22,7 @@
 import type { ChatTurn } from '../../store/chat-turns-store';
 import { Avatar, Icon, PixcelMark } from '../ui';
 import { QuestionBlock } from './QuestionBlock';
+import { ProposalBlock } from './ProposalBlock';
 import { MessageActions } from './MessageActions';
 import { ThinkingIndicator } from './ThinkingIndicator';
 import { StreamingCursor } from './StreamingCursor';
@@ -260,6 +261,13 @@ export function MessageTurn({
             {turn.a2ui && turn.a2ui.kind === 'question' && (
               <div className="pxc-a2ui-reveal" style={{ marginTop: 'var(--a2ui-space-4)' }}>
                 <QuestionBlock block={turn.a2ui} onSubmit={onSuggestion} />
+              </div>
+            )}
+
+            {/* A2UI proposal — the Operator's `propose` workflow paths (NO spend until a pick). */}
+            {turn.a2ui && turn.a2ui.kind === 'options' && (
+              <div className="pxc-a2ui-reveal" style={{ marginTop: 'var(--a2ui-space-4)' }}>
+                <ProposalBlock block={turn.a2ui} onSelect={onSuggestion} />
               </div>
             )}
 

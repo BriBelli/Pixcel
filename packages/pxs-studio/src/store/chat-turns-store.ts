@@ -26,7 +26,9 @@ export interface A2UIOptionsBlock {
   /** 'single' → stacked radio group (pick one, submits on select); 'multiple' → stacked
    *  checkboxes + a Continue button. Defaults to 'single' when absent. */
   select?: 'single' | 'multiple';
-  options: { id: string; label: string }[];
+  /** Each option is a WORKFLOW PATH (from a `propose` verdict), not a tool/model name. `detail`
+   *  is a one-line description shown under the label. */
+  options: { id: string; label: string; detail?: string }[];
 }
 
 /** An agent QUESTION — the ONLY way an agent asks for more. A formatted question with its own

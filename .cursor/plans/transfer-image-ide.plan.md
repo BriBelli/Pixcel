@@ -1,6 +1,8 @@
 # Transfer + Image IDE
 
-**Status:** next milestone
+**Status:** Slice 1 SHIPPED as **UX only** (opener names/explains the transfer + nav flip, but the
+same generation path as dispatch — NOT a real hand-off). The real architecture (separate Image
+agent + Epistemic Frame + Model agent) is now specced in **[slice-2-real-transfer.plan.md](slice-2-real-transfer.plan.md)** — build from there. This file is the origin outline; trust the Slice-2 plan for the boundaries.
 **Parent:** `pixcel-platform.plan.md`
 
 ## Goal

@@ -68,6 +68,9 @@ export function IconButton({
   disabled,
   className,
   style,
+  // Default to a non-submitting button — an icon button inside a <form> must NOT submit it
+  // unless it explicitly asks (e.g. the Composer's send button passes type="submit").
+  type = 'button',
   ...rest
 }: IconButtonProps) {
   const cls = [
@@ -84,6 +87,7 @@ export function IconButton({
       <style>{CSS}</style>
       <button
         className={cls}
+        type={type}
         disabled={disabled || loading}
         aria-busy={loading || undefined}
         aria-pressed={active || undefined}

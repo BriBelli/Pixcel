@@ -198,6 +198,7 @@ export function Composer({
           <div className="a2-composer__actions">
             <IconButton
               icon="paperclip"
+              type="button"
               label={attachEnabled ? 'Attach reference images' : 'Attach'}
               boxSize={34}
               size={18}

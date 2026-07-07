@@ -6,6 +6,8 @@ import {
   STUB_SUGGESTIONS,
 } from '../../../lib/chat-classify';
 import { coordinateImage } from '../../../lib/engine/coordinator';
+import { runImageAgent } from '../../../lib/agents/image-agent';
+import type { EpistemicFrame } from '../../../lib/agents/epistemic-frame';
 import {
   A2UI_VERSION,
   checkCap,
@@ -62,6 +64,16 @@ type Send = (obj: unknown) => void;
 function newId(prefix: string): string {
   if (typeof crypto !== 'undefined' && crypto.randomUUID) return `${prefix}-${crypto.randomUUID()}`;
   return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+}
+
+/**
+ * transfer.to matrix — which specialist the nav flips to (the Operator's call, from medium + section).
+ * A video scene from the Chat section still routes to the IMAGE agent first (it needs reference
+ * images). Only the Video section with a video medium goes to the Video agent (not built yet).
+ *   chat/image · any → image   |   image · any → image   |   video · video → video   |   video · image → image
+ */
+function transferTarget(medium: 'image' | 'video', section: string): 'image' | 'video' {
+  return section === 'video' && medium === 'video' ? 'video' : 'image';
 }
 
 export async function POST(req: Request) {
@@ -260,6 +272,8 @@ export async function POST(req: Request) {
         let emittedBlock: { kind: 'question'; label: string; placeholder?: string; chips?: string[] } | null = null;
         let didRespond = false;
         let genCostTotal = 0; // realized image spend, metered against the cap
+        let agentInTok = 0; // the Image agent's own brain tokens (transfer path), metered too
+        let agentOutTok = 0;
 
         try {
           // The verdict is the `decide` tool call from the ONE Operator stream above.
@@ -274,12 +288,33 @@ export async function POST(req: Request) {
             didRespond = true;
             genCostTotal = await runImageGen(result.generationPrompt);
           } else if (result.action === 'transfer' && result.frame) {
-            // TRANSFER (large): flip the nav to the Image agent (Epistemic Frame), then render the
-            // first reference image from the Operator's generationPrompt (a real image prompt — the
-            // opener explains the why). Slice 1: same surface; the Image IDE morph is Slice 2.
+            // TRANSFER (large): the Operator hands an Epistemic Frame ONLY (no image specs) to the
+            // IMAGE AGENT, which owns the prompt + routing and runs its own leg. Nav flips per the
+            // transfer.to matrix. (Slice 2A: same chat surface; the Image IDE morph is Slice 2B.)
             didRespond = true;
-            send({ type: 'transfer', to: 'image', frame: result.frame });
-            genCostTotal = await runImageGen(result.generationPrompt || result.frame.goal);
+            const medium = result.frame.medium ?? 'image';
+            const to = transferTarget(medium, section);
+            const frame: EpistemicFrame = {
+              goal: result.frame.goal,
+              subject: result.frame.subject,
+              medium,
+              section,
+              budgetUsd: remainingUsd,
+              count: 2,
+            };
+            // Send a trimmed frame to the client (no budget); nav flips to `to`.
+            send({ type: 'transfer', to, frame: { goal: frame.goal, subject: frame.subject, medium } });
+            for await (const ev of runImageAgent(frame)) {
+              if (ev.type === 'agent_usage') {
+                agentInTok += ev.inputTokens;
+                agentOutTok += ev.outputTokens;
+              } else if (ev.type === 'gen_done') {
+                genCostTotal = ev.costUsd;
+                send(ev);
+              } else {
+                send(ev); // agent_start · agent_text · image · gen_error
+              }
+            }
           } else if (result.action === 'ask' && result.question) {
             // ASK via the A2UI question affordance (never prose).
             didRespond = true;
@@ -325,13 +360,13 @@ export async function POST(req: Request) {
               a2ui_version: A2UI_VERSION,
             },
           } as Partial<Interaction>);
-          // Meter EVERYTHING this turn spent: the ONE Operator call's tokens + the realized
-          // image-generation cost — so the hard cap gates real spend.
+          // Meter EVERYTHING this turn spent: the Operator call + the Image agent's brain (transfer
+          // path) + the realized image-generation cost — so the hard cap gates real spend.
           await recordUsage(db, {
             user_id: userId,
             interaction_id: interactionId,
-            input_tokens: inputTokens,
-            output_tokens: outputTokens,
+            input_tokens: inputTokens + agentInTok,
+            output_tokens: outputTokens + agentOutTok,
             gen_cost_usd: genCostTotal,
           });
         } catch (err) {

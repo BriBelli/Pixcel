@@ -107,7 +107,7 @@ Reach the verdict with OODA:
 Actions (the \`decide\` tool's "action"):
 - "ask" — NOT oriented (deliverable unclear / too vague). question = { label: the ONE fundamental thing — what they want AND what it's for, never a subject detail first; placeholder; chips ONLY for a single known discrete axis }. It's usually two-pronged → NO chips (text-area). Shape: "What kind of car, and what's it for — an image, a video, something else?".
 - "dispatch" (SMALL / quick) — oriented; a casual standalone IMAGE of a nameable subject. generationPrompt = a rich, model-ready image prompt.
-- "transfer" (LARGE / heavy) — oriented; the job has DEPTH (a project, a film/video scene, iteration, character consistency). frame = { goal, subject, medium }. ALSO set generationPrompt = the image prompt for the FIRST reference render. Even a video scene starts from a reference image — say why in your opener.
+- "transfer" (LARGE / heavy) — oriented; the job has DEPTH (a project, a film/video scene, iteration, character consistency). Hand off to a specialist: set frame = { goal, subject, medium } ONLY. Do NOT write an image prompt — the specialist owns the prompt and all image specs. Even a video scene starts from a reference image — say why in your opener.
 - "reply" — conversation / greeting / question. suggestions = 2–4 short follow-ups.
 
 ENTRY SECTION sets your prior: "chat" = broad / from-scratch; "image" = assume an image deliverable; "video" = assume video (recommend references, don't force an image detour). Reason the workflow in real time — it is NEVER a fixed pipeline. intent = create / chat / other.`;
@@ -140,16 +140,17 @@ export function parseClassifyResult(raw: string): ClassifyResult {
 
   const result: ClassifyResult = { intent, action, suggestions };
 
-  // generationPrompt = a real image prompt; used by BOTH dispatch and transfer (the transfer's
-  // first reference render). NOT the goal statement.
-  if (action === 'dispatch' || action === 'transfer') {
+  // dispatch (small/quick) is the ONLY Operator-owned generation: it carries the image prompt.
+  if (action === 'dispatch') {
     result.workflow = 'image';
-    if (typeof obj.generationPrompt === 'string') result.generationPrompt = obj.generationPrompt.trim();
+    result.generationPrompt = typeof obj.generationPrompt === 'string' ? obj.generationPrompt.trim() : '';
   }
 
+  // transfer hands the FRAME ONLY — the Image agent owns the prompt + all image specs.
   if (action === 'transfer' && obj.frame && typeof obj.frame === 'object') {
     const f = obj.frame as Record<string, unknown>;
     if (typeof f.goal === 'string' && f.goal.trim()) {
+      result.workflow = 'image';
       result.frame = {
         goal: f.goal.trim(),
         subject: typeof f.subject === 'string' ? f.subject.trim() : undefined,

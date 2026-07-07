@@ -228,6 +228,13 @@ export function MessageTurn({
               </div>
             )}
 
+            {/* The Image agent's own opener (streamed after the transfer). */}
+            {turn.agentText && (
+              <div className="pxc-assistant-text pxc-a2ui-reveal" style={{ marginTop: 'var(--a2ui-space-2)' }}>
+                <Markdown>{turn.agentText}</Markdown>
+              </div>
+            )}
+
             {/* Generated gallery — tiles stream in from the dispatched image workflow. */}
             {(turn.images.length > 0 || turn.generating) && (
               <div className="pxc-gallery pxc-a2ui-reveal">

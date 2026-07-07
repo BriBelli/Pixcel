@@ -147,7 +147,7 @@ export const IMAGE_MODELS: ImageModel[] = [
     envKey: 'GEMINI_API_KEY',
     tier: 2,
     strengths: { photorealism: 4, prompt_adherence: 5, editing: 5, style_versatility: 4, text_rendering: 4, speed: 4, resolution: 4, consistency: 5, multimodal: 5 },
-    capabilities: ['editing', 'multi_reference', 'text_in_image', 'fast'],
+    capabilities: ['editing', 'multi_reference', 'text_in_image', 'fast', 'photorealism', 'high_resolution'],
     bestFor: ['conversational editing', 'character consistency', 'multi-image compose', 'blend references'],
     supportsEditing: true,
     maxReferenceImages: 3,

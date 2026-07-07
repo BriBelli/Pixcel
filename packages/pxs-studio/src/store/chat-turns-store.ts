@@ -71,6 +71,8 @@ export interface ChatTurn {
   /** Set when the Operator TRANSFERRED this turn to a specialist (large workflow) — attributes the
    *  work to the Image/Video agent and drove the nav flip. */
   transferredTo?: 'image' | 'video';
+  /** The specialist agent's own opener (streamed after a transfer) — the Image agent speaking. */
+  agentText?: string;
   /** Grounded citations for the turn (web / model / data). The SourcesRow renders these as
    *  chips. Populated by the coordinator (P4) + rehydrated from a persisted response; the P1
    *  chat path leaves it empty (no live sources event yet). */
@@ -198,6 +200,16 @@ export const useChatTurnsStore = create<ChatTurnsState>((set, get) => {
             const to: 'image' | 'video' = evt.to === 'video' ? 'video' : 'image';
             set({ activeMedium: to });
             patch(id, { transferredTo: to });
+          } else if (evt.type === 'agent_start') {
+            // The specialist agent (Image agent) began its leg.
+            patch(id, { generating: true });
+          } else if (evt.type === 'agent_text') {
+            // Stream the specialist's opener into its own field (distinct from the Operator's).
+            set((s) => ({
+              turns: s.turns.map((t) =>
+                t.id === id ? { ...t, agentText: (t.agentText ?? '') + (evt.delta || '') } : t
+              ),
+            }));
           } else if (evt.type === 'gen_start') {
             patch(id, { generating: true });
           } else if (evt.type === 'image') {

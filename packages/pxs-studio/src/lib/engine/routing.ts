@@ -34,6 +34,8 @@ export interface RoutingRequest {
   aspectRatio?: string;
   /** Desired number of images total (K). */
   count: number;
+  /** Input images (https or data URLs) to edit / compose from — forwarded to the adapter. */
+  references?: string[];
   /** True when the request edits/composes input images. */
   editing?: boolean;
   /** Optional hard budget for the whole request (USD). */

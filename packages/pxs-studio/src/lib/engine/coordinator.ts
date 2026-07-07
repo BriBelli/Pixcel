@@ -93,7 +93,7 @@ export async function* coordinateImage(
     yield { type: 'model_start', modelId: model.id, modelLabel: model.label, n: routed.n };
 
     try {
-      for await (const ev of executor.generate({ modelId: model.id, prompt: req.intent, n: routed.n, aspectRatio: req.aspectRatio })) {
+      for await (const ev of executor.generate({ modelId: model.id, prompt: req.intent, n: routed.n, aspectRatio: req.aspectRatio, references: req.references })) {
         if (ev.type === 'tile') {
           const tile: GalleryTile = { modelId: model.id, modelLabel: model.label, image: ev.image };
           tiles.push(tile);

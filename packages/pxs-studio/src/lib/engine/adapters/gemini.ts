@@ -52,11 +52,12 @@ async function referencePart(ref: string): Promise<InlinePart | null> {
   }
 }
 
-/** Map an HTTP status / payload to a normalized adapter reason. */
+/** Map an HTTP status to a normalized adapter reason. NOTE: 403 is NOT "no key" — Gemini
+ *  returns it for billing-not-enabled / API-not-enabled / region, so a valid key can 403. */
 function reasonFor(status: number): GenErrorReason {
   if (status === 429) return 'rate_limited';
-  if (status === 401 || status === 403) return 'no_key';
-  if (status === 400) return 'bad_request';
+  if (status === 401) return 'no_key';
+  if (status === 400 || status === 403) return 'bad_request';
   if (status >= 500) return 'transport';
   return 'unknown';
 }
@@ -83,13 +84,18 @@ class GeminiExecutor implements ImageExecutor {
       res = await fetch(ENDPOINT(apiModel), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'x-goog-api-key': key },
-        body: JSON.stringify({ contents: [{ parts }] }),
+        // responseModalities IMAGE is explicit robustness — don't rely on the model defaulting.
+        body: JSON.stringify({ contents: [{ parts }], generationConfig: { responseModalities: ['IMAGE'] } }),
       });
     } catch {
       return { error: 'transport' };
     }
 
     if (!res.ok) {
+      // Surface the provider's real error message (a valid key can 403 on billing/region) so it's
+      // not silently mislabeled.
+      const detail = await res.text().catch(() => '');
+      if (detail) console.warn(`[gemini] ${res.status}: ${detail.slice(0, 300)}`);
       return { error: reasonFor(res.status) };
     }
 

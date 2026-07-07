@@ -9,6 +9,13 @@ Add the **real Transfer** ALONGSIDE the quick path — the Operator SIZES the wo
 - **Large (heavy):** signals of depth/project/complexity ("a video scene for my film", iteration, consistency) → **transfer** to the Image agent + Image IDE.
 The Operator's Orient reads *"how deep does this person want to go."* Over-gating (forcing the heavy process on everything) is the anti-pattern (Photolif's brittle pipeline; the artisan's bonus-churn) — gate only when it earns its keep.
 
+## Routing is SECTION-AWARE + agent-designed (Slice 2 refinement)
+The entry nav SECTION is context that sets the Operator's prior:
+- **Chat** = broad / from-scratch. A "video scene" from a cold prompt reasonably starts by locking a **reference image** first (best-practice video uses start/end frames, character refs, storyboards) → transfer to the Image agent — but **explain the why** ("to lock the look, let's nail the reference image, then build the video") so the user never asks "why image when I said video."
+- **Video section** = the user already declared video → assume it. Route to the **video Prompt Guide**, generate from a prompt; *recommend* references, don't force an image detour.
+- **Image section** = assume image.
+Video best-practice is too situational to hardcode (frames vs refs vs storyboards vs direct prompt) → the agent **designs the workflow in real-time**, it is NOT a fixed route. (Slice 1's "video→image" is a fine Chat default; make it reasoned + explained.)
+
 ## Context / what exists
 - Today: `route.ts` classify → `dispatch` calls `coordinateImage` inline; images render in the front-door chat. No handoff, no Image surface.
 - Transfer is fully specced (`pixcel-platform.plan.md`): **Hand-off = Epistemic Frame** (bounded inject → specialist starts at Decide), **Hand-back = State Transfer Contract** (typed delta).

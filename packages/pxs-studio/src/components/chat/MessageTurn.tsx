@@ -97,6 +97,15 @@ const CSS = `
   margin-top: var(--a2ui-space-1);
   font-size: var(--a2ui-text-xs); color: var(--a2ui-text-tertiary);
 }
+/* Attached reference thumbnails on the user bubble (right-aligned with the bubble). */
+.pxc-user-refs {
+  display: flex; flex-wrap: wrap; gap: var(--a2ui-space-2); justify-content: flex-end;
+  margin-bottom: var(--a2ui-space-2); max-width: min(600px, 100%);
+}
+.pxc-user-ref {
+  width: 56px; height: 56px; object-fit: cover; display: block;
+  border-radius: var(--a2ui-radius-md); box-shadow: 0 0 0 1px var(--pxs-border-subtle);
+}
 
 .pxc-assistant-text {
   white-space: normal; word-break: break-word;
@@ -227,7 +236,15 @@ export function MessageTurn({
         <div className="pxc-msg user">
           <Avatar size={32} />
           <div className="pxc-content">
-            <div className="pxc-user-bubble">{turn.userPrompt}</div>
+            {turn.userImages && turn.userImages.length > 0 && (
+              <div className="pxc-user-refs">
+                {turn.userImages.map((src, i) => (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img key={i} className="pxc-user-ref" src={src} alt="attached reference" />
+                ))}
+              </div>
+            )}
+            {turn.userPrompt && <div className="pxc-user-bubble">{turn.userPrompt}</div>}
             <div className="pxc-user-meta">{formatTime(turn.createdAt)}</div>
           </div>
         </div>

@@ -105,16 +105,29 @@ export async function* runImageAgent(frame: EpistemicFrame, turn: ImageAgentTurn
   assertFrameBudget(frame);
   yield { type: 'agent_start' };
 
-  const followUp = typeof turn.userMessage === 'string' && turn.userMessage.trim().length > 0;
+  const instruction = typeof turn.userMessage === 'string' ? turn.userMessage.trim() : '';
+  const refCount = turn.references?.length ?? 0;
+  // A workspace follow-up is an instruction OR attached references (either means "iterate", not
+  // "first anchor") — so skip re-emitting the reference recommendation.
+  const followUp = instruction.length > 0 || refCount > 0;
 
   // 1) The Image agent's brain: brief (+ any follow-up) → render plan (opener text + plan_render
   //    tool call). Its craft (plan-then-generate, reference workflows, prompt formulas) is skills.
   let plan: { prompt?: unknown; needs?: unknown; aspectRatio?: unknown; count?: unknown; referenceRecommendation?: unknown } = {};
   try {
     const client = new Anthropic();
-    const userContent = followUp
-      ? `BRIEF (verified):\n${JSON.stringify(frame)}\n\nFOLLOW-UP INSTRUCTION FROM THE USER — apply it to the render plan:\n${turn.userMessage!.trim()}`
-      : `BRIEF (verified — start at Decide):\n${JSON.stringify(frame)}`;
+    let userContent: string;
+    if (!followUp) {
+      userContent = `BRIEF (verified — start at Decide):\n${JSON.stringify(frame)}`;
+    } else {
+      const parts = [`BRIEF (verified):\n${JSON.stringify(frame)}`];
+      if (instruction) parts.push(`FOLLOW-UP INSTRUCTION FROM THE USER — apply it to the render plan:\n${instruction}`);
+      if (refCount > 0)
+        parts.push(
+          `The user attached ${refCount} reference image${refCount === 1 ? '' : 's'} — plan to USE them (compose/edit from them; keep the subject consistent). Include "multi_reference" in needs.`
+        );
+      userContent = parts.join('\n\n');
+    }
     const params = {
       model: MODEL,
       max_tokens: 1200,
@@ -151,6 +164,9 @@ export async function* runImageAgent(frame: EpistemicFrame, turn: ImageAgentTurn
   const needs = Array.isArray(plan.needs)
     ? (plan.needs.filter((n): n is Capability => typeof n === 'string' && (VALID_CAPS as readonly string[]).includes(n)))
     : [];
+  // Attached references only matter if we route to a model that can consume them → force the
+  // capability so Gate 1 picks a ref-capable model (e.g. nano-banana), never a single-image one.
+  if (refCount > 0 && !needs.includes('multi_reference')) needs.push('multi_reference');
   const req: RoutingRequest = {
     intent: typeof plan.prompt === 'string' && plan.prompt.trim() ? plan.prompt.trim() : frame.goal,
     needs,

@@ -75,6 +75,8 @@ export type ChatTurnStatus = 'thinking' | 'streaming' | 'done' | 'error';
 export interface ChatTurn {
   id: string;
   userPrompt: string;
+  /** Reference images the user attached to this turn (data URLs) — shown on the user bubble. */
+  userImages?: string[];
   status: ChatTurnStatus;
   statusMessage: string;
   text: string;
@@ -114,8 +116,9 @@ interface ChatTurnsState {
   /** The active workflow's Epistemic Frame — captured on transfer. While set + in a workspace,
    *  follow-up turns go STRAIGHT to the Image agent (Option A), not back through the Operator. */
   activeFrame: { goal: string; subject?: string; medium: 'image' | 'video' } | null;
-  /** Send a prompt — appends a new turn and streams its response. Returns the new turn id. */
-  send: (prompt: string) => string;
+  /** Send a prompt — appends a new turn and streams its response. Returns the new turn id.
+   *  `references` (image data/URLs) ride along to the Image agent in a workspace (ignored in chat). */
+  send: (prompt: string, references?: string[]) => string;
   /** Restore a persisted conversation from the SQLite store (reload/reopen hydration). */
   loadThread: (threadId: string) => Promise<void>;
   /** Soft-delete a persisted turn by its interaction id (audit-preserving; NO spend). */
@@ -130,7 +133,7 @@ export const useChatTurnsStore = create<ChatTurnsState>((set, get) => {
   const patch = (id: string, updates: Partial<ChatTurn>) =>
     set((s) => ({ turns: s.turns.map((t) => (t.id === id ? { ...t, ...updates } : t)) }));
 
-  async function run(id: string, prompt: string) {
+  async function run(id: string, prompt: string, references: string[] = []) {
     // Carry the COMPLETED prior turns as history so follow-ups stay coherent. (The just-added
     // turn is excluded — its assistant text doesn't exist yet.) An image-agent turn's reply lives
     // in `agentText` (not `text`), so fall back to it for workspace coherence.
@@ -160,7 +163,7 @@ export const useChatTurnsStore = create<ChatTurnsState>((set, get) => {
                 thread_id: st.threadId ?? undefined,
                 frame: st.activeFrame,
                 section: st.activeMedium,
-                references: [], // reference upload lands in 2B-c.2
+                references, // attached reference images (data URLs) for the Image agent
               }
             : {
                 prompt,
@@ -342,7 +345,7 @@ export const useChatTurnsStore = create<ChatTurnsState>((set, get) => {
     threadId: null,
     activeMedium: 'chat',
     activeFrame: null,
-    send: (prompt) => {
+    send: (prompt, references = []) => {
       const clean = prompt.trim();
       const id =
         typeof crypto !== 'undefined' && crypto.randomUUID
@@ -354,6 +357,7 @@ export const useChatTurnsStore = create<ChatTurnsState>((set, get) => {
           {
             id,
             userPrompt: clean,
+            userImages: references.length > 0 ? references : undefined,
             status: 'thinking',
             statusMessage: 'Thinking…',
             text: '',
@@ -367,7 +371,7 @@ export const useChatTurnsStore = create<ChatTurnsState>((set, get) => {
         ],
       }));
       // Fire and forget — the turn lives in the store, streamed in the background.
-      void run(id, clean);
+      void run(id, clean, references);
       return id;
     },
     loadThread: async (threadId) => {

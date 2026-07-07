@@ -25,7 +25,7 @@ import NavRail from './NavRail';
 import SettingsPanel from './SettingsPanel';
 import { useChatTurnsStore } from '../store/chat-turns-store';
 import { useSettings } from '../store/settings-store';
-import { Composer } from './ui';
+import { Composer, type ComposerAttachment } from './ui';
 import { MessageTurn } from './chat/MessageTurn';
 import { ImageStage, type StageImage } from './chat/ImageStage';
 
@@ -119,10 +119,11 @@ export default function ChatView({ initialPrompt, onEnterStudio, onHome }: Props
   }, [turns]);
 
   const submit = useCallback(
-    (text: string) => {
+    (text: string, attachments?: ComposerAttachment[]) => {
       const t = text.trim();
-      if (!t) return;
-      send(t);
+      const refs = attachments?.map((a) => a.dataUrl).filter(Boolean) ?? [];
+      if (!t && refs.length === 0) return;
+      send(t, refs);
       setDraft('');
     },
     [send]
@@ -188,7 +189,9 @@ export default function ChatView({ initialPrompt, onEnterStudio, onHome }: Props
       {/* Composer — the PR-2 primitive, column-capped in chat, pane-width in the workspace. */}
       <div className={capped ? 'shrink-0 px-6 pb-6 pt-2' : 'shrink-0 px-5 pb-5 pt-2'}>
         <div className={capped ? 'mx-auto w-full' : 'w-full'} style={capped ? COLUMN_STYLE : undefined}>
-          <Composer value={draft} onChange={setDraft} onSubmit={submit} />
+          {/* Attach references only in the workspace (the Image agent consumes them); the chat
+              front door doesn't route references yet. */}
+          <Composer value={draft} onChange={setDraft} onSubmit={submit} attachEnabled={!capped} />
         </div>
       </div>
     </div>

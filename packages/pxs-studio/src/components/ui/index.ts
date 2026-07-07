@@ -33,7 +33,7 @@ export { Tooltip } from './Tooltip';
 export type { TooltipProps, TooltipSide } from './Tooltip';
 
 export { Composer } from './Composer';
-export type { ComposerProps } from './Composer';
+export type { ComposerProps, ComposerAttachment } from './Composer';
 
 export { Toggle } from './Toggle';
 export type { ToggleProps } from './Toggle';

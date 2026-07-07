@@ -28,7 +28,7 @@ const CSS = `
   padding: var(--a2ui-space-4);
   display: flex; flex-direction: column; gap: var(--a2ui-space-3);
 }
-.pxc-q-head { display: flex; align-items: flex-start; gap: var(--a2ui-space-2); }
+.pxc-q-head { display: flex; align-items: center; gap: var(--a2ui-space-2); }
 .pxc-q-head > svg { color: var(--pxs-accent-text); margin-top: 1px; }
 .pxc-q-label {
   font-size: var(--a2ui-text-md); font-weight: var(--a2ui-font-semibold);
@@ -45,7 +45,7 @@ const CSS = `
 }
 .pxc-q-chip:hover { background: var(--a2ui-bg-elevated); color: var(--a2ui-text-primary); border-color: var(--a2ui-border-default); }
 .pxc-q-field {
-  display: flex; align-items: flex-end; gap: var(--a2ui-space-2);
+  display: flex; align-items: center; gap: var(--a2ui-space-2);
   background: var(--a2ui-bg-input); border: 1px solid var(--a2ui-border-default);
   border-radius: var(--a2ui-radius-md); padding: var(--a2ui-space-2) var(--a2ui-space-2) var(--a2ui-space-2) var(--a2ui-space-3);
   transition: border-color var(--a2ui-transition-fast), box-shadow var(--a2ui-transition-fast);

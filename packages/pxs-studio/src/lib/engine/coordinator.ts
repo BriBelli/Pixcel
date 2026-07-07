@@ -70,9 +70,10 @@ export async function* coordinateImage(
   }
   yield { type: 'routed', decision };
 
-  // Guard the whole fan-out against the cost ceiling up front.
-  if (decision.estCostUsd[0] > maxCost) {
-    yield { type: 'error', message: `Estimated cost $${decision.estCostUsd[0]} exceeds the $${maxCost} cap.` };
+  // Guard the whole fan-out against the ceiling up front — on the WORST-CASE (high) estimate,
+  // so a fan-out whose max could blow the cap never starts.
+  if (decision.estCostUsd[1] > maxCost) {
+    yield { type: 'error', message: `Estimated cost up to $${decision.estCostUsd[1]} exceeds the $${maxCost.toFixed(2)} remaining budget.` };
     return;
   }
 

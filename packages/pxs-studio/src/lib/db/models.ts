@@ -89,6 +89,9 @@ export interface Usage extends BaseRecord {
   interaction_id: string;
   input_tokens: number;
   output_tokens: number;
+  /** Non-token external spend for this interaction (image/video generation cost, USD). */
+  gen_cost_usd: number;
+  /** Total cost = token cost + gen_cost_usd. */
   cost_usd: number;
 }
 

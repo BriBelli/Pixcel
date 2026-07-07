@@ -60,10 +60,15 @@ export async function recordUsage(
     interaction_id: string;
     input_tokens: number;
     output_tokens: number;
+    /** Non-token external spend (image/video generation), USD. Defaults to 0. */
+    gen_cost_usd?: number;
   }
 ): Promise<Usage> {
   const { user_id, interaction_id, input_tokens, output_tokens } = args;
-  const cost_usd = costUsd(input_tokens, output_tokens);
+  const gen_cost_usd = args.gen_cost_usd ?? 0;
+  // Total = token cost + external generation cost. BOTH must hit running_cost_usd so the
+  // hard cap actually gates image spend (not just Claude tokens).
+  const cost_usd = costUsd(input_tokens, output_tokens) + gen_cost_usd;
   const now = Date.now();
 
   const usage: Usage = {
@@ -76,6 +81,7 @@ export async function recordUsage(
     interaction_id,
     input_tokens,
     output_tokens,
+    gen_cost_usd,
     cost_usd,
   };
   await repo.put(usage);

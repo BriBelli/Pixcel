@@ -34,6 +34,28 @@ test('recordUsage writes a Usage row and increments the user running totals', as
   assert.equal(user.hard_cap_usd, DEFAULT_HARD_CAP_USD);
 });
 
+test('recordUsage meters gen_cost_usd (image spend) into the running total + cap', async () => {
+  const repo = createMemoryRepository();
+  // No tokens, but $4 of image generation.
+  const usage = await recordUsage(repo, {
+    user_id: 'u',
+    interaction_id: 'g1',
+    input_tokens: 0,
+    output_tokens: 0,
+    gen_cost_usd: 4,
+  });
+  assert.equal(usage.gen_cost_usd, 4);
+  assert.equal(usage.cost_usd, 4, 'total cost includes the image spend');
+  const user = (await repo.get('user', 'u')) as UserRecord;
+  assert.equal(user.running_cost_usd, 4, 'image spend hits running_cost_usd (not just tokens)');
+
+  // $2 more of image spend crosses the $5 cap → blocked.
+  await recordUsage(repo, { user_id: 'u', interaction_id: 'g2', input_tokens: 0, output_tokens: 0, gen_cost_usd: 2 });
+  const capped = await checkCap(repo, 'u');
+  assert.equal(capped.spent_usd, 6);
+  assert.equal(capped.allowed, false, 'image spend alone can trip the hard cap');
+});
+
 test('recordUsage accumulates across calls', async () => {
   const repo = createMemoryRepository();
   await recordUsage(repo, { user_id: 'u', interaction_id: 'a', input_tokens: 100, output_tokens: 100 });

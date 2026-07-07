@@ -107,8 +107,11 @@ export async function POST(req: Request) {
   // ── HARD SPEND GATE ──────────────────────────────────────────────────────────
   // Check the user's running total vs their hard cap BEFORE any model call. If they're
   // over, emit an error and close the stream WITHOUT spending a token. This is the gate.
+  // `remainingUsd` is threaded into image generation so a single turn can't blow the cap.
+  let remainingUsd = 2.0; // conservative per-request default if the cap check can't run
   try {
     const cap = await checkCap(db, userId);
+    remainingUsd = cap.remaining_usd;
     if (!cap.allowed) {
       const encoder = new TextEncoder();
       const blocked = new ReadableStream({
@@ -176,6 +179,25 @@ export async function POST(req: Request) {
       const send: Send = (obj) =>
         controller.enqueue(encoder.encode(JSON.stringify(obj) + '\n'));
 
+      // Run the image workflow for a prompt, streaming tiles, capped at the user's remaining
+      // budget. Returns the realized USD cost so the caller can meter it. Shared by dispatch +
+      // transfer so the two paths can't drift.
+      const runImageGen = async (intent: string): Promise<number> => {
+        send({ type: 'gen_start' });
+        let cost = 0;
+        for await (const ev of coordinateImage({ intent, needs: [], count: 2 }, { maxCostUsd: remainingUsd })) {
+          if (ev.type === 'tile') {
+            send({ type: 'image', url: ev.tile.image.url, modelLabel: ev.tile.modelLabel, index: ev.totalSoFar - 1 });
+          } else if (ev.type === 'done') {
+            cost = ev.costUsd;
+          } else if (ev.type === 'error') {
+            send({ type: 'gen_error', message: ev.message });
+          }
+        }
+        send({ type: 'gen_done', costUsd: cost });
+        return cost;
+      };
+
       // Accumulate the assistant text + the a2ui snapshot so we can persist after `done`.
       let assistantText = '';
       // Guard so the first text delta marks the 'reading' step done exactly once.
@@ -235,6 +257,11 @@ export async function POST(req: Request) {
         // The A2UI block actually emitted (persisted for truthful hydrate). Question | null.
         let emittedBlock: { kind: 'question'; label: string; placeholder?: string; chips?: string[] } | null = null;
         let didRespond = false; // true once a branch has emitted its result (skip the fallback suggestions)
+        // Metering accumulators — the classify call's tokens AND the realized image-gen cost must
+        // ALL reach recordUsage, or the hard cap only ever gates the streamed Opus call (money bug).
+        let classifyInTok = 0;
+        let classifyOutTok = 0;
+        let genCostTotal = 0;
 
         try {
           // Give the classifier the user prompt + the assistant's response text (+ brief history).
@@ -260,6 +287,9 @@ export async function POST(req: Request) {
             output_config: { format: { type: 'json_schema', schema: CLASSIFY_SCHEMA } },
           };
           const classifyMsg = await client.messages.create(classifyParams as any);
+          // Meter this second Opus call too (previously dropped on the floor).
+          classifyInTok = (classifyMsg as { usage?: { input_tokens?: number } })?.usage?.input_tokens ?? 0;
+          classifyOutTok = (classifyMsg as { usage?: { output_tokens?: number } })?.usage?.output_tokens ?? 0;
           const classifyText = ((classifyMsg.content ?? []) as Array<{ type: string; text?: string }>)
             .filter((b) => b.type === 'text')
             .map((b) => b.text ?? '')
@@ -273,18 +303,7 @@ export async function POST(req: Request) {
           if (result.action === 'dispatch' && result.generationPrompt) {
             // DISPATCH the image workflow: generate + stream tiles into the chat.
             didRespond = true;
-            send({ type: 'gen_start' });
-            let genCost = 0;
-            for await (const ev of coordinateImage({ intent: result.generationPrompt, needs: [], count: 2 })) {
-              if (ev.type === 'tile') {
-                send({ type: 'image', url: ev.tile.image.url, modelLabel: ev.tile.modelLabel, index: ev.totalSoFar - 1 });
-              } else if (ev.type === 'done') {
-                genCost = ev.costUsd;
-              } else if (ev.type === 'error') {
-                send({ type: 'gen_error', message: ev.message });
-              }
-            }
-            send({ type: 'gen_done', costUsd: genCost });
+            genCostTotal = await runImageGen(result.generationPrompt);
           } else if (result.action === 'transfer' && result.frame) {
             // TRANSFER (large workflow): hand off to the Image agent. Emit the transfer signal
             // (carries the Epistemic Frame) so the client flips the nav + attributes the work to
@@ -295,18 +314,7 @@ export async function POST(req: Request) {
             // will use (your Camaro flow). frame.medium records the ultimate goal; the target is
             // 'image' until a Video agent + a pure-video path exist.
             send({ type: 'transfer', to: 'image', frame: result.frame });
-            send({ type: 'gen_start' });
-            let genCost = 0;
-            for await (const ev of coordinateImage({ intent: result.frame.goal, needs: [], count: 2 })) {
-              if (ev.type === 'tile') {
-                send({ type: 'image', url: ev.tile.image.url, modelLabel: ev.tile.modelLabel, index: ev.totalSoFar - 1 });
-              } else if (ev.type === 'done') {
-                genCost = ev.costUsd;
-              } else if (ev.type === 'error') {
-                send({ type: 'gen_error', message: ev.message });
-              }
-            }
-            send({ type: 'gen_done', costUsd: genCost });
+            genCostTotal = await runImageGen(result.frame.goal);
           } else if (result.action === 'ask' && result.question) {
             // ASK via the A2UI question affordance (never prose).
             didRespond = true;
@@ -352,11 +360,14 @@ export async function POST(req: Request) {
               a2ui_version: A2UI_VERSION,
             },
           } as Partial<Interaction>);
+          // Meter EVERYTHING this turn spent: the streamed Opus call + the classify Opus call
+          // + the realized image-generation cost — so the hard cap gates real spend.
           await recordUsage(db, {
             user_id: userId,
             interaction_id: interactionId,
-            input_tokens: inputTokens,
-            output_tokens: outputTokens,
+            input_tokens: inputTokens + classifyInTok,
+            output_tokens: outputTokens + classifyOutTok,
+            gen_cost_usd: genCostTotal,
           });
         } catch (err) {
           console.warn('[chat-turn] persist/usage failed (stream unaffected):', err);

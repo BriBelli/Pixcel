@@ -26,6 +26,9 @@ interface ImageStageProps {
   images: StageImage[];
   generating: boolean;
   medium: 'image' | 'video';
+  /** The active workflow's subject/goal — personalizes the empty state to the in-state context
+   *  (consult-first framing) instead of a generic placeholder. */
+  contextLabel?: string;
 }
 
 const CSS = `
@@ -93,10 +96,11 @@ const CSS = `
 @media (prefers-reduced-motion: reduce) { .pxc-stage-pending { animation: none; } }
 `;
 
-export function ImageStage({ images, generating, medium }: ImageStageProps) {
+export function ImageStage({ images, generating, medium, contextLabel }: ImageStageProps) {
   const isVideo = medium === 'video';
   const label = isVideo ? 'video' : 'image';
   const hasContent = images.length > 0 || generating;
+  const ctx = contextLabel?.trim();
 
   return (
     <div className="pxc-stage relative flex-1 flex flex-col min-w-0 min-h-0">
@@ -127,14 +131,24 @@ export function ImageStage({ images, generating, medium }: ImageStageProps) {
         </div>
       ) : (
         <div className="pxc-stage-empty">
-          <h1 className="pxc-stage-empty-title">
-            What {label}(s) do you want to create?
-          </h1>
-          <p className="pxc-stage-empty-sub">
-            {isVideo
-              ? 'e.g. a slow push-in on a rain-soaked neon street, cinematic'
-              : 'e.g. a rain-soaked neon portrait at dusk, cinematic'}
-          </p>
+          {ctx ? (
+            <>
+              <h1 className="pxc-stage-empty-title">Let&rsquo;s shape your {ctx}.</h1>
+              <p className="pxc-stage-empty-sub">
+                We&rsquo;ll walk through a few tailored questions — attach references or tell me the
+                specs, and I&rsquo;ll build the best prompt with you.
+              </p>
+            </>
+          ) : (
+            <>
+              <h1 className="pxc-stage-empty-title">What {label}(s) do you want to create?</h1>
+              <p className="pxc-stage-empty-sub">
+                {isVideo
+                  ? 'e.g. a slow push-in on a rain-soaked neon street, cinematic'
+                  : 'e.g. a rain-soaked neon portrait at dusk, cinematic'}
+              </p>
+            </>
+          )}
         </div>
       )}
     </div>

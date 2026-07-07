@@ -68,6 +68,7 @@ const COLUMN_STYLE = { maxWidth: 'var(--a2ui-chat-max-width)' } as const;
 export default function ChatView({ initialPrompt, onEnterStudio, onHome }: Props) {
   const turns = useChatTurnsStore((s) => s.turns);
   const activeMedium = useChatTurnsStore((s) => s.activeMedium);
+  const activeFrame = useChatTurnsStore((s) => s.activeFrame);
   const setActiveMedium = useChatTurnsStore((s) => s.setActiveMedium);
   const send = useChatTurnsStore((s) => s.send);
   const loadThread = useChatTurnsStore((s) => s.loadThread);
@@ -220,7 +221,12 @@ export default function ChatView({ initialPrompt, onEnterStudio, onHome }: Props
               the conversation continuing in a right pane. This is what makes a transfer read as a
               WORKFLOW, not a dead-end in the chat scroll. ── */
         <div className="relative flex-1 flex min-w-0">
-          <ImageStage images={stageImages} generating={generating} medium={workspaceMedium} />
+          <ImageStage
+            images={stageImages}
+            generating={generating}
+            medium={workspaceMedium}
+            contextLabel={activeFrame?.subject || activeFrame?.goal}
+          />
           <aside
             className="w-[400px] shrink-0 flex flex-col min-h-0"
             style={{ borderLeft: '1px solid var(--a2ui-border-subtle)', background: 'var(--a2ui-bg-app)' }}

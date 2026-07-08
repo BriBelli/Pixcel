@@ -1,28 +1,37 @@
 'use client';
 
 /* ─────────────────────────────────────────────────────────────────────────────
- * Splash suggestions — the personalized chips under the greeting hero.
+ * Splash personalization — REAL state, not filler.
  *
- * v1 draws on the little state we have client-side: a "continue where you left off"
- * chip when a prior conversation exists, plus a few curated Pixcel-creative starters.
+ * Pulls the user's recent projects (active threads) so the greeting can offer specific
+ * "Continue: <title>" chips that resume the actual work, and so the copy can be
+ * state-aware (a returning user with projects reads differently from a first visit).
+ * Curated production starters fill the rest.
  *
- * GROWTH PATH (not built yet): correlate to the user's history + state — recent
- * projects (reminders / "continue <title>"), newly-available models or features,
- * inspiration, and simple next-steps. This function is the single seam a suggestion
- * agent slots into later; the greeting renders whatever it returns.
+ * GROWTH PATH: this is the seam a fuller suggestion agent slots into — next-steps on a
+ * project, newly-relevant models/features, reminders, inspiration. It already renders
+ * whatever it returns; enriching the source doesn't touch the greeting.
  * ───────────────────────────────────────────────────────────────────────────── */
 
 import { useEffect, useState } from 'react';
+import { DEV_USER_ID } from './db/models';
 
-/** localStorage key holding the last active chat thread (mirrors chat-turns-store). */
+/** localStorage key holding the active chat thread (mirrors chat-turns-store). */
 const THREAD_KEY = 'pxs-chat-thread';
 
 export interface SplashChip {
   id: string;
   label: string;
-  /** 'resume' → reopen the last conversation (no prompt); 'prompt' → start a new turn with `prompt`. */
+  /** 'resume' → reopen an existing project (by threadId); 'prompt' → start a new turn with `prompt`. */
   kind: 'prompt' | 'resume';
   prompt?: string;
+  threadId?: string;
+}
+
+interface RecentProject {
+  id: string;
+  title: string;
+  updated_at: number;
 }
 
 /** Curated production starters — professional register (this is a production tool, not a toy). */
@@ -33,24 +42,61 @@ const CREATIVE_STARTERS: SplashChip[] = [
   { id: 'identity', label: 'Design a brand mark', kind: 'prompt', prompt: 'Design a brand mark' },
 ];
 
+/** Trim a project title to a chip-friendly length. */
+function short(title: string, n = 32): string {
+  const t = title.trim();
+  return t.length > n ? `${t.slice(0, n - 1).trimEnd()}…` : t;
+}
+
+export interface SplashState {
+  chips: SplashChip[];
+  /** True once we know the user has prior projects — drives state-aware greeting copy. */
+  hasProjects: boolean;
+  /** Still fetching (avoids a flash of the "new user" copy for a returning user). */
+  loading: boolean;
+}
+
 /**
- * The personalized chip set for the splash greeting. Reads the "last thread" flag after mount
- * (SSR-safe) so a returning user is offered "continue" first, then curated starters.
+ * The splash's personalized state. Fetches recent projects after mount; offers the two most recent
+ * as "Continue: <title>" resume chips, then fills with production starters.
  */
-export function useSplashSuggestions(max = 4): SplashChip[] {
-  const [hasThread, setHasThread] = useState(false);
+export function useSplashState(max = 4): SplashState {
+  const [projects, setProjects] = useState<RecentProject[]>([]);
+  const [loading, setLoading] = useState(true);
+
   useEffect(() => {
-    try {
-      setHasThread(!!window.localStorage.getItem(THREAD_KEY));
-    } catch {
-      /* storage unavailable — no continue chip */
-    }
+    let live = true;
+    fetch(`/api/threads?user_id=${encodeURIComponent(DEV_USER_ID)}&limit=6`)
+      .then((r) => (r.ok ? r.json() : { threads: [] }))
+      .then((d: { threads?: RecentProject[] }) => {
+        if (live) setProjects(Array.isArray(d.threads) ? d.threads : []);
+      })
+      .catch(() => {})
+      .finally(() => {
+        if (live) setLoading(false);
+      });
+    return () => {
+      live = false;
+    };
   }, []);
 
   const chips: SplashChip[] = [];
-  if (hasThread) {
-    chips.push({ id: 'continue', label: 'Continue where you left off', kind: 'resume' });
+  for (const p of projects.slice(0, 2)) {
+    chips.push({ id: `resume-${p.id}`, label: `Continue: ${short(p.title)}`, kind: 'resume', threadId: p.id });
   }
-  chips.push(...CREATIVE_STARTERS);
-  return chips.slice(0, max);
+  for (const s of CREATIVE_STARTERS) {
+    if (chips.length >= max) break;
+    chips.push(s);
+  }
+
+  return { chips: chips.slice(0, max), hasProjects: projects.length > 0, loading };
+}
+
+/** Set the active thread so a resume chip reopens THAT project (ChatView restores it on mount). */
+export function markResumeThread(threadId: string): void {
+  try {
+    window.localStorage.setItem(THREAD_KEY, threadId);
+  } catch {
+    /* storage unavailable — resume falls back to the last thread */
+  }
 }

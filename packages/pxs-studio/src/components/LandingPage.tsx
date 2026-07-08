@@ -13,7 +13,7 @@ import DigitalWall from './DigitalWall';
 import SplashGreeting from './SplashGreeting';
 import { RES } from '../lib/resolutions';
 import { useSettings } from '../store/settings-store';
-import type { SplashChip } from '../lib/splash-suggestions';
+import { markResumeThread, type SplashChip } from '../lib/splash-suggestions';
 
 interface Props {
   onEnter: (prompt?: string) => void;
@@ -69,10 +69,14 @@ export default function LandingPage({ onEnter }: Props) {
   // to the frozen reference); 'greeting' = the personalized greeting + suggestion chips.
   const splashStyle = useSettings((s) => s.splashStyle);
 
-  // A greeting chip: resume the last conversation (no prompt → ChatView restores it) or start fresh.
+  // A greeting chip: resume a specific project (set it active → ChatView restores it) or start fresh.
   const handleChip = (chip: SplashChip) => {
-    if (chip.kind === 'resume') onEnter();
-    else onEnter(chip.prompt || chip.label);
+    if (chip.kind === 'resume') {
+      if (chip.threadId) markResumeThread(chip.threadId);
+      onEnter();
+    } else {
+      onEnter(chip.prompt || chip.label);
+    }
   };
 
   // The hero prompt bar — shared by both splash variants (identical markup).

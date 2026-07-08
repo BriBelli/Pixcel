@@ -7,11 +7,10 @@
  * starters — see splash-suggestions). Tokens-only, calm, Claude-Design gospel.
  * ───────────────────────────────────────────────────────────────────────────── */
 
-import { useCurrentUser } from '../lib/use-current-user';
-import { useSplashSuggestions, type SplashChip } from '../lib/splash-suggestions';
+import { useSplashState, type SplashChip } from '../lib/splash-suggestions';
 
 export interface SplashGreetingProps {
-  /** A chip was chosen — resume the last conversation or start with the chip's prompt. */
+  /** A chip was chosen — resume a project or start with the chip's prompt. */
   onSelect: (chip: SplashChip) => void;
 }
 
@@ -40,16 +39,15 @@ const CSS = `
 `;
 
 export function SplashGreeting({ onSelect }: SplashGreetingProps) {
-  const user = useCurrentUser();
-  const first = (user?.firstName || user?.name || '').trim().split(/\s+/)[0];
-  const chips = useSplashSuggestions();
-  const title = first ? `Welcome back, ${first}.` : 'Welcome to your studio.';
+  const { chips } = useSplashState();
 
   return (
     <div className="pxs-greet">
       <style>{CSS}</style>
-      <h1 className="pxs-greet-title">{title}</h1>
-      <p className="pxs-greet-sub">A team of AI specialists, at your direction.</p>
+      <h1 className="pxs-greet-title">What do you want to create today?</h1>
+      <p className="pxs-greet-sub">
+        Welcome to Pixcel studio — your team of AI specialists, at your direction.
+      </p>
       {chips.length > 0 && (
         <div className="pxs-greet-chips">
           {chips.map((c) => (

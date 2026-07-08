@@ -21,8 +21,6 @@
  * ───────────────────────────────────────────────────────────────────────────── */
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import NavRail from './NavRail';
-import SettingsPanel from './SettingsPanel';
 import { useChatTurnsStore } from '../store/chat-turns-store';
 import { useSettings } from '../store/settings-store';
 import { Composer, type ComposerAttachment } from './ui';
@@ -32,40 +30,15 @@ import { ImageStage, type StageImage } from './chat/ImageStage';
 interface Props {
   /** The prompt typed on the splash (front door). Auto-sent once on mount. */
   initialPrompt?: string;
-  /** Enter the full Studio (the art IDE) — e.g. from a nav item or an option choice. */
-  onEnterStudio: (prompt?: string) => void;
-  /** Back to the splash. */
-  onHome?: () => void;
 }
-
-const ROOT_CSS = `
-.pxc-root { background: var(--a2ui-bg-app); color: var(--a2ui-text-primary);
-  font-family: var(--a2ui-font-family); -webkit-font-smoothing: antialiased; }
-.pxc-root ::selection { background: var(--a2ui-accent-subtle); }
-
-/* Chat backdrop — a clean solid charcoal (the root bg) with a BARELY-perceptible
-   ambient drift: two faint accent-tinted radial glows that slowly breathe + rise.
-   Tasteful, almost-not-there — no LED lattice, no frozen frame. Reduced-motion → still. */
-.pxc-ambient {
-  background:
-    radial-gradient(58% 46% at 50% 6%,  color-mix(in srgb, var(--a2ui-accent) 5%,   transparent), transparent 70%),
-    radial-gradient(52% 42% at 84% 96%, color-mix(in srgb, var(--a2ui-accent) 3.5%, transparent), transparent 66%);
-  animation: pxc-ambient-breathe 26s ease-in-out infinite alternate;
-  will-change: opacity, transform;
-}
-@keyframes pxc-ambient-breathe {
-  from { opacity: 0.5;  transform: translate3d(0, 0, 0)     scale(1); }
-  to   { opacity: 1;    transform: translate3d(0, -1.2%, 0) scale(1.06); }
-}
-@media (prefers-reduced-motion: reduce) {
-  .pxc-ambient { animation: none; opacity: 0.7; }
-}
-`;
 
 /** The chat column cap (rule #8 — capped, never full-bleed). */
 const COLUMN_STYLE = { maxWidth: 'var(--a2ui-chat-max-width)' } as const;
 
-export default function ChatView({ initialPrompt, onEnterStudio, onHome }: Props) {
+/* CONTENT-ONLY (PR-8): the persistent NavRail + DigitalWall + SettingsPanel live in the shell
+   (app/page.tsx). This renders only the conversation / workspace over that shell; the shell's
+   dormant wall shows behind (no local backdrop). */
+export default function ChatView({ initialPrompt }: Props) {
   const turns = useChatTurnsStore((s) => s.turns);
   const activeMedium = useChatTurnsStore((s) => s.activeMedium);
   const activeFrame = useChatTurnsStore((s) => s.activeFrame);
@@ -76,20 +49,11 @@ export default function ChatView({ initialPrompt, onEnterStudio, onHome }: Props
   const reset = useChatTurnsStore((s) => s.reset);
 
   const [draft, setDraft] = useState('');
-  const [settingsOpen, setSettingsOpen] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const sentInitial = useRef(false);
 
-  // Settings the chat honors directly (the two WIRED fields):
-  //  • theme       → applied to <html data-theme> below (tokens.css swaps dark/light)
-  //  • showActions → gates the MessageActions footer per turn
-  const theme = useSettings((st) => st.theme);
+  // showActions gates the MessageActions footer per turn. (Theme is applied to <html> by the shell.)
   const showActions = useSettings((st) => st.showActions);
-
-  // Apply the persisted theme to <html> on mount + whenever it changes.
-  useEffect(() => {
-    document.documentElement.setAttribute('data-theme', theme);
-  }, [theme]);
 
   // On mount, run exactly once (sent-once ref):
   //  • a splash prompt present → send it (a NEW conversation).
@@ -146,13 +110,6 @@ export default function ChatView({ initialPrompt, onEnterStudio, onHome }: Props
     [setActiveMedium]
   );
 
-  // Home / Chat from WITHIN a workspace returns to the conversation column; from the plain chat it
-  // goes all the way home (the splash). So the front door never traps you in a specialist surface.
-  const handleHome = useCallback(() => {
-    if (inWorkspace) setActiveMedium('chat');
-    else onHome?.();
-  }, [inWorkspace, setActiveMedium, onHome]);
-
   // The conversation (scrollable turns + composer) — shared by the chat column and the workspace's
   // right pane. `capped` centers it under the chat-width cap (chat home); the pane fills its column.
   const conversation = (capped: boolean) => (
@@ -199,23 +156,10 @@ export default function ChatView({ initialPrompt, onEnterStudio, onHome }: Props
   );
 
   return (
-    <div className="pxc-root flex h-screen overflow-hidden">
-      <style>{ROOT_CSS}</style>
-
-      <NavRail
-        activeSection={activeMedium}
-        onHome={handleHome}
-        onSection={(id) =>
-          id === 'image' || id === 'video'
-            ? setActiveMedium(id)
-            : setActiveMedium('chat')
-        }
-        onUtility={() => onEnterStudio()}
-        onOpenSettings={() => setSettingsOpen(true)}
-      />
-
-      <SettingsPanel open={settingsOpen} onClose={() => setSettingsOpen(false)} />
-
+    <div
+      className="relative flex min-w-0 h-full w-full"
+      style={{ color: 'var(--a2ui-text-primary)', fontFamily: 'var(--a2ui-font-family)' }}
+    >
       {inWorkspace ? (
         /* ── WORKSPACE surface — the transfer lands here: center stage (generated images LARGE) +
               the conversation continuing in a right pane. This is what makes a transfer read as a
@@ -235,16 +179,8 @@ export default function ChatView({ initialPrompt, onEnterStudio, onHome }: Props
           </aside>
         </div>
       ) : (
-        <div className="relative flex-1 flex flex-col min-w-0">
-          {/* z-0 — the Pixcel digital wall, full-bleed BEHIND the chat, but DORMANT here: the logo is
-              OFF (showLogo=false — logoScale can't remove it, it floors to native width) and intensity
-              is very low, so it's ambient texture that never competes with the conversation. This is
-              the settled END-STATE; the animated hand-off that eases the wall into it is lifecycle work. */}
-          {/* Chat backdrop — solid charcoal (the root) + a barely-there ambient drift (.pxc-ambient).
-              Replaces the frozen low-res LED wall that read as static grey blotches. */}
-          <div className="pxc-ambient pointer-events-none absolute inset-0 z-0" aria-hidden="true" />
-          {conversation(true)}
-        </div>
+        /* Chat column — floats over the shell's dormant DigitalWall (no local backdrop). */
+        <div className="relative flex-1 flex flex-col min-w-0">{conversation(true)}</div>
       )}
     </div>
   );

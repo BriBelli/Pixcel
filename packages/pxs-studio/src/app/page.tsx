@@ -4,9 +4,15 @@ import { useCallback, useEffect, useRef, useState, type CSSProperties } from 're
 import dynamic from 'next/dynamic';
 import LandingPage from '../components/LandingPage';
 import ChatView from '../components/ChatView';
+import NavRail from '../components/NavRail';
+import DigitalWall from '../components/DigitalWall';
+import SettingsPanel from '../components/SettingsPanel';
 import AuthProvider from '../components/AuthProvider';
 import LoginModalProvider from '../components/LoginModalProvider';
 import { PixcelMark } from '../components/ui';
+import { useSettings } from '../store/settings-store';
+import { useChatTurnsStore } from '../store/chat-turns-store';
+import { RES } from '../lib/resolutions';
 
 // Dynamically import Studio component (client-side only for Web Workers)
 const Studio = dynamic(() => import('../components/Studio'), {
@@ -59,6 +65,12 @@ type Stage = 'splash' | 'chat' | 'studio';
 const OUT_MS = 320; // outgoing fades + recedes out
 const IN_MS = 380; // incoming eases in (starts after OUT_MS)
 const EASE = 'var(--a2ui-ease-entrance)'; // cubic-bezier(0.22, 1, 0.36, 1)
+
+// Splash logo → prompt-bar anchor (the shell computes it from the persistent wall's logo layout).
+const PROMPT_GAP = '4rem';
+const PROMPT_Y_MIN = '52%';
+const PROMPT_Y_MAX = '82%';
+const DEFAULT_PROMPT_Y = '72%';
 
 function prefersReducedMotion(): boolean {
   return typeof window !== 'undefined'
@@ -135,71 +147,125 @@ export default function Home() {
     });
   }, []);
 
+  // ── PR-8 persistent shell state (nav + wall + settings live here, not in the views) ──
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [promptY, setPromptY] = useState(DEFAULT_PROMPT_Y);
+  const splashStyle = useSettings((s) => s.splashStyle);
+  const theme = useSettings((s) => s.theme);
+  const activeMedium = useChatTurnsStore((s) => s.activeMedium);
+  const setActiveMedium = useChatTurnsStore((s) => s.setActiveMedium);
+
+  // Theme applies to <html> from the shell, so it holds across splash + chat (not just in-app).
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', theme);
+  }, [theme]);
+
+  // The persistent wall's logo layout → the splash prompt-bar anchor (logo hero only).
+  const handleLogoLayout = useCallback((box: { bottomFrac: number; visible: boolean }) => {
+    if (!box.visible) {
+      setPromptY(DEFAULT_PROMPT_Y);
+      return;
+    }
+    const belowLogo = `calc(${(box.bottomFrac * 100).toFixed(2)}% + ${PROMPT_GAP})`;
+    setPromptY(`clamp(${PROMPT_Y_MIN}, ${belowLogo}, ${PROMPT_Y_MAX})`);
+  }, []);
+
   if (!mounted) {
     return <LoadingScreen />;
   }
 
-  // Render a single stage into a cross-fade layer. The incoming (top) layer mounts at
-  // opacity 0 / translateY and eases to rest; the outgoing layer eases to opacity 0 and
-  // recedes a touch. During a transition both layers are absolutely stacked (inset 0).
-  const renderStage = (s: Stage) => {
-    switch (s) {
-      case 'splash':
-        // The splash routes its prompt into CHAT (the front door), not straight into the Studio.
-        return <LandingPage onEnter={(p) => transitionTo('chat', p)} />;
-      case 'chat':
-        return (
-          <ChatView
-            initialPrompt={initialPrompt}
-            onEnterStudio={(p) => transitionTo('studio', p)}
-            onHome={() => transitionTo('splash', undefined, false)}
-          />
-        );
-      case 'studio':
-        return <Studio onHome={() => transitionTo('chat')} initialPrompt={initialPrompt} />;
-    }
+  const transitioning = phase !== null;
+  const inStudio = stage === 'studio';
+
+  // Nav handlers — the shell owns the ONE persistent rail (stage-aware).
+  const navActive = stage === 'chat' ? activeMedium : 'chat';
+  const handleNavHome = () => {
+    // From a workspace → back to the conversation; from plain chat/splash → the splash.
+    if (stage === 'chat' && activeMedium !== 'chat') setActiveMedium('chat');
+    else transitionTo('splash', undefined, false);
+  };
+  const handleNavSection = (id: string) => {
+    if (stage === 'splash') { transitionTo('chat'); return; }
+    if (id === 'image' || id === 'video') setActiveMedium(id);
+    else setActiveMedium('chat');
   };
 
-  const transitioning = phase !== null;
+  // The persistent wall re-tunes by SCENARIO (never disabled): splash+logo = active flare
+  // (wordmark); otherwise dormant (subtle, no logo) — present + ready to come alive on intent later.
+  const wallLogo = stage === 'splash' && splashStyle === 'logo';
 
-  // Staggered layer styling. OUTGOING: fades opacity 1→0 + lifts, over OUT_MS, on top. INCOMING:
-  // held hidden (opacity 0, sunk 12px) during 'out', then eases to rest over IN_MS once phase='in'.
+  // Content-only stage for the cross-fading well (studio is a separate full view below).
+  const renderContent = (s: Stage) => {
+    if (s === 'splash') return <LandingPage onEnter={(p) => transitionTo('chat', p)} promptY={promptY} />;
+    if (s === 'chat') return <ChatView initialPrompt={initialPrompt} />;
+    return null;
+  };
+
+  // Layer styling for the content well. Steady = fill the well; transitioning = staggered fade.
   const layerStyle = (kind: 'incoming' | 'outgoing'): CSSProperties => {
-    if (!transitioning) return {}; // steady state — plain, view fills naturally.
+    const fill: CSSProperties = { position: 'absolute', inset: 0 };
+    if (!transitioning) return fill;
     if (kind === 'outgoing') {
       return {
-        position: 'absolute', inset: 0, zIndex: 2, pointerEvents: 'none',
+        ...fill, zIndex: 2, pointerEvents: 'none',
         transition: `opacity ${OUT_MS}ms ${EASE}, transform ${OUT_MS}ms ${EASE}`,
-        opacity: 0, // was 1 (steady, keyed element) → transitions out
+        opacity: 0,
         transform: 'translateY(-6px) scale(0.995)',
       };
     }
     const shown = phase === 'in';
     return {
-      position: 'absolute', inset: 0, zIndex: 1, pointerEvents: shown ? 'auto' : 'none',
+      ...fill, zIndex: 1, pointerEvents: shown ? 'auto' : 'none',
       transition: `opacity ${IN_MS}ms ${EASE}, transform ${IN_MS}ms ${EASE}`,
       opacity: shown ? 1 : 0,
       transform: shown ? 'translateY(0)' : 'translateY(12px)',
     };
   };
 
-  // The product's front door: splash → the Operator conversation. The
-  // Studio (the art IDE, with LiveArtisanPanel etc.) stays reachable — entered from chat (a
-  // medium choice / nav item). AuthProvider wraps all three so they share the Auth0 session.
+  // The product's front door: splash ⇄ chat live inside ONE persistent shell (nav + wall never
+  // fade; only the center well cross-fades). The Studio is a separate full view (its own chrome).
   return (
     <AuthProvider>
       <LoginModalProvider>
-        {/* During a hand-off the container is positioned so the two layers can stack (inset 0);
-            at rest it's a plain full-height passthrough. */}
-        <div style={transitioning ? { position: 'relative', height: '100vh', overflow: 'hidden' } : undefined}>
-          {/* Keyed by stage so React PRESERVES each view's instance across the hand-off —
-              the outgoing view keeps its already-mounted state (wall, entrance) and simply
-              fades out, instead of re-mounting and replaying its intro while it dissolves. */}
-          <div key={stage} style={layerStyle('incoming')}>{renderStage(stage)}</div>
-          {transitioning && outgoing && (
-            <div key={outgoing} style={layerStyle('outgoing')}>{renderStage(outgoing)}</div>
-          )}
-        </div>
+        {inStudio ? (
+          <Studio onHome={() => transitionTo('chat')} initialPrompt={initialPrompt} />
+        ) : (
+          <div
+            className="pxs-shell relative flex h-screen overflow-hidden"
+            style={{ background: 'var(--a2ui-bg-app)', color: 'var(--a2ui-text-primary)', fontFamily: 'var(--a2ui-font-family)' }}
+          >
+            {/* z-0 — the ONE persistent DigitalWall, scenario-tuned. Never re-mounts, never fades. */}
+            <div className="pointer-events-none absolute inset-0 z-0" aria-hidden="true">
+              <DigitalWall
+                className="absolute inset-0 h-full w-full"
+                pixels={RES.sd}
+                showLogo={wallLogo}
+                logoScale={0.25}
+                intensity={wallLogo ? 0.01 : 0.006}
+                onLogoLayout={wallLogo ? handleLogoLayout : undefined}
+              />
+            </div>
+
+            {/* The ONE persistent left NavRail — the anchor, never fades. */}
+            <NavRail
+              activeSection={navActive}
+              onHome={handleNavHome}
+              onSection={handleNavSection}
+              onUtility={() => transitionTo('studio')}
+              onOpenSettings={() => setSettingsOpen(true)}
+            />
+
+            {/* Content well — ONLY this cross-fades between splash ⇄ chat. */}
+            <div className="relative z-10 flex-1 min-w-0 h-full">
+              <div key={stage} style={layerStyle('incoming')}>{renderContent(stage)}</div>
+              {transitioning && outgoing && outgoing !== 'studio' && (
+                <div key={outgoing} style={layerStyle('outgoing')}>{renderContent(outgoing)}</div>
+              )}
+            </div>
+
+            <SettingsPanel open={settingsOpen} onClose={() => setSettingsOpen(false)} />
+          </div>
+        )}
       </LoginModalProvider>
     </AuthProvider>
   );

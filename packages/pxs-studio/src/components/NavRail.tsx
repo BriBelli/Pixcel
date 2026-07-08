@@ -1,9 +1,11 @@
 'use client';
 
+import { useEffect, useRef, useState } from 'react';
 import { useAuth0 } from '@auth0/auth0-react';
 import { useCurrentUser } from '../lib/use-current-user';
 import { useLoginModal } from './LoginModalProvider';
 import { clearCredentialsSession } from '../lib/credentials-auth';
+import { useSettings } from '../store/settings-store';
 
 /* ─────────────────────────────────────────────────────────────────────────────
  * NavRail — the primary app-feature switcher (Chat · Art · Image · Video
@@ -34,7 +36,7 @@ function PixcelMark({ size = 22 }: { size?: number }) {
   );
 }
 
-type IconName = 'chat' | 'scribble' | 'image' | 'video' | 'export' | 'assets' | 'assistant' | 'user' | 'login' | 'settings';
+type IconName = 'chat' | 'scribble' | 'image' | 'video' | 'export' | 'assets' | 'assistant' | 'user' | 'login' | 'settings' | 'sun' | 'moon' | 'logout';
 
 const PATHS: Record<IconName, string[]> = {
   chat: ['M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z'],
@@ -50,6 +52,12 @@ const PATHS: Record<IconName, string[]> = {
   login: ['M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4', 'M10 17l5-5-5-5', 'M15 12H3'],
   // Lucide `settings` (gear) — opens the settings slide-over.
   settings: ['M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z', 'M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z'],
+  // Lucide `sun` — switch to light mode.
+  sun: ['M12 2v2', 'M12 20v2', 'm4.93 4.93 1.41 1.41', 'm17.66 17.66 1.41 1.41', 'M2 12h2', 'M20 12h2', 'm6.34 17.66-1.41 1.41', 'm19.07 4.93-1.41 1.41', 'M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8z'],
+  // Lucide `moon` — switch to dark mode.
+  moon: ['M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9z'],
+  // Lucide `log-out` — sign out.
+  logout: ['M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4', 'M16 17l5-5-5-5', 'M21 12H9'],
 };
 
 function Ic({ name, size = 20 }: { name: IconName; size?: number }) {
@@ -71,10 +79,11 @@ const SECTIONS: { id: string; label: string; icon: IconName }[] = [
   { id: 'image', label: 'Image', icon: 'image' },
   { id: 'video', label: 'Video', icon: 'video' },
 ];
+/* Export lives where something is actually being created (the A2UI / asset view), not the primary
+   nav. The Assistant is an openable right panel (Claude Design), not a nav item. Settings moved into
+   the avatar popover. So the utility cluster is just Assets. (Brian, 2026-07-07.) */
 const UTILITY: { id: string; label: string; icon: IconName }[] = [
-  { id: 'export', label: 'Export', icon: 'export' },
   { id: 'assets', label: 'Assets', icon: 'assets' },
-  { id: 'assistant', label: 'Assistant', icon: 'assistant' },
 ];
 
 /* The `.pxl-*` rail styles, lifted verbatim from the frozen splash so the rail is
@@ -95,28 +104,75 @@ const RAIL_CSS = `
   .pxl-avatar:hover { border-color: var(--a2ui-border-strong); }
   .pxl-avatar img { width: 100%; height: 100%; object-fit: cover; display: block; }
   .pxl-avatar-fallback { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; background: var(--a2ui-bg-tertiary); color: var(--a2ui-text-secondary); font-size: 13px; font-weight: 500; text-transform: uppercase; }
+
+  /* Account popover — floating chrome (gospel §glass): opens up + to the right of the avatar. */
+  .pxl-pop {
+    position: absolute; bottom: 0; left: calc(100% + 10px); width: 260px; z-index: 60;
+    background: var(--a2ui-glass-dark, rgba(18,18,22,0.9)); backdrop-filter: blur(20px);
+    border: 1px solid var(--pxs-glass-border, rgba(255,255,255,0.08)); border-radius: var(--a2ui-radius-xl);
+    box-shadow: var(--a2ui-shadow-lg); padding: var(--a2ui-space-2);
+    display: flex; flex-direction: column; gap: 2px;
+  }
+  .pxl-pop-head { display: flex; align-items: center; gap: var(--a2ui-space-3); padding: var(--a2ui-space-2) var(--a2ui-space-2) var(--a2ui-space-3); }
+  .pxl-pop-avatar {
+    width: 40px; height: 40px; flex-shrink: 0; border-radius: var(--a2ui-radius-full); overflow: hidden;
+    display: flex; align-items: center; justify-content: center;
+    background: var(--a2ui-bg-tertiary); color: var(--a2ui-text-secondary);
+    font-size: 15px; font-weight: 500; text-transform: uppercase;
+  }
+  .pxl-pop-avatar img { width: 100%; height: 100%; object-fit: cover; }
+  .pxl-pop-id { display: flex; flex-direction: column; min-width: 0; }
+  .pxl-pop-name { font-size: var(--a2ui-text-md); color: var(--a2ui-text-primary); font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .pxl-pop-email { font-size: var(--a2ui-text-sm); color: var(--a2ui-text-tertiary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .pxl-pop-sep { height: 1px; background: var(--a2ui-border-subtle); margin: var(--a2ui-space-1) 0; }
+  .pxl-pop-item {
+    display: flex; align-items: center; gap: var(--a2ui-space-3); width: 100%; text-align: left;
+    padding: var(--a2ui-space-2) var(--a2ui-space-3); border-radius: var(--a2ui-radius-md);
+    background: transparent; color: var(--a2ui-text-primary); cursor: pointer;
+    font-family: var(--a2ui-font-family); font-size: var(--a2ui-text-md);
+    transition: background var(--a2ui-transition-fast);
+  }
+  .pxl-pop-item:hover { background: var(--a2ui-bg-hover); }
+  .pxl-pop-item > svg { color: var(--a2ui-text-secondary); flex-shrink: 0; }
+  .pxl-pop-danger { color: var(--a2ui-error); }
+  .pxl-pop-danger > svg { color: var(--a2ui-error); }
+  .pxl-pop-danger:hover { background: var(--a2ui-error-bg); }
 `;
 
-/* The bottom rail slot: a "Sign in" affordance when signed out, otherwise the
-   signed-in user's avatar (round, ~34px). Avatar shows the user's picture when
-   present, else a graceful fallback (their initial, else a Lucide `user` glyph). */
-function UserAvatar() {
+/* The bottom rail slot: a "Sign in" affordance when signed out, otherwise the signed-in user's
+   avatar (round, ~34px) that opens an account POPOVER (photolif pattern): account · theme toggle ·
+   Settings · Sign out. Settings now lives here, not as a separate rail item. */
+function UserAvatar({ onOpenSettings }: { onOpenSettings?: () => void }) {
   const { isAuthenticated, logout } = useAuth0();
   const { openLogin } = useLoginModal();
-  // useCurrentUser merges BOTH sessions (Auth0 SDK + custom credentials), so the
-  // avatar reflects a credentials login too — not just Auth0 redirect flows.
+  // useCurrentUser merges BOTH sessions (Auth0 SDK + custom credentials).
   const user = useCurrentUser();
+  const theme = useSettings((s) => s.theme);
+  const setTheme = useSettings((s) => s.setTheme);
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
 
-  // Signed out: a round "Sign in" button → opens our CUSTOM login modal
-  // (overlays whichever shell is on screen, via LoginModalProvider).
+  // Close the popover on outside-click / Escape.
+  useEffect(() => {
+    if (!open) return;
+    const onDoc = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setOpen(false);
+    };
+    document.addEventListener('mousedown', onDoc);
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('mousedown', onDoc);
+      document.removeEventListener('keydown', onKey);
+    };
+  }, [open]);
+
+  // Signed out: a round "Sign in" button → opens our CUSTOM login modal.
   if (!user) {
     return (
-      <button
-        type="button"
-        title="Sign in"
-        onClick={openLogin}
-        className="pxl-avatar"
-      >
+      <button type="button" title="Sign in" onClick={openLogin} className="pxl-avatar">
         <span className="pxl-avatar-fallback">
           <Ic name="login" size={18} />
         </span>
@@ -124,37 +180,81 @@ function UserAvatar() {
     );
   }
 
-  // Signed in: the avatar. Clicking it logs out for now.
-  // TODO(auth): replace this with a fuller account menu (profile, settings,
-  // sign out) — a later task. For now a click signs the user out directly.
-  //
-  // Logout must tear down BOTH sessions: clear the custom credentials session
-  // first, then run the Auth0 SDK logout when there's an SDK session (it
-  // redirects). When there's only a credentials session, clearing it is enough —
-  // useCurrentUser re-renders the rail back to "Sign in".
+  // Logout tears down BOTH sessions: clear the credentials session, then Auth0 SDK logout if present.
   const handleLogout = () => {
+    setOpen(false);
     clearCredentialsSession();
     if (isAuthenticated) {
       logout({ logoutParams: { returnTo: window.location.origin } });
     }
   };
 
-  const initial = (user?.firstName || user?.name || '').trim().charAt(0);
+  const name = (user.name || user.firstName || '').trim();
+  const email = (user.email || '').trim();
+  const initial = (user.firstName || user.name || user.email || '').trim().charAt(0).toUpperCase();
+
   return (
-    <button
-      type="button"
-      title={user?.name || user?.firstName || 'Sign out'}
-      onClick={handleLogout}
-      className="pxl-avatar"
-    >
-      {user?.avatarUrl ? (
-        <img src={user.avatarUrl} alt="" />
-      ) : (
-        <span className="pxl-avatar-fallback">
-          {initial ? initial : <Ic name="user" size={18} />}
-        </span>
+    <div ref={ref} style={{ position: 'relative' }}>
+      <button
+        type="button"
+        title={name || email || 'Account'}
+        aria-haspopup="menu"
+        aria-expanded={open}
+        onClick={() => setOpen((o) => !o)}
+        className="pxl-avatar"
+      >
+        {user.avatarUrl ? (
+          <img src={user.avatarUrl} alt="" />
+        ) : (
+          <span className="pxl-avatar-fallback">{initial || <Ic name="user" size={18} />}</span>
+        )}
+      </button>
+
+      {open && (
+        <div className="pxl-pop" role="menu">
+          <div className="pxl-pop-head">
+            <span className="pxl-pop-avatar">
+              {user.avatarUrl ? <img src={user.avatarUrl} alt="" /> : initial || <Ic name="user" size={16} />}
+            </span>
+            <span className="pxl-pop-id">
+              <span className="pxl-pop-name">{name || email || 'Account'}</span>
+              {email && <span className="pxl-pop-email">{email}</span>}
+            </span>
+          </div>
+
+          <div className="pxl-pop-sep" />
+
+          <button
+            type="button"
+            role="menuitem"
+            className="pxl-pop-item"
+            onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+          >
+            <Ic name={theme === 'dark' ? 'sun' : 'moon'} size={18} />
+            {theme === 'dark' ? 'Light mode' : 'Dark mode'}
+          </button>
+          <button
+            type="button"
+            role="menuitem"
+            className="pxl-pop-item"
+            onClick={() => {
+              setOpen(false);
+              onOpenSettings?.();
+            }}
+          >
+            <Ic name="settings" size={18} />
+            Settings
+          </button>
+
+          <div className="pxl-pop-sep" />
+
+          <button type="button" role="menuitem" className="pxl-pop-item pxl-pop-danger" onClick={handleLogout}>
+            <Ic name="logout" size={18} />
+            Sign out
+          </button>
+        </div>
       )}
-    </button>
+    </div>
   );
 }
 
@@ -227,22 +327,10 @@ export default function NavRail({ activeSection = 'chat', onHome, onSection, onU
         })}
       </div>
 
-      {/* FUTURE: Alerts/notification icon goes HERE (above the avatar), with a
-          push-style unread badge dot rendered on the avatar below. Not built yet —
-          for now the settings gear + the avatar. */}
+      {/* FUTURE: Alerts/notification icon goes HERE (above the avatar), with a push-style unread
+          badge dot on the avatar below. For now just the avatar — Settings lives in its popover. */}
       <div className="mt-3 flex flex-col items-center gap-1.5">
-        {onOpenSettings && (
-          <button
-            onClick={onOpenSettings}
-            title="Settings"
-            aria-label="Settings"
-            className="pxl-navbtn flex flex-col items-center gap-1 w-14 py-2"
-          >
-            <Ic name="settings" size={18} />
-            <span className="text-[10px] font-medium">Settings</span>
-          </button>
-        )}
-        <UserAvatar />
+        <UserAvatar onOpenSettings={onOpenSettings} />
       </div>
     </nav>
   );

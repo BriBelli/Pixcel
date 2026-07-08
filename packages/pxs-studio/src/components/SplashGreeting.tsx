@@ -43,13 +43,13 @@ export function SplashGreeting({ onSelect }: SplashGreetingProps) {
   const user = useCurrentUser();
   const first = (user?.firstName || user?.name || '').trim().split(/\s+/)[0];
   const chips = useSplashSuggestions();
-  const title = first ? `Welcome back, ${first}.` : 'How can I help you today?';
+  const title = first ? `Welcome back, ${first}.` : 'Welcome to your studio.';
 
   return (
     <div className="pxs-greet">
       <style>{CSS}</style>
       <h1 className="pxs-greet-title">{title}</h1>
-      <p className="pxs-greet-sub">Start a new production, or pick up where you left off.</p>
+      <p className="pxs-greet-sub">A team of AI specialists, at your direction.</p>
       {chips.length > 0 && (
         <div className="pxs-greet-chips">
           {chips.map((c) => (

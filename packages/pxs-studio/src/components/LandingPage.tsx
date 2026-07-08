@@ -10,7 +10,10 @@
 import { useCallback, useState } from 'react';
 import NavRail from './NavRail';
 import DigitalWall from './DigitalWall';
+import SplashGreeting from './SplashGreeting';
 import { RES } from '../lib/resolutions';
+import { useSettings } from '../store/settings-store';
+import type { SplashChip } from '../lib/splash-suggestions';
 
 interface Props {
   onEnter: (prompt?: string) => void;
@@ -62,6 +65,33 @@ export default function LandingPage({ onEnter }: Props) {
     setPromptY(`clamp(${PROMPT_Y_MIN}, ${belowLogo}, ${PROMPT_Y_MAX})`);
   }, []);
 
+  // The splash hero is a SWAPPABLE element: 'logo' = the gold digital-wall wordmark (pixel-identical
+  // to the frozen reference); 'greeting' = the personalized greeting + suggestion chips.
+  const splashStyle = useSettings((s) => s.splashStyle);
+
+  // A greeting chip: resume the last conversation (no prompt → ChatView restores it) or start fresh.
+  const handleChip = (chip: SplashChip) => {
+    if (chip.kind === 'resume') onEnter();
+    else onEnter(chip.prompt || chip.label);
+  };
+
+  // The hero prompt bar — shared by both splash variants (identical markup).
+  const promptBar = (
+    <form
+      onSubmit={(e) => { e.preventDefault(); onEnter(draft.trim() || undefined); }}
+      className="pxl-promptbar flex w-full max-w-2xl items-center gap-2 rounded-full px-3.5 py-2.5"
+    >
+      <button type="button" onClick={() => onEnter()} className="pxl-iconbtn flex h-9 w-9 items-center justify-center shrink-0" title="Attach"><Ic name="plus" size={20} /></button>
+      <input
+        value={draft}
+        onChange={(e) => setDraft(e.target.value)}
+        placeholder="Ask me anything…"
+        className="pxl-input min-w-0 flex-1 text-[15px] outline-none"
+      />
+      <button type="submit" className="pxl-send flex h-9 w-9 items-center justify-center shrink-0" title="Send"><Ic name="send" size={16} /></button>
+    </form>
+  );
+
   return (
     <div className="pxl-root flex h-screen overflow-hidden">
       <style>{`
@@ -91,43 +121,41 @@ export default function LandingPage({ onEnter }: Props) {
         onUtility={() => onEnter()}
       />
 
-      {/* Main column — the Chat splash */}
+      {/* Main column — the Chat splash. The hero is SWAPPABLE (splashStyle). */}
       <div className="relative flex-1 flex flex-col min-w-0">
-        {/* z-0 — the persistent Pixcel digital wall (the REAL low-res Pixcel grid). The Pixcel
-            wordmark is painted ON the wall as REAL Pixcel cells (centered, breathing), so it reads
-            as DISPLAYED on the screen — there is ONE logo, the real-cell one on the wall. */}
-        <div className="pointer-events-none absolute inset-0 z-0">
-          {/* ONE screen, ONE resolution (like a TV), named from the canonical ladder — YOU set it; it
-              never auto-changes. One vocabulary from the splash to the final film (see lib/resolutions).
-              • pixels = RES.retro (128 across; pick a lower tier for chunkier, higher for finer).
-              • logoScale = the logo's size; auto-fits crisp inside the resolution, held to its native
-                floor (at retro/128 the floor is ~21% — so 0.25 renders at a true 25%). */}
-          <DigitalWall className="absolute inset-0 h-full w-full" pixels={RES.retro} logoScale={0.25} intensity={0.14} onLogoLayout={handleLogoLayout} />
-        </div>
+        {splashStyle === 'logo' ? (
+          <>
+            {/* z-0 — the persistent Pixcel digital wall (the REAL low-res Pixcel grid). The Pixcel
+                wordmark is painted ON the wall as REAL Pixcel cells (centered, breathing), so it reads
+                as DISPLAYED on the screen — there is ONE logo, the real-cell one on the wall. */}
+            <div className="pointer-events-none absolute inset-0 z-0">
+              {/* ONE screen, ONE resolution (like a TV), named from the canonical ladder — YOU set it; it
+                  never auto-changes. One vocabulary from the splash to the final film (see lib/resolutions).
+                  • pixels = RES.retro (128 across; pick a lower tier for chunkier, higher for finer).
+                  • logoScale = the logo's size; auto-fits crisp inside the resolution, held to its native
+                    floor (at retro/128 the floor is ~21% — so 0.25 renders at a true 25%). */}
+              <DigitalWall className="absolute inset-0 h-full w-full" pixels={RES.sd} logoScale={0.25} intensity={0.01} onLogoLayout={handleLogoLayout} />
+            </div>
 
-        {/* HIGHER z — the floating UI (prompt bar) above the wall. The layer separation is
-            visceral: a digital LED wall behind, the UI floating in front.
-            The prompt bar's vertical position is a SINGLE controllable anchor (`--pxl-prompt-y`):
-            this is the living-canvas "move the search" knob the agent can drive later. Default is
-            the lower third so it sits clear of the wall-painted wordmark (centered above it). */}
-        <div className="relative z-10 flex-1" style={{ ['--pxl-prompt-y' as string]: promptY }}>
-          <div className="absolute left-0 right-0 flex -translate-y-1/2 justify-center px-6" style={{ top: 'var(--pxl-prompt-y, 70%)' }}>
-            {/* Hero prompt bar — Google-style single search; placeholder carries the supporting text */}
-            <form
-              onSubmit={(e) => { e.preventDefault(); onEnter(draft.trim() || undefined); }}
-              className="pxl-promptbar flex w-full max-w-2xl items-center gap-2 rounded-full px-3.5 py-2.5"
-            >
-              <button type="button" onClick={() => onEnter()} className="pxl-iconbtn flex h-9 w-9 items-center justify-center shrink-0" title="Attach"><Ic name="plus" size={20} /></button>
-              <input
-                value={draft}
-                onChange={(e) => setDraft(e.target.value)}
-                placeholder="Ask me anything…"
-                className="pxl-input min-w-0 flex-1 text-[15px] outline-none"
-              />
-              <button type="submit" className="pxl-send flex h-9 w-9 items-center justify-center shrink-0" title="Send"><Ic name="send" size={16} /></button>
-            </form>
+            {/* HIGHER z — the floating UI (prompt bar) above the wall. The layer separation is
+                visceral: a digital LED wall behind, the UI floating in front.
+                The prompt bar's vertical position is a SINGLE controllable anchor (`--pxl-prompt-y`):
+                this is the living-canvas "move the search" knob the agent can drive later. Default is
+                the lower third so it sits clear of the wall-painted wordmark (centered above it). */}
+            <div className="relative z-10 flex-1" style={{ ['--pxl-prompt-y' as string]: promptY }}>
+              <div className="absolute left-0 right-0 flex -translate-y-1/2 justify-center px-6" style={{ top: 'var(--pxl-prompt-y, 70%)' }}>
+                {promptBar}
+              </div>
+            </div>
+          </>
+        ) : (
+          /* GREETING hero — the personalized greeting + suggestion chips, with the prompt bar in
+             normal flow beneath (clean dark bg; no wall). */
+          <div className="relative z-10 flex-1 flex flex-col items-center justify-center px-6" style={{ gap: 'var(--a2ui-space-8)' }}>
+            <SplashGreeting onSelect={handleChip} />
+            <div className="flex w-full justify-center">{promptBar}</div>
           </div>
-        </div>
+        )}
       </div>
     </div>
   );

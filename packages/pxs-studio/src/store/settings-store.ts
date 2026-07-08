@@ -21,10 +21,15 @@ import { persist, createJSONStorage } from 'zustand/middleware';
  * ───────────────────────────────────────────────────────────────────────────── */
 
 export type Theme = 'dark' | 'light';
+/** The splash hero — a swappable UI element. 'greeting' = personalized greeting + suggestion chips;
+ *  'logo' = the digital-wall logo. */
+export type SplashStyle = 'greeting' | 'logo';
 
 export interface SettingsState {
   /** [wire] Color theme — applied to <html data-theme>, tokens.css does the rest. Default dark. */
   theme: Theme;
+  /** [wire] The splash hero variant (swappable). Default the personalized greeting. */
+  splashStyle: SplashStyle;
   /** [wire] Show the assistant action bar (copy · regenerate · feedback). Default on. */
   showActions: boolean;
   /** Stream the AI response progressively as it generates. Persist-only (Slice 1). */
@@ -39,6 +44,7 @@ export interface SettingsState {
 
 export interface SettingsActions {
   setTheme: (theme: Theme) => void;
+  setSplashStyle: (v: SplashStyle) => void;
   setShowActions: (v: boolean) => void;
   setStreaming: (v: boolean) => void;
   setShowSuggestions: (v: boolean) => void;
@@ -51,6 +57,7 @@ export type SettingsStore = SettingsState & SettingsActions;
 
 const DEFAULTS: SettingsState = {
   theme: 'dark',
+  splashStyle: 'greeting',
   showActions: true,
   streaming: true,
   showSuggestions: true,
@@ -69,6 +76,7 @@ export const useSettings = create<SettingsStore>()(
       ...DEFAULTS,
 
       setTheme: (theme) => set({ theme }),
+      setSplashStyle: (splashStyle) => set({ splashStyle }),
       setShowActions: (showActions) => set({ showActions }),
       setStreaming: (streaming) => set({ streaming }),
       setShowSuggestions: (showSuggestions) => set({ showSuggestions }),
@@ -82,6 +90,7 @@ export const useSettings = create<SettingsStore>()(
       // Only persist the state fields, never the action functions.
       partialize: (s): SettingsState => ({
         theme: s.theme,
+        splashStyle: s.splashStyle,
         showActions: s.showActions,
         streaming: s.streaming,
         showSuggestions: s.showSuggestions,

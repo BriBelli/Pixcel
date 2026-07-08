@@ -247,6 +247,17 @@ export function SettingsPanel({ open, onClose }: SettingsPanelProps) {
                 ]}
               />
             </Field>
+            <Field label="Splash hero" description="The splash landing — a personalized greeting or the logo wall.">
+              <Select
+                label="Splash hero"
+                value={s.splashStyle}
+                onChange={(v) => s.setSplashStyle(v as 'greeting' | 'logo')}
+                options={[
+                  { value: 'greeting', label: 'Greeting' },
+                  { value: 'logo', label: 'Logo wall' },
+                ]}
+              />
+            </Field>
           </div>
 
           <div className="a2-settings-divider" />

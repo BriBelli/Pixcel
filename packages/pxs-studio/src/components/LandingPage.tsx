@@ -149,11 +149,13 @@ export default function LandingPage({ onEnter }: Props) {
             </div>
           </>
         ) : (
-          /* GREETING hero — the personalized greeting + suggestion chips, with the prompt bar in
-             normal flow beneath (clean dark bg; no wall). */
-          <div className="relative z-10 flex-1 flex flex-col items-center justify-center px-6" style={{ gap: 'var(--a2ui-space-8)' }}>
-            <SplashGreeting onSelect={handleChip} />
-            <div className="flex w-full justify-center">{promptBar}</div>
+          /* GREETING hero — the greeting + chips centered in the space, with the prompt bar anchored
+             at the BOTTOM (photolif). Clean dark bg, no wall. */
+          <div className="relative z-10 flex-1 flex flex-col px-6">
+            <div className="flex-1 flex flex-col items-center justify-center">
+              <SplashGreeting onSelect={handleChip} />
+            </div>
+            <div className="shrink-0 flex w-full justify-center pb-10">{promptBar}</div>
           </div>
         )}
       </div>

@@ -25,12 +25,12 @@ export interface SplashChip {
   prompt?: string;
 }
 
-/** Curated creative starters, tailored to Pixcel's verticals (not generic-assistant fluff). */
+/** Curated production starters — professional register (this is a production tool, not a toy). */
 const CREATIVE_STARTERS: SplashChip[] = [
-  { id: 'logo', label: 'Design a logo', kind: 'prompt', prompt: 'Design a logo for my brand' },
-  { id: 'scene', label: 'Create a film scene', kind: 'prompt', prompt: 'Create a short cinematic film scene' },
-  { id: 'poster', label: 'Make a poster', kind: 'prompt', prompt: 'Make a poster' },
-  { id: 'character', label: 'Design a character', kind: 'prompt', prompt: 'Design a character' },
+  { id: 'character', label: 'Build a character reference', kind: 'prompt', prompt: 'Build a character reference sheet' },
+  { id: 'scene', label: 'Compose a scene', kind: 'prompt', prompt: 'Compose a cinematic scene' },
+  { id: 'style', label: 'Develop a style frame', kind: 'prompt', prompt: 'Develop a style frame for a project' },
+  { id: 'identity', label: 'Design a brand mark', kind: 'prompt', prompt: 'Design a brand mark' },
 ];
 
 /**

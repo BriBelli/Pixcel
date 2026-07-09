@@ -33,10 +33,17 @@ export async function getDb(): Promise<Repository> {
         singleton = createSqliteRepository();
         return singleton;
       } catch (err) {
+        // LOUD on purpose: this fallback SILENTLY drops persistence — every restart wipes threads,
+        // gallery, usage. "Assets are the backbone" → a data-loss degradation must never hide in the
+        // log. A bordered banner survives a noisy Next.js dev stream where a lone warn would scroll off.
+        const line = '─'.repeat(72);
         console.warn(
-          `[db] SQLite dev store unavailable on Node ${process.versions.node} — using the ` +
-            `in-memory store (chat works, but nothing persists). node:sqlite needs Node >= 24; ` +
-            `run \`nvm use\` in the repo (reads .nvmrc), then restart. Details:`,
+          `\n┌${line}┐\n` +
+            `│  ⚠  PIXCEL DEV DB: NOT PERSISTING — running the in-memory store.\n` +
+            `│     Node ${process.versions.node} lacks node:sqlite (needs Node >= 24). Chat works, but\n` +
+            `│     EVERY RESTART WIPES threads / gallery / usage.\n` +
+            `│     Fix: \`nvm use\` in the repo (reads .nvmrc → 24), then restart the dev server.\n` +
+            `└${line}┘`,
           err
         );
       }

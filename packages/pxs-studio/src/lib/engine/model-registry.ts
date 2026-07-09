@@ -62,7 +62,13 @@ export interface ImageModel {
   /** Human intents this model is a strong pick for (feeds the Gate-2 ranker's context). */
   bestFor: string[];
   supportsEditing: boolean;
+  /** Total reference images the model accepts across all roles (the flat pool). */
   maxReferenceImages: number;
+  /** Typed per-ROLE reference limits, for models with SEPARATE pools per role (Gemini-3-style:
+   *  distinct caps for object / character / style refs). Absent → the model treats references as
+   *  one flat pool of `maxReferenceImages` (any mix of roles). The Model agent reports whichever
+   *  it has — never a guessed number. */
+  referenceLimits?: { object: number; character: number; style: number };
   aspectRatios: string[];
   /** (low, high) USD per image — the spend band used for cost caps + the console. */
   costPerImageUsd: [number, number];
@@ -73,6 +79,10 @@ export interface ImageModel {
   brief: string;
   /** ISO date the record was last verified (self-restocking freshness signal). */
   sourceRefreshedAt: string;
+  /** Registry KNOWLEDGE only — not yet callable/available. Gate 1 drops preview models from
+   *  routing (never spends on them), but the Model agent can still reason/report about them
+   *  ("keeps up with the models" without breaking the working flow). Flip when it goes live. */
+  preview?: boolean;
 }
 
 const REFRESHED = '2026-07-06';
@@ -158,6 +168,72 @@ export const IMAGE_MODELS: ImageModel[] = [
     brief:
       'Google Gemini 2.5 Flash Image. Exceptional at conversational multi-image editing, character consistency, and blending several references into one scene at a flat ~$0.039. First pick for compositing and inserting a person/object into an existing scene.',
     sourceRefreshedAt: REFRESHED,
+  },
+  // ── Gemini 3.x image family (registry KNOWLEDGE, preview — not yet callable). TYPED per-role
+  //    reference limits (object / character / style) from Google's published caps. Dropped from
+  //    routing by Gate 1; flip `preview` when the provider adapter can call them. ──
+  {
+    id: 'gemini-3-pro-image',
+    label: 'Gemini 3 Pro Image',
+    provider: 'gemini',
+    envKey: 'GEMINI_API_KEY',
+    tier: 3,
+    strengths: { photorealism: 5, prompt_adherence: 5, editing: 5, style_versatility: 5, text_rendering: 5, speed: 3, resolution: 5, consistency: 5, multimodal: 5 },
+    capabilities: ['editing', 'multi_reference', 'text_in_image', 'photorealism', 'high_resolution'],
+    bestFor: ['character consistency', 'style transfer', 'multi-reference compose', 'flagship quality'],
+    supportsEditing: true,
+    maxReferenceImages: 14,
+    referenceLimits: { object: 6, character: 5, style: 3 },
+    aspectRatios: ['1:1', '16:9', '9:16', '4:3', '3:4', '3:2', '2:3'],
+    costPerImageUsd: [0.06, 0.12],
+    maxBatchN: 4,
+    batchStrategy: 'parallel',
+    brief:
+      'Gemini 3 Pro Image — the flagship of the family. Distinct reference pools: up to 6 object refs (high-fidelity), 5 character refs (consistency), and 3 style refs. First pick when a shot needs precise, typed references held together.',
+    sourceRefreshedAt: REFRESHED,
+    preview: true,
+  },
+  {
+    id: 'gemini-3.1-flash-image',
+    label: 'Gemini 3.1 Flash Image',
+    provider: 'gemini',
+    envKey: 'GEMINI_API_KEY',
+    tier: 2,
+    strengths: { photorealism: 4, prompt_adherence: 5, editing: 5, style_versatility: 4, text_rendering: 4, speed: 5, resolution: 4, consistency: 5, multimodal: 5 },
+    capabilities: ['editing', 'multi_reference', 'text_in_image', 'fast', 'photorealism'],
+    bestFor: ['fast multi-reference compose', 'character consistency', 'object insertion'],
+    supportsEditing: true,
+    maxReferenceImages: 14,
+    referenceLimits: { object: 10, character: 4, style: 0 },
+    aspectRatios: ['1:1', '16:9', '9:16', '4:3', '3:4'],
+    costPerImageUsd: [0.03, 0.05],
+    maxBatchN: 8,
+    batchStrategy: 'parallel',
+    brief:
+      'Gemini 3.1 Flash Image — fast, high-multi-reference. Up to 10 object refs + 4 character refs (no dedicated style pool). Strong for compositing many objects quickly with character consistency.',
+    sourceRefreshedAt: REFRESHED,
+    preview: true,
+  },
+  {
+    id: 'gemini-3.1-flash-lite-image',
+    label: 'Gemini 3.1 Flash Lite Image',
+    provider: 'gemini',
+    envKey: 'GEMINI_API_KEY',
+    tier: 1,
+    strengths: { photorealism: 4, prompt_adherence: 4, editing: 3, style_versatility: 3, text_rendering: 3, speed: 5, resolution: 4, consistency: 3, multimodal: 4 },
+    capabilities: ['multi_reference', 'fast', 'cheap', 'photorealism'],
+    bestFor: ['cheap high-object compose', 'fast drafts', 'many object refs'],
+    supportsEditing: false,
+    maxReferenceImages: 14,
+    referenceLimits: { object: 14, character: 0, style: 0 },
+    aspectRatios: ['1:1', '16:9', '9:16', '4:3', '3:4'],
+    costPerImageUsd: [0.01, 0.02],
+    maxBatchN: 8,
+    batchStrategy: 'parallel',
+    brief:
+      'Gemini 3.1 Flash Lite Image — cheapest, fastest of the family. Up to 14 object refs (no character/style pools). Best for high-object compositing on a budget; not for character consistency.',
+    sourceRefreshedAt: REFRESHED,
+    preview: true,
   },
   {
     id: 'ideogram-v3',

@@ -76,9 +76,14 @@ export type ImageAgentEvent =
   | { type: 'gen_error'; message: string }
   | { type: 'gen_done'; costUsd: number };
 
-/** Build the grounded capability highlights list from the Model agent's facts. */
+/** Build the grounded capability highlights list from the Model agent's facts. Typed per-role
+ *  limits (Gemini-3-style) render as "up to 6 object · 5 character · 3 style"; otherwise the flat pool. */
 function capabilityHighlights(f: ModelCapabilityFacts): string[] {
-  const out: string[] = [`Holds up to ${f.maxReferenceImages} reference image${f.maxReferenceImages === 1 ? '' : 's'}`];
+  const rl = f.referenceLimits;
+  const refLine = rl
+    ? `Up to ${rl.object} object${rl.character ? ` · ${rl.character} character` : ''}${rl.style ? ` · ${rl.style} style` : ''} references`
+    : `Holds up to ${f.maxReferenceImages} reference image${f.maxReferenceImages === 1 ? '' : 's'}`;
+  const out: string[] = [refLine];
   if (f.styleTransfer) out.push('Style-transfer variants');
   if (f.multiReference) out.push('Multi-image compositing');
   if (f.supportsEditing) out.push('Editing / inpaint');

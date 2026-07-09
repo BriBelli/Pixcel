@@ -50,6 +50,9 @@ export interface ModelCapabilityFacts {
   multiReference: boolean;
   /** Style-transfer / variant "blast" styles — strong style range or multi-reference compositing. */
   styleTransfer: boolean;
+  /** Typed per-ROLE reference caps (object/character/style), when the model has separate pools
+   *  (Gemini-3-style). Absent → the model uses one flat pool of `maxReferenceImages`. */
+  referenceLimits?: { object: number; character: number; style: number };
   costPerImageUsd: [number, number];
 }
 
@@ -64,6 +67,7 @@ export async function describeModelCapabilities(req: RoutingRequest): Promise<Mo
     supportsEditing: model.supportsEditing,
     multiReference: model.capabilities.includes('multi_reference'),
     styleTransfer: model.strengths.style_versatility >= 4 || model.capabilities.includes('multi_reference'),
+    referenceLimits: model.referenceLimits,
     costPerImageUsd: model.costPerImageUsd,
   };
 }

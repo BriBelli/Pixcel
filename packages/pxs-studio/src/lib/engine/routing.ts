@@ -52,7 +52,7 @@ export interface RoutedModel {
 /** A Gate-1 drop, kept for transparency. */
 export interface DroppedModel {
   modelId: string;
-  reason: 'missing_capability' | 'aspect_ratio' | 'no_edit' | 'no_key' | 'over_budget';
+  reason: 'missing_capability' | 'aspect_ratio' | 'no_edit' | 'no_key' | 'over_budget' | 'preview';
 }
 
 /** The routing outcome the coordinator dispatches. */
@@ -84,6 +84,11 @@ export function gate1Filter(
   const dropped: DroppedModel[] = [];
 
   for (const m of catalog) {
+    // Preview models are registry KNOWLEDGE only — never routed to (not yet callable).
+    if (m.preview) {
+      dropped.push({ modelId: m.id, reason: 'preview' });
+      continue;
+    }
     const missing = req.needs.find((c) => !m.capabilities.includes(c));
     if (missing) {
       dropped.push({ modelId: m.id, reason: 'missing_capability' });

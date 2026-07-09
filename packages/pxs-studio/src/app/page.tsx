@@ -231,29 +231,34 @@ export default function Home() {
           <Studio onHome={() => transitionTo('chat')} initialPrompt={initialPrompt} />
         ) : (
           <div
-            className="pxs-shell relative flex h-screen overflow-hidden"
+            className="pxs-shell relative isolate flex h-screen overflow-hidden"
             style={{ background: 'var(--a2ui-bg-app)', color: 'var(--a2ui-text-primary)', fontFamily: 'var(--a2ui-font-family)' }}
           >
-            {/* z-0 — the ONE persistent DigitalWall, scenario-tuned. Never re-mounts, never fades. */}
-            <div className="pointer-events-none absolute inset-0 z-0" aria-hidden="true">
+            {/* BEHIND everything — the ONE persistent DigitalWall (opaque canvas), so it must sit at a
+                NEGATIVE z inside the shell's isolate context or it paints OVER the static nav (a
+                positioned z-0 element paints above static siblings). Scenario-tuned; never re-mounts. */}
+            <div className="pointer-events-none absolute inset-0 -z-10" aria-hidden="true">
               <DigitalWall
                 className="absolute inset-0 h-full w-full"
-                pixels={RES.sd}
+                pixels={RES.retro}
                 showLogo={wallLogo}
                 logoScale={0.25}
-                intensity={wallLogo ? 0.01 : 0.006}
+                intensity={wallLogo ? 0.14 : 0.02}
                 onLogoLayout={wallLogo ? handleLogoLayout : undefined}
               />
             </div>
 
-            {/* The ONE persistent left NavRail — the anchor, never fades. */}
-            <NavRail
-              activeSection={navActive}
-              onHome={handleNavHome}
-              onSection={handleNavSection}
-              onUtility={() => transitionTo('studio')}
-              onOpenSettings={() => setSettingsOpen(true)}
-            />
+            {/* The ONE persistent left NavRail — the anchor, never fades. z-10 keeps its mark +
+                avatar ABOVE the wall (else the opaque wall canvas covers them). */}
+            <div className="relative z-10 shrink-0">
+              <NavRail
+                activeSection={navActive}
+                onHome={handleNavHome}
+                onSection={handleNavSection}
+                onUtility={() => transitionTo('studio')}
+                onOpenSettings={() => setSettingsOpen(true)}
+              />
+            </div>
 
             {/* Content well — ONLY this cross-fades between splash ⇄ chat. */}
             <div className="relative z-10 flex-1 min-w-0 h-full">

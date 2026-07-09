@@ -246,8 +246,9 @@ export default function Home() {
 
             {/* The ONE persistent left NavRail — the anchor, never fades. z-30 keeps its mark +
                 avatar ABOVE the wall AND above the content well, so the avatar popover (which
-                overhangs the content) stays clickable. */}
-            <div className="relative z-30 shrink-0">
+                overhangs the content) stays clickable. `flex` lets the rail stretch to FULL height
+                (else the wrapper's a plain block and the rail collapses to content height). */}
+            <div className="relative z-30 shrink-0 flex">
               <NavRail
                 activeSection={navActive}
                 onHome={handleNavHome}

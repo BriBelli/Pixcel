@@ -7,6 +7,7 @@
  * starters — see splash-suggestions). Tokens-only, calm, Claude-Design gospel.
  * ───────────────────────────────────────────────────────────────────────────── */
 
+import { useCurrentUser } from '../lib/use-current-user';
 import { useSplashState, type SplashChip } from '../lib/splash-suggestions';
 
 export interface SplashGreetingProps {
@@ -21,13 +22,15 @@ const CSS = `
    nudges the block up by HALF ITS OWN HEIGHT (transform %s resolve against the element's own
    size, unlike margin %s which resolve against the parent's WIDTH) — dynamic, no magic number. */
 .pxs-greet { display: flex; flex-direction: column; align-items: center; text-align: center; gap: var(--a2ui-space-3); transform: translateY(-50%); }
+/* Type scale — happy medium: present, not heavy. Fluid via clamp (min = mobile, ~vw = the
+   breakpoint slope, max = large screens). Nudge the three clamp values to taste. */
 .pxs-greet-title {
-  font-size: clamp(1.375rem, 2.6vw, 1.75rem); font-weight: var(--a2ui-font-medium, 500);
+  font-size: clamp(1.875rem, 3.4vw, 2.75rem); font-weight: var(--a2ui-font-medium, 500);
   letter-spacing: -0.01em; line-height: var(--a2ui-leading-tight);
   color: var(--a2ui-text-primary); margin: 0;
 }
 .pxs-greet-sub {
-  font-size: clamp(0.875rem, 1.2vw, 1rem); color: var(--a2ui-text-tertiary);
+  font-size: clamp(1rem, 1.5vw, 1.25rem); color: var(--a2ui-text-tertiary);
   line-height: var(--a2ui-leading-normal); margin: 0; max-width: 42ch;
 }
 .pxs-greet-chips { display: flex; flex-wrap: wrap; justify-content: center; gap: var(--a2ui-space-2); margin-top: var(--a2ui-space-2); }
@@ -42,13 +45,32 @@ const CSS = `
 `;
 
 export function SplashGreeting({ onSelect }: SplashGreetingProps) {
-  const { chips } = useSplashState();
+  const { chips, hasProjects, loading } = useSplashState();
+  const user = useCurrentUser();
+  const first = (user?.firstName || user?.name || '').trim().split(/\s+/)[0];
+
+  // State-aware (real, not filler): a RETURNING user (has recent projects) gets a personalized
+  // welcome + a resume nudge; a first visit gets the open, orienting greeting. `loading` guards
+  // against flashing the "new user" copy before the recent-projects fetch resolves.
+  // DEV preview: `?new` forces the first-visit state so the new-user copy can be eyeballed even
+  // when the DB has projects (a reviewer is always "returning" otherwise).
+  const forceNew =
+    typeof window !== 'undefined' && new URLSearchParams(window.location.search).has('new');
+  const returning = !forceNew && !loading && hasProjects;
+  const title = returning
+    ? first
+      ? `Welcome back, ${first}.`
+      : 'Welcome back.'
+    : 'How can I help you today?';
+  const subtitle = returning
+    ? 'Pick up where you left off, or start something new.'
+    : "I'm your AI Digital Media Agency and Production Studio.";
 
   return (
     <div className="pxs-greet">
       <style>{CSS}</style>
-      <h1 className="pxs-greet-title">How can I help you today?</h1>
-      <p className="pxs-greet-sub">Welcome to Pixcel — your AI digital team.</p>
+      <h1 className="pxs-greet-title">{title}</h1>
+      <p className="pxs-greet-sub">{subtitle}</p>
       {chips.length > 0 && (
         <div className="pxs-greet-chips">
           {chips.map((c) => (

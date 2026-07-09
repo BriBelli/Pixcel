@@ -34,6 +34,15 @@ interface RecentProject {
   updated_at: number;
 }
 
+/** A low-pressure DISCOVERY entry — for the new/overwhelmed or just-curious user who isn't here
+ *  to create yet (routes to the Operator answering, no spend). Always surfaced, before starters. */
+const DISCOVERY: SplashChip = {
+  id: 'discover',
+  label: 'What can Pixcel do?',
+  kind: 'prompt',
+  prompt: 'What can Pixcel do?',
+};
+
 /** Curated production starters — professional register (this is a production tool, not a toy). */
 const CREATIVE_STARTERS: SplashChip[] = [
   { id: 'character', label: 'Build a character reference', kind: 'prompt', prompt: 'Build a character reference sheet' },
@@ -84,6 +93,8 @@ export function useSplashState(max = 4): SplashState {
   for (const p of projects.slice(0, 2)) {
     chips.push({ id: `resume-${p.id}`, label: `Continue: ${short(p.title)}`, kind: 'resume', threadId: p.id });
   }
+  // Discovery entry always surfaces (serves the non-creator/curious user), then production starters fill.
+  if (chips.length < max) chips.push(DISCOVERY);
   for (const s of CREATIVE_STARTERS) {
     if (chips.length >= max) break;
     chips.push(s);

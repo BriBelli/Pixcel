@@ -95,13 +95,9 @@ export default function Home() {
   const rafId = useRef<number | null>(null);
 
   useEffect(() => {
-    // Reload restores the last conversation: if a chat thread was persisted, boot straight
-    // into chat (ChatView hydrates it from the SQLite store); otherwise land on the splash
-    // front door. DECISION (flip if reload should ALWAYS show the splash): returning users
-    // with an active conversation resume it; first-time / no-history users see the splash.
-    if (typeof window !== 'undefined' && window.localStorage.getItem('pxs-chat-thread')) {
-      setStage('chat');
-    }
+    // The splash is ALWAYS the front door — a reload lands on the personalized greeting, never
+    // silently into an old (often empty) chat. Resuming the last conversation is an explicit choice:
+    // the greeting's "Continue where you left off" chip (splash-suggestions) restores it on demand.
     setMounted(true);
   }, []);
 

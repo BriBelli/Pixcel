@@ -92,12 +92,16 @@ export default function LandingPage({ onEnter, promptY }: Props) {
           </div>
         </div>
       ) : (
-        /* GREETING hero — greeting + chips centered, prompt bar anchored at the bottom (photolif). */
-        <div className="relative z-10 h-full flex flex-col px-6">
-          <div className="flex-1 flex flex-col items-center justify-center">
+        /* GREETING hero — greeting TRUE-centered in the viewport, prompt bar pinned at the bottom
+           (photolif). Absolute layers so the greeting sits at real center, not pushed up by the
+           prompt (which caused the high-float + big void below). */
+        <div className="relative z-10 h-full">
+          <div className="absolute inset-0 flex items-center justify-center px-6">
             <SplashGreeting onSelect={handleChip} />
           </div>
-          <div className="shrink-0 flex w-full justify-center pb-10">{promptBar}</div>
+          <div className="absolute bottom-0 left-0 right-0 flex justify-center px-6 pb-10">
+            {promptBar}
+          </div>
         </div>
       )}
     </div>

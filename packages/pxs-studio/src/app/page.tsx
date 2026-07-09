@@ -244,9 +244,10 @@ export default function Home() {
               />
             </div>
 
-            {/* The ONE persistent left NavRail — the anchor, never fades. z-10 keeps its mark +
-                avatar ABOVE the wall (else the opaque wall canvas covers them). */}
-            <div className="relative z-10 shrink-0">
+            {/* The ONE persistent left NavRail — the anchor, never fades. z-30 keeps its mark +
+                avatar ABOVE the wall AND above the content well, so the avatar popover (which
+                overhangs the content) stays clickable. */}
+            <div className="relative z-30 shrink-0">
               <NavRail
                 activeSection={navActive}
                 onHome={handleNavHome}

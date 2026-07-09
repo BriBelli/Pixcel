@@ -17,7 +17,10 @@ export interface SplashGreetingProps {
 /* Lighter, calmer, graceful — NOT a heavy hero. Medium weight (never bold), restrained size; a
    quiet subtitle; small subtle chips. Tokens/brand only. */
 const CSS = `
-.pxs-greet { display: flex; flex-direction: column; align-items: center; text-align: center; gap: var(--a2ui-space-3); }
+/* Optical centering: a programmatic center reads as "sinking" to the eye. translateY(-50%)
+   nudges the block up by HALF ITS OWN HEIGHT (transform %s resolve against the element's own
+   size, unlike margin %s which resolve against the parent's WIDTH) — dynamic, no magic number. */
+.pxs-greet { display: flex; flex-direction: column; align-items: center; text-align: center; gap: var(--a2ui-space-3); transform: translateY(-50%); }
 .pxs-greet-title {
   font-size: clamp(1.375rem, 2.6vw, 1.75rem); font-weight: var(--a2ui-font-medium, 500);
   letter-spacing: -0.01em; line-height: var(--a2ui-leading-tight);
@@ -44,9 +47,9 @@ export function SplashGreeting({ onSelect }: SplashGreetingProps) {
   return (
     <div className="pxs-greet">
       <style>{CSS}</style>
-      <h1 className="pxs-greet-title">What do you want to create today?</h1>
+      <h1 className="pxs-greet-title">How can I help you today?</h1>
       <p className="pxs-greet-sub">
-        Welcome to Pixcel studio — your team of AI specialists, at your direction.
+        Welcome to Pixcel studio — your team of AI specialists.
       </p>
       {chips.length > 0 && (
         <div className="pxs-greet-chips">

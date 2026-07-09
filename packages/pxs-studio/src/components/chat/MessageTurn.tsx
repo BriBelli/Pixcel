@@ -348,6 +348,17 @@ export function MessageTurn({
               </div>
             )}
 
+            {/* Gentle best-effort notices (never errors) — e.g. "rendered 2 of 4, a model capped". */}
+            {turn.notices && turn.notices.length > 0 && (
+              <div className="pxc-a2ui-reveal" style={{ marginTop: 'var(--a2ui-space-3)', display: 'flex', flexDirection: 'column', gap: 'var(--a2ui-space-1)' }}>
+                {turn.notices.map((n, i) => (
+                  <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 'var(--a2ui-space-2)', fontSize: 'var(--a2ui-text-sm)', color: 'var(--a2ui-text-tertiary)' }}>
+                    <Icon name="info" size={13} style={{ flexShrink: 0 }} /> {n}
+                  </div>
+                ))}
+              </div>
+            )}
+
             {/* A2UI references — the Image agent's grounded capability recommendation (Model agent),
                 shown under the anchor render: what the chosen model supports + what to attach next. */}
             {turn.a2ui && turn.a2ui.kind === 'references' && (

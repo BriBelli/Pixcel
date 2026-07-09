@@ -29,6 +29,9 @@ export type CoordEvent =
   | { type: 'model_start'; modelId: string; modelLabel: string; n: number }
   | { type: 'tile'; tile: GalleryTile; totalSoFar: number }
   | { type: 'model_error'; modelId: string; reason: string }
+  /** A gentle, non-blocking heads-up (best-effort specialist): we delivered less than the ask
+   *  (a model capped the batch, one failed, budget trimmed). Never an error — the run still succeeds. */
+  | { type: 'notice'; message: string }
   | { type: 'done'; tiles: GalleryTile[]; costUsd: number }
   | { type: 'error'; message: string };
 
@@ -109,6 +112,12 @@ export async function* coordinateImage(
   if (tiles.length === 0) {
     yield { type: 'error', message: 'No images were produced.' };
     return;
+  }
+  // Graceful specialist: if we delivered fewer than the ask (a model capped its batch, one failed,
+  // or the cost ceiling trimmed the run), surface ONE gentle notice — never an error, the run stands.
+  const want = Math.max(1, req.count);
+  if (tiles.length < want) {
+    yield { type: 'notice', message: `Rendered ${tiles.length} of ${want} — best effort (a model capped this batch or came up short).` };
   }
   yield { type: 'done', tiles, costUsd };
 }

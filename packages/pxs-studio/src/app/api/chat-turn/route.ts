@@ -202,6 +202,8 @@ export async function POST(req: Request) {
             send({ type: 'image', url: ev.tile.image.url, modelLabel: ev.tile.modelLabel, index: ev.totalSoFar - 1 });
           } else if (ev.type === 'done') {
             cost = ev.costUsd;
+          } else if (ev.type === 'notice') {
+            send({ type: 'notice', message: ev.message });
           } else if (ev.type === 'error') {
             send({ type: 'gen_error', message: ev.message });
           }
@@ -338,6 +340,8 @@ export async function POST(req: Request) {
                 // Forward as an a2ui block + persist it so a reload rehydrates the recommendation.
                 emittedBlock = ev.block;
                 send({ type: 'a2ui', block: ev.block });
+              } else if (ev.type === 'gen_notice') {
+                send({ type: 'notice', message: ev.message });
               } else {
                 send(ev); // agent_start · agent_text · image · gen_error
               }

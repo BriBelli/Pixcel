@@ -74,6 +74,8 @@ export type ImageAgentEvent =
   | { type: 'gen_start' }
   | { type: 'image'; url: string; modelLabel: string; index: number }
   | { type: 'gen_error'; message: string }
+  /** A gentle non-blocking heads-up (best-effort shortfall) — forwarded from the coordinator. */
+  | { type: 'gen_notice'; message: string }
   | { type: 'gen_done'; costUsd: number };
 
 /** Build the grounded capability highlights list from the Model agent's facts. Typed per-role
@@ -234,6 +236,8 @@ export async function* runImageAgent(frame: EpistemicFrame, turn: ImageAgentTurn
       yield { type: 'image', url: ev.tile.image.url, modelLabel: ev.tile.modelLabel, index: ev.totalSoFar - 1 };
     } else if (ev.type === 'done') {
       cost = ev.costUsd;
+    } else if (ev.type === 'notice') {
+      yield { type: 'gen_notice', message: ev.message };
     } else if (ev.type === 'error' || ev.type === 'model_error') {
       yield { type: 'gen_error', message: 'message' in ev ? ev.message : `model error: ${ev.reason}` };
     }

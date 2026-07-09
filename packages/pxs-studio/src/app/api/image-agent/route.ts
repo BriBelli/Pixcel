@@ -195,6 +195,8 @@ export async function POST(req: Request) {
           } else if (ev.type === 'agent_a2ui') {
             emittedBlock = ev.block;
             send({ type: 'a2ui', block: ev.block });
+          } else if (ev.type === 'gen_notice') {
+            send({ type: 'notice', message: ev.message });
           } else if (ev.type === 'gen_done') {
             genCostTotal = ev.costUsd;
             send(ev);

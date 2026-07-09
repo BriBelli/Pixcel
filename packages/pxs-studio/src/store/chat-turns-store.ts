@@ -88,6 +88,8 @@ export interface ChatTurn {
   images: GalleryImage[];
   /** True while a dispatched image workflow is generating (drives the gallery loading state). */
   generating?: boolean;
+  /** Gentle non-blocking notices from the coordinator (best-effort shortfalls) — shown muted. */
+  notices?: string[];
   /** Set when the Operator TRANSFERRED this turn to a specialist (large workflow) — attributes the
    *  work to the Image/Video agent and drove the nav flip. */
   transferredTo?: 'image' | 'video';
@@ -293,6 +295,13 @@ export const useChatTurnsStore = create<ChatTurnsState>((set, get) => {
             }));
           } else if (evt.type === 'gen_done') {
             patch(id, { generating: false });
+          } else if (evt.type === 'notice') {
+            // Gentle best-effort heads-up (not an error) — append to the turn's notices.
+            set((s) => ({
+              turns: s.turns.map((t) =>
+                t.id === id ? { ...t, notices: [...(t.notices ?? []), String(evt.message || '')] } : t
+              ),
+            }));
           } else if (evt.type === 'gen_error') {
             patch(id, { generating: false, error: evt.message });
           } else if (evt.type === 'done') {

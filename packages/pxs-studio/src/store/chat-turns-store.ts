@@ -19,9 +19,19 @@ const THREAD_STORAGE_KEY = 'pxs-chat-thread';
  * whose tiles stream in as `image` events; a `transfer` flips `activeMedium` (the nav).
  */
 
+/**
+ * SLOTS-NOT-SCREENS. Every A2UI block carries an optional `surface` naming the dumb code-owned
+ * region it belongs in: 'chat' → inline in the conversation scroll; 'controls' → lifted to the
+ * workspace's dedicated Prompt Guide panel (persistent, out of the scroll). The agent owns the
+ * tag; the code owns the regions and routes by it. Absent → derived by kind (see `a2uiSurface`).
+ */
+export type A2UISurface = 'chat' | 'controls';
+
 /** A stacked options block (radio/checkbox). */
 export interface A2UIOptionsBlock {
   kind: 'options';
+  /** Region this block routes to. Defaults to 'chat' (a conversational choice). */
+  surface?: A2UISurface;
   title: string;
   /** 'single' → stacked radio group (pick one, submits on select); 'multiple' → stacked
    *  checkboxes + a Continue button. Defaults to 'single' when absent. */
@@ -36,6 +46,8 @@ export interface A2UIOptionsBlock {
  *  tappable quick-pick chips. Answering it (typing + submit, or a chip) continues the turn. */
 export interface A2UIQuestionBlock {
   kind: 'question';
+  /** Region this block routes to. Defaults to 'chat' (a conversational ask). */
+  surface?: A2UISurface;
   /** The question, e.g. "Which era and scene are you picturing?" */
   label: string;
   /** Text-area placeholder, e.g. "Describe the vibe…" */
@@ -48,6 +60,8 @@ export interface A2UIQuestionBlock {
  *  chosen model actually supports (from the Model agent) + which references to attach next. */
 export interface A2UIReferencesBlock {
   kind: 'references';
+  /** Region this block routes to. Defaults to 'controls' — the Prompt Guide, not the chat scroll. */
+  surface?: A2UISurface;
   /** The model whose limits these are (e.g. "Nano Banana (Gemini 2.5 Flash Image)"). */
   modelLabel: string;
   /** How many reference images the model accepts (the fact, not a guess). */
@@ -62,6 +76,16 @@ export interface A2UIReferencesBlock {
 
 /** Any A2UI block a turn can carry. */
 export type A2UIBlock = A2UIOptionsBlock | A2UIQuestionBlock | A2UIReferencesBlock;
+
+/**
+ * The block router (slots-not-screens): which region a block belongs in. An explicit `surface`
+ * always wins; otherwise it's derived by kind — the references/model card is a Prompt-Guide
+ * ('controls') block, everything conversational stays inline ('chat'). One source of truth so the
+ * renderer (inline in MessageTurn) and the panel (ChatView) never disagree about where a block goes.
+ */
+export function a2uiSurface(block: A2UIBlock): A2UISurface {
+  return block.surface ?? (block.kind === 'references' ? 'controls' : 'chat');
+}
 
 /** One generated image tile streamed into the turn (the dispatched image workflow's output). */
 export interface GalleryImage {

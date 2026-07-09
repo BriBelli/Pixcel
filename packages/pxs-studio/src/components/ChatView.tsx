@@ -21,11 +21,12 @@
  * ───────────────────────────────────────────────────────────────────────────── */
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { useChatTurnsStore } from '../store/chat-turns-store';
+import { useChatTurnsStore, a2uiSurface, type A2UIReferencesBlock } from '../store/chat-turns-store';
 import { useSettings } from '../store/settings-store';
 import { Composer, type ComposerAttachment } from './ui';
 import { MessageTurn } from './chat/MessageTurn';
 import { ImageStage, type StageImage } from './chat/ImageStage';
+import { PromptGuidePanel } from './chat/PromptGuidePanel';
 
 interface Props {
   /** The prompt typed on the splash (front door). Auto-sent once on mount. */
@@ -110,6 +111,14 @@ export default function ChatView({ initialPrompt }: Props) {
     [setActiveMedium]
   );
 
+  // SLOTS-NOT-SCREENS: the latest 'controls'-surface block (the model/reference guide) is lifted
+  // out of the message scroll into the workspace's Prompt Guide panel. Scan newest-first so the
+  // panel always reflects the CURRENT pass. Only references blocks route to controls today.
+  const controlsBlock = [...turns]
+    .reverse()
+    .map((t) => t.a2ui)
+    .find((b): b is A2UIReferencesBlock => b != null && a2uiSurface(b) === 'controls') ?? null;
+
   // The conversation (scrollable turns + composer) — shared by the chat column and the workspace's
   // right pane. `capped` centers it under the chat-width cap (chat home); the pane fills its column.
   const conversation = (capped: boolean) => (
@@ -129,6 +138,9 @@ export default function ChatView({ initialPrompt }: Props) {
                   key={t.id}
                   turn={t}
                   showActions={showActions}
+                  // In the workspace (uncapped) the controls card is lifted to the Prompt Guide
+                  // panel, so suppress it inline. Chat home (capped) has no panel → render inline.
+                  renderControlsInline={capped}
                   onSuggestion={submit}
                   onOpenWorkflow={openWorkflow}
                   // Copy the assistant text to the clipboard (silent on failure).
@@ -175,6 +187,9 @@ export default function ChatView({ initialPrompt }: Props) {
             className="w-[400px] shrink-0 flex flex-col min-h-0"
             style={{ borderLeft: '1px solid var(--a2ui-border-subtle)', background: 'var(--a2ui-bg-app)' }}
           >
+            {/* CONTROLS slot — the Prompt Guide, pinned above the conversation (out of the scroll).
+                Shows the current pass's model/reference guide; collapsible to reclaim height. */}
+            {controlsBlock && <PromptGuidePanel block={controlsBlock} />}
             {conversation(false)}
           </aside>
         </div>

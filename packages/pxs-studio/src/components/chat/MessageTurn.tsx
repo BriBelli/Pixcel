@@ -19,7 +19,7 @@
  * (--a2ui-ease-entrance = cubic-bezier(0.22,1,0.36,1)).
  * ───────────────────────────────────────────────────────────────────────────── */
 
-import type { ChatTurn } from '../../store/chat-turns-store';
+import { a2uiSurface, type ChatTurn } from '../../store/chat-turns-store';
 import { Avatar, Icon, PixcelMark } from '../ui';
 import { QuestionBlock } from './QuestionBlock';
 import { ProposalBlock } from './ProposalBlock';
@@ -36,6 +36,10 @@ export interface MessageTurnProps {
   /** Show the assistant action-bar footer (copy · regenerate · feedback). Default true. */
   showActions?: boolean;
   onSuggestion: (text: string) => void;
+  /** Render 'controls'-surface blocks (the references/model card) inline in the turn. True in chat
+   *  home (no panel exists); false in the workspace, where they're lifted to the Prompt Guide panel.
+   *  Default true. */
+  renderControlsInline?: boolean;
   /** Enter the specialist workspace for this turn's transfer (the clickable transfer CTA). */
   onOpenWorkflow?: (medium: 'image' | 'video') => void;
   /** Copy this turn's assistant text to the clipboard (every done turn). */
@@ -212,6 +216,7 @@ export function MessageTurn({
   turn,
   showActions = true,
   onSuggestion,
+  renderControlsInline = true,
   onOpenWorkflow,
   onCopy,
   onRegenerate,
@@ -359,9 +364,12 @@ export function MessageTurn({
               </div>
             )}
 
-            {/* A2UI references — the Image agent's grounded capability recommendation (Model agent),
-                shown under the anchor render: what the chosen model supports + what to attach next. */}
-            {turn.a2ui && turn.a2ui.kind === 'references' && (
+            {/* A2UI references — the Image agent's grounded capability recommendation (Model agent):
+                what the chosen model supports + what to attach next. A 'controls'-surface block, so
+                in the workspace it's lifted to the Prompt Guide panel (renderControlsInline=false);
+                inline here only in chat home, where no panel exists. */}
+            {turn.a2ui && turn.a2ui.kind === 'references' &&
+              (renderControlsInline || a2uiSurface(turn.a2ui) !== 'controls') && (
               <div className="pxc-a2ui-reveal" style={{ marginTop: 'var(--a2ui-space-4)' }}>
                 <ReferencesBlock block={turn.a2ui} />
               </div>

@@ -58,6 +58,8 @@ const PLAN_TOOL = {
 /** The grounded reference-recommendation the agent surfaces (mirrors A2UIReferencesBlock). */
 export interface ReferencesRecommendation {
   kind: 'references';
+  /** Routes to the workspace Prompt Guide panel (slots-not-screens), not the chat scroll. */
+  surface?: 'chat' | 'controls';
   modelLabel: string;
   maxReferences: number;
   supports: string[];
@@ -206,6 +208,7 @@ export async function* runImageAgent(frame: EpistemicFrame, turn: ImageAgentTurn
           type: 'agent_a2ui',
           block: {
             kind: 'references',
+            surface: 'controls', // the Prompt Guide panel, not the chat scroll
             modelLabel: facts.modelLabel,
             maxReferences: facts.maxReferenceImages,
             supports: capabilityHighlights(facts),

@@ -20,6 +20,9 @@ import type { A2UIReferencesBlock } from '../../store/chat-turns-store';
 
 export interface ReferencesBlockProps {
   block: A2UIReferencesBlock;
+  /** Start expanded. The chat-inline fallback stays collapsed (heavy for the narrow column); the
+   *  Prompt Guide panel — the block's real home — opens it. Default false. */
+  defaultOpen?: boolean;
 }
 
 const CSS = `
@@ -70,10 +73,11 @@ const CSS = `
 .pxc-ref-note > svg { flex-shrink: 0; }
 `;
 
-export function ReferencesBlock({ block }: ReferencesBlockProps) {
+export function ReferencesBlock({ block, defaultOpen = false }: ReferencesBlockProps) {
   // Collapsed by default — the full capability breakdown is heavy for the narrow chat column; the
-  // compact header stays, the detail expands on demand. (The real home is the Prompt Guide panel, PR-9.)
-  const [open, setOpen] = useState(false);
+  // compact header stays, the detail expands on demand. The Prompt Guide panel (its real home)
+  // passes defaultOpen so the detail is visible where there's room for it.
+  const [open, setOpen] = useState(defaultOpen);
 
   return (
     <div className="pxc-ref">

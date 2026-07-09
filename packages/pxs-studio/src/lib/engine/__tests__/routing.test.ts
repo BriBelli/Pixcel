@@ -24,17 +24,19 @@ function req(partial: Partial<RoutingRequest> = {}): RoutingRequest {
   return { intent: 'a red sports car', needs: [], count: 1, ...partial };
 }
 
-test('gate1: no needs + all keys → every model survives', () => {
+test('gate1: no needs + all keys → every non-preview model survives', () => {
   const { survivors, dropped } = gate1Filter(req(), allKeys);
-  assert.equal(survivors.length, IMAGE_MODELS.length);
-  assert.equal(dropped.length, 0);
+  const nonPreview = IMAGE_MODELS.filter((m) => !m.preview);
+  assert.equal(survivors.length, nonPreview.length);
+  // The only drops are preview (registry-knowledge) models — never routed to.
+  assert.ok(dropped.every((d) => d.reason === 'preview'));
 });
 
 test('gate1: a required capability drops models that lack it', () => {
   const { survivors, dropped } = gate1Filter(req({ needs: ['vector'] }), allKeys);
   // Only recraft-v3 advertises 'vector' in the starter catalog.
   assert.deepEqual(survivors.map((m) => m.id), ['recraft-v3']);
-  assert.ok(dropped.every((d) => d.reason === 'missing_capability'));
+  assert.ok(dropped.every((d) => d.reason === 'missing_capability' || d.reason === 'preview'));
 });
 
 test('gate1: editing drops models without an edit path', () => {

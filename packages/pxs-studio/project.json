@@ -7,21 +7,21 @@
     "dev": {
       "executor": "nx:run-commands",
       "options": {
-        "command": "next dev",
+        "command": "node ../../scripts/with-node24.cjs next dev",
         "cwd": "packages/pxs-studio"
       }
     },
     "build": {
       "executor": "nx:run-commands",
       "options": {
-        "command": "next build",
+        "command": "node ../../scripts/with-node24.cjs next build",
         "cwd": "packages/pxs-studio"
       }
     },
     "start": {
       "executor": "nx:run-commands",
       "options": {
-        "command": "next start",
+        "command": "node ../../scripts/with-node24.cjs next start",
         "cwd": "packages/pxs-studio"
       }
     },

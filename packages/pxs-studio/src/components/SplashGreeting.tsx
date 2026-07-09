@@ -48,9 +48,7 @@ export function SplashGreeting({ onSelect }: SplashGreetingProps) {
     <div className="pxs-greet">
       <style>{CSS}</style>
       <h1 className="pxs-greet-title">How can I help you today?</h1>
-      <p className="pxs-greet-sub">
-        Welcome to Pixcel studio — your team of AI specialists.
-      </p>
+      <p className="pxs-greet-sub">Welcome to Pixcel — your AI digital team.</p>
       {chips.length > 0 && (
         <div className="pxs-greet-chips">
           {chips.map((c) => (

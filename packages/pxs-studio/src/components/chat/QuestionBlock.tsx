@@ -11,7 +11,7 @@
  * ───────────────────────────────────────────────────────────────────────────── */
 
 import { useState } from 'react';
-import { Button, Icon } from '../ui';
+import { Button } from '../ui';
 import type { A2UIQuestionBlock } from '../../store/chat-turns-store';
 
 export interface QuestionBlockProps {
@@ -75,7 +75,6 @@ export function QuestionBlock({ block, onSubmit }: QuestionBlockProps) {
       <style>{CSS}</style>
 
       <div className="pxc-q-head">
-        <Icon name="help-circle" size={16} />
         <div className="pxc-q-label">{block.label}</div>
       </div>
 

@@ -199,24 +199,29 @@ export async function* runImageAgent(frame: EpistemicFrame, turn: ImageAgentTurn
   if (!followUp) try {
     const facts = await describeModelCapabilities(req);
     if (facts) {
-      const recommend = (Array.isArray(plan.referenceRecommendation)
+      const modelRecommend = (Array.isArray(plan.referenceRecommendation)
         ? plan.referenceRecommendation.filter((r): r is string => typeof r === 'string' && r.trim().length > 0).map((r) => r.trim())
         : []
       ).slice(0, Math.max(1, facts.maxReferenceImages));
-      if (recommend.length > 0) {
-        yield {
-          type: 'agent_a2ui',
-          block: {
-            kind: 'references',
-            surface: 'controls', // the Prompt Guide panel, not the chat scroll
-            modelLabel: facts.modelLabel,
-            maxReferences: facts.maxReferenceImages,
-            supports: capabilityHighlights(facts),
-            recommend,
-            note: `Attach up to ${facts.maxReferenceImages} reference image${facts.maxReferenceImages === 1 ? '' : 's'} (or tell me the specs), then I'll render.`,
-          },
-        };
-      }
+      // DETERMINISTIC: a guided consult ALWAYS surfaces the Prompt Guide card — if the model didn't
+      // fill referenceRecommendation, use a sensible default so the panel is never empty. (Same
+      // "model whiffs the structured payload" guard as the Operator's staged question.)
+      const subject = (frame.subject || frame.goal || 'the subject').trim();
+      const recommend = modelRecommend.length > 0
+        ? modelRecommend
+        : [`A reference photo of ${subject} — to lock its identity`, 'A style or lighting reference for the scene'];
+      yield {
+        type: 'agent_a2ui',
+        block: {
+          kind: 'references',
+          surface: 'controls', // the Prompt Guide panel, not the chat scroll
+          modelLabel: facts.modelLabel,
+          maxReferences: facts.maxReferenceImages,
+          supports: capabilityHighlights(facts),
+          recommend,
+          note: `Attach up to ${facts.maxReferenceImages} reference image${facts.maxReferenceImages === 1 ? '' : 's'} (or tell me the specs), then I'll render.`,
+        },
+      };
     }
   } catch (err) {
     console.warn('[image-agent] capability lookup failed (skipping recommendation):', err);

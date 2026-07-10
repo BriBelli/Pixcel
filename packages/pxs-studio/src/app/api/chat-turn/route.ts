@@ -5,7 +5,6 @@ import {
   parseClassifyResult,
   STUB_SUGGESTIONS,
 } from '../../../lib/chat-classify';
-import { coordinateImage } from '../../../lib/engine/coordinator';
 import { runImageAgent } from '../../../lib/agents/image-agent';
 import { operatorSkills } from '../../../lib/agents/skills';
 import type { EpistemicFrame } from '../../../lib/agents/epistemic-frame';
@@ -32,13 +31,12 @@ export const maxDuration = 120;
  *   1) stream the hospitable OPENER as text, and in the SAME call the model emits its OODA verdict
  *      as the `decide` tool call (Observe → Orient on the deliverable → Decide ONE sized action) —
  *      so the opener reflects the decision. No separate classify pass.
- *   2) ACT on the verdict:
- *        dispatch (small)  → generate a quick image inline (runImageGen)
- *        transfer (large)  → emit {transfer,frame} (nav flip) + render the first reference image
- *                            [Slice-1 UX: same surface + same generation path as dispatch; the real
- *                             Image-agent-with-its-own-loop + Image IDE is Slice 2]
- *        ask               → emit the A2UI question block (never prose)
- *        reply             → contextual quick-pick suggestions
+ *   2) ACT on the verdict. The Operator has NO generation path — it never renders; it hands off:
+ *        transfer  → emit {transfer,frame} (nav flip) + run the IMAGE AGENT, which does ALL
+ *                    generation. depth 'quick' → agent renders immediately; 'guided' → consult-first.
+ *        propose   → emit an A2UI options block of workflow paths (no spend)
+ *        ask       → emit the A2UI question block (never prose)
+ *        reply     → contextual quick-pick suggestions
  *      then persist + `done`.
  *
  * The Operator chooses the medium itself — no tool/medium picker. STUB_SUGGESTIONS is the fallback
@@ -191,26 +189,9 @@ export async function POST(req: Request) {
       const send: Send = (obj) =>
         controller.enqueue(encoder.encode(JSON.stringify(obj) + '\n'));
 
-      // Run the image workflow for a prompt, streaming tiles, capped at the user's remaining
-      // budget. Returns the realized USD cost so the caller can meter it. Shared by dispatch +
-      // transfer so the two paths can't drift.
-      const runImageGen = async (intent: string): Promise<number> => {
-        send({ type: 'gen_start' });
-        let cost = 0;
-        for await (const ev of coordinateImage({ intent, needs: [], count: 2 }, { maxCostUsd: remainingUsd })) {
-          if (ev.type === 'tile') {
-            send({ type: 'image', url: ev.tile.image.url, modelLabel: ev.tile.modelLabel, index: ev.totalSoFar - 1 });
-          } else if (ev.type === 'done') {
-            cost = ev.costUsd;
-          } else if (ev.type === 'notice') {
-            send({ type: 'notice', message: ev.message });
-          } else if (ev.type === 'error') {
-            send({ type: 'gen_error', message: ev.message });
-          }
-        }
-        send({ type: 'gen_done', costUsd: cost });
-        return cost;
-      };
+      // NOTE: the Operator has NO generation path of its own — there is deliberately no runImageGen
+      // here. Generation happens ONLY inside the image agent, which the Operator hands a scoped frame
+      // to via `transfer`. The Operator cannot hold the generate trigger (not even for "a quick one").
 
       // Accumulate the assistant text + the a2ui snapshot so we can persist after `done`.
       let assistantText = '';
@@ -295,11 +276,7 @@ export async function POST(req: Request) {
           const result = parseClassifyResult(JSON.stringify(toolUse.input ?? {}));
           send({ type: 'step', id: 'choosing', status: 'done' });
 
-          if (result.action === 'dispatch' && result.generationPrompt) {
-            // DISPATCH (small): generate a quick image inline.
-            didRespond = true;
-            genCostTotal = await runImageGen(result.generationPrompt);
-          } else if (result.action === 'propose' && result.proposal) {
+          if (result.action === 'propose' && result.proposal) {
             // PROPOSE: oriented, but a real fork in HOW to do it well → present WORKFLOW PATHS as an
             // A2UI options block. SPENDS NOTHING. The user's pick returns as their next turn, which
             // the Operator then sizes into a transfer. This is the anti-"blowing your load" valve.
@@ -312,9 +289,13 @@ export async function POST(req: Request) {
             };
             send({ type: 'a2ui', block: emittedBlock });
           } else if (result.action === 'transfer' && result.frame) {
-            // TRANSFER (large): the Operator hands an Epistemic Frame ONLY (no image specs) to the
-            // IMAGE AGENT, which owns the prompt + routing and runs its own leg. Nav flips per the
-            // transfer.to matrix. (Slice 2A: same chat surface; the Image IDE morph is Slice 2B.)
+            // TRANSFER: the Operator hands an Epistemic Frame ONLY (no image specs) to the IMAGE
+            // AGENT, which owns the prompt + routing and does ALL generation. Nav flips per the
+            // transfer.to matrix. `depth` is the Operator's scope hint:
+            //   • 'quick'  → the user wants it fast (incl. "any / I don't care") → pass their message
+            //     as the agent's instruction so it renders IMMEDIATELY (followUp leg), deciding open
+            //     details itself. Still the AGENT generating — the Operator never does.
+            //   • 'guided'/unset → consult-first: the agent recommends references, renders on commit.
             didRespond = true;
             const medium = result.frame.medium ?? 'image';
             const to = transferTarget(medium, section);
@@ -328,7 +309,8 @@ export async function POST(req: Request) {
             };
             // Send a trimmed frame to the client (no budget); nav flips to `to`.
             send({ type: 'transfer', to, frame: { goal: frame.goal, subject: frame.subject, medium } });
-            for await (const ev of runImageAgent(frame)) {
+            const agentTurn = result.frame.depth === 'quick' ? { userMessage: prompt } : undefined;
+            for await (const ev of runImageAgent(frame, agentTurn)) {
               if (ev.type === 'agent_usage') {
                 agentInTok += ev.inputTokens;
                 agentOutTok += ev.outputTokens;

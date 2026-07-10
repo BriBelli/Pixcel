@@ -15,8 +15,8 @@ const THREAD_STORAGE_KEY = 'pxs-chat-thread';
  * `send(prompt)` POSTs to /api/chat-turn (with the entry `section`), reads the NDJSON stream
  * (reader.read() + TextDecoder + '\n'-split + JSON.parse), and reduces the events into a ChatTurn
  * view-model. It holds an ARRAY of turns so the conversation is continuous — each `send` appends a
- * new turn (carrying prior turns as history). The Operator may dispatch/transfer image generation,
- * whose tiles stream in as `image` events; a `transfer` flips `activeMedium` (the nav).
+ * new turn (carrying prior turns as history). The Operator never generates; it TRANSFERS to the
+ * image agent, whose tiles stream in as `image` events; a `transfer` flips `activeMedium` (the nav).
  */
 
 /**

@@ -1,7 +1,8 @@
 /**
  * Unit tests for `parseClassifyResult` — the Operator's verdict validator. The classify call
  * uses a structured-output SCHEMA, so input is clean JSON (no regex, no fence-stripping). These
- * assert the action branches (dispatch / ask / reply) + defaulting.
+ * assert the action branches (ask / propose / transfer / reply) + defaulting. The Operator has NO
+ * generative action — `dispatch` was removed; generation lives only in the specialist it transfers to.
  */
 
 import assert from 'node:assert/strict';
@@ -9,25 +10,39 @@ import test from 'node:test';
 
 import { parseClassifyResult } from '../chat-classify';
 
-test('dispatch: carries workflow + generationPrompt', () => {
+test('dispatch is no longer a valid Operator action → defaults to reply', () => {
+  // The Operator can never generate; a stray 'dispatch' verdict must fall back to conversation.
   const r = parseClassifyResult(
-    JSON.stringify({ intent: 'create', action: 'dispatch', workflow: 'image', generationPrompt: 'a photoreal Z28 Camaro on a leafy road' })
+    JSON.stringify({ intent: 'create', action: 'dispatch', workflow: 'image', generationPrompt: 'a photoreal Z28 Camaro' })
   );
-  assert.equal(r.intent, 'create');
-  assert.equal(r.action, 'dispatch');
-  assert.equal(r.workflow, 'image');
-  assert.equal(r.generationPrompt, 'a photoreal Z28 Camaro on a leafy road');
+  assert.equal(r.action, 'reply');
 });
 
-test('transfer: carries the Epistemic Frame (goal/subject/medium)', () => {
+test('transfer: carries the Epistemic Frame (goal/subject/medium/depth)', () => {
   const r = parseClassifyResult(
-    JSON.stringify({ intent: 'create', action: 'transfer', workflow: 'image', frame: { goal: 'photoreal Camaro for a childhood video scene', subject: 'Camaro Z28', medium: 'video' } })
+    JSON.stringify({ intent: 'create', action: 'transfer', workflow: 'image', frame: { goal: 'photoreal Camaro for a childhood video scene', subject: 'Camaro Z28', medium: 'video', depth: 'guided' } })
   );
   assert.equal(r.action, 'transfer');
   assert.equal(r.workflow, 'image');
   assert.equal(r.frame?.goal, 'photoreal Camaro for a childhood video scene');
   assert.equal(r.frame?.subject, 'Camaro Z28');
   assert.equal(r.frame?.medium, 'video');
+  assert.equal(r.frame?.depth, 'guided');
+});
+
+test('transfer: a "quick" don\'t-care request carries depth=quick (agent renders, not the Operator)', () => {
+  const r = parseClassifyResult(
+    JSON.stringify({ intent: 'create', action: 'transfer', workflow: 'image', frame: { goal: 'a few Camaros, any', subject: 'Camaro', medium: 'image', depth: 'quick' } })
+  );
+  assert.equal(r.action, 'transfer');
+  assert.equal(r.frame?.depth, 'quick');
+});
+
+test('transfer: an unknown depth is dropped (undefined), never invented', () => {
+  const r = parseClassifyResult(
+    JSON.stringify({ intent: 'create', action: 'transfer', frame: { goal: 'a Camaro', depth: 'turbo' } })
+  );
+  assert.equal(r.frame?.depth, undefined);
 });
 
 test('transfer with a blank goal → no frame attached', () => {

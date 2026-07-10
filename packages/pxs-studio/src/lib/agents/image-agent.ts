@@ -222,9 +222,10 @@ export async function* runImageAgent(frame: EpistemicFrame, turn: ImageAgentTurn
     console.warn('[image-agent] capability lookup failed (skipping recommendation):', err);
   }
 
-  // REFERENCE-FIRST: the first hand-off is a CONSULTATION — never spend on a render. The user
-  // commits later (attaches refs / says generate) in the workspace, which routes to /api/image-agent
-  // as a follow-up (followUp === true) and generates then. dispatch stays the only eager-gen path.
+  // REFERENCE-FIRST: a GUIDED hand-off's first leg is a CONSULTATION — never spend on a render. The
+  // user commits later (attaches refs / says generate) in the workspace, which routes to
+  // /api/image-agent as a follow-up (followUp === true) and generates then. A 'quick' transfer skips
+  // this by arriving WITH an instruction (followUp === true from the start), so it renders now.
   if (!followUp) {
     yield { type: 'gen_done', costUsd: 0 };
     return;

@@ -19,6 +19,7 @@ export type IconName =
   | 'trash-2'
   | 'image'
   | 'message-square'
+  | 'help-circle'
   | 'user'
   | 'sparkles'
   | 'info'
@@ -92,6 +93,13 @@ const PATHS: Record<IconName, JSX.Element> = {
   ),
   'message-square': (
     <path d="M22 17a2 2 0 0 1-2 2H6.828a2 2 0 0 0-1.414.586l-2.202 2.202A.71.71 0 0 1 2 21.286V5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2z" />
+  ),
+  'help-circle': (
+    <>
+      <circle cx="12" cy="12" r="10" />
+      <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" />
+      <path d="M12 17h.01" />
+    </>
   ),
   user: (
     <>

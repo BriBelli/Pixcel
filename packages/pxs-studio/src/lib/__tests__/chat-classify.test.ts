@@ -8,7 +8,14 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { parseClassifyResult } from '../chat-classify';
+import { parseClassifyResult, defaultStagedQuestion } from '../chat-classify';
+
+test('defaultStagedQuestion: the safety net is a well-formed staged ask (label + modes)', () => {
+  const q = defaultStagedQuestion();
+  assert.ok(q.label.length > 0, 'must carry a real question label');
+  assert.ok(q.placeholder && q.placeholder.length > 0, 'must show a worked example');
+  assert.deepEqual(q.chips, ['A quick take', 'A guided in-depth render']);
+});
 
 test('dispatch is no longer a valid Operator action → defaults to reply', () => {
   // The Operator can never generate; a stray 'dispatch' verdict must fall back to conversation.

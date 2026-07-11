@@ -43,6 +43,15 @@ color-coding, no Guide panel, no Agent panel yet** — this is the structure wor
    *quick-vs-guided* (+ rough subject) only; **this builder** owns detailed spec-gathering. Update the
    Operator prompt + `defaultStagedQuestion` accordingly.
 
+## Next refinement — the accumulating canvas (agreed 2026-07-10)
+
+The center canvas is a **chat-like y-scroll that ACCUMULATES A2UI form components**, not a single
+replaced form. Each agent follow-up appends more form elements (a stepper-like workflow); the user
+**scrolls up to see history** (earlier shaping steps stay in the record), newest at the bottom —
+exactly how the right-hand agent chat scrolls. (Brian: the piece he wished Photolif had.) Mechanism:
+render the STACK of canvas-surface blocks across the conversation (not just the latest), append-only,
+auto-scroll to newest; older blocks read as history. Carve this right after the current 10a lands.
+
 ## Out of scope (later phases)
 
 - Per-part + overall **scoring / quality ring** → PR-10c.

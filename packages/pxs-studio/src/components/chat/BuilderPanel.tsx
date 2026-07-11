@@ -27,16 +27,18 @@ export interface BuilderPanelProps {
 }
 
 const CSS = `
-.pxc-build { flex: 1; min-width: 0; min-height: 0; overflow-y: auto; padding: var(--a2ui-space-8) var(--a2ui-space-6); background: var(--a2ui-bg-app); }
-.pxc-build-inner { max-width: 720px; margin: 0 auto; display: flex; flex-direction: column; gap: var(--a2ui-space-5); }
-.pxc-build-title { font-size: var(--a2ui-text-lg); font-weight: var(--a2ui-font-semibold); color: var(--a2ui-text-primary); letter-spacing: -0.01em; }
+.pxc-build { flex: 1; min-width: 0; min-height: 0; overflow-y: auto; padding: var(--a2ui-space-6); background: var(--a2ui-bg-app); }
+.pxc-build-inner { max-width: 720px; margin: 0 auto; display: flex; flex-direction: column; gap: var(--a2ui-space-3); }
+.pxc-build-title { font-size: var(--a2ui-text-lg); font-weight: var(--a2ui-font-semibold); color: var(--a2ui-text-primary); letter-spacing: -0.01em; margin-bottom: var(--a2ui-space-1); }
 .pxc-build-title span { color: var(--a2ui-text-tertiary); font-weight: var(--a2ui-font-normal); }
 
-.pxc-part { display: flex; flex-direction: column; gap: var(--a2ui-space-2); padding-bottom: var(--a2ui-space-4); border-bottom: 1px solid var(--a2ui-border-subtle); }
-.pxc-part:last-of-type { border-bottom: none; }
+/* Each part is a CARD — grouped, tight, scannable (no big gaps between loose form elements). */
+.pxc-part { display: flex; flex-direction: column; gap: var(--a2ui-space-2);
+  background: var(--a2ui-bg-secondary); border: 1px solid var(--pxs-border-subtle);
+  border-radius: var(--a2ui-radius-lg); padding: var(--a2ui-space-3) var(--a2ui-space-4); }
 .pxc-part-label { font-size: var(--a2ui-text-xs); text-transform: uppercase; letter-spacing: 0.05em; font-weight: var(--a2ui-font-semibold); color: var(--a2ui-text-secondary); }
-.pxc-part-guide { font-size: var(--a2ui-text-sm); color: var(--a2ui-text-tertiary); line-height: var(--a2ui-leading-normal); }
-.pxc-part-field { width: 100%; min-height: 40px; resize: vertical; border-radius: var(--a2ui-radius-md);
+.pxc-part-guide { font-size: var(--a2ui-text-sm); color: var(--a2ui-text-tertiary); line-height: var(--a2ui-leading-tight); margin-top: -2px; }
+.pxc-part-field { width: 100%; min-height: 36px; resize: vertical; border-radius: var(--a2ui-radius-md);
   background: var(--a2ui-bg-input); border: 1px solid var(--a2ui-border-default);
   padding: var(--a2ui-space-2) var(--a2ui-space-3); color: var(--a2ui-text-primary);
   font-family: var(--a2ui-font-family); font-size: var(--a2ui-text-md); line-height: var(--a2ui-leading-normal); outline: none;
@@ -65,7 +67,9 @@ const CSS = `
 .pxc-add::placeholder { color: var(--a2ui-text-tertiary); }
 .pxc-add:focus { border-style: solid; border-color: var(--a2ui-accent); }
 
-.pxc-build-refs { display: flex; flex-direction: column; gap: var(--a2ui-space-2); }
+.pxc-build-refs { display: flex; flex-direction: column; gap: var(--a2ui-space-2);
+  background: var(--a2ui-bg-secondary); border: 1px solid var(--pxs-border-subtle);
+  border-radius: var(--a2ui-radius-lg); padding: var(--a2ui-space-3) var(--a2ui-space-4); }
 .pxc-build-refs-head { display: flex; align-items: baseline; gap: var(--a2ui-space-2); }
 .pxc-build-refs-model { font-size: var(--a2ui-text-sm); color: var(--a2ui-text-tertiary); }
 .pxc-build-drop { display: flex; align-items: center; gap: var(--a2ui-space-2); height: 44px; padding: 0 var(--a2ui-space-3);
@@ -190,45 +194,44 @@ export function BuilderPanel({ block, onRender, busy }: BuilderPanelProps) {
           );
         })}
 
-        {/* References — the chosen model's facts folded in (the standalone Prompt Guide panel is PR-10d). */}
-        {block.model && (
-          <div className="pxc-build-refs">
-            <div className="pxc-build-refs-head">
-              <div className="pxc-part-label">References</div>
-              <div className="pxc-build-refs-model">{block.model.label}</div>
-            </div>
-            <label className="pxc-build-drop">
-              <Icon name="paperclip" size={15} />
-              {maxRefs > 0 ? `Attach — up to ${maxRefs}` : 'Attach references'}
-              <input
-                type="file"
-                accept="image/*"
-                multiple
-                style={{ display: 'none' }}
-                onChange={(e) => {
-                  onFiles(e.target.files);
-                  e.target.value = '';
-                }}
-              />
-            </label>
-            {refs.length > 0 && (
-              <div className="pxc-build-thumbs">
-                {refs.map((src, i) => (
-                  <span key={i} className="pxc-build-thumb">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={src} alt="reference" />
-                    <button type="button" aria-label="Remove" onClick={() => setRefs((r) => r.filter((_, j) => j !== i))}>
-                      <Icon name="x" size={11} />
-                    </button>
-                  </span>
-                ))}
-              </div>
-            )}
-            {block.model.supports.length > 0 && (
-              <div className="pxc-build-supports">Supports: {block.model.supports.join(' · ')}</div>
-            )}
+        {/* References — always offered (attaching is always valid); the chosen model's facts enrich
+            it when present (label · up to N · supports). The standalone Prompt Guide panel is PR-10d. */}
+        <div className="pxc-build-refs">
+          <div className="pxc-build-refs-head">
+            <div className="pxc-part-label">References</div>
+            {block.model && <div className="pxc-build-refs-model">{block.model.label}</div>}
           </div>
-        )}
+          <label className="pxc-build-drop">
+            <Icon name="paperclip" size={15} />
+            {maxRefs > 0 ? `Attach — up to ${maxRefs}` : 'Attach references'}
+            <input
+              type="file"
+              accept="image/*"
+              multiple
+              style={{ display: 'none' }}
+              onChange={(e) => {
+                onFiles(e.target.files);
+                e.target.value = '';
+              }}
+            />
+          </label>
+          {refs.length > 0 && (
+            <div className="pxc-build-thumbs">
+              {refs.map((src, i) => (
+                <span key={i} className="pxc-build-thumb">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={src} alt="reference" />
+                  <button type="button" aria-label="Remove" onClick={() => setRefs((r) => r.filter((_, j) => j !== i))}>
+                    <Icon name="x" size={11} />
+                  </button>
+                </span>
+              ))}
+            </div>
+          )}
+          {block.model && block.model.supports.length > 0 && (
+            <div className="pxc-build-supports">Supports: {block.model.supports.join(' · ')}</div>
+          )}
+        </div>
 
         <div className="pxc-build-foot">
           <Button variant="primary" size="md" type="button" disabled={!canRender} onClick={() => onRender(assemble(), refs)}>

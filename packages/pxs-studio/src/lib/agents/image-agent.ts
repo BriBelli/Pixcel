@@ -216,8 +216,11 @@ export async function* runImageAgent(frame: EpistemicFrame, turn: ImageAgentTurn
         `pre-filled from the brief + 3–5 suggested chips) plus prompt + needs so the reference facts are grounded. ` +
         `The user shapes the parts in the Prompt Builder and commits later.`;
     } else {
-      const parts = [`BRIEF (verified):\n${JSON.stringify(frame)}`];
-      if (instruction) parts.push(`FOLLOW-UP INSTRUCTION FROM THE USER — apply it to the render plan:\n${instruction}`);
+      const parts = [
+        `BRIEF (verified):\n${JSON.stringify(frame)}`,
+        `This is a RENDER turn — you ARE generating now. Your opener is ONE short sentence noting what you're rendering (e.g. "Rendering your Camaro now."). Do NOT ask the user to "set up the pass", "shape the parts", or attach references — that already happened; just render.`,
+      ];
+      if (instruction) parts.push(`The user shaped this in the Prompt Builder — render EXACTLY this, it is the final prompt:\n${instruction}`);
       if (refCount > 0)
         parts.push(
           `The user attached ${refCount} reference image${refCount === 1 ? '' : 's'} — plan to USE them (compose/edit from them; keep the subject consistent). Include "multi_reference" in needs.`

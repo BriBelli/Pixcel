@@ -141,11 +141,12 @@ function QualityRing({ value, band }: { value: number; band: ScoreBand }) {
 }
 
 export function BuilderPanel({ block, onRender, busy }: BuilderPanelProps) {
-  // KISS: ONE editable value per part. The agent's recommendation is the PLACEHOLDER — never a
-  // pre-filled value that then double-counts with a picked chip. The user types their own OR taps a
-  // chip to fill it; a chip APPENDS to the field (comma-joined, de-duped). Nothing to hand-delete.
+  // ONE editable value per part. Seeded from ITERATION ZERO — the user's ACTUAL words (`part.value`,
+  // often just the Subject). The agent's suggestion is the PLACEHOLDER (`part.recommend`), never a
+  // pre-filled value that double-counts with a chip. Type your own OR tap a chip (chips APPEND,
+  // comma-joined, de-duped). Nothing to hand-delete; the score grades the real value, starting low.
   const [values, setValues] = useState<Record<string, string>>(
-    () => Object.fromEntries(block.parts.map((p) => [p.id, '']))
+    () => Object.fromEntries(block.parts.map((p) => [p.id, p.value ?? '']))
   );
   const [refs, setRefs] = useState<string[]>([]);
 
@@ -230,7 +231,7 @@ export function BuilderPanel({ block, onRender, busy }: BuilderPanelProps) {
                 className="pxc-part-field"
                 rows={2}
                 value={values[part.id] ?? ''}
-                placeholder={part.value || `Describe the ${part.label.toLowerCase()}…`}
+                placeholder={part.recommend || `Describe the ${part.label.toLowerCase()}…`}
                 onChange={(e) => setValues((v) => ({ ...v, [part.id]: e.target.value }))}
               />
               {suggestions.length > 0 && (

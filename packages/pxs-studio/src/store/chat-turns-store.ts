@@ -83,9 +83,13 @@ export interface BuilderPart {
   label: string;
   /** One line: what this part is for (structural guidance, e.g. "the main focal point"). */
   guidance: string;
-  /** The part's text, pre-filled by the agent from the brief; user-editable. */
+  /** The part's REAL content — ONLY what the USER actually specified (iteration zero). Empty if the
+   *  user didn't mention this part. Never the agent's invention (that's `recommend`). User-editable. */
   value: string;
-  /** Agent-SUGGESTED anchor chips (tap to add). Never a code table. */
+  /** The agent's SUGGESTED improvement for this part — shown as the field PLACEHOLDER (a
+   *  recommendation, never auto-counted into the prompt). The user types their own or taps a chip. */
+  recommend?: string;
+  /** Agent-SUGGESTED chips (tap to APPEND to the value). Never a code table. */
   chips: string[];
   /** This part's weight in the target model's FORMULA — drives the honest, weighted score (PR-10c).
    *  From the model's `promptFormula`; defaults to 1 when absent. */

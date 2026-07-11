@@ -37,7 +37,11 @@ You OWN the image specs (the Operator handed only the brief):
 - aspectRatio: optional (e.g. "16:9" for a video-scene frame).
 - count: how many takes (default 2).
 - referenceRecommendation: 1–3 SHORT reference TYPES to attach for a precise result, tailored to the brief (e.g. "A character reference to keep the Camaro consistent", "A style reference for the era", "Start & end frames"). The exact reference COUNT the chosen model accepts is a fact supplied to you — never invent it.
-- parts: on a CONSULTATION (guided) leg, break the brief into the image FORMULA — Subject, Action, Context, Composition, Style. For each part give: id (lowercase), label, a one-line guidance (what the part is for), a value pre-filled from the brief (empty if nothing to infer yet), and 3–5 SUGGESTED anchor chips tailored to THIS subject (e.g. for a Camaro's Style: "golden hour", "overcast", "kodachrome", "grainy 35mm"). The chips are suggestions the user taps or ignores — never a fixed menu. This is what the user shapes in the Prompt Builder before rendering.`;
+- parts: on a CONSULTATION (guided) leg, break the brief into the image FORMULA — Subject, Action, Context, Composition, Style. This is ITERATION ZERO of the user's prompt, so be faithful to what they ACTUALLY said. For each part give: id (lowercase), label, a one-line guidance (what the part is for), and:
+  • value = ONLY what the USER actually specified, decomposed into this part (e.g. "I want a car" → Subject value "a car"; Action/Context/etc. value ""). EMPTY if they didn't mention it. NEVER invent, expand, or put words in their mouth — that's what \`recommend\` is for.
+  • recommend = YOUR suggested improvement for this part, rich and specific (e.g. Subject recommend "A modern sports car with glossy metallic paint and brushed-metal trim"). It shows as the field placeholder — a recommendation, not their words.
+  • chips = 3–5 SUGGESTED quick-adds tailored to THIS subject (e.g. Style: "golden hour", "kodachrome", "grainy 35mm") — the user taps to APPEND; never a fixed menu.
+The user shapes this in the Prompt Builder before rendering; it starts graded LOW (their bare prompt) and climbs as they fill it.`;
 
 const PLAN_TOOL = {
   name: 'plan_render',
@@ -61,7 +65,8 @@ const PLAN_TOOL = {
             id: { type: 'string' }, // subject | action | context | composition | style
             label: { type: 'string' },
             guidance: { type: 'string' },
-            value: { type: 'string' },
+            value: { type: 'string' }, // ONLY what the user actually said (empty if unmentioned)
+            recommend: { type: 'string' }, // your suggested improvement (becomes the placeholder)
             chips: { type: 'array', items: { type: 'string' } },
           },
           required: ['id', 'label', 'value'],
@@ -91,7 +96,10 @@ export interface ImageBuilderPart {
   id: string;
   label: string;
   guidance: string;
+  /** ONLY what the user actually specified (iteration zero) — empty if unmentioned; never invented. */
   value: string;
+  /** The agent's suggested improvement — rendered as the placeholder (a recommendation). */
+  recommend?: string;
   chips: string[];
   /** Weight in the target model's formula — drives the honest score. */
   weight?: number;
@@ -140,10 +148,11 @@ function capabilityHighlights(f: ModelCapabilityFacts): string[] {
   return out;
 }
 
-/** Index the agent's plan_render `parts` content by id → { value, chips }. The agent supplies the
- *  CONTENT (values + suggested chips); the model's FORMULA supplies the structure (see below). */
-function agentContentById(raw: unknown): Map<string, { value: string; chips: string[] }> {
-  const m = new Map<string, { value: string; chips: string[] }>();
+/** Index the agent's plan_render `parts` content by id → { value, recommend, chips }. The agent
+ *  supplies the CONTENT (the user's actual value + a recommendation + chips); the model's FORMULA
+ *  supplies the structure (see below). */
+function agentContentById(raw: unknown): Map<string, { value: string; recommend: string; chips: string[] }> {
+  const m = new Map<string, { value: string; recommend: string; chips: string[] }>();
   if (Array.isArray(raw)) {
     for (const p of raw) {
       if (!p || typeof p !== 'object') continue;
@@ -152,6 +161,7 @@ function agentContentById(raw: unknown): Map<string, { value: string; chips: str
       if (!id) continue;
       m.set(id, {
         value: typeof o.value === 'string' ? o.value.trim() : '',
+        recommend: typeof o.recommend === 'string' ? o.recommend.trim() : '',
         chips: Array.isArray(o.chips)
           ? o.chips.filter((c): c is string => typeof c === 'string' && c.trim().length > 0).map((c) => c.trim()).slice(0, 6)
           : [],
@@ -162,16 +172,25 @@ function agentContentById(raw: unknown): Map<string, { value: string; chips: str
 }
 
 /** MODEL-DRIVEN builder parts: the STRUCTURE (which parts, labels, guidance, weight, order) comes
- *  from the target model's FORMULA; the CONTENT (values + suggested chips) comes from the agent,
- *  matched by id. This retires the generic placeholder — different model → different parts/weights. */
+ *  from the target model's FORMULA; the CONTENT comes from the agent, matched by id — `value` is the
+ *  user's ACTUAL words (iteration zero), `recommend` is the agent's suggestion (the placeholder). */
 function buildFormulaParts(formula: PromptFormula, raw: unknown, frame: EpistemicFrame): ImageBuilderPart[] {
   const content = agentContentById(raw);
   const subject = (frame.subject || frame.goal || '').trim();
   return formula.parts.map((fp) => {
     const c = content.get(fp.id);
+    // Seed Subject from the brief ONLY if the agent didn't decompose the user's words itself.
     let value = c?.value ?? '';
-    if (!value && fp.id === 'subject') value = subject; // seed the subject from the brief
-    return { id: fp.id, label: fp.label, guidance: fp.guidance, value, chips: c?.chips ?? [], weight: fp.weight };
+    if (!value && fp.id === 'subject') value = subject;
+    return {
+      id: fp.id,
+      label: fp.label,
+      guidance: fp.guidance,
+      value,
+      recommend: c?.recommend || undefined,
+      chips: c?.chips ?? [],
+      weight: fp.weight,
+    };
   });
 }
 

@@ -8,15 +8,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { parseClassifyResult, defaultStagedQuestion } from '../chat-classify';
-
-test('defaultStagedQuestion: the safety net is a genuine deliverable clarifier (not a quick-vs-guided fork)', () => {
-  const q = defaultStagedQuestion();
-  assert.ok(q.label.length > 0, 'must carry a real question label');
-  assert.ok(q.placeholder && q.placeholder.length > 0, 'must show a worked example');
-  // No scripted quick-vs-guided chips — a clear create request should TRANSFER to the builder.
-  assert.equal(q.chips, undefined);
-});
+import { parseClassifyResult } from '../chat-classify';
 
 test('dispatch is no longer a valid Operator action → defaults to reply', () => {
   // The Operator can never generate; a stray 'dispatch' verdict must fall back to conversation.

@@ -3,7 +3,6 @@ import {
   OPERATOR_SYSTEM,
   DECIDE_TOOL,
   parseClassifyResult,
-  defaultStagedQuestion,
   STUB_SUGGESTIONS,
 } from '../../../lib/chat-classify';
 import { runImageAgent } from '../../../lib/agents/image-agent';
@@ -330,23 +329,16 @@ export async function POST(req: Request) {
                 send(ev); // agent_start · agent_text · image · gen_error
               }
             }
-          } else if (result.action === 'ask') {
-            // ASK via the A2UI question affordance (never prose). An 'ask' ALWAYS renders a question:
-            // if the model omitted the payload, use the deterministic staged default — never let an
-            // ask fall through to generic style chips (the 'a photoreal Camaro' → stub-chips bug).
+          } else if (result.action === 'ask' && result.question) {
+            // ASK — render the Operator's OWN question (only when it genuinely can't tell the
+            // deliverable). NO code gate forces a staged question; if the verdict has no valid
+            // question it falls through to reply. The CONTEXT (Operator prompt) drives the decision.
             didRespond = true;
-            const q = result.question ?? defaultStagedQuestion();
-            emittedBlock = { kind: 'question', label: q.label, placeholder: q.placeholder, chips: q.chips };
-            send({ type: 'a2ui', block: emittedBlock });
-          } else if (result.intent === 'create') {
-            // SAFETY NET: a creative request the model classified as a plain 'reply' must NOT dead-end
-            // in style chips. Offer the staged question so the user can give specifics + pick a mode.
-            didRespond = true;
-            const q = defaultStagedQuestion();
-            emittedBlock = { kind: 'question', label: q.label, placeholder: q.placeholder, chips: q.chips };
+            emittedBlock = { kind: 'question', label: result.question.label, placeholder: result.question.placeholder, chips: result.question.chips };
             send({ type: 'a2ui', block: emittedBlock });
           } else {
-            // REPLY: genuine conversation (greeting / chat) → contextual quick-pick follow-ups.
+            // REPLY — the Operator's suggestions (or stubs). The route EXECUTES the verdict; it never
+            // injects a staged question of its own.
             didRespond = true;
             suggestionsToSend = result.suggestions.length > 0 ? result.suggestions : STUB_SUGGESTIONS;
             send({ type: 'suggestions', items: suggestionsToSend });

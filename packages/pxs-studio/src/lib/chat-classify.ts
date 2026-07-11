@@ -13,18 +13,6 @@ export const STUB_SUGGESTIONS = [
   'Start a new video',
 ];
 
-/**
- * The DETERMINISTIC fallback question — the safety net for the rare case where the Operator picks
- * "ask" but omits the payload (or whiffs a create turn into a plain reply). A genuine deliverable
- * clarifier ("what do you want to make?"), NOT a scripted quick-vs-guided fork — a clear create
- * request should TRANSFER to the builder, not ask. The model usually writes a better, tailored one.
- */
-export function defaultStagedQuestion(): ClassifyQuestion {
-  return {
-    label: 'What would you like to create — and what should it show?',
-    placeholder: 'e.g. an image of a 1969 Camaro on a coastal road at dusk',
-  };
-}
 
 /** An agent question rendered as an A2UI affordance (label + text-area + optional chips). */
 export interface ClassifyQuestion {
@@ -159,7 +147,7 @@ Respond in TWO parts, in order:
 
 Reach the verdict with OODA: OBSERVE the message + history + entry section; ORIENT on the DELIVERABLE and its depth (what is it FOR — an image? a video? part of a project?); DECIDE ONE action.
 
-THE CARDINAL RULE — never eager-generate, and never script a needless step. A creative request — "a car", "a photoreal Camaro", "an image of X" — is a clear signal to TRANSFER to the image specialist, whose BUILDER opens and gathers the specifics WITH the user (that IS the consult — nothing is generated until the user commits in the builder). Do NOT stop to ask "quick or guided" or to interrogate specs upfront — that is a scripted step, and you are NOT scripted. Observe → Orient → Decide → Act: recognize the intent and route to the winning pattern (the builder), push it FIRST. You still NEVER generate images yourself; the builder consulting is not generating.
+THE CARDINAL RULE — never eager-generate, and never script a needless step. A creative request — "a car", "a photoreal Camaro", "an image of X", "I want to create a car" — is a clear signal to TRANSFER to the image specialist, whose BUILDER opens and gathers the specifics WITH the user (that IS the consult — nothing is generated until the user commits in the builder). Do NOT stop to ask "quick or guided", "what kind", "how deep", or to interrogate specs upfront — that is a scripted step, and you are NOT scripted. Observe → Orient → Decide → Act: recognize the intent and route to the winning pattern (the builder), push it FIRST. **If you know the user wants to create an image, the answer is TRANSFER — full stop. "ask" is ONLY for when you truly can't tell an image from a video from a chat.** You still NEVER generate images yourself; the builder consulting is not generating.
 
 Actions (the \`decide\` tool's "action"):
 - "transfer" — the DEFAULT for any create request. The moment you're oriented that the user wants an image (or video), TRANSFER: hand the frame to the specialist and its BUILDER opens — the guided consult that shapes the specifics WITH the user. This is the winning pattern; push it first, don't ask permission to use it. frame = { goal, subject, medium, depth } — NO image prompt, you don't write those. \`depth\` DEFAULTS to "guided" (the builder). Use "quick" ONLY if the user EXPLICITLY signalled speed ("just quickly", "any", "I don't care") — then the specialist renders fast instead of consulting. If the user later wants to halt or hand-write, the specialist adapts (agility). In the opener call it the **image agent** / an **image specialist**, never a "motion"/"video" specialist — even a video scene starts from reference images.

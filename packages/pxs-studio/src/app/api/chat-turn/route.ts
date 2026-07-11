@@ -263,7 +263,7 @@ export async function POST(req: Request) {
           | { kind: 'question'; label: string; placeholder?: string; chips?: string[] }
           | { kind: 'options'; title: string; select: 'single'; options: { id: string; label: string; detail?: string }[] }
           | { kind: 'references'; modelLabel: string; maxReferences: number; supports: string[]; recommend: string[]; note?: string }
-          | { kind: 'builder'; surface?: 'canvas'; title: string; media: 'image' | 'video' | 'pixel' | 'anim'; parts: { id: string; label: string; guidance: string; value: string; chips: string[] }[]; model?: { label: string; maxReferences: number; supports: string[] } }
+          | { kind: 'builder'; surface?: 'canvas'; title: string; media: 'image' | 'video' | 'pixel' | 'anim'; parts: { id: string; label: string; guidance: string; value: string; chips: string[]; weight?: number }[]; modelId?: string; assembly?: string; model?: { label: string; maxReferences: number; supports: string[] } }
           | null = null;
         let didRespond = false;
         let genCostTotal = 0; // realized image spend, metered against the cap

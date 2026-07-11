@@ -87,6 +87,9 @@ export interface BuilderPart {
   value: string;
   /** Agent-SUGGESTED anchor chips (tap to add). Never a code table. */
   chips: string[];
+  /** This part's weight in the target model's FORMULA — drives the honest, weighted score (PR-10c).
+   *  From the model's `promptFormula`; defaults to 1 when absent. */
+  weight?: number;
 }
 
 /** The STRUCTURED CONSULT (PR-10a) — the Prompt Builder the center stage renders. The agent breaks
@@ -100,6 +103,11 @@ export interface A2UIBuilderBlock {
   title: string;
   media: 'image' | 'video' | 'pixel' | 'anim';
   parts: BuilderPart[];
+  /** The target model driving this formula (id + label). The formula/parts/weights are ITS documented
+   *  shape — different model → different parts/weights (PR-10c). */
+  modelId?: string;
+  /** One line on how this model wants the prompt assembled (order/format) — surfaced in the Guide. */
+  assembly?: string;
   /** The chosen model's reference facts, folded in as the References section (PR-10a; the standalone
    *  Prompt Guide panel returns in PR-10d). */
   model?: { label: string; maxReferences: number; supports: string[] };

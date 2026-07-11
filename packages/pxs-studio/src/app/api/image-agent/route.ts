@@ -168,7 +168,7 @@ export async function POST(req: Request) {
       let genCostTotal = 0;
       let emittedBlock:
         | { kind: 'references'; modelLabel: string; maxReferences: number; supports: string[]; recommend: string[]; note?: string }
-        | { kind: 'builder'; surface?: 'canvas'; title: string; media: 'image' | 'video' | 'pixel' | 'anim'; parts: { id: string; label: string; guidance: string; value: string; chips: string[] }[]; model?: { label: string; maxReferences: number; supports: string[] } }
+        | { kind: 'builder'; surface?: 'canvas'; title: string; media: 'image' | 'video' | 'pixel' | 'anim'; parts: { id: string; label: string; guidance: string; value: string; chips: string[]; weight?: number }[]; modelId?: string; assembly?: string; model?: { label: string; maxReferences: number; supports: string[] } }
         | null = null;
 
       try {

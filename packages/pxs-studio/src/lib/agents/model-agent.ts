@@ -9,7 +9,7 @@
  */
 
 import './../engine/adapters'; // register provider adapters (readyProviders reflects them)
-import { getModel, IMAGE_MODELS } from '../engine/model-registry';
+import { getModel, getModelFormula, IMAGE_MODELS, type PromptFormula } from '../engine/model-registry';
 import { readyProviders } from '../engine/executor';
 import { route, type RoutingRequest, type RoutingDecision } from '../engine/routing';
 
@@ -54,6 +54,9 @@ export interface ModelCapabilityFacts {
    *  (Gemini-3-style). Absent → the model uses one flat pool of `maxReferenceImages`. */
   referenceLimits?: { object: number; character: number; style: number };
   costPerImageUsd: [number, number];
+  /** The model's documented PROMPT FORMULA (ordered, weighted parts) — what drives the builder's
+   *  parts + the honest weighted score. The model's own if curated, else the generic default. */
+  formula: PromptFormula;
 }
 
 export async function describeModelCapabilities(req: RoutingRequest): Promise<ModelCapabilityFacts | null> {
@@ -69,5 +72,6 @@ export async function describeModelCapabilities(req: RoutingRequest): Promise<Mo
     styleTransfer: model.strengths.style_versatility >= 4 || model.capabilities.includes('multi_reference'),
     referenceLimits: model.referenceLimits,
     costPerImageUsd: model.costPerImageUsd,
+    formula: getModelFormula(model.id),
   };
 }

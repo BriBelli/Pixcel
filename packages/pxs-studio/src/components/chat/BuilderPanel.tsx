@@ -14,9 +14,10 @@
  * phases (PR-10b/c/d); this is the structure working.
  * ───────────────────────────────────────────────────────────────────────────── */
 
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Button, Icon } from '../ui';
 import type { A2UIBuilderBlock } from '../../store/chat-turns-store';
+import { scoreBuilder, bandLabel, type ScoreBand } from '../../lib/prompt-score';
 
 export interface BuilderPanelProps {
   block: A2UIBuilderBlock;
@@ -31,6 +32,25 @@ const CSS = `
 .pxc-build-inner { max-width: 720px; margin: 0 auto; display: flex; flex-direction: column; gap: var(--a2ui-space-3); }
 .pxc-build-title { font-size: var(--a2ui-text-lg); font-weight: var(--a2ui-font-semibold); color: var(--a2ui-text-primary); letter-spacing: -0.01em; margin-bottom: var(--a2ui-space-1); }
 .pxc-build-title span { color: var(--a2ui-text-tertiary); font-weight: var(--a2ui-font-normal); }
+
+/* Score header — the quality ring builds up as parts fill (the Guide, in motion). */
+.pxc-build-score { display: flex; align-items: center; gap: var(--a2ui-space-3);
+  background: var(--a2ui-bg-secondary); border: 1px solid var(--pxs-border-subtle);
+  border-radius: var(--a2ui-radius-lg); padding: var(--a2ui-space-3) var(--a2ui-space-4); }
+.pxc-ring { flex-shrink: 0; }
+.pxc-ring-track { stroke: var(--a2ui-bg-tertiary); }
+.pxc-ring-fill { transition: stroke-dashoffset var(--a2ui-transition-normal), stroke var(--a2ui-transition-normal); stroke-linecap: round; }
+.pxc-ring-num { font-size: var(--a2ui-text-md); font-weight: var(--a2ui-font-semibold); fill: var(--a2ui-text-primary); }
+.pxc-build-score-title { font-size: var(--a2ui-text-md); font-weight: var(--a2ui-font-semibold); color: var(--a2ui-text-primary); }
+.pxc-build-score-sub { font-size: var(--a2ui-text-sm); color: var(--a2ui-text-tertiary); }
+.pxc-build-score-model { margin-left: auto; text-align: right; font-size: var(--a2ui-text-xs); color: var(--a2ui-text-tertiary); max-width: 45%; }
+
+.pxc-part-head { display: flex; align-items: center; gap: var(--a2ui-space-2); }
+.pxc-band { margin-left: auto; font-size: 10px; letter-spacing: 0.06em; font-weight: var(--a2ui-font-semibold);
+  padding: 3px 9px; border-radius: var(--a2ui-radius-full); text-transform: uppercase; }
+.pxc-band-strong { background: var(--a2ui-success-bg); color: var(--a2ui-success); }
+.pxc-band-good { background: var(--a2ui-accent-subtle); color: var(--a2ui-text-secondary); }
+.pxc-band-thin { background: var(--a2ui-warning-bg); color: var(--a2ui-warning); }
 
 /* Each part is a CARD — grouped, tight, scannable (no big gaps between loose form elements). */
 .pxc-part { display: flex; flex-direction: column; gap: var(--a2ui-space-2);
@@ -90,6 +110,36 @@ const CSS = `
   padding-top: var(--a2ui-space-3); }
 `;
 
+/** The quality ring — a stroke arc that fills to `value`%, colored by band. */
+function QualityRing({ value, band }: { value: number; band: ScoreBand }) {
+  const r = 19;
+  const circ = 2 * Math.PI * r;
+  const clamped = Math.max(0, Math.min(100, value));
+  const offset = circ * (1 - clamped / 100);
+  const color = band === 'strong' ? 'var(--a2ui-success)' : band === 'thin' ? 'var(--a2ui-warning)' : 'var(--a2ui-accent)';
+  return (
+    <svg className="pxc-ring" width={46} height={46} viewBox="0 0 46 46" aria-hidden="true">
+      <g transform="rotate(-90 23 23)">
+        <circle className="pxc-ring-track" cx={23} cy={23} r={r} fill="none" strokeWidth={4} />
+        <circle
+          className="pxc-ring-fill"
+          cx={23}
+          cy={23}
+          r={r}
+          fill="none"
+          strokeWidth={4}
+          stroke={color}
+          strokeDasharray={circ}
+          strokeDashoffset={offset}
+        />
+      </g>
+      <text className="pxc-ring-num" x={23} y={23} dominantBaseline="central" textAnchor="middle">
+        {clamped}
+      </text>
+    </svg>
+  );
+}
+
 export function BuilderPanel({ block, onRender, busy }: BuilderPanelProps) {
   // Local shaping state, seeded from the agent's block. Values = free text; anchors = added chips
   // (from tapped suggestions or free-typed). The block object is stable per turn (keyed in ChatView),
@@ -131,6 +181,17 @@ export function BuilderPanel({ block, onRender, busy }: BuilderPanelProps) {
       .filter(Boolean)
       .join(', ');
 
+  // The HONEST score — weighted by each part's weight in the target model's formula, recomputed live
+  // as the user shapes. Grounded in the formula (see prompt-score.ts) so we can say WHY a part is thin.
+  const score = useMemo(
+    () =>
+      scoreBuilder(
+        block.parts.map((p) => ({ id: p.id, weight: p.weight ?? 1, value: values[p.id] ?? '', anchors: anchors[p.id] ?? [] }))
+      ),
+    [block.parts, values, anchors]
+  );
+  const bandOfPart = (id: string): ScoreBand => score.parts.find((s) => s.id === id)?.band ?? 'thin';
+
   const maxRefs = block.model?.maxReferences ?? 0;
   const canRender = !busy && assemble().length > 0;
 
@@ -148,12 +209,31 @@ export function BuilderPanel({ block, onRender, busy }: BuilderPanelProps) {
           )}
         </div>
 
+        {/* Score header — the honest quality ring, weighted by the model's formula, climbing live. */}
+        <div className="pxc-build-score">
+          <QualityRing value={score.overall} band={score.overallBand} />
+          <div>
+            <div className="pxc-build-score-title">Prompt quality</div>
+            <div className="pxc-build-score-sub">
+              {bandLabel(score.overallBand)} · {score.filled}/{score.total} parts
+            </div>
+          </div>
+          {block.model && (
+            <div className="pxc-build-score-model">
+              Each part maps to what {block.model.label.split('(')[0].trim()} rewards
+            </div>
+          )}
+        </div>
+
         {block.parts.map((part) => {
           const active = anchors[part.id] || [];
           const suggestions = part.chips.filter((c) => !active.includes(c));
           return (
             <div key={part.id} className="pxc-part">
-              <div className="pxc-part-label">{part.label}</div>
+              <div className="pxc-part-head">
+                <div className="pxc-part-label">{part.label}</div>
+                <span className={`pxc-band pxc-band-${bandOfPart(part.id)}`}>{bandOfPart(part.id)}</span>
+              </div>
               {part.guidance && <div className="pxc-part-guide">{part.guidance}</div>}
               <textarea
                 className="pxc-part-field"

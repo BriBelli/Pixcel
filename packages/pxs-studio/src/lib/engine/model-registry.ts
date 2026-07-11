@@ -32,6 +32,24 @@ export type Capability =
 /** How a model produces N images in one logical request. */
 export type BatchStrategy = 'native' | 'parallel';
 
+/** One part of a model's PROMPT FORMULA — the documented shape it rewards. Drives the builder's
+ *  parts, guidance, and (weighted) scoring. `weight` = how much this part matters FOR THIS MODEL
+ *  (heavier parts move the quality score more). Part ORDER is meaningful (some models weight by
+ *  position). The Model agent owns this; today it's curated registry data, later shard/Tavily-fed. */
+export interface PromptFormulaPart {
+  id: string; // 'subject' | 'action' | 'context' | 'composition' | 'style' | model-defined
+  label: string;
+  guidance: string;
+  weight: number; // relative, e.g. 1–3
+}
+
+/** A model's prompt formula — the ordered, weighted parts + a note on how it wants them assembled. */
+export interface PromptFormula {
+  parts: PromptFormulaPart[];
+  /** One line on assembly (order/format the model rewards) — surfaced in the Guide. */
+  assembly?: string;
+}
+
 /** The 9 strength axes (0–5), mirrored from photolif's `strengths`. */
 export interface ModelStrengths {
   photorealism: number;
@@ -69,6 +87,9 @@ export interface ImageModel {
    *  one flat pool of `maxReferenceImages` (any mix of roles). The Model agent reports whichever
    *  it has — never a guessed number. */
   referenceLimits?: { object: number; character: number; style: number };
+  /** The model's documented PROMPT FORMULA (ordered, weighted parts). Absent → the generic default
+   *  formula applies (see `getModelFormula`) until the Model agent researches this model's real one. */
+  promptFormula?: PromptFormula;
   aspectRatios: string[];
   /** (low, high) USD per image — the spend band used for cost caps + the console. */
   costPerImageUsd: [number, number];
@@ -161,6 +182,18 @@ export const IMAGE_MODELS: ImageModel[] = [
     bestFor: ['conversational editing', 'character consistency', 'multi-image compose', 'blend references'],
     supportsEditing: true,
     maxReferenceImages: 3,
+    promptFormula: {
+      // Nano Banana reasons over the whole prompt and rewards a clear, natural-language subject led
+      // by materials/texture; it's a compositing/consistency workhorse, so Subject + Style carry most.
+      parts: [
+        { id: 'subject', label: 'Subject', guidance: 'The main focal point — be specific about materials and texture.', weight: 3 },
+        { id: 'action', label: 'Action', guidance: 'What the subject is doing — pose, stance, expression.', weight: 1.5 },
+        { id: 'context', label: 'Context', guidance: 'The environment and framing — say what you want, not what you don\'t.', weight: 2 },
+        { id: 'composition', label: 'Composition', guidance: 'Shot type, angle, lens, and depth of field.', weight: 1.5 },
+        { id: 'style', label: 'Style', guidance: 'Lighting, palette, mood, and medium.', weight: 2 },
+      ],
+      assembly: 'Subject-led natural language, one flowing description — it reasons over the whole prompt.',
+    },
     aspectRatios: ['1:1', '16:9', '9:16', '4:3', '3:4'],
     costPerImageUsd: [0.039, 0.039],
     maxBatchN: 1,
@@ -278,6 +311,26 @@ export const IMAGE_MODELS: ImageModel[] = [
 /** Look a model up by id. Returns undefined for unknown ids. */
 export function getModel(id: string): ImageModel | undefined {
   return IMAGE_MODELS.find((m) => m.id === id);
+}
+
+/** The generic image formula — the SAFETY NET when a model has no curated `promptFormula` yet.
+ *  Structural (the classic 5-part), equal-ish weights. The Model agent replaces this with the
+ *  model's REAL formula as it's researched (registry `promptFormula` or a shard). Never a cage. */
+export const DEFAULT_IMAGE_FORMULA: PromptFormula = {
+  parts: [
+    { id: 'subject', label: 'Subject', guidance: 'The main focal point — be specific about materials and texture.', weight: 3 },
+    { id: 'action', label: 'Action', guidance: 'What the subject is doing — pose, stance, expression.', weight: 1.5 },
+    { id: 'context', label: 'Context', guidance: 'The environment and framing — say what you want, not what you don\'t.', weight: 2 },
+    { id: 'composition', label: 'Composition', guidance: 'Shot type, angle, lens, and depth of field.', weight: 1.5 },
+    { id: 'style', label: 'Style', guidance: 'Lighting, palette, mood, and medium.', weight: 2 },
+  ],
+  assembly: 'A structured, comma-joined prompt in Subject→Style order.',
+};
+
+/** The target model's PROMPT FORMULA — its own if curated, else the generic default. This is what
+ *  drives the builder's parts + the weighted, honest score. */
+export function getModelFormula(id: string): PromptFormula {
+  return getModel(id)?.promptFormula ?? DEFAULT_IMAGE_FORMULA;
 }
 
 /** Every model that advertises ALL of the required capabilities. */

@@ -12,7 +12,7 @@
 
 import Anthropic from '@anthropic-ai/sdk';
 import { coordinateImage } from '../engine/coordinator';
-import type { Capability } from '../engine/model-registry';
+import { DEFAULT_IMAGE_FORMULA, type Capability, type PromptFormula } from '../engine/model-registry';
 import type { RoutingRequest } from '../engine/routing';
 import { describeModelCapabilities, type ModelCapabilityFacts } from './model-agent';
 import { imageAgentSkills } from './skills';
@@ -93,6 +93,8 @@ export interface ImageBuilderPart {
   guidance: string;
   value: string;
   chips: string[];
+  /** Weight in the target model's formula — drives the honest score. */
+  weight?: number;
 }
 
 /** The STRUCTURED CONSULT the guided leg surfaces (mirrors A2UIBuilderBlock, PR-10a) — the center
@@ -104,6 +106,10 @@ export interface ImageBuilderBlock {
   title: string;
   media: 'image' | 'video' | 'pixel' | 'anim';
   parts: ImageBuilderPart[];
+  /** The target model driving the formula (its parts/weights are ITS documented shape). */
+  modelId?: string;
+  /** How this model wants the prompt assembled (order/format) — surfaced in the Guide. */
+  assembly?: string;
   model?: { label: string; maxReferences: number; supports: string[] };
 }
 
@@ -134,43 +140,39 @@ function capabilityHighlights(f: ModelCapabilityFacts): string[] {
   return out;
 }
 
-/** The default image formula skeleton — the SAFETY NET when the model underfills `parts`. Structural
- *  (the formula, not creative content); values/chips stay minimal so the agent/user fills them. Agent-
- *  emitted parts always win. Per-media parts (video/pixel/anim) land in PR-10f. */
-function defaultImageParts(frame: EpistemicFrame): ImageBuilderPart[] {
-  const subject = (frame.subject || frame.goal || '').trim();
-  return [
-    { id: 'subject', label: 'Subject', guidance: 'The main focal point — be specific about materials and texture.', value: subject, chips: [] },
-    { id: 'action', label: 'Action', guidance: 'What the subject is doing — pose, stance, expression.', value: '', chips: [] },
-    { id: 'context', label: 'Context', guidance: 'The environment and framing — say what you want, not what you don\'t.', value: '', chips: [] },
-    { id: 'composition', label: 'Composition', guidance: 'Shot type, angle, lens, and depth of field.', value: '', chips: [] },
-    { id: 'style', label: 'Style', guidance: 'Lighting, palette, mood, and medium.', value: '', chips: [] },
-  ];
+/** Index the agent's plan_render `parts` content by id → { value, chips }. The agent supplies the
+ *  CONTENT (values + suggested chips); the model's FORMULA supplies the structure (see below). */
+function agentContentById(raw: unknown): Map<string, { value: string; chips: string[] }> {
+  const m = new Map<string, { value: string; chips: string[] }>();
+  if (Array.isArray(raw)) {
+    for (const p of raw) {
+      if (!p || typeof p !== 'object') continue;
+      const o = p as Record<string, unknown>;
+      const id = typeof o.id === 'string' ? o.id.trim() : '';
+      if (!id) continue;
+      m.set(id, {
+        value: typeof o.value === 'string' ? o.value.trim() : '',
+        chips: Array.isArray(o.chips)
+          ? o.chips.filter((c): c is string => typeof c === 'string' && c.trim().length > 0).map((c) => c.trim()).slice(0, 6)
+          : [],
+      });
+    }
+  }
+  return m;
 }
 
-/** Validate agent-emitted formula parts; fall back to the default skeleton when empty/malformed. */
-function normalizeBuilderParts(raw: unknown, frame: EpistemicFrame): ImageBuilderPart[] {
-  const parts = Array.isArray(raw)
-    ? raw
-        .map((p): ImageBuilderPart | null => {
-          if (!p || typeof p !== 'object') return null;
-          const o = p as Record<string, unknown>;
-          const id = typeof o.id === 'string' ? o.id.trim() : '';
-          const label = typeof o.label === 'string' ? o.label.trim() : '';
-          if (!id || !label) return null;
-          return {
-            id,
-            label,
-            guidance: typeof o.guidance === 'string' ? o.guidance.trim() : '',
-            value: typeof o.value === 'string' ? o.value.trim() : '',
-            chips: Array.isArray(o.chips)
-              ? o.chips.filter((c): c is string => typeof c === 'string' && c.trim().length > 0).map((c) => c.trim()).slice(0, 6)
-              : [],
-          };
-        })
-        .filter((p): p is ImageBuilderPart => p !== null)
-    : [];
-  return parts.length > 0 ? parts : defaultImageParts(frame);
+/** MODEL-DRIVEN builder parts: the STRUCTURE (which parts, labels, guidance, weight, order) comes
+ *  from the target model's FORMULA; the CONTENT (values + suggested chips) comes from the agent,
+ *  matched by id. This retires the generic placeholder — different model → different parts/weights. */
+function buildFormulaParts(formula: PromptFormula, raw: unknown, frame: EpistemicFrame): ImageBuilderPart[] {
+  const content = agentContentById(raw);
+  const subject = (frame.subject || frame.goal || '').trim();
+  return formula.parts.map((fp) => {
+    const c = content.get(fp.id);
+    let value = c?.value ?? '';
+    if (!value && fp.id === 'subject') value = subject; // seed the subject from the brief
+    return { id: fp.id, label: fp.label, guidance: fp.guidance, value, chips: c?.chips ?? [], weight: fp.weight };
+  });
 }
 
 /** A follow-up turn INSIDE the Image workspace (Option A — the workspace talks straight to the
@@ -282,11 +284,12 @@ export async function* runImageAgent(frame: EpistemicFrame, turn: ImageAgentTurn
   //     Only on the FIRST leg (the transfer) — don't repeat the recommendation on every follow-up.
   if (!followUp) try {
     const facts = await describeModelCapabilities(req);
-    // The STRUCTURED CONSULT (PR-10a): break the brief into the formula parts + fold in the model's
-    // reference facts → the center Prompt Builder. DETERMINISTIC — if the model underfills `parts`,
-    // fall back to a default image skeleton so the builder is never broken (same guard as the
-    // Operator's staged question). The agent owns the content; this is only a safety net.
-    const parts = normalizeBuilderParts(plan.parts, frame);
+    // The STRUCTURED CONSULT (PR-10a/c): the builder's STRUCTURE comes from the TARGET model's
+    // documented FORMULA (parts/labels/guidance/weight/order — via the Model agent), and the CONTENT
+    // (values + suggested chips) from the agent, matched by id. Different model → different parts.
+    // Falls back to the generic default formula when no model resolves. Nothing per-model hardcoded.
+    const formula = facts?.formula ?? DEFAULT_IMAGE_FORMULA;
+    const parts = buildFormulaParts(formula, plan.parts, frame);
     const subject = (frame.subject || frame.goal || 'the subject').trim();
     yield {
       type: 'agent_a2ui',
@@ -296,6 +299,8 @@ export async function* runImageAgent(frame: EpistemicFrame, turn: ImageAgentTurn
         title: `Shaping · ${subject}`,
         media: frame.medium === 'video' ? 'video' : 'image',
         parts,
+        modelId: facts?.modelId,
+        assembly: formula.assembly,
         model: facts
           ? { label: facts.modelLabel, maxReferences: facts.maxReferenceImages, supports: capabilityHighlights(facts) }
           : undefined,

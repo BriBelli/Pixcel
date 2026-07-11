@@ -116,6 +116,32 @@ The empty-canvas "feels like a chat but not" problem resolves the same way: it r
 once it's populated with this A2UI (uploads, per-model slots, steps, then media) — the accumulating
 canvas. Emptiness is the tell; rich agent-emitted A2UI is the fix.
 
+## The unlimited agent composes bespoke workflows — and TEACHES
+
+Hardcoding limits you; a weak agent limits you. Pixcel gives the agent the full pantry (model
+knowledge + A2UI plating + JSON substrate) and lets it **cook the workflow to the request** — like a
+chef assembling the perfect plate. Because the request × chosen models × their diffs are never the
+same twice, **these workflows are one-of-a-kind almost every time.**
+
+The A2UI is not just controls — it **teaches** (indicators as pedagogy):
+
+- A component that exists only because a model has a **unique feature** carries an indicator: *"this
+  is for Nano Banana — it does Y."*
+- When two models **diverge**, show BOTH paths with the *why*: *"this way for Flux, this way for
+  Gemini — they handle references differently."*
+- Effect: the user learns how agents and models actually work, **by doing**. A single-model wrapper
+  can't offer this. It turns the black box into a glass one — a real differentiator.
+
+## The training endgame (workflows become the corpus)
+
+Every bespoke workflow the agent composes is **trajectory data**. Over time we train a small / our own
+model on the **workflows themselves** — it learns which components, which model diffs, and which paths
+win, and begins to recognize/reuse pre-existing winning workflows. This is the same bootstrap as the
+per-class art craft + the statue method's trajectory capture, now at the **workflow grain**. A corpus
+of one-of-a-kind, model-diff-aware workflows is un-scrapeable — it exists only because the agent
+generated it here. The tool teaches the USER and teaches the MODEL, both loops off the same workflows.
+(See [[project_statue-method-milestones]], [[feedback_per-class-craft]].)
+
 ## Implications for the PR-10 build
 
 - **The builder's formula is MODEL-DRIVEN, not generic.** PR-10a's generic

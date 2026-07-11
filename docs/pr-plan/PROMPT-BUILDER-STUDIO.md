@@ -56,6 +56,31 @@ A2UI is the substrate; the Prompt Guide is what we build with it in the canvas.
    *why + how* for each part, powered by the Model agent + tiered knowledge.
 3. **Agent** (right) — Ask/Agent modes; edits the prompt, generates views, restyles the whole project.
 
+## The three A2UI views + the model toggle (2026-07-10)
+
+The canvas A2UI has three **views** of the same surface (from the reference's tabs):
+
+- **Build** — shape the formula parts (chips + free-type). Manual control.
+- **Guide** — the Model agent's model card (live status, resolutions, aspect ratios, ref count,
+  feature list) + its formula surfaced, with per-part why + STRONG/THIN badges. The Prompt Guide.
+- **Suggestions** — the agent reads the prompt + workflow and proposes the next move. Evolves from
+  per-clause **sharpens** ("Sharpen action → …weight on the back foot", Apply / Open in Build) to
+  the agent **composing the WHOLE perfect prompt** from a rough shave — accept wholesale, ~99% of the
+  time. Because it's composed against the model's formula, it's the highest-scoring prompt, not a guess.
+
+**Two coexisting modes, never a cage:** *shape it yourself* (Build, full control) OR *let the agent
+perfect it* (Suggestions, rough intent → ideal prompt). Same Model-agent knowledge behind both — the
+eyes-open painter applied to prompts (direct roughly, the agent does the craft).
+
+**Sequencing:** Build is first (done, placeholder). Guide + honest score come next (they make the
+formula real). **Suggestions is a LATER/advanced phase** — both the per-clause sharpen and the
+full-prompt composition depend on the model formula + score being real first. Liked, captured, not
+first in line.
+
+**The model toggle** — a dropdown to focus Build/Guide/Suggestions on ONE targeted model (its scores,
+type, formula, suggestions), or compare side-by-side. This is the human-side navigation of the
+multi-model reconciliation (shared core + per-model divergence) — see [[MODEL-AGENT-KNOWLEDGE]].
+
 ## The load-bearing contract (agent → UI, slots-not-screens)
 
 The agent emits a **Builder block**; the code is a **dumb renderer**. **Nothing is code-baked** —

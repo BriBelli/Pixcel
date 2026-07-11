@@ -135,8 +135,8 @@ export function ImageStage({ images, generating, medium, contextLabel }: ImageSt
             <>
               <h1 className="pxc-stage-empty-title">Let&rsquo;s shape your {ctx}.</h1>
               <p className="pxc-stage-empty-sub">
-                We&rsquo;ll walk through a few tailored questions — attach references or tell me the
-                specs, and I&rsquo;ll build the best prompt with you.
+                Shape it in the panel on the right — tune the parts, tap the chips, then Render.
+                Your images land here.
               </p>
             </>
           ) : (

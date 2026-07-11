@@ -54,6 +54,34 @@ export default function ChatView({ initialPrompt }: Props) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const sentInitial = useRef(false);
 
+  // The right panel (Builder/Guide/Agent) is drag-resizable — the center canvas is for creations.
+  const [rightWidth, setRightWidth] = useState(460);
+  const resizeStart = useRef<{ x: number; w: number } | null>(null);
+  const onResizeMove = useCallback((e: MouseEvent) => {
+    const s = resizeStart.current;
+    if (!s) return;
+    // Dragging the handle LEFT widens the right panel (its left edge moves left).
+    setRightWidth(Math.max(340, Math.min(760, s.w - (e.clientX - s.x))));
+  }, []);
+  const onResizeUp = useCallback(() => {
+    resizeStart.current = null;
+    window.removeEventListener('mousemove', onResizeMove);
+    window.removeEventListener('mouseup', onResizeUp);
+    document.body.style.cursor = '';
+    document.body.style.userSelect = '';
+  }, [onResizeMove]);
+  const startResize = useCallback(
+    (e: React.MouseEvent) => {
+      resizeStart.current = { x: e.clientX, w: rightWidth };
+      window.addEventListener('mousemove', onResizeMove);
+      window.addEventListener('mouseup', onResizeUp);
+      document.body.style.cursor = 'col-resize';
+      document.body.style.userSelect = 'none';
+      e.preventDefault();
+    },
+    [rightWidth, onResizeMove, onResizeUp]
+  );
+
   // showActions gates the MessageActions footer per turn. (Theme is applied to <html> by the shell.)
   const showActions = useSettings((st) => st.showActions);
 
@@ -185,37 +213,58 @@ export default function ChatView({ initialPrompt }: Props) {
       className="relative flex min-w-0 h-full w-full"
       style={{ color: 'var(--a2ui-text-primary)', fontFamily: 'var(--a2ui-font-family)' }}
     >
+      <style>{`
+        .pxs-resize { width: 7px; cursor: col-resize; position: relative; background: transparent; }
+        .pxs-resize::after { content: ''; position: absolute; inset: 0 3px; border-radius: 2px; background: var(--a2ui-border-default); opacity: 0; transition: opacity var(--a2ui-transition-fast); }
+        .pxs-resize:hover::after, .pxs-resize:active::after { opacity: 1; }
+      `}</style>
       {inWorkspace ? (
         /* ── WORKSPACE surface — the transfer lands here: center stage (generated images LARGE) +
               the conversation continuing in a right pane. This is what makes a transfer read as a
               WORKFLOW, not a dead-end in the chat scroll. ── */
         <div className="relative flex-1 flex min-w-0">
-          {/* Center stage — one slot, two view templates: the Prompt Builder while SHAPING (a
-              structured consult exists and nothing's rendered yet), the image gallery once Render
-              fires and tiles stream. */}
-          {builder && stageImages.length === 0 && !generating ? (
-            <BuilderPanel
-              key={builder.turnId}
-              block={builder.block}
-              busy={generating}
-              onRender={(prompt, references) => send(prompt, references)}
-            />
-          ) : (
-            <ImageStage
-              images={stageImages}
-              generating={generating}
-              medium={workspaceMedium}
-              contextLabel={activeFrame?.subject || activeFrame?.goal}
-            />
-          )}
+          {/* CENTER canvas — the CREATIONS. The Prompt Builder / Guide / Agent live on the RIGHT
+              (resizable), so the canvas is free for the generated images/video (gallery). */}
+          <ImageStage
+            images={stageImages}
+            generating={generating}
+            medium={workspaceMedium}
+            contextLabel={activeFrame?.subject || activeFrame?.goal}
+          />
+
+          {/* Drag handle — control the right panel's width. */}
+          <div
+            role="separator"
+            aria-orientation="vertical"
+            title="Drag to resize"
+            onMouseDown={startResize}
+            className="pxs-resize shrink-0"
+          />
+
+          {/* RIGHT panel — the Builder (Prompt Guide / A2UI) + the always-available Agent. Resizable. */}
           <aside
-            className="w-[400px] shrink-0 flex flex-col min-h-0"
-            style={{ borderLeft: '1px solid var(--a2ui-border-subtle)', background: 'var(--a2ui-bg-app)' }}
+            className="shrink-0 flex flex-col min-h-0"
+            style={{ width: rightWidth, borderLeft: '1px solid var(--a2ui-border-subtle)', background: 'var(--a2ui-bg-app)' }}
           >
-            {/* CONTROLS slot — the Prompt Guide, pinned above the conversation (out of the scroll).
-                Shows the current pass's model/reference guide; collapsible to reclaim height. */}
-            {controlsBlock && <PromptGuidePanel block={controlsBlock} />}
-            {conversation(false)}
+            {builder ? (
+              <>
+                <BuilderPanel
+                  key={builder.turnId}
+                  block={builder.block}
+                  busy={generating}
+                  onRender={(prompt, references) => send(prompt, references)}
+                />
+                {/* The Agent, always reachable while shaping — talk to it any time. */}
+                <div className="shrink-0 px-4 pb-4 pt-2" style={{ borderTop: '1px solid var(--a2ui-border-subtle)' }}>
+                  <Composer value={draft} onChange={setDraft} onSubmit={submit} attachEnabled />
+                </div>
+              </>
+            ) : (
+              <>
+                {controlsBlock && <PromptGuidePanel block={controlsBlock} />}
+                {conversation(false)}
+              </>
+            )}
           </aside>
         </div>
       ) : (

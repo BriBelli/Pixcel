@@ -23,7 +23,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useChatTurnsStore, a2uiSurface, type A2UIReferencesBlock, type A2UIBuilderBlock } from '../store/chat-turns-store';
 import { useSettings } from '../store/settings-store';
-import { Composer, type ComposerAttachment } from './ui';
+import { Composer, Icon, type ComposerAttachment } from './ui';
 import { MessageTurn } from './chat/MessageTurn';
 import { ImageStage, type StageImage } from './chat/ImageStage';
 import { PromptGuidePanel } from './chat/PromptGuidePanel';
@@ -54,8 +54,11 @@ export default function ChatView({ initialPrompt }: Props) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const sentInitial = useRef(false);
 
-  // The right panel (Builder/Guide/Agent) is drag-resizable — the center canvas is for creations.
-  const [rightWidth, setRightWidth] = useState(460);
+  // The workspace splits into TWO right panels: the Build/Guide panel (the living artifact — the
+  // Model agent) and the Agent panel (the conversation with the specialist). The Agent is
+  // COLLAPSIBLE; the Build panel is drag-resizable. The center canvas stays free for creations.
+  const [rightWidth, setRightWidth] = useState(460); // Build/Guide panel width (resizable)
+  const [agentOpen, setAgentOpen] = useState(true);
   const resizeStart = useRef<{ x: number; w: number } | null>(null);
   const onResizeMove = useCallback((e: MouseEvent) => {
     const s = resizeStart.current;
@@ -217,14 +220,20 @@ export default function ChatView({ initialPrompt }: Props) {
         .pxs-resize { width: 7px; cursor: col-resize; position: relative; background: transparent; }
         .pxs-resize::after { content: ''; position: absolute; inset: 0 3px; border-radius: 2px; background: var(--a2ui-border-default); opacity: 0; transition: opacity var(--a2ui-transition-fast); }
         .pxs-resize:hover::after, .pxs-resize:active::after { opacity: 1; }
+        .pxs-agent-head { display: flex; align-items: center; justify-content: space-between; padding: var(--a2ui-space-3) var(--a2ui-space-4); border-bottom: 1px solid var(--a2ui-border-subtle); }
+        .pxs-agent-title { display: flex; align-items: center; gap: var(--a2ui-space-2); font-size: var(--a2ui-text-sm); font-weight: var(--a2ui-font-semibold); color: var(--a2ui-text-secondary); }
+        .pxs-agent-title svg { color: var(--pxs-accent-text); }
+        .pxs-agent-head button { display: flex; align-items: center; justify-content: center; width: 26px; height: 26px; border: none; background: none; color: var(--a2ui-text-tertiary); cursor: pointer; border-radius: var(--a2ui-radius-md); }
+        .pxs-agent-head button:hover { background: var(--a2ui-bg-hover); color: var(--a2ui-text-primary); }
+        .pxs-agent-tab { width: 42px; display: flex; align-items: flex-start; justify-content: center; padding-top: var(--a2ui-space-4); border: none; border-left: 1px solid var(--a2ui-border-subtle); background: var(--a2ui-bg-app); color: var(--a2ui-text-tertiary); cursor: pointer; transition: color var(--a2ui-transition-fast), background var(--a2ui-transition-fast); }
+        .pxs-agent-tab:hover { color: var(--pxs-accent-text); background: var(--a2ui-bg-hover); }
       `}</style>
       {inWorkspace ? (
         /* ── WORKSPACE surface — the transfer lands here: center stage (generated images LARGE) +
               the conversation continuing in a right pane. This is what makes a transfer read as a
               WORKFLOW, not a dead-end in the chat scroll. ── */
         <div className="relative flex-1 flex min-w-0">
-          {/* CENTER canvas — the CREATIONS. The Prompt Builder / Guide / Agent live on the RIGHT
-              (resizable), so the canvas is free for the generated images/video (gallery). */}
+          {/* CENTER canvas — the CREATIONS (the generated images/video gallery). */}
           <ImageStage
             images={stageImages}
             generating={generating}
@@ -232,40 +241,46 @@ export default function ChatView({ initialPrompt }: Props) {
             contextLabel={activeFrame?.subject || activeFrame?.goal}
           />
 
-          {/* Drag handle — control the right panel's width. */}
-          <div
-            role="separator"
-            aria-orientation="vertical"
-            title="Drag to resize"
-            onMouseDown={startResize}
-            className="pxs-resize shrink-0"
-          />
-
-          {/* RIGHT panel — the Builder (Prompt Guide / A2UI) + the always-available Agent. Resizable. */}
-          <aside
-            className="shrink-0 flex flex-col min-h-0"
-            style={{ width: rightWidth, borderLeft: '1px solid var(--a2ui-border-subtle)', background: 'var(--a2ui-bg-app)' }}
-          >
-            {builder ? (
-              <>
+          {/* BUILD / GUIDE panel — the living ARTIFACT (the Model agent): parts, live score, the
+              document you edit. Drag-resizable. Only when a builder exists. */}
+          {builder && (
+            <>
+              <div role="separator" aria-orientation="vertical" title="Drag to resize" onMouseDown={startResize} className="pxs-resize shrink-0" />
+              <aside
+                className="shrink-0 flex flex-col min-h-0"
+                style={{ width: rightWidth, borderLeft: '1px solid var(--a2ui-border-subtle)', background: 'var(--a2ui-bg-app)' }}
+              >
                 <BuilderPanel
                   key={builder.turnId}
                   block={builder.block}
                   busy={generating}
                   onRender={(prompt, references) => send(prompt, references)}
                 />
-                {/* The Agent, always reachable while shaping — talk to it any time. */}
-                <div className="shrink-0 px-4 pb-4 pt-2" style={{ borderTop: '1px solid var(--a2ui-border-subtle)' }}>
-                  <Composer value={draft} onChange={setDraft} onSubmit={submit} attachEnabled />
-                </div>
-              </>
-            ) : (
-              <>
-                {controlsBlock && <PromptGuidePanel block={controlsBlock} />}
-                {conversation(false)}
-              </>
-            )}
-          </aside>
+              </aside>
+            </>
+          )}
+
+          {/* AGENT panel — the CONVERSATION with the specialist (the other output channel of the same
+              agent). Collapsible; folds to a slim tab when you just want to build. */}
+          {agentOpen ? (
+            <aside
+              className="shrink-0 flex flex-col min-h-0"
+              style={{ width: 360, borderLeft: '1px solid var(--a2ui-border-subtle)', background: 'var(--a2ui-bg-app)' }}
+            >
+              <div className="pxs-agent-head">
+                <span className="pxs-agent-title"><Icon name="message-square" size={15} /> Agent</span>
+                <button type="button" onClick={() => setAgentOpen(false)} title="Collapse the Agent panel">
+                  <Icon name="x" size={15} />
+                </button>
+              </div>
+              {controlsBlock && !builder && <PromptGuidePanel block={controlsBlock} />}
+              {conversation(false)}
+            </aside>
+          ) : (
+            <button type="button" className="pxs-agent-tab shrink-0" onClick={() => setAgentOpen(true)} title="Open the Agent panel">
+              <Icon name="message-square" size={17} />
+            </button>
+          )}
         </div>
       ) : (
         /* Chat column — floats over the shell's dormant DigitalWall (no local backdrop). */

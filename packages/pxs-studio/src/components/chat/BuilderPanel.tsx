@@ -141,25 +141,24 @@ function QualityRing({ value, band }: { value: number; band: ScoreBand }) {
 }
 
 export function BuilderPanel({ block, onRender, busy }: BuilderPanelProps) {
-  // Local shaping state, seeded from the agent's block. Values = free text; anchors = added chips
-  // (from tapped suggestions or free-typed). The block object is stable per turn (keyed in ChatView),
-  // so seeding once is correct.
+  // KISS: ONE editable value per part. The agent's recommendation is the PLACEHOLDER — never a
+  // pre-filled value that then double-counts with a picked chip. The user types their own OR taps a
+  // chip to fill it; a chip APPENDS to the field (comma-joined, de-duped). Nothing to hand-delete.
   const [values, setValues] = useState<Record<string, string>>(
-    () => Object.fromEntries(block.parts.map((p) => [p.id, p.value]))
+    () => Object.fromEntries(block.parts.map((p) => [p.id, '']))
   );
-  const [anchors, setAnchors] = useState<Record<string, string[]>>(
-    () => Object.fromEntries(block.parts.map((p) => [p.id, [] as string[]]))
-  );
-  const [drafts, setDrafts] = useState<Record<string, string>>({});
   const [refs, setRefs] = useState<string[]>([]);
 
-  const addAnchor = (id: string, text: string) => {
-    const t = text.trim();
-    if (!t) return;
-    setAnchors((a) => (a[id]?.includes(t) ? a : { ...a, [id]: [...(a[id] || []), t] }));
+  const hasChip = (id: string, chip: string) =>
+    (values[id] ?? '').split(',').map((s) => s.trim().toLowerCase()).includes(chip.trim().toLowerCase());
+  const addChip = (id: string, chip: string) => {
+    const t = chip.trim();
+    if (!t || hasChip(id, t)) return;
+    setValues((v) => {
+      const cur = (v[id] ?? '').trim();
+      return { ...v, [id]: cur ? `${cur}, ${t}` : t };
+    });
   };
-  const removeAnchor = (id: string, text: string) =>
-    setAnchors((a) => ({ ...a, [id]: (a[id] || []).filter((x) => x !== text) }));
 
   const onFiles = (files: FileList | null) => {
     if (!files) return;
@@ -173,22 +172,14 @@ export function BuilderPanel({ block, onRender, busy }: BuilderPanelProps) {
     });
   };
 
-  /** Compose the parts into the prompt: each part = value + its anchors, comma-joined; parts joined
-   *  in order. (Color-coded, formula-aware assembly is PR-10b; this is the plain join.) */
-  const assemble = () =>
-    block.parts
-      .map((p) => [values[p.id]?.trim(), ...(anchors[p.id] || [])].filter(Boolean).join(', '))
-      .filter(Boolean)
-      .join(', ');
+  /** Compose the prompt — each part's field value, comma-joined in order. */
+  const assemble = () => block.parts.map((p) => (values[p.id] ?? '').trim()).filter(Boolean).join(', ');
 
   // The HONEST score — weighted by each part's weight in the target model's formula, recomputed live
   // as the user shapes. Grounded in the formula (see prompt-score.ts) so we can say WHY a part is thin.
   const score = useMemo(
-    () =>
-      scoreBuilder(
-        block.parts.map((p) => ({ id: p.id, weight: p.weight ?? 1, value: values[p.id] ?? '', anchors: anchors[p.id] ?? [] }))
-      ),
-    [block.parts, values, anchors]
+    () => scoreBuilder(block.parts.map((p) => ({ id: p.id, weight: p.weight ?? 1, value: values[p.id] ?? '', anchors: [] }))),
+    [block.parts, values]
   );
   const bandOfPart = (id: string): ScoreBand => score.parts.find((s) => s.id === id)?.band ?? 'thin';
 
@@ -226,8 +217,8 @@ export function BuilderPanel({ block, onRender, busy }: BuilderPanelProps) {
         </div>
 
         {block.parts.map((part) => {
-          const active = anchors[part.id] || [];
-          const suggestions = part.chips.filter((c) => !active.includes(c));
+          // Recommendation = the PLACEHOLDER; chips not already in the value are still offered.
+          const suggestions = part.chips.filter((c) => !hasChip(part.id, c));
           return (
             <div key={part.id} className="pxc-part">
               <div className="pxc-part-head">
@@ -239,37 +230,18 @@ export function BuilderPanel({ block, onRender, busy }: BuilderPanelProps) {
                 className="pxc-part-field"
                 rows={2}
                 value={values[part.id] ?? ''}
-                placeholder={`Describe the ${part.label.toLowerCase()}…`}
+                placeholder={part.value || `Describe the ${part.label.toLowerCase()}…`}
                 onChange={(e) => setValues((v) => ({ ...v, [part.id]: e.target.value }))}
               />
-              <div className="pxc-chips">
-                {active.map((a) => (
-                  <span key={a} className="pxc-anchor">
-                    {a}
-                    <button type="button" aria-label={`Remove ${a}`} onClick={() => removeAnchor(part.id, a)}>
-                      <Icon name="x" size={12} />
+              {suggestions.length > 0 && (
+                <div className="pxc-chips">
+                  {suggestions.map((c) => (
+                    <button key={c} type="button" className="pxc-suggest" onClick={() => addChip(part.id, c)}>
+                      <Icon name="plus" size={12} /> {c}
                     </button>
-                  </span>
-                ))}
-                {suggestions.map((c) => (
-                  <button key={c} type="button" className="pxc-suggest" onClick={() => addAnchor(part.id, c)}>
-                    <Icon name="plus" size={12} /> {c}
-                  </button>
-                ))}
-                <input
-                  className="pxc-add"
-                  value={drafts[part.id] ?? ''}
-                  placeholder="Add your own…"
-                  onChange={(e) => setDrafts((d) => ({ ...d, [part.id]: e.target.value }))}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') {
-                      e.preventDefault();
-                      addAnchor(part.id, drafts[part.id] ?? '');
-                      setDrafts((d) => ({ ...d, [part.id]: '' }));
-                    }
-                  }}
-                />
-              </div>
+                  ))}
+                </div>
+              )}
             </div>
           );
         })}

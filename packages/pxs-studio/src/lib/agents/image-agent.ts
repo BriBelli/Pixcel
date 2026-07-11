@@ -296,7 +296,7 @@ export async function* runImageAgent(frame: EpistemicFrame, turn: ImageAgentTurn
       block: {
         kind: 'builder',
         surface: 'canvas',
-        title: `Shaping · ${subject}`,
+        title: `Prompt guide · ${subject}`,
         media: frame.medium === 'video' ? 'video' : 'image',
         parts,
         modelId: facts?.modelId,

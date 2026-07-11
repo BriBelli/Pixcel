@@ -21,12 +21,13 @@
  * ───────────────────────────────────────────────────────────────────────────── */
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { useChatTurnsStore, a2uiSurface, type A2UIReferencesBlock } from '../store/chat-turns-store';
+import { useChatTurnsStore, a2uiSurface, type A2UIReferencesBlock, type A2UIBuilderBlock } from '../store/chat-turns-store';
 import { useSettings } from '../store/settings-store';
 import { Composer, type ComposerAttachment } from './ui';
 import { MessageTurn } from './chat/MessageTurn';
 import { ImageStage, type StageImage } from './chat/ImageStage';
 import { PromptGuidePanel } from './chat/PromptGuidePanel';
+import { BuilderPanel } from './chat/BuilderPanel';
 
 interface Props {
   /** The prompt typed on the splash (front door). Auto-sent once on mount. */
@@ -119,6 +120,18 @@ export default function ChatView({ initialPrompt }: Props) {
     .map((t) => t.a2ui)
     .find((b): b is A2UIReferencesBlock => b != null && a2uiSurface(b) === 'controls') ?? null;
 
+  // The center Prompt Builder (canvas surface) — the latest structured consult + its source turn (so
+  // a new consult remounts the panel with fresh shaping state). PR-10a.
+  const builder = (() => {
+    for (let i = turns.length - 1; i >= 0; i--) {
+      const b = turns[i].a2ui;
+      if (b && b.kind === 'builder' && a2uiSurface(b) === 'canvas') {
+        return { block: b as A2UIBuilderBlock, turnId: turns[i].id };
+      }
+    }
+    return null;
+  })();
+
   // The conversation (scrollable turns + composer) — shared by the chat column and the workspace's
   // right pane. `capped` centers it under the chat-width cap (chat home); the pane fills its column.
   const conversation = (capped: boolean) => (
@@ -177,12 +190,24 @@ export default function ChatView({ initialPrompt }: Props) {
               the conversation continuing in a right pane. This is what makes a transfer read as a
               WORKFLOW, not a dead-end in the chat scroll. ── */
         <div className="relative flex-1 flex min-w-0">
-          <ImageStage
-            images={stageImages}
-            generating={generating}
-            medium={workspaceMedium}
-            contextLabel={activeFrame?.subject || activeFrame?.goal}
-          />
+          {/* Center stage — one slot, two view templates: the Prompt Builder while SHAPING (a
+              structured consult exists and nothing's rendered yet), the image gallery once Render
+              fires and tiles stream. */}
+          {builder && stageImages.length === 0 && !generating ? (
+            <BuilderPanel
+              key={builder.turnId}
+              block={builder.block}
+              busy={generating}
+              onRender={(prompt, references) => send(prompt, references)}
+            />
+          ) : (
+            <ImageStage
+              images={stageImages}
+              generating={generating}
+              medium={workspaceMedium}
+              contextLabel={activeFrame?.subject || activeFrame?.goal}
+            />
+          )}
           <aside
             className="w-[400px] shrink-0 flex flex-col min-h-0"
             style={{ borderLeft: '1px solid var(--a2ui-border-subtle)', background: 'var(--a2ui-bg-app)' }}

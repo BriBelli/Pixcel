@@ -36,7 +36,8 @@ You OWN the image specs (the Operator handed only the brief):
 - needs: capability tags the model MUST have, chosen from: text_in_image, editing, multi_reference, photorealism, vector, high_resolution, fast, cheap. Only include what the brief truly requires (e.g. a photoreal brief → ["photorealism"]).
 - aspectRatio: optional (e.g. "16:9" for a video-scene frame).
 - count: how many takes (default 2).
-- referenceRecommendation: 1–3 SHORT reference TYPES to attach for a precise result, tailored to the brief (e.g. "A character reference to keep the Camaro consistent", "A style reference for the era", "Start & end frames"). The exact reference COUNT the chosen model accepts is a fact supplied to you — never invent it.`;
+- referenceRecommendation: 1–3 SHORT reference TYPES to attach for a precise result, tailored to the brief (e.g. "A character reference to keep the Camaro consistent", "A style reference for the era", "Start & end frames"). The exact reference COUNT the chosen model accepts is a fact supplied to you — never invent it.
+- parts: on a CONSULTATION (guided) leg, break the brief into the image FORMULA — Subject, Action, Context, Composition, Style. For each part give: id (lowercase), label, a one-line guidance (what the part is for), a value pre-filled from the brief (empty if nothing to infer yet), and 3–5 SUGGESTED anchor chips tailored to THIS subject (e.g. for a Camaro's Style: "golden hour", "overcast", "kodachrome", "grainy 35mm"). The chips are suggestions the user taps or ignores — never a fixed menu. This is what the user shapes in the Prompt Builder before rendering.`;
 
 const PLAN_TOOL = {
   name: 'plan_render',
@@ -49,6 +50,24 @@ const PLAN_TOOL = {
       aspectRatio: { type: 'string' },
       count: { type: 'number' },
       referenceRecommendation: { type: 'array', items: { type: 'string' } },
+      // The prompt FORMULA broken into parts — the structured consult the center Prompt Builder
+      // renders. On a GUIDED consult, fill these: pre-fill each value from the brief, add one-line
+      // guidance + 3–5 SUGGESTED anchor chips per part (the user taps or free-types more).
+      parts: {
+        type: 'array',
+        items: {
+          type: 'object',
+          properties: {
+            id: { type: 'string' }, // subject | action | context | composition | style
+            label: { type: 'string' },
+            guidance: { type: 'string' },
+            value: { type: 'string' },
+            chips: { type: 'array', items: { type: 'string' } },
+          },
+          required: ['id', 'label', 'value'],
+          additionalProperties: false,
+        },
+      },
     },
     required: ['prompt'],
     additionalProperties: false,
@@ -67,12 +86,33 @@ export interface ReferencesRecommendation {
   note?: string;
 }
 
+/** One formula part in the builder block (mirrors the store's BuilderPart). */
+export interface ImageBuilderPart {
+  id: string;
+  label: string;
+  guidance: string;
+  value: string;
+  chips: string[];
+}
+
+/** The STRUCTURED CONSULT the guided leg surfaces (mirrors A2UIBuilderBlock, PR-10a) — the center
+ *  Prompt Builder. Replaces the prose consult + the standalone references card: the agent breaks the
+ *  brief into the formula and folds in the model's reference facts; the user shapes it and hits Render. */
+export interface ImageBuilderBlock {
+  kind: 'builder';
+  surface?: 'canvas';
+  title: string;
+  media: 'image' | 'video' | 'pixel' | 'anim';
+  parts: ImageBuilderPart[];
+  model?: { label: string; maxReferences: number; supports: string[] };
+}
+
 /** Events the Image agent streams (the route forwards / meters these). */
 export type ImageAgentEvent =
   | { type: 'agent_start' }
   | { type: 'agent_text'; delta: string }
   | { type: 'agent_usage'; inputTokens: number; outputTokens: number }
-  | { type: 'agent_a2ui'; block: ReferencesRecommendation }
+  | { type: 'agent_a2ui'; block: ReferencesRecommendation | ImageBuilderBlock }
   | { type: 'gen_start' }
   | { type: 'image'; url: string; modelLabel: string; index: number }
   | { type: 'gen_error'; message: string }
@@ -92,6 +132,45 @@ function capabilityHighlights(f: ModelCapabilityFacts): string[] {
   if (f.multiReference) out.push('Multi-image compositing');
   if (f.supportsEditing) out.push('Editing / inpaint');
   return out;
+}
+
+/** The default image formula skeleton — the SAFETY NET when the model underfills `parts`. Structural
+ *  (the formula, not creative content); values/chips stay minimal so the agent/user fills them. Agent-
+ *  emitted parts always win. Per-media parts (video/pixel/anim) land in PR-10f. */
+function defaultImageParts(frame: EpistemicFrame): ImageBuilderPart[] {
+  const subject = (frame.subject || frame.goal || '').trim();
+  return [
+    { id: 'subject', label: 'Subject', guidance: 'The main focal point — be specific about materials and texture.', value: subject, chips: [] },
+    { id: 'action', label: 'Action', guidance: 'What the subject is doing — pose, stance, expression.', value: '', chips: [] },
+    { id: 'context', label: 'Context', guidance: 'The environment and framing — say what you want, not what you don\'t.', value: '', chips: [] },
+    { id: 'composition', label: 'Composition', guidance: 'Shot type, angle, lens, and depth of field.', value: '', chips: [] },
+    { id: 'style', label: 'Style', guidance: 'Lighting, palette, mood, and medium.', value: '', chips: [] },
+  ];
+}
+
+/** Validate agent-emitted formula parts; fall back to the default skeleton when empty/malformed. */
+function normalizeBuilderParts(raw: unknown, frame: EpistemicFrame): ImageBuilderPart[] {
+  const parts = Array.isArray(raw)
+    ? raw
+        .map((p): ImageBuilderPart | null => {
+          if (!p || typeof p !== 'object') return null;
+          const o = p as Record<string, unknown>;
+          const id = typeof o.id === 'string' ? o.id.trim() : '';
+          const label = typeof o.label === 'string' ? o.label.trim() : '';
+          if (!id || !label) return null;
+          return {
+            id,
+            label,
+            guidance: typeof o.guidance === 'string' ? o.guidance.trim() : '',
+            value: typeof o.value === 'string' ? o.value.trim() : '',
+            chips: Array.isArray(o.chips)
+              ? o.chips.filter((c): c is string => typeof c === 'string' && c.trim().length > 0).map((c) => c.trim()).slice(0, 6)
+              : [],
+          };
+        })
+        .filter((p): p is ImageBuilderPart => p !== null)
+    : [];
+  return parts.length > 0 ? parts : defaultImageParts(frame);
 }
 
 /** A follow-up turn INSIDE the Image workspace (Option A — the workspace talks straight to the
@@ -123,17 +202,19 @@ export async function* runImageAgent(frame: EpistemicFrame, turn: ImageAgentTurn
 
   // 1) The Image agent's brain: brief (+ any follow-up) → render plan (opener text + plan_render
   //    tool call). Its craft (plan-then-generate, reference workflows, prompt formulas) is skills.
-  let plan: { prompt?: unknown; needs?: unknown; aspectRatio?: unknown; count?: unknown; referenceRecommendation?: unknown } = {};
+  let plan: { prompt?: unknown; needs?: unknown; aspectRatio?: unknown; count?: unknown; referenceRecommendation?: unknown; parts?: unknown } = {};
   try {
     const client = new Anthropic();
     let userContent: string;
     if (!followUp) {
       userContent =
         `BRIEF (verified — start at Decide):\n${JSON.stringify(frame)}\n\n` +
-        `This is the CONSULTATION leg (reference-first): do NOT render — no images are generated now. ` +
-        `Your opener invites the user to set up the pass (key specs like year/color/era, and reference images), ` +
-        `calm and consultative, never claiming you're rendering. Still produce a plan_render plan (prompt + needs) ` +
-        `so the reference recommendation is grounded — it just won't run until the user commits.`;
+        `This is the CONSULTATION (guided) leg: do NOT render — no images are generated now. Your opener is ONE ` +
+        `calm sentence (e.g. "Let's shape this — I've laid out the parts; tune them and hit Render"), never ` +
+        `claiming you're rendering and NOT a long list of specs (the parts ARE the specs). In plan_render, fill ` +
+        `\`parts\` (the image FORMULA — Subject/Action/Context/Composition/Style, each with guidance + a value ` +
+        `pre-filled from the brief + 3–5 suggested chips) plus prompt + needs so the reference facts are grounded. ` +
+        `The user shapes the parts in the Prompt Builder and commits later.`;
     } else {
       const parts = [`BRIEF (verified):\n${JSON.stringify(frame)}`];
       if (instruction) parts.push(`FOLLOW-UP INSTRUCTION FROM THE USER — apply it to the render plan:\n${instruction}`);
@@ -198,31 +279,25 @@ export async function* runImageAgent(frame: EpistemicFrame, turn: ImageAgentTurn
   //     Only on the FIRST leg (the transfer) — don't repeat the recommendation on every follow-up.
   if (!followUp) try {
     const facts = await describeModelCapabilities(req);
-    if (facts) {
-      const modelRecommend = (Array.isArray(plan.referenceRecommendation)
-        ? plan.referenceRecommendation.filter((r): r is string => typeof r === 'string' && r.trim().length > 0).map((r) => r.trim())
-        : []
-      ).slice(0, Math.max(1, facts.maxReferenceImages));
-      // DETERMINISTIC: a guided consult ALWAYS surfaces the Prompt Guide card — if the model didn't
-      // fill referenceRecommendation, use a sensible default so the panel is never empty. (Same
-      // "model whiffs the structured payload" guard as the Operator's staged question.)
-      const subject = (frame.subject || frame.goal || 'the subject').trim();
-      const recommend = modelRecommend.length > 0
-        ? modelRecommend
-        : [`A reference photo of ${subject} — to lock its identity`, 'A style or lighting reference for the scene'];
-      yield {
-        type: 'agent_a2ui',
-        block: {
-          kind: 'references',
-          surface: 'controls', // the Prompt Guide panel, not the chat scroll
-          modelLabel: facts.modelLabel,
-          maxReferences: facts.maxReferenceImages,
-          supports: capabilityHighlights(facts),
-          recommend,
-          note: `Attach up to ${facts.maxReferenceImages} reference image${facts.maxReferenceImages === 1 ? '' : 's'} (or tell me the specs), then I'll render.`,
-        },
-      };
-    }
+    // The STRUCTURED CONSULT (PR-10a): break the brief into the formula parts + fold in the model's
+    // reference facts → the center Prompt Builder. DETERMINISTIC — if the model underfills `parts`,
+    // fall back to a default image skeleton so the builder is never broken (same guard as the
+    // Operator's staged question). The agent owns the content; this is only a safety net.
+    const parts = normalizeBuilderParts(plan.parts, frame);
+    const subject = (frame.subject || frame.goal || 'the subject').trim();
+    yield {
+      type: 'agent_a2ui',
+      block: {
+        kind: 'builder',
+        surface: 'canvas',
+        title: `Shaping · ${subject}`,
+        media: frame.medium === 'video' ? 'video' : 'image',
+        parts,
+        model: facts
+          ? { label: facts.modelLabel, maxReferences: facts.maxReferenceImages, supports: capabilityHighlights(facts) }
+          : undefined,
+      },
+    };
   } catch (err) {
     console.warn('[image-agent] capability lookup failed (skipping recommendation):', err);
   }

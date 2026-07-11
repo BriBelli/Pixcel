@@ -14,7 +14,7 @@ test('defaultStagedQuestion: the safety net is a well-formed staged ask (label +
   const q = defaultStagedQuestion();
   assert.ok(q.label.length > 0, 'must carry a real question label');
   assert.ok(q.placeholder && q.placeholder.length > 0, 'must show a worked example');
-  assert.deepEqual(q.chips, ['A quick take', 'A guided in-depth render']);
+  assert.deepEqual(q.chips, ['A quick take', 'A guided build']);
 });
 
 test('dispatch is no longer a valid Operator action → defaults to reply', () => {

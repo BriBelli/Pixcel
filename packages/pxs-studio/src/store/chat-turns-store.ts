@@ -25,7 +25,7 @@ const THREAD_STORAGE_KEY = 'pxs-chat-thread';
  * workspace's dedicated Prompt Guide panel (persistent, out of the scroll). The agent owns the
  * tag; the code owns the regions and routes by it. Absent → derived by kind (see `a2uiSurface`).
  */
-export type A2UISurface = 'chat' | 'controls';
+export type A2UISurface = 'chat' | 'controls' | 'canvas';
 
 /** A stacked options block (radio/checkbox). */
 export interface A2UIOptionsBlock {
@@ -74,8 +74,39 @@ export interface A2UIReferencesBlock {
   note?: string;
 }
 
+/** One part of the prompt FORMULA in a builder block (PR-10a). Every field is AGENT-emitted —
+ *  the code never bakes parts, chips, or values. `chips` are SUGGESTED anchors (tap to add); the
+ *  user can always free-type more (never a cage). */
+export interface BuilderPart {
+  /** Stable id — 'subject' | 'action' | 'context' | 'composition' | 'style' | agent-defined. */
+  id: string;
+  label: string;
+  /** One line: what this part is for (structural guidance, e.g. "the main focal point"). */
+  guidance: string;
+  /** The part's text, pre-filled by the agent from the brief; user-editable. */
+  value: string;
+  /** Agent-SUGGESTED anchor chips (tap to add). Never a code table. */
+  chips: string[];
+}
+
+/** The STRUCTURED CONSULT (PR-10a) — the Prompt Builder the center stage renders. The agent breaks
+ *  the brief into the formula parts + folds in the chosen model's reference facts; the user shapes it
+ *  (suggested + free-form) and hits Render. Media-agnostic: `media` drives which parts the agent emits. */
+export interface A2UIBuilderBlock {
+  kind: 'builder';
+  /** Routes to the center stage. Defaults to 'canvas'. */
+  surface?: A2UISurface;
+  /** e.g. "Shaping · Third-gen Camaro on a rural backroad". */
+  title: string;
+  media: 'image' | 'video' | 'pixel' | 'anim';
+  parts: BuilderPart[];
+  /** The chosen model's reference facts, folded in as the References section (PR-10a; the standalone
+   *  Prompt Guide panel returns in PR-10d). */
+  model?: { label: string; maxReferences: number; supports: string[] };
+}
+
 /** Any A2UI block a turn can carry. */
-export type A2UIBlock = A2UIOptionsBlock | A2UIQuestionBlock | A2UIReferencesBlock;
+export type A2UIBlock = A2UIOptionsBlock | A2UIQuestionBlock | A2UIReferencesBlock | A2UIBuilderBlock;
 
 /**
  * The block router (slots-not-screens): which region a block belongs in. An explicit `surface`
@@ -84,7 +115,10 @@ export type A2UIBlock = A2UIOptionsBlock | A2UIQuestionBlock | A2UIReferencesBlo
  * renderer (inline in MessageTurn) and the panel (ChatView) never disagree about where a block goes.
  */
 export function a2uiSurface(block: A2UIBlock): A2UISurface {
-  return block.surface ?? (block.kind === 'references' ? 'controls' : 'chat');
+  if (block.surface) return block.surface;
+  if (block.kind === 'builder') return 'canvas'; // the center Prompt Builder
+  if (block.kind === 'references') return 'controls'; // the Prompt Guide panel
+  return 'chat';
 }
 
 /** One generated image tile streamed into the turn (the dispatched image workflow's output). */
@@ -437,7 +471,11 @@ export const useChatTurnsStore = create<ChatTurnsState>((set, get) => {
             text: it.response?.text ?? '',
             steps: [],
             a2ui:
-              a2ui && (a2ui.kind === 'options' || a2ui.kind === 'question' || a2ui.kind === 'references')
+              a2ui &&
+              (a2ui.kind === 'options' ||
+                a2ui.kind === 'question' ||
+                a2ui.kind === 'references' ||
+                a2ui.kind === 'builder')
                 ? a2ui
                 : null,
             suggestions: [],

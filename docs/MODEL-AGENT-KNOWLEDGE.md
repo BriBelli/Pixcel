@@ -33,6 +33,13 @@ video without a rebuild. See [[feedback_constructive-not-destructive]].)
 2. **Formula shards — warm, OKF skills.** Per-model **prompt FORMULA + craft**: the documented "how to
    prompt THIS model well" — which parts it rewards, its syntax, its strengths. This is what **DRIVES
    the builder's parts + scoring** for the target model. Markdown with `updated_at`. Injected on Orient.
+   Crucially the formula includes **ASSEMBLY rules — order, weighting, format, and which parts even
+   apply** — not just a part list. Different weighting (Subject-led vs Style-led), required ORDERING
+   (some models weight by position), different included criteria. **So the same shaped intent yields a
+   genuinely DIFFERENT final prompt string per model — you cannot send one prompt to N models.** The
+   **assembler is model-driven** (the Model agent composes the final prompt per each model's rules),
+   NOT a generic comma-join. This is exactly why the color-coded prompt view + the model toggle matter:
+   flip models and you SEE the prompt redesign (different order/emphasis), not just a different score.
 3. **Live research — cold, Tavily.** When a shard is stale (timestamp past a threshold) or a
    model/feature is unknown: research the provider + industry-leader docs, extract the formula/features,
    **verify**, and **promote** the finding → tiers 2/1.

@@ -21,8 +21,10 @@ with an **info toggle** between plain text and the color-coded view, and **click
 
 1. Per-part **color** (from `BuilderPart.id`/palette; agent may override). One source of truth shared
    by the Builder and the preview.
-2. **Assembler**: parts → the final prompt string, with the comma/section separators the models expect
-   (the format is data, not hardcoded per-subject).
+2. **Model-driven assembler**: parts → the final prompt string per the TARGET model's formula rules —
+   **order, weighting, format, and which parts apply** (the Model agent's assembly rules, NOT a generic
+   comma-join). The SAME parts assemble into a DIFFERENT prompt per model; the model toggle shows each
+   model's distinct prompt design. See [[MODEL-AGENT-KNOWLEDGE]].
 3. **Preview component**: plain ↔ color-coded toggle (info button; consider default-on per Brian),
    a color legend, click-colored-text → focus that part in the Builder.
 4. Live-sync: editing a part (field or chips) updates the preview; the preview is a view, not a

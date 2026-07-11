@@ -45,12 +45,20 @@ color-coding, no Guide panel, no Agent panel yet** — this is the structure wor
 
 ## Next refinement — the accumulating canvas (agreed 2026-07-10)
 
-The center canvas is a **chat-like y-scroll that ACCUMULATES A2UI form components**, not a single
-replaced form. Each agent follow-up appends more form elements (a stepper-like workflow); the user
-**scrolls up to see history** (earlier shaping steps stay in the record), newest at the bottom —
-exactly how the right-hand agent chat scrolls. (Brian: the piece he wished Photolif had.) Mechanism:
-render the STACK of canvas-surface blocks across the conversation (not just the latest), append-only,
-auto-scroll to newest; older blocks read as history. Carve this right after the current 10a lands.
+The center canvas is a **chat-like y-scroll that ACCUMULATES the whole workflow**, not a single
+replaced form. Interleaved in ONE stream, append-only, newest at the bottom, scroll-up = history:
+
+- the **A2UI form components** the agent emits (the builder steps),
+- the **steps the agent wants the user to complete** (dynamic, agent-owned — a mix of components + asks),
+- and — the key insight — the **generated media (images/video) INLINE in the same stream**, dropping
+  in right below the components that produced them. It is NOT "builder OR gallery, two templates that
+  swap"; the builder components and the rendered output **coexist** in the canvas. Render a pass →
+  tiles appear under those parts → the next step's components appear under that. Media-as-JSON, one scroll.
+
+The right-rail **Agent stays always-available** so the user can talk to it inside any step (hard law).
+This supersedes 10a's "center = one slot, two view templates (builder ⇄ gallery)" — the templates
+become BLOCKS in the accumulating stream. (Brian: the piece he wished Photolift had.) Carve right
+after the current 10a settles.
 
 ## Out of scope (later phases)
 

@@ -34,7 +34,11 @@ from `docs/PIXCEL-PRODUCT-SPEC.md`, driven by our autonomous agents (not prompt-
 ```
 
 1. **Structured consult / Prompt Builder** (center, `surface:'canvas'`) — the A2UI workflow
-   components: the formula broken into parts, shaped with suggested + free-form chips.
+   components: the formula broken into parts, shaped with suggested + free-form chips. It is a
+   **chat-like y-scroll that accumulates the whole workflow** — components + agent-requested steps
+   **and the generated media (images/video) INLINE in the same stream**, newest at the bottom,
+   scroll-up = history. Not "builder OR gallery" — they coexist in one scroll. (See PR-10a → the
+   accumulating canvas.)
 2. **Prompt Guide** (right, `surface:'controls'`) — a prominent product feature: the model-aware
    *why + how* for each part, powered by the Model agent + tiered knowledge.
 3. **Agent** (right) — Ask/Agent modes; edits the prompt, generates views, restyles the whole project.

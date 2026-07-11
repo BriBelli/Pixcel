@@ -91,6 +91,31 @@ agent emits it; the A2UI renders the correct dropzones; the router maps uploads 
 input fields at dispatch. A generic "Attach references" is a placeholder — the real thing is
 model-shaped slots.
 
+## Multi-model: the Model agent is the universal adapter (no universal protocol exists)
+
+There is **no universal protocol** for model interfaces — top-N models have different parameters,
+reference schemas, and feature surfaces (small to large). That fragmentation is exactly the gap
+Pixcel fills: **the Model agent + A2UI + the JSON substrate ARE the universal layer**. The Model
+agent normalizes heterogeneous model APIs into one coherent A2UI (human side); the router maps the
+normalized inputs back to each model's real API at dispatch (machine side).
+
+When **N models are targeted** (agent-picked or user-chosen — cf. the reference's "4 pinned + 8 auto ·
+12 models"):
+
+- **Shared core — fill once.** The common formula the user shapes (subject, style, composition); the
+  Model agent maps it to EACH model's formula. The user never fills N forms.
+- **Per-model divergence — only where they differ.** Reference schema (typed vs named vs ordered),
+  unique features (editing, 4K, seed, aspect ratios), model-specific params → rendered as per-model
+  A2UI sub-blocks, surfaced ONLY where models actually diverge (shared stuff isn't triplicated).
+- **Score per model.** Each prompt measured against its OWN formula ("79% Nano Banana · 84% Flux") —
+  honest per target, never one averaged fiction.
+- **Generate → fan-out.** Each model gets its correctly-mapped inputs; outputs stream into the canvas
+  per model.
+
+The empty-canvas "feels like a chat but not" problem resolves the same way: it reads as a **workspace**
+once it's populated with this A2UI (uploads, per-model slots, steps, then media) — the accumulating
+canvas. Emptiness is the tell; rich agent-emitted A2UI is the fix.
+
 ## Implications for the PR-10 build
 
 - **The builder's formula is MODEL-DRIVEN, not generic.** PR-10a's generic

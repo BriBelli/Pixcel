@@ -25,12 +25,12 @@ const CSS = `
 /* Type scale — happy medium: present, not heavy. Fluid via clamp (min = mobile, ~vw = the
    breakpoint slope, max = large screens). Nudge the three clamp values to taste. */
 .pxs-greet-title {
-  font-size: clamp(1.875rem, 3.4vw, 2.75rem); font-weight: var(--a2ui-font-medium, 500);
+  font-size: clamp(1.375rem, 2vw, 1.875rem); font-weight: var(--a2ui-font-medium, 500);
   letter-spacing: -0.01em; line-height: var(--a2ui-leading-tight);
   color: var(--a2ui-text-primary); margin: 0;
 }
 .pxs-greet-sub {
-  font-size: clamp(1rem, 1.5vw, 1.25rem); color: var(--a2ui-text-tertiary);
+  font-size: clamp(0.875rem, 1.1vw, 1.0625rem); color: var(--a2ui-text-tertiary);
   line-height: var(--a2ui-leading-normal); margin: 0; max-width: 42ch;
 }
 .pxs-greet-chips { display: flex; flex-wrap: wrap; justify-content: center; gap: var(--a2ui-space-2); margin-top: var(--a2ui-space-2); }
@@ -43,6 +43,10 @@ const CSS = `
 }
 .pxs-greet-chip:hover { border-color: var(--a2ui-border-default); color: var(--a2ui-text-primary); background: var(--a2ui-bg-hover); }
 `;
+
+/** Suggestion chips are HIDDEN for now (hard to read / not useful yet) — the code stays, and the
+ *  "suggestions" surface gets refactored later. Flip to re-enable. */
+const SHOW_CHIPS = false;
 
 export function SplashGreeting({ onSelect }: SplashGreetingProps) {
   const { chips, hasProjects, loading } = useSplashState();
@@ -71,7 +75,7 @@ export function SplashGreeting({ onSelect }: SplashGreetingProps) {
       <style>{CSS}</style>
       <h1 className="pxs-greet-title">{title}</h1>
       <p className="pxs-greet-sub">{subtitle}</p>
-      {chips.length > 0 && (
+      {SHOW_CHIPS && chips.length > 0 && (
         <div className="pxs-greet-chips">
           {chips.map((c) => (
             <button key={c.id} type="button" className="pxs-greet-chip" onClick={() => onSelect(c)}>

@@ -14,18 +14,15 @@ export const STUB_SUGGESTIONS = [
 ];
 
 /**
- * The DETERMINISTIC staged question — the safety net so a creative request NEVER dead-ends in
- * generic chips. Used when the Operator intends to "ask" but omits the payload, or classifies a
- * "create" turn as a plain reply. Offers quick-vs-guided AND asks for the disambiguating specifics.
- * The model usually writes a better, subject-tailored version; this guarantees the UX regardless.
+ * The DETERMINISTIC fallback question — the safety net for the rare case where the Operator picks
+ * "ask" but omits the payload (or whiffs a create turn into a plain reply). A genuine deliverable
+ * clarifier ("what do you want to make?"), NOT a scripted quick-vs-guided fork — a clear create
+ * request should TRANSFER to the builder, not ask. The model usually writes a better, tailored one.
  */
 export function defaultStagedQuestion(): ClassifyQuestion {
   return {
-    // Just the MODE (+ room for rough direction) — the guided path's Prompt Builder gathers the
-    // detailed specifics, so the front door does NOT interrogate every spec (no double-ask).
-    label: 'Want a quick take, or a guided build where we shape the details together?',
-    placeholder: "e.g. guided — and it's for a short film scene",
-    chips: ['A quick take', 'A guided build'],
+    label: 'What would you like to create — and what should it show?',
+    placeholder: 'e.g. an image of a 1969 Camaro on a coastal road at dusk',
   };
 }
 
@@ -73,10 +70,10 @@ export interface ClassifyResult {
   intent: 'create' | 'chat' | 'other';
   /** The Operator's OODA verdict. The Operator has NO generative power — every action is ask /
    *  propose / transfer / reply; generation happens ONLY inside the specialist agent, post-transfer.
-   *   ask = DEFAULT for a fresh/under-specified subject → a staged A2UI question (quick-vs-guided +
-   *   the disambiguating specifics), NO spend · propose = oriented but a real fork → workflow paths,
-   *   NO spend · transfer = hand the scoped frame (with a depth hint) to the image agent, which
-   *   executes · reply = conversation. */
+   *   transfer = the DEFAULT for a create request → hand the scoped frame to the image agent, whose
+   *   BUILDER opens (the consult); depth defaults 'guided' · propose = oriented but a real
+   *   multi-step fork → workflow paths, NO spend · ask = ONLY when the deliverable itself is unclear
+   *   (not quick-vs-guided) · reply = conversation. */
   action: 'propose' | 'transfer' | 'ask' | 'reply';
   /** The workflow (action='transfer'). Only 'image' is wired today. */
   workflow?: 'image';
@@ -162,12 +159,12 @@ Respond in TWO parts, in order:
 
 Reach the verdict with OODA: OBSERVE the message + history + entry section; ORIENT on the DELIVERABLE and its depth (what is it FOR — an image? a video? part of a project?); DECIDE ONE action.
 
-THE CARDINAL RULE — a bare or under-specified creative subject is a CATEGORY, not an image. "a Camaro" — even "a photoreal Camaro" — spans countless years, trims, colors, and scenes, exactly like "a person" spans millions. You never hand that to a generator on first contact; you ASK. You do NOT make a user happy by firing something off the moment they speak — you make them happy by asking the CORRECT questions, getting the right answers, and THEN letting the specialist deliver the best output. That is what a professional does.
+THE CARDINAL RULE — never eager-generate, and never script a needless step. A creative request — "a car", "a photoreal Camaro", "an image of X" — is a clear signal to TRANSFER to the image specialist, whose BUILDER opens and gathers the specifics WITH the user (that IS the consult — nothing is generated until the user commits in the builder). Do NOT stop to ask "quick or guided" or to interrogate specs upfront — that is a scripted step, and you are NOT scripted. Observe → Orient → Decide → Act: recognize the intent and route to the winning pattern (the builder), push it FIRST. You still NEVER generate images yourself; the builder consulting is not generating.
 
 Actions (the \`decide\` tool's "action"):
-- "ask" — the DEFAULT for a fresh creative subject where the user has NOT signalled speed (no "quick"/"just"/"I don't care"). Offer the two ways to proceed — a quick take, or a guided build — and, if you don't even have the rough subject yet, ask that too. Do NOT interrogate every spec (year/color/trim/scene): on the GUIDED path the specialist's **Prompt Builder** gathers those, so asking here would double-ask. question = { label (warm + short — the mode, plus rough direction if the subject's unclear), placeholder (a short example), chips? (the two modes, e.g. "A quick take", "A guided build") }. When you pick "ask" you MUST fill question.label — an empty ask is a bug.
-- "propose" — ORIENTED, but there's a real fork in HOW to do it well (video, film, story, iteration, references). proposal = { title, options: [{id, label, detail}] } of WORKFLOW PATHS — never tool/model names. Spends nothing.
-- "transfer" — hand a scoped baton to the IMAGE AGENT (the specialist that executes the generation — you never do). frame = { goal, subject, medium, depth } — NO image prompt, you don't write those. \`depth\`: "quick" when the user has signalled SPEED — either they said "quick"/"just"/"a few"/"I don't care which" (the agent decides any details they left open and renders IMMEDIATELY), or they gave enough specifics for a fast single take; "guided" when they want it done properly (the agent consults for references, then renders on the user's commit). A quick, don't-care request is a fast transfer, never an "ask" and never your own render. In the opener call it the **image agent** / an **image specialist**, never a "motion"/"video" specialist — even a video scene starts from reference images.
+- "transfer" — the DEFAULT for any create request. The moment you're oriented that the user wants an image (or video), TRANSFER: hand the frame to the specialist and its BUILDER opens — the guided consult that shapes the specifics WITH the user. This is the winning pattern; push it first, don't ask permission to use it. frame = { goal, subject, medium, depth } — NO image prompt, you don't write those. \`depth\` DEFAULTS to "guided" (the builder). Use "quick" ONLY if the user EXPLICITLY signalled speed ("just quickly", "any", "I don't care") — then the specialist renders fast instead of consulting. If the user later wants to halt or hand-write, the specialist adapts (agility). In the opener call it the **image agent** / an **image specialist**, never a "motion"/"video" specialist — even a video scene starts from reference images.
+- "propose" — ORIENTED, but there's a real fork in HOW to do it well (a whole video/film/story pipeline, a multi-step chain). proposal = { title, options: [{id, label, detail}] } of WORKFLOW PATHS — never tool/model names. Spends nothing. A single image is NOT a fork — that's a transfer.
+- "ask" — ONLY when you genuinely cannot tell WHAT the user wants: the deliverable itself is unclear (an image? a video? are they just chatting?). NOT for "quick vs guided" — the builder handles depth; forcing that fork is the scripted step you must avoid. Keep it to the ONE thing you truly need. question = { label (the one thing), placeholder?, chips? }. When you pick "ask" you MUST fill question.label.
 - "reply" — conversation/greeting/question. suggestions = 2–4 short follow-ups.
 
 Your detailed craft — how to diagnose, size, and shape proposals (e.g. the reference-first professional path for cinematic video) — is in the skills below. Follow them. ENTRY SECTION sets your prior: "chat" = broad; "image" = assume an image deliverable; "video" = assume video. intent = create / chat / other.`;

@@ -67,6 +67,24 @@ Every part = label + guidance + editable field + suggested chips **+ a free-type
 suggested by default, free-form always available. Submit assembles the parts → the color-coded
 prompt → Render.
 
+## Design principles (from the Photolift reference — the hardcoded version we're inverting)
+
+Brian's accidental Cursor-agent build in Photolift produced the RIGHT shape but 100% hardcoded —
+the exact failure we're inverting. What to keep, made dynamic:
+
+- **Accordion stepper.** Each part is a collapsible step (active/done state), not a flat form —
+  scannable, sequential, the agent's steps to complete.
+- **The Guide BUILDS UP.** The quality score climbs and the coaching changes as parts fill
+  ("Add a Subject — it carries the most weight" → strengthens). Guide + scoring in motion (10c/10d).
+- **Blend, but don't merge.** Photolift fused the guide INTO the components; we keep the Guide its
+  own tool (right rail) while the score/coaching surfaces inline as you shape — connected, not merged
+  (avoids the confusion Brian flagged).
+- **Fully dynamic — the agent owns the steps.** The agent decides which A2UI components AND which
+  steps the user completes; a mix of form components + agent-requested steps. Nothing hardcoded.
+- **The agent is ALWAYS available (hard law).** The right-rail Agent stays present in the workspace so
+  the user can talk to it — ask, clarify, get unstuck — INSIDE any step. The consult is never a
+  dead-end form; the human can always reach the agent.
+
 ## The guardrail (Photolif tripwire — do not relapse)
 
 > Code owns **slots + deterministic view templates**. The agent owns **every component**, tagged with

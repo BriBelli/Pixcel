@@ -72,6 +72,25 @@ This is the whole basis of the surface: *context is the currency, and the formul
 the model in its own language* — the difference between guessing and communicating precisely. It also
 makes the score honest: we can show WHY it's 79, not just that it is.
 
+## Reference INPUTS are model-shaped too (the Model agent drives the upload slots)
+
+Reference images are NOT generic — each model has its own **input schema**, and the A2UI upload
+component must render to match it (driven by the Model agent, same as the parts):
+
+- **Typed slots** — Gemini / Nano Banana Pro: dedicated `character` / `style` / `object` references
+  (seeded: `referenceLimits {object, character, style}` in the registry). The A2UI shows a dropzone
+  per type, each with its own limit.
+- **Named property fields** — Nano Banana: the API expects `character_images`, `reference_images`;
+  uploads must land in the RIGHT field, not a generic bag.
+- **Ordered / positional** — some Flux models require images in a specific ORDER (bad design, but we
+  honor it): the A2UI shows an ordered list where position is meaningful.
+
+So the registry's reference facts extend from a flat `maxReferences` to a **reference input schema**:
+slot *kind* (typed | named | ordered), field names, per-slot limits, order-sensitivity. The Model
+agent emits it; the A2UI renders the correct dropzones; the router maps uploads to the model's real
+input fields at dispatch. A generic "Attach references" is a placeholder — the real thing is
+model-shaped slots.
+
 ## Implications for the PR-10 build
 
 - **The builder's formula is MODEL-DRIVEN, not generic.** PR-10a's generic

@@ -17,7 +17,20 @@ by a prominent **Prompt Guide**, and acted on by an **Agent**. It is **media-agn
 structure serves image, video, pixel, anim; only the parts change. This is the Tao/5-level surface
 from `docs/PIXCEL-PRODUCT-SPEC.md`, driven by our autonomous agents (not prompt-pipelines).
 
-## The three co-equal tools
+## The Prompt Guide IS the A2UI (not a separate panel)
+
+Clarified 2026-07-10: the **Prompt Guide is not a distinct hardcoded panel — it IS the A2UI canvas**.
+The parts, scores, chips, and coaching are all A2UI components the (Model) agent emits and the code
+renders. "Build / Guide / Suggestions" are **views of that one A2UI surface** (Build = shape, Guide =
+the *why*, Suggestions = ideas), not separate walls. So the studio is really **two surfaces**:
+
+- **Center = the A2UI canvas** = the Prompt Guide/Builder (its Build/Guide/Suggestions views) **+ the
+  generated media inline** (the accumulating stream).
+- **Right = the Agent**, always available to talk to.
+
+A2UI is the substrate; the Prompt Guide is what we build with it in the canvas.
+
+## The tools (Guide + Builder are the same A2UI surface)
 
 ```
 ┌ left ─┐┌──────── center: PROMPT BUILDER ────────┐┌──── right rail ─────┐

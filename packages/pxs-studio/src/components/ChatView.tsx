@@ -60,17 +60,19 @@ export default function ChatView({ initialPrompt }: Props) {
   // Model agent) and the Agent panel (the conversation with the specialist). The Agent is
   // COLLAPSIBLE; the Build panel is drag-resizable. The center canvas stays free for creations.
   const [rightWidth, setRightWidth] = useState(460); // Build/Guide panel width (resizable)
+  const [agentWidth, setAgentWidth] = useState(360); // Agent panel width (resizable)
   // The "big three" surfaces are all collapsible: the Build/Guide (Prompt guide) panel, the Agent
   // panel, and the center prompt — toggle any off in a viewport where you don't want it.
   const [buildOpen, setBuildOpen] = useState(true);
   const [agentOpen, setAgentOpen] = useState(true);
   const [promptOpen, setPromptOpen] = useState(true);
-  const resizeStart = useRef<{ x: number; w: number } | null>(null);
+  // ONE generic column resizer — the handle sits on a panel's LEFT edge, so dragging LEFT widens it.
+  // Both the Build/Guide and the Agent panel use it (identical feel), each with its own bounds.
+  const resizeStart = useRef<{ x: number; w: number; set: (w: number) => void; min: number; max: number } | null>(null);
   const onResizeMove = useCallback((e: MouseEvent) => {
     const s = resizeStart.current;
     if (!s) return;
-    // Dragging the handle LEFT widens the right panel (its left edge moves left).
-    setRightWidth(Math.max(340, Math.min(760, s.w - (e.clientX - s.x))));
+    s.set(Math.max(s.min, Math.min(s.max, s.w - (e.clientX - s.x))));
   }, []);
   const onResizeUp = useCallback(() => {
     resizeStart.current = null;
@@ -80,15 +82,15 @@ export default function ChatView({ initialPrompt }: Props) {
     document.body.style.userSelect = '';
   }, [onResizeMove]);
   const startResize = useCallback(
-    (e: React.MouseEvent) => {
-      resizeStart.current = { x: e.clientX, w: rightWidth };
+    (e: React.MouseEvent, w: number, set: (w: number) => void, min: number, max: number) => {
+      resizeStart.current = { x: e.clientX, w, set, min, max };
       window.addEventListener('mousemove', onResizeMove);
       window.addEventListener('mouseup', onResizeUp);
       document.body.style.cursor = 'col-resize';
       document.body.style.userSelect = 'none';
       e.preventDefault();
     },
-    [rightWidth, onResizeMove, onResizeUp]
+    [onResizeMove, onResizeUp]
   );
 
   // showActions gates the MessageActions footer per turn. (Theme is applied to <html> by the shell.)
@@ -314,7 +316,7 @@ export default function ChatView({ initialPrompt }: Props) {
               you edit. Collapsible (like the Agent) + drag-resizable. */}
           {builder && builderScore && buildOpen && (
             <>
-              <div role="separator" aria-orientation="vertical" title="Drag to resize" onMouseDown={startResize} className="pxs-resize shrink-0" />
+              <div role="separator" aria-orientation="vertical" title="Drag to resize" onMouseDown={(e) => startResize(e, rightWidth, setRightWidth, 340, 760)} className="pxs-resize shrink-0" />
               <aside
                 className="shrink-0 flex flex-col min-h-0"
                 style={{ width: rightWidth, borderLeft: '1px solid var(--a2ui-border-subtle)', background: 'var(--a2ui-bg-app)' }}
@@ -354,9 +356,11 @@ export default function ChatView({ initialPrompt }: Props) {
           {/* AGENT panel — the CONVERSATION with the specialist (the other output channel of the same
               agent). Collapsible; folds to a slim tab when you just want to build. */}
           {agentOpen ? (
+            <>
+              <div role="separator" aria-orientation="vertical" title="Drag to resize" onMouseDown={(e) => startResize(e, agentWidth, setAgentWidth, 300, 620)} className="pxs-resize shrink-0" />
             <aside
               className="shrink-0 flex flex-col min-h-0"
-              style={{ width: 360, borderLeft: '1px solid var(--a2ui-border-subtle)', background: 'var(--a2ui-bg-app)' }}
+              style={{ width: agentWidth, borderLeft: '1px solid var(--a2ui-border-subtle)', background: 'var(--a2ui-bg-app)' }}
             >
               <div className="pxs-agent-head">
                 <span className="pxs-agent-title"><Icon name="message-square" size={15} /> Agent</span>
@@ -367,6 +371,7 @@ export default function ChatView({ initialPrompt }: Props) {
               {controlsBlock && !builder && <PromptGuidePanel block={controlsBlock} />}
               {conversation(false)}
             </aside>
+            </>
           ) : (
             <button type="button" className="pxs-agent-tab shrink-0" onClick={() => setAgentOpen(true)} title="Open the Agent panel">
               <Icon name="message-square" size={17} />

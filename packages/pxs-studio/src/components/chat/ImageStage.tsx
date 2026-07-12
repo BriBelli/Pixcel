@@ -14,6 +14,7 @@
  * ───────────────────────────────────────────────────────────────────────────── */
 
 import { Icon } from '../ui';
+import { GreetingHero } from '../GreetingHero';
 
 export interface StageImage {
   url: string;
@@ -81,20 +82,21 @@ const CSS = `
 }
 @keyframes pxc-stage-pulse { 0%,100% { opacity: 0.5; } 50% { opacity: 1; } }
 
-/* Empty state — the mockup's clean full-bleed canvas: a big centered headline invites the
-   first prompt (the workflow carousel is a later slice). Calm, no glyph, no marketing. */
+/* Empty state — the mockup's clean full-bleed canvas: the shared <GreetingHero> lockup invites the
+   first prompt (the workflow carousel is a later slice). Calm, no glyph, no marketing. The title +
+   subtitle type lives in GreetingHero so it stays identical to the chat splash. */
 .pxc-stage-empty {
   flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center;
-  gap: var(--a2ui-space-3); padding: var(--a2ui-space-8); text-align: center;
+  gap: var(--a2ui-space-2); padding: var(--a2ui-space-8); text-align: center;
 }
-.pxc-stage-empty-title {
-  font-size: var(--a2ui-text-3xl); font-weight: 600; letter-spacing: -0.01em;
-  color: var(--a2ui-text-primary); max-width: 16ch; line-height: var(--a2ui-leading-tight);
-}
-.pxc-stage-empty-sub { font-size: var(--a2ui-text-md); color: var(--a2ui-text-tertiary); max-width: 34ch; }
 
 @media (prefers-reduced-motion: reduce) { .pxc-stage-pending { animation: none; } }
 `;
+
+/** "a car" / "an owl" / "the dragon" → "car" / "owl" / "dragon" so "shape your {subject}" reads right. */
+function cleanSubject(s: string): string {
+  return s.replace(/^\s*(a|an|the)\s+/i, '').trim() || s.trim();
+}
 
 export function ImageStage({ images, generating, medium, contextLabel }: ImageStageProps) {
   const isVideo = medium === 'video';
@@ -132,22 +134,19 @@ export function ImageStage({ images, generating, medium, contextLabel }: ImageSt
       ) : (
         <div className="pxc-stage-empty">
           {ctx ? (
-            <>
-              <h1 className="pxc-stage-empty-title">Let&rsquo;s shape your {ctx}.</h1>
-              <p className="pxc-stage-empty-sub">
-                Shape it in the panel on the right — tune the parts, tap the chips, then Render.
-                Your images land here.
-              </p>
-            </>
+            <GreetingHero
+              title={`Let’s shape your ${cleanSubject(ctx)}.`}
+              subtitle="Shape it in the panel on the right — tune the parts, tap the chips, then Render. Your images land here."
+            />
           ) : (
-            <>
-              <h1 className="pxc-stage-empty-title">What {label}(s) do you want to create?</h1>
-              <p className="pxc-stage-empty-sub">
-                {isVideo
+            <GreetingHero
+              title={`What ${label}(s) do you want to create?`}
+              subtitle={
+                isVideo
                   ? 'e.g. a slow push-in on a rain-soaked neon street, cinematic'
-                  : 'e.g. a rain-soaked neon portrait at dusk, cinematic'}
-              </p>
-            </>
+                  : 'e.g. a rain-soaked neon portrait at dusk, cinematic'
+              }
+            />
           )}
         </div>
       )}

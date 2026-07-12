@@ -9,6 +9,7 @@
 
 import { useCurrentUser } from '../lib/use-current-user';
 import { useSplashState, type SplashChip } from '../lib/splash-suggestions';
+import { GreetingHero } from './GreetingHero';
 
 export interface SplashGreetingProps {
   /** A chip was chosen — resume a project or start with the chip's prompt. */
@@ -22,21 +23,7 @@ const CSS = `
    nudges the block up by HALF ITS OWN HEIGHT (transform %s resolve against the element's own
    size, unlike margin %s which resolve against the parent's WIDTH) — dynamic, no magic number. */
 .pxs-greet { display: flex; flex-direction: column; align-items: center; text-align: center; gap: var(--a2ui-space-2); transform: translateY(-50%); }
-/* One typographic lockup: a title sentence + a tracked label beneath it, pulled tight so they read
-   as a single unit (not two stray lines). Present across all breakpoints via a steep fluid slope. */
-.pxs-greet-title {
-  font-size: clamp(1.875rem, 1.2rem + 2.6vw, 3rem); /* ~30 → 48px */
-  font-weight: var(--a2ui-font-medium, 500);
-  letter-spacing: -0.02em; line-height: var(--a2ui-leading-tight);
-  color: var(--a2ui-text-primary); margin: 0;
-}
-.pxs-greet-sub {
-  font-size: clamp(1.125rem, 0.95rem + 0.6vw, 1.375rem); /* ~18 → 22px */
-  font-weight: var(--a2ui-font-normal, 400);
-  color: var(--a2ui-text-secondary);
-  letter-spacing: 0.02em;
-  line-height: 1.45; margin-top: var(--a2ui-space-1); max-width: 44ch;
-}
+/* The title + subtitle lockup is the shared <GreetingHero> (tune the type there — universal). */
 .pxs-greet-chips { display: flex; flex-wrap: wrap; justify-content: center; gap: var(--a2ui-space-2); margin-top: var(--a2ui-space-2); }
 .pxs-greet-chip {
   display: inline-flex; align-items: center; height: 32px; padding: 0 14px;
@@ -69,16 +56,15 @@ export function SplashGreeting({ onSelect }: SplashGreetingProps) {
     ? first
       ? `Welcome back, ${first}.`
       : 'Welcome back.'
-    : 'How can I help you today?';
+    : 'What are we making today?';
   const subtitle = returning
     ? 'Pick up where you left off, or start something new.'
-    : "Your AI digital media agency";
+    : "Your studio's ready — lets take your idea to the final cut.";
 
   return (
     <div className="pxs-greet">
       <style>{CSS}</style>
-      <h1 className="pxs-greet-title">{title}</h1>
-      <p className="pxs-greet-sub">{subtitle}</p>
+      <GreetingHero title={title} subtitle={subtitle} />
       {SHOW_CHIPS && chips.length > 0 && (
         <div className="pxs-greet-chips">
           {chips.map((c) => (

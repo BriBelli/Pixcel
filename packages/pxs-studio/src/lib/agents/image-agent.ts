@@ -87,7 +87,7 @@ const WORKSPACE_ACTION_TOOL = {
   input_schema: {
     type: 'object',
     properties: {
-      action: { type: 'string', enum: ['edit', 'render', 'answer'] },
+      action: { type: 'string', enum: ['edit', 'render', 'answer', 'rebuild'] },
       edits: {
         type: 'array',
         description: "When action='edit': the parts to change, each with its FULL new value (rewrite the whole value, not a fragment).",
@@ -101,6 +101,26 @@ const WORKSPACE_ACTION_TOOL = {
           additionalProperties: false,
         },
       },
+      subject: {
+        type: 'string',
+        description: "When action='rebuild': the NEW subject the user pivoted to (a short noun phrase, e.g. 'a car').",
+      },
+      parts: {
+        type: 'array',
+        description:
+          "When action='rebuild': fresh iteration-zero parts for the NEW subject — the same formula parts (subject/action/context/composition/style). Each: id, value (ONLY the user's actual words for the new subject, empty if unspecified — never invent), recommend (your suggestion → shown as placeholder), chips (3–5).",
+        items: {
+          type: 'object',
+          properties: {
+            id: { type: 'string' },
+            value: { type: 'string' },
+            recommend: { type: 'string' },
+            chips: { type: 'array', items: { type: 'string' } },
+          },
+          required: ['id'],
+          additionalProperties: false,
+        },
+      },
     },
     required: ['action'],
     additionalProperties: false,
@@ -111,7 +131,9 @@ const COLLABORATE_SYSTEM = `\n\nWORKSPACE COLLABORATION: the user is shaping the
 - "edit" — they asked to change/improve/add to the prompt ("make it night", "stronger context", "add motion blur", "use the placeholders"). Return \`edits\`: only the parts to change, each with its FULL new value (rewrite the whole part). Do NOT render.
 - "render" — they EXPLICITLY asked to generate ("render it", "generate", "go", "make it now").
 - "answer" — a question or advice ("which lens?", "what's weak?"). Just answer in the spoken part; no edits, no render.
-Only render when they clearly ask to. Editing or answering NEVER renders. Honor their intent; don't render unless asked.`;
+- "rebuild" — they PIVOTED to a DIFFERENT subject entirely (was a jet, now "a car"), or want something the current parts can't represent. Provide the new \`subject\` and fresh \`parts\` (all formula parts, iteration zero: \`value\` = ONLY their actual words for the new subject, a \`recommend\`, and 3–5 \`chips\`). This RESETS the whole Prompt Guide to the new subject. Do NOT render.
+Choosing edit vs rebuild: the SAME subject being tuned → edit; a genuinely NEW subject → rebuild.
+Only render when they clearly ask to. Editing, answering, or rebuilding NEVER renders. Honor their intent; don't render unless asked.`;
 
 /** The grounded reference-recommendation the agent surfaces (mirrors A2UIReferencesBlock). */
 export interface ReferencesRecommendation {
@@ -264,7 +286,7 @@ export async function* runImageAgent(frame: EpistemicFrame, turn: ImageAgentTurn
   //    prompt WITH the agent. Decide edit / render / answer instead of always rendering.
   const builderParts = turn.builder?.parts ?? [];
   if (followUp && builderParts.length > 0) {
-    let decision: { action?: unknown; edits?: unknown } = {};
+    let decision: { action?: unknown; edits?: unknown; subject?: unknown; parts?: unknown } = {};
     try {
       const client = new Anthropic();
       const partsDump = builderParts.map((p) => `- ${p.label} (${p.id}): ${p.value?.trim() || '(empty)'}`).join('\n');
@@ -301,7 +323,52 @@ export async function* runImageAgent(frame: EpistemicFrame, turn: ImageAgentTurn
       return;
     }
 
-    const act = decision.action === 'edit' || decision.action === 'render' || decision.action === 'answer' ? decision.action : 'answer';
+    const act =
+      decision.action === 'edit' || decision.action === 'render' || decision.action === 'answer' || decision.action === 'rebuild'
+        ? decision.action
+        : 'answer';
+
+    if (act === 'rebuild') {
+      // PIVOT: the user changed to a new subject. Emit a FRESH builder block (new formula parts,
+      // chips, recommendations) for the new subject — a new block arrives on this turn, so the
+      // workspace re-points to it and the store re-seeds the shared values to iteration zero. This
+      // is the clean reset: the whole Prompt Guide (not just Subject) becomes the new subject.
+      const newSubject =
+        typeof decision.subject === 'string' && decision.subject.trim() ? decision.subject.trim() : instruction || frame.goal;
+      const req: RoutingRequest = {
+        intent: newSubject,
+        needs: [],
+        count: frame.count,
+        references: frame.assetRefs,
+        budgetUsd: frame.budgetUsd,
+      };
+      let facts: ModelCapabilityFacts | null = null;
+      try {
+        facts = await describeModelCapabilities(req);
+      } catch {
+        facts = null;
+      }
+      const formula = facts?.formula ?? DEFAULT_IMAGE_FORMULA;
+      const rebuiltFrame: EpistemicFrame = { ...frame, subject: newSubject, goal: newSubject };
+      const parts = buildFormulaParts(formula, decision.parts, rebuiltFrame);
+      yield {
+        type: 'agent_a2ui',
+        block: {
+          kind: 'builder',
+          surface: 'canvas',
+          title: `Prompt guide · ${newSubject}`,
+          media: frame.medium === 'video' ? 'video' : 'image',
+          parts,
+          modelId: facts?.modelId,
+          assembly: formula.assembly,
+          model: facts
+            ? { label: facts.modelLabel, maxReferences: facts.maxReferenceImages, supports: capabilityHighlights(facts) }
+            : undefined,
+        },
+      };
+      yield { type: 'gen_done', costUsd: 0 };
+      return;
+    }
 
     if (act === 'edit') {
       // Apply the agent's targeted part edits (valid ids only) — they land in the shared state and

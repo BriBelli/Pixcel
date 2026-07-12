@@ -297,7 +297,7 @@ export default function ChatView({ initialPrompt }: Props) {
                   <button type="button" className="pxs-prompt-close" onClick={() => setPromptOpen(false)} title="Hide the prompt">
                     <Icon name="x" size={13} />
                   </button>
-                  <PromptString parts={builder.block.parts} values={partValues} score={builderScore} onEditPart={focusPart} />
+                  <PromptString parts={builder.block.parts} values={partValues} score={builderScore} onValueChange={setPartValue} onEditPart={focusPart} />
                 </div>
               </div>
             )}

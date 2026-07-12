@@ -1,23 +1,23 @@
 'use client';
 
 /* ─────────────────────────────────────────────────────────────────────────────
- * PromptString — the CANONICAL image prompt: ONE native text surface, color-aware.
+ * PromptString — the CANONICAL image prompt: reads as ONE color-aware sentence, edits live.
  *
- * The feel we're after (Brian's spec): a customer who's never seen an IDE should read this as a single
- * text-area they can click into and type — it just happens to be color-coded, like a span-styled string.
- * The colors are STYLING on the parts; the separators are DIM COMMAS (a disabled-color state), so the
- * eye reads coloured phrase → quiet comma → coloured phrase as one flowing sentence. Click anywhere,
- * the caret lands; type, and that part changes. On input we map each coloured run back to its part and
- * call setPartValue → the Build panel + the (local, instant) score update live. Two-way bound.
+ * The feel (Brian's spec): a non-technical customer reads this as a single text-area they click into
+ * and type — it just happens to be color-coded, like a span-styled string, with DIM COMMAS (a
+ * disabled-color state) between the parts. Click a coloured phrase, type, and that part changes; on
+ * every keystroke it binds to the store (setPartValue → Build panel + local, instant score).
  *
- * WHY a hand-managed contentEditable and not React-rendered spans: a single caret surface must let the
- * caret flow ACROSS parts, and React re-rendering the innards on every keystroke fights the caret. So
- * React owns only the container; the coloured runs + non-editable dim commas are built and read
- * imperatively. We rebuild the DOM only when the surface is NOT focused (so an incoming agent/store
- * edit shows up) — never mid-type. Part identity lives in the DOM (data-pid), so we never reparse text.
+ * MECHANISM (why per-part, not one surface): each part is its own contentEditable run. That makes the
+ * read-back unambiguous — the span IS the editing root, so typed text can't escape into a neighbouring
+ * part, and onInput maps to exactly one part id. (A single caret surface loses characters to loose text
+ * nodes at phrase boundaries — binding breaks.) The dim commas + seamless inline layout make the three
+ * runs read as one flowing sentence; the only thing given up is cross-part arrow-key flow, which the
+ * reference design accepted on purpose. The per-run caret guard (write text back only when the run is
+ * NOT focused) means an incoming agent/store edit never yanks your caret mid-type.
  * ───────────────────────────────────────────────────────────────────────────── */
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { BuilderPart } from '../../store/chat-turns-store';
 import type { BuilderScore } from '../../lib/prompt-score';
 
@@ -42,6 +42,45 @@ export interface PromptStringProps {
   onEditPart?: (id: string) => void;
 }
 
+/** One inline, editable, colored run bound to a single part — with the caret guard. */
+function EditRun({
+  value,
+  placeholder,
+  color,
+  plain,
+  onChange,
+}: {
+  value: string;
+  placeholder: string;
+  color: string;
+  plain: boolean;
+  onChange: (v: string) => void;
+}) {
+  const ref = useRef<HTMLSpanElement>(null);
+  // Only write text back into the span when it's NOT focused — so a store/agent update mid-edit
+  // never resets the caret to the start (the "uncontrolled while typing" rule).
+  useEffect(() => {
+    const el = ref.current;
+    if (!el || document.activeElement === el) return;
+    const txt = value || '';
+    if (el.textContent !== txt) el.textContent = txt;
+  }, [value]);
+  return (
+    <span
+      ref={ref}
+      contentEditable
+      suppressContentEditableWarning
+      spellCheck={false}
+      className="pxc-seg"
+      data-empty={value ? 'false' : 'true'}
+      data-ph={placeholder}
+      style={{ color: plain ? 'var(--a2ui-text-primary)' : color }}
+      onInput={(e) => onChange(e.currentTarget.textContent ?? '')}
+      onBlur={(e) => onChange((e.currentTarget.textContent ?? '').replace(/\s+/g, ' ').trim())}
+    />
+  );
+}
+
 const CSS = `
 .pxc-ps {
   text-align: left;
@@ -50,13 +89,11 @@ const CSS = `
   padding: var(--a2ui-space-4); box-shadow: 0 12px 40px rgba(0,0,0,0.4);
   display: flex; flex-direction: column; gap: var(--a2ui-space-3);
 }
-/* the one text surface — click anywhere, the caret lands; type, the part changes */
 .pxc-ps-line { text-align: left; font-size: var(--a2ui-text-md); line-height: var(--a2ui-leading-relaxed);
-  color: var(--a2ui-text-primary); max-height: 156px; overflow-y: auto; cursor: text; outline: none;
-  border-radius: var(--a2ui-radius-md); }
-.pxc-ps-line:focus { box-shadow: 0 0 0 2px var(--a2ui-accent-subtle); }
-.pxc-ps-line[data-plain="true"] .pxc-seg { color: var(--a2ui-text-primary) !important; }
-.pxc-seg { font-weight: var(--a2ui-font-medium); white-space: pre-wrap; border-radius: 3px; }
+  color: var(--a2ui-text-primary); max-height: 156px; overflow-y: auto; cursor: text; }
+.pxc-seg { font-family: var(--a2ui-font-family); font-size: inherit; line-height: inherit; font-weight: var(--a2ui-font-medium);
+  outline: none; border-radius: 3px; padding: 0 1px; cursor: text; white-space: pre-wrap; }
+.pxc-seg:focus { background: var(--a2ui-bg-hover); box-shadow: 0 0 0 2px var(--a2ui-accent-subtle); }
 .pxc-seg[data-empty="true"]::before { content: attr(data-ph); color: var(--a2ui-text-disabled); font-style: italic; }
 .pxc-ps-comma, .pxc-ps-stop { color: var(--a2ui-text-disabled); }
 .pxc-ps-empty { font-size: var(--a2ui-text-sm); color: var(--a2ui-text-tertiary); }
@@ -75,86 +112,8 @@ const CSS = `
 
 export function PromptString({ parts, values, score, onValueChange }: PromptStringProps) {
   const [plain, setPlain] = useState(false);
-  const lineRef = useRef<HTMLDivElement>(null);
-  // Live refs so the imperative input/blur handlers never read stale props.
-  const partsRef = useRef(parts);
-  const valuesRef = useRef(values);
-  const onChangeRef = useRef(onValueChange);
-  partsRef.current = parts;
-  valuesRef.current = values;
-  onChangeRef.current = onValueChange;
-
   const words = parts.reduce((n, p) => n + (values[p.id] ?? '').split(/\s+/).filter(Boolean).length, 0);
   const anyFilled = parts.some((p) => (values[p.id] ?? '').trim().length > 0);
-
-  /** Build the coloured runs + dim commas imperatively. Only called when the surface isn't focused. */
-  const paint = useCallback(() => {
-    const el = lineRef.current;
-    if (!el || document.activeElement === el) return; // never stomp the caret mid-type
-    const ps = partsRef.current;
-    const vals = valuesRef.current;
-    el.textContent = '';
-    ps.forEach((p, i) => {
-      if (i > 0) {
-        const comma = document.createElement('span');
-        comma.className = 'pxc-ps-comma';
-        comma.contentEditable = 'false';
-        comma.textContent = ', ';
-        el.appendChild(comma);
-      }
-      const seg = document.createElement('span');
-      seg.className = 'pxc-seg';
-      seg.dataset.pid = p.id;
-      seg.style.color = colorFor(p.id);
-      const v = vals[p.id] ?? '';
-      seg.textContent = v;
-      if (!v.trim()) {
-        seg.dataset.empty = 'true';
-        seg.dataset.ph = p.label.toLowerCase();
-      }
-      el.appendChild(seg);
-    });
-    const stop = document.createElement('span');
-    stop.className = 'pxc-ps-stop';
-    stop.contentEditable = 'false';
-    stop.textContent = '.';
-    el.appendChild(stop);
-  }, []);
-
-  // Repaint whenever parts/values change from OUTSIDE (agent/store) — skipped while focused.
-  useEffect(() => {
-    paint();
-  }, [paint, parts, values]);
-
-  /** Read the coloured runs back → push each changed part to the store (live, local re-score). */
-  const handleInput = useCallback(() => {
-    const el = lineRef.current;
-    if (!el) return;
-    const vals = valuesRef.current;
-    el.querySelectorAll<HTMLSpanElement>('[data-pid]').forEach((seg) => {
-      const id = seg.dataset.pid;
-      if (!id) return;
-      const v = seg.textContent ?? '';
-      // keep the empty-placeholder state in sync as you type
-      if (v.trim()) delete seg.dataset.empty;
-      else seg.dataset.empty = 'true';
-      if (v !== (vals[id] ?? '')) onChangeRef.current(id, v);
-    });
-  }, []);
-
-  /** On blur, normalise whitespace + repaint (applies any agent edit queued during the edit). */
-  const handleBlur = useCallback(() => {
-    const el = lineRef.current;
-    if (!el) return;
-    el.querySelectorAll<HTMLSpanElement>('[data-pid]').forEach((seg) => {
-      const id = seg.dataset.pid;
-      if (!id) return;
-      const cleaned = (seg.textContent ?? '').replace(/\s+/g, ' ').trim();
-      if (cleaned !== (valuesRef.current[id] ?? '')) onChangeRef.current(id, cleaned);
-    });
-    // let the next tick repaint from the (now-updated) store
-    requestAnimationFrame(paint);
-  }, [paint]);
 
   return (
     <div className="pxc-ps">
@@ -162,19 +121,21 @@ export function PromptString({ parts, values, score, onValueChange }: PromptStri
       {!anyFilled ? (
         <div className="pxc-ps-empty">Describe what to create, or fill the parts in Build — they assemble here.</div>
       ) : (
-        <div
-          ref={lineRef}
-          className="pxc-ps-line"
-          data-plain={plain ? 'true' : 'false'}
-          contentEditable
-          suppressContentEditableWarning
-          spellCheck={false}
-          role="textbox"
-          aria-multiline="true"
-          aria-label="Prompt"
-          onInput={handleInput}
-          onBlur={handleBlur}
-        />
+        <div className="pxc-ps-line">
+          {parts.map((p, i) => (
+            <span key={p.id}>
+              {i > 0 && <span className="pxc-ps-comma">{plain ? ' ' : ', '}</span>}
+              <EditRun
+                value={values[p.id] ?? ''}
+                placeholder={p.label.toLowerCase()}
+                color={colorFor(p.id)}
+                plain={plain}
+                onChange={(v) => onValueChange(p.id, v)}
+              />
+            </span>
+          ))}
+          <span className="pxc-ps-stop">.</span>
+        </div>
       )}
       <div className="pxc-ps-foot">
         <div className="pxc-ps-legend">

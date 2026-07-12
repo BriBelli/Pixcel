@@ -188,9 +188,26 @@ interface ChatTurnsState {
   /** The active workflow's Epistemic Frame — captured on transfer. While set + in a workspace,
    *  follow-up turns go STRAIGHT to the Image agent (Option A), not back through the Operator. */
   activeFrame: { goal: string; subject?: string; medium: 'image' | 'video' } | null;
+  /** SHARED builder part values — the single source for the Build panel AND the center prompt
+   *  (two-way binding), AND what the Agent writes to via `part_edit` (the COUPLING). Keyed by part id. */
+  partValues: Record<string, string>;
+  /** Which builder turn `partValues` is seeded for (re-seed only on a NEW builder). */
+  partSeedTurn: string | null;
+  /** The Agent's most recent part edit — drives the Build panel highlight/ring animation. `n` bumps
+   *  every edit so re-editing the same part re-triggers the flash. */
+  lastEdit: { id: string; n: number } | null;
+  /** Set/edit a part value (user typing, chip tap, or an agent `part_edit`). */
+  setPartValue: (id: string, value: string, fromAgent?: boolean) => void;
+  /** Seed the shared values from a new builder's iteration-zero (no-op if already seeded for it). */
+  seedBuilder: (turnId: string, seed: Record<string, string>) => void;
   /** Send a prompt — appends a new turn and streams its response. Returns the new turn id.
-   *  `references` (image data/URLs) ride along to the Image agent in a workspace (ignored in chat). */
-  send: (prompt: string, references?: string[]) => string;
+   *  `references` ride along to the Image agent in a workspace. `builder` (the current parts + values)
+   *  turns a workspace message into a COLLABORATION — the agent can edit the parts, not just render. */
+  send: (
+    prompt: string,
+    references?: string[],
+    builder?: { parts: { id: string; label: string; value: string }[] }
+  ) => string;
   /** Restore a persisted conversation from the SQLite store (reload/reopen hydration). */
   loadThread: (threadId: string) => Promise<void>;
   /** Soft-delete a persisted turn by its interaction id (audit-preserving; NO spend). */
@@ -205,7 +222,12 @@ export const useChatTurnsStore = create<ChatTurnsState>((set, get) => {
   const patch = (id: string, updates: Partial<ChatTurn>) =>
     set((s) => ({ turns: s.turns.map((t) => (t.id === id ? { ...t, ...updates } : t)) }));
 
-  async function run(id: string, prompt: string, references: string[] = []) {
+  async function run(
+    id: string,
+    prompt: string,
+    references: string[] = [],
+    builder?: { parts: { id: string; label: string; value: string }[] }
+  ) {
     // Carry the COMPLETED prior turns as history so follow-ups stay coherent. (The just-added
     // turn is excluded — its assistant text doesn't exist yet.) An image-agent turn's reply lives
     // in `agentText` (not `text`), so fall back to it for workspace coherence.
@@ -236,6 +258,7 @@ export const useChatTurnsStore = create<ChatTurnsState>((set, get) => {
                 frame: st.activeFrame,
                 section: st.activeMedium,
                 references, // attached reference images (data URLs) for the Image agent
+                builder, // present → COLLABORATION: the agent can edit the parts, not just render
               }
             : {
                 prompt,
@@ -372,6 +395,12 @@ export const useChatTurnsStore = create<ChatTurnsState>((set, get) => {
                 t.id === id ? { ...t, notices: [...(t.notices ?? []), String(evt.message || '')] } : t
               ),
             }));
+          } else if (evt.type === 'part_edit') {
+            // THE COUPLING: the Agent edited a Build part. Write it to the shared values (→ the Build
+            // panel + center prompt update live) and flag it for the highlight/ring animation.
+            if (typeof evt.id === 'string' && typeof evt.value === 'string') {
+              get().setPartValue(evt.id, evt.value, true);
+            }
           } else if (evt.type === 'gen_error') {
             patch(id, { generating: false, error: evt.message });
           } else if (evt.type === 'done') {
@@ -425,7 +454,17 @@ export const useChatTurnsStore = create<ChatTurnsState>((set, get) => {
     threadId: null,
     activeMedium: 'chat',
     activeFrame: null,
-    send: (prompt, references = []) => {
+    partValues: {},
+    partSeedTurn: null,
+    lastEdit: null,
+    setPartValue: (partId, value, fromAgent = false) =>
+      set((s) => ({
+        partValues: { ...s.partValues, [partId]: value },
+        ...(fromAgent ? { lastEdit: { id: partId, n: (s.lastEdit?.n ?? 0) + 1 } } : {}),
+      })),
+    seedBuilder: (turnId, seed) =>
+      set((s) => (s.partSeedTurn === turnId ? {} : { partValues: seed, partSeedTurn: turnId, lastEdit: null })),
+    send: (prompt, references = [], builder) => {
       const clean = prompt.trim();
       const id =
         typeof crypto !== 'undefined' && crypto.randomUUID
@@ -451,7 +490,7 @@ export const useChatTurnsStore = create<ChatTurnsState>((set, get) => {
         ],
       }));
       // Fire and forget — the turn lives in the store, streamed in the background.
-      void run(id, clean, references);
+      void run(id, clean, references, builder);
       return id;
     },
     loadThread: async (threadId) => {
@@ -539,7 +578,7 @@ export const useChatTurnsStore = create<ChatTurnsState>((set, get) => {
           /* non-fatal */
         }
       }
-      set({ turns: [], threadId: null, activeMedium: 'chat', activeFrame: null });
+      set({ turns: [], threadId: null, activeMedium: 'chat', activeFrame: null, partValues: {}, partSeedTurn: null, lastEdit: null });
     },
     setActiveMedium: (medium) => set({ activeMedium: medium }),
   };

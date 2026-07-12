@@ -127,7 +127,19 @@ export default function ChatView({ initialPrompt }: Props) {
       const t = text.trim();
       const refs = attachments?.map((a) => a.dataUrl).filter(Boolean) ?? [];
       if (!t && refs.length === 0) return;
-      send(t, refs);
+      // Attach the CURRENT builder state (read live from the store) → an Agent-panel message becomes a
+      // COLLABORATION: the agent can edit the parts / answer, not just render. No builder (chat home)
+      // → plain send to the Operator. The Build panel's Render button bypasses this (it always renders).
+      const s = useChatTurnsStore.getState();
+      let builderState: { parts: { id: string; label: string; value: string }[] } | undefined;
+      for (let i = s.turns.length - 1; i >= 0; i--) {
+        const b = s.turns[i].a2ui;
+        if (b && b.kind === 'builder') {
+          builderState = { parts: (b as A2UIBuilderBlock).parts.map((p) => ({ id: p.id, label: p.label, value: s.partValues[p.id] ?? '' })) };
+          break;
+        }
+      }
+      send(t, refs, builderState);
       setDraft('');
     },
     [send]
@@ -169,20 +181,16 @@ export default function ChatView({ initialPrompt }: Props) {
     return null;
   })();
 
-  // SHARED part-values state (lifted here for the two-way binding): the Build panel AND the center
-  // color-coded prompt read/write this one source. Re-seed from iteration-zero when a NEW builder
-  // arrives (keyed by turnId); the honest score is computed once and shared.
-  const [partValues, setPartValues] = useState<Record<string, string>>({});
-  const seededTurn = useRef<string | null>(null);
+  // SHARED part-values live in the STORE now (lifted for the two-way binding AND the coupling — the
+  // Agent writes to the same source via `part_edit`). Seed from iteration-zero when a NEW builder
+  // arrives (the store guards against re-seeding); the honest score is computed here and shared.
+  const partValues = useChatTurnsStore((s) => s.partValues);
+  const setPartValue = useChatTurnsStore((s) => s.setPartValue);
+  const seedBuilder = useChatTurnsStore((s) => s.seedBuilder);
+  const lastEdit = useChatTurnsStore((s) => s.lastEdit);
   useEffect(() => {
-    if (builder && builder.turnId !== seededTurn.current) {
-      setPartValues(Object.fromEntries(builder.block.parts.map((p) => [p.id, p.value ?? ''])));
-      seededTurn.current = builder.turnId;
-    } else if (!builder) {
-      seededTurn.current = null;
-    }
-  }, [builder]);
-  const setPartValue = useCallback((id: string, value: string) => setPartValues((v) => ({ ...v, [id]: value })), []);
+    if (builder) seedBuilder(builder.turnId, Object.fromEntries(builder.block.parts.map((p) => [p.id, p.value ?? ''])));
+  }, [builder, seedBuilder]);
   const builderScore = useMemo(
     () =>
       builder

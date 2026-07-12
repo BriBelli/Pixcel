@@ -14,13 +14,20 @@
  * phases (PR-10b/c/d); this is the structure working.
  * ───────────────────────────────────────────────────────────────────────────── */
 
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import { Button, Icon } from '../ui';
 import type { A2UIBuilderBlock } from '../../store/chat-turns-store';
-import { scoreBuilder, bandLabel, type ScoreBand } from '../../lib/prompt-score';
+import { bandLabel, type ScoreBand, type BuilderScore } from '../../lib/prompt-score';
 
 export interface BuilderPanelProps {
   block: A2UIBuilderBlock;
+  /** Controlled part values — LIFTED to ChatView so the center color-coded prompt and this panel
+   *  share one source (two-way binding). Keyed by part id. */
+  values: Record<string, string>;
+  /** The live weighted score, computed once in ChatView and shared with the center prompt. */
+  score: BuilderScore;
+  /** Update a part's value (the single source of truth lives in ChatView). */
+  onValueChange: (id: string, value: string) => void;
   /** Assemble → generate: hands the composed prompt + attached references to the image agent. */
   onRender: (prompt: string, references: string[]) => void;
   /** Disable Render while a generation is already in flight. */
@@ -140,14 +147,9 @@ function QualityRing({ value, band }: { value: number; band: ScoreBand }) {
   );
 }
 
-export function BuilderPanel({ block, onRender, busy }: BuilderPanelProps) {
-  // ONE editable value per part. Seeded from ITERATION ZERO — the user's ACTUAL words (`part.value`,
-  // often just the Subject). The agent's suggestion is the PLACEHOLDER (`part.recommend`), never a
-  // pre-filled value that double-counts with a chip. Type your own OR tap a chip (chips APPEND,
-  // comma-joined, de-duped). Nothing to hand-delete; the score grades the real value, starting low.
-  const [values, setValues] = useState<Record<string, string>>(
-    () => Object.fromEntries(block.parts.map((p) => [p.id, p.value ?? '']))
-  );
+export function BuilderPanel({ block, values, score, onValueChange, onRender, busy }: BuilderPanelProps) {
+  // Values are CONTROLLED (owned by ChatView, shared with the center prompt). A chip APPENDS to the
+  // field (comma-joined, de-duped); typing edits directly. The recommendation is the placeholder.
   const [refs, setRefs] = useState<string[]>([]);
 
   const hasChip = (id: string, chip: string) =>
@@ -155,10 +157,8 @@ export function BuilderPanel({ block, onRender, busy }: BuilderPanelProps) {
   const addChip = (id: string, chip: string) => {
     const t = chip.trim();
     if (!t || hasChip(id, t)) return;
-    setValues((v) => {
-      const cur = (v[id] ?? '').trim();
-      return { ...v, [id]: cur ? `${cur}, ${t}` : t };
-    });
+    const cur = (values[id] ?? '').trim();
+    onValueChange(id, cur ? `${cur}, ${t}` : t);
   };
 
   const onFiles = (files: FileList | null) => {
@@ -176,12 +176,6 @@ export function BuilderPanel({ block, onRender, busy }: BuilderPanelProps) {
   /** Compose the prompt — each part's field value, comma-joined in order. */
   const assemble = () => block.parts.map((p) => (values[p.id] ?? '').trim()).filter(Boolean).join(', ');
 
-  // The HONEST score — weighted by each part's weight in the target model's formula, recomputed live
-  // as the user shapes. Grounded in the formula (see prompt-score.ts) so we can say WHY a part is thin.
-  const score = useMemo(
-    () => scoreBuilder(block.parts.map((p) => ({ id: p.id, weight: p.weight ?? 1, value: values[p.id] ?? '', anchors: [] }))),
-    [block.parts, values]
-  );
   const bandOfPart = (id: string): ScoreBand => score.parts.find((s) => s.id === id)?.band ?? 'thin';
 
   const maxRefs = block.model?.maxReferences ?? 0;
@@ -228,11 +222,12 @@ export function BuilderPanel({ block, onRender, busy }: BuilderPanelProps) {
               </div>
               {part.guidance && <div className="pxc-part-guide">{part.guidance}</div>}
               <textarea
+                id={`pxc-field-${part.id}`}
                 className="pxc-part-field"
                 rows={2}
                 value={values[part.id] ?? ''}
                 placeholder={part.recommend || `Describe the ${part.label.toLowerCase()}…`}
-                onChange={(e) => setValues((v) => ({ ...v, [part.id]: e.target.value }))}
+                onChange={(e) => onValueChange(part.id, e.target.value)}
               />
               {suggestions.length > 0 && (
                 <div className="pxc-chips">

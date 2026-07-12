@@ -20,7 +20,7 @@
  * delete / regenerate land in PR-4b.
  * ───────────────────────────────────────────────────────────────────────────── */
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useChatTurnsStore, a2uiSurface, type A2UIReferencesBlock, type A2UIBuilderBlock } from '../store/chat-turns-store';
 import { useSettings } from '../store/settings-store';
 import { Composer, Icon, type ComposerAttachment } from './ui';
@@ -28,6 +28,8 @@ import { MessageTurn } from './chat/MessageTurn';
 import { ImageStage, type StageImage } from './chat/ImageStage';
 import { PromptGuidePanel } from './chat/PromptGuidePanel';
 import { BuilderPanel } from './chat/BuilderPanel';
+import { PromptString } from './chat/PromptString';
+import { scoreBuilder } from '../lib/prompt-score';
 
 interface Props {
   /** The prompt typed on the splash (front door). Auto-sent once on mount. */
@@ -163,6 +165,36 @@ export default function ChatView({ initialPrompt }: Props) {
     return null;
   })();
 
+  // SHARED part-values state (lifted here for the two-way binding): the Build panel AND the center
+  // color-coded prompt read/write this one source. Re-seed from iteration-zero when a NEW builder
+  // arrives (keyed by turnId); the honest score is computed once and shared.
+  const [partValues, setPartValues] = useState<Record<string, string>>({});
+  const seededTurn = useRef<string | null>(null);
+  useEffect(() => {
+    if (builder && builder.turnId !== seededTurn.current) {
+      setPartValues(Object.fromEntries(builder.block.parts.map((p) => [p.id, p.value ?? ''])));
+      seededTurn.current = builder.turnId;
+    } else if (!builder) {
+      seededTurn.current = null;
+    }
+  }, [builder]);
+  const setPartValue = useCallback((id: string, value: string) => setPartValues((v) => ({ ...v, [id]: value })), []);
+  const builderScore = useMemo(
+    () =>
+      builder
+        ? scoreBuilder(builder.block.parts.map((p) => ({ id: p.id, weight: p.weight ?? 1, value: partValues[p.id] ?? '', anchors: [] })))
+        : null,
+    [builder, partValues]
+  );
+  // Click a clause in the center prompt → focus that part's field in the Build panel (two-way binding).
+  const focusPart = useCallback((id: string) => {
+    const el = document.getElementById(`pxc-field-${id}`);
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      (el as HTMLTextAreaElement).focus();
+    }
+  }, []);
+
   // The conversation (scrollable turns + composer) — shared by the chat column and the workspace's
   // right pane. `capped` centers it under the chat-width cap (chat home); the pane fills its column.
   const conversation = (capped: boolean) => (
@@ -233,17 +265,27 @@ export default function ChatView({ initialPrompt }: Props) {
               the conversation continuing in a right pane. This is what makes a transfer read as a
               WORKFLOW, not a dead-end in the chat scroll. ── */
         <div className="relative flex-1 flex min-w-0">
-          {/* CENTER canvas — the CREATIONS (the generated images/video gallery). */}
-          <ImageStage
-            images={stageImages}
-            generating={generating}
-            medium={workspaceMedium}
-            contextLabel={activeFrame?.subject || activeFrame?.goal}
-          />
+          {/* CENTER canvas — the CREATIONS (gallery) + the floating color-coded PROMPT (a live view
+              of the Build panel; click a clause to edit it there). */}
+          <div className="relative flex-1 flex min-w-0">
+            <ImageStage
+              images={stageImages}
+              generating={generating}
+              medium={workspaceMedium}
+              contextLabel={activeFrame?.subject || activeFrame?.goal}
+            />
+            {builder && builderScore && (
+              <div className="absolute inset-x-0 bottom-0 flex justify-center px-6 pb-6" style={{ pointerEvents: 'none' }}>
+                <div style={{ pointerEvents: 'auto', width: '100%', maxWidth: 760 }}>
+                  <PromptString parts={builder.block.parts} values={partValues} score={builderScore} onEditPart={focusPart} />
+                </div>
+              </div>
+            )}
+          </div>
 
           {/* BUILD / GUIDE panel — the living ARTIFACT (the Model agent): parts, live score, the
               document you edit. Drag-resizable. Only when a builder exists. */}
-          {builder && (
+          {builder && builderScore && (
             <>
               <div role="separator" aria-orientation="vertical" title="Drag to resize" onMouseDown={startResize} className="pxs-resize shrink-0" />
               <aside
@@ -253,6 +295,9 @@ export default function ChatView({ initialPrompt }: Props) {
                 <BuilderPanel
                   key={builder.turnId}
                   block={builder.block}
+                  values={partValues}
+                  score={builderScore}
+                  onValueChange={setPartValue}
                   busy={generating}
                   onRender={(prompt, references) => send(prompt, references)}
                 />

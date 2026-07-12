@@ -71,6 +71,8 @@ const CSS = `
   font-family: var(--a2ui-font-family); font-size: var(--a2ui-text-md); line-height: var(--a2ui-leading-normal); outline: none;
   transition: border-color var(--a2ui-transition-fast), box-shadow var(--a2ui-transition-fast); }
 .pxc-part-field:focus { border-color: var(--a2ui-accent); box-shadow: 0 0 0 2px var(--a2ui-accent-subtle); }
+/* The recommendation shows as a DIM, italic placeholder — clearly a suggestion, not the value. */
+.pxc-part-field::placeholder { color: var(--a2ui-text-disabled); font-style: italic; opacity: 1; }
 
 .pxc-chips { display: flex; flex-wrap: wrap; gap: var(--a2ui-space-2); align-items: center; }
 /* Active anchor (selected/added) — accent-tinted, removable. */

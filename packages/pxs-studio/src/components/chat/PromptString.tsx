@@ -34,12 +34,13 @@ export interface PromptStringProps {
 
 const CSS = `
 .pxc-ps {
+  text-align: left;
   background: var(--a2ui-glass-dark, rgba(20,22,28,0.82)); backdrop-filter: blur(14px);
   border: 1px solid var(--pxs-border-subtle); border-radius: var(--a2ui-radius-xl);
   padding: var(--a2ui-space-4); box-shadow: 0 12px 40px rgba(0,0,0,0.4);
   display: flex; flex-direction: column; gap: var(--a2ui-space-3);
 }
-.pxc-ps-line { font-size: var(--a2ui-text-md); line-height: var(--a2ui-leading-relaxed); color: var(--a2ui-text-primary); }
+.pxc-ps-line { text-align: left; font-size: var(--a2ui-text-md); line-height: var(--a2ui-leading-relaxed); color: var(--a2ui-text-primary); }
 .pxc-ps-clause { background: none; border: none; padding: 0; margin: 0; font-family: var(--a2ui-font-family);
   font-size: inherit; line-height: inherit; font-weight: var(--a2ui-font-medium); cursor: pointer; }
 .pxc-ps-clause:hover { text-decoration: underline; text-underline-offset: 2px; }

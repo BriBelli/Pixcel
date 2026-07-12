@@ -3,7 +3,7 @@
 /* ─────────────────────────────────────────────────────────────────────────────
  * Composer — a clean, reusable prompt input. Matched to the splash `.pxl-promptbar`
  * (LandingPage.tsx): a rounded framed bar with an attach IconButton (left), a
- * growing textarea (default placeholder "Ask me anything…"), and a send button
+ * growing textarea (default placeholder "Consult with me…"), and a send button
  * (right, primary). SCOPED DOWN by design: NO model picker, NO quality pill, NO
  * Generate/footer — those are deferred to a later PR.
  *
@@ -111,7 +111,7 @@ export function Composer({
   value,
   onChange,
   onSubmit,
-  placeholder = 'Ask me anything…',
+  placeholder = 'Consult with me…',
   busy = false,
   disabled = false,
   error = false,

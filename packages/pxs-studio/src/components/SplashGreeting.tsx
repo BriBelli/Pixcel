@@ -21,17 +21,21 @@ const CSS = `
 /* Optical centering: a programmatic center reads as "sinking" to the eye. translateY(-50%)
    nudges the block up by HALF ITS OWN HEIGHT (transform %s resolve against the element's own
    size, unlike margin %s which resolve against the parent's WIDTH) — dynamic, no magic number. */
-.pxs-greet { display: flex; flex-direction: column; align-items: center; text-align: center; gap: var(--a2ui-space-3); transform: translateY(-50%); }
-/* Type scale — happy medium: present, not heavy. Fluid via clamp (min = mobile, ~vw = the
-   breakpoint slope, max = large screens). Nudge the three clamp values to taste. */
+.pxs-greet { display: flex; flex-direction: column; align-items: center; text-align: center; gap: var(--a2ui-space-2); transform: translateY(-50%); }
+/* One typographic lockup: a title sentence + a tracked label beneath it, pulled tight so they read
+   as a single unit (not two stray lines). Present across all breakpoints via a steep fluid slope. */
 .pxs-greet-title {
-  font-size: clamp(1.375rem, 2vw, 1.875rem); font-weight: var(--a2ui-font-medium, 500);
-  letter-spacing: -0.01em; line-height: var(--a2ui-leading-tight);
+  font-size: clamp(1.875rem, 1.2rem + 2.6vw, 3rem); /* ~30 → 48px */
+  font-weight: var(--a2ui-font-medium, 500);
+  letter-spacing: -0.02em; line-height: var(--a2ui-leading-tight);
   color: var(--a2ui-text-primary); margin: 0;
 }
 .pxs-greet-sub {
-  font-size: clamp(0.875rem, 1.1vw, 1.0625rem); color: var(--a2ui-text-tertiary);
-  line-height: var(--a2ui-leading-normal); margin: 0; max-width: 42ch;
+  font-size: clamp(1.125rem, 0.95rem + 0.6vw, 1.375rem); /* ~18 → 22px */
+  font-weight: var(--a2ui-font-normal, 400);
+  color: var(--a2ui-text-secondary);
+  letter-spacing: 0.02em;
+  line-height: 1.45; margin-top: var(--a2ui-space-1); max-width: 44ch;
 }
 .pxs-greet-chips { display: flex; flex-wrap: wrap; justify-content: center; gap: var(--a2ui-space-2); margin-top: var(--a2ui-space-2); }
 .pxs-greet-chip {
@@ -68,7 +72,7 @@ export function SplashGreeting({ onSelect }: SplashGreetingProps) {
     : 'How can I help you today?';
   const subtitle = returning
     ? 'Pick up where you left off, or start something new.'
-    : "I'm your AI Digital Media Agency and Production Studio.";
+    : "Your AI digital media agency";
 
   return (
     <div className="pxs-greet">

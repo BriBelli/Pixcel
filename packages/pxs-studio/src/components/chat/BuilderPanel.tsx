@@ -204,6 +204,45 @@ export function BuilderPanel({ block, values, score, onValueChange, onRender, bu
           )}
         </div>
 
+        {/* References — ABOVE THE FOLD: the most-promoted control, so it sits right under the score,
+            not buried below the parts. Always offered; the chosen model's facts enrich it. */}
+        <div className="pxc-build-refs">
+          <div className="pxc-build-refs-head">
+            <div className="pxc-part-label">References</div>
+            {block.model && <div className="pxc-build-refs-model">{block.model.label}</div>}
+          </div>
+          <label className="pxc-build-drop">
+            <Icon name="paperclip" size={15} />
+            {maxRefs > 0 ? `Attach — up to ${maxRefs}` : 'Attach references'}
+            <input
+              type="file"
+              accept="image/*"
+              multiple
+              style={{ display: 'none' }}
+              onChange={(e) => {
+                onFiles(e.target.files);
+                e.target.value = '';
+              }}
+            />
+          </label>
+          {refs.length > 0 && (
+            <div className="pxc-build-thumbs">
+              {refs.map((src, i) => (
+                <span key={i} className="pxc-build-thumb">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={src} alt="reference" />
+                  <button type="button" aria-label="Remove" onClick={() => setRefs((r) => r.filter((_, j) => j !== i))}>
+                    <Icon name="x" size={11} />
+                  </button>
+                </span>
+              ))}
+            </div>
+          )}
+          {block.model && block.model.supports.length > 0 && (
+            <div className="pxc-build-supports">Supports: {block.model.supports.join(' · ')}</div>
+          )}
+        </div>
+
         {block.parts.map((part) => {
           // Recommendation = the PLACEHOLDER; chips not already in the value are still offered.
           const suggestions = part.chips.filter((c) => !hasChip(part.id, c));
@@ -242,45 +281,6 @@ export function BuilderPanel({ block, values, score, onValueChange, onRender, bu
             </div>
           );
         })}
-
-        {/* References — always offered (attaching is always valid); the chosen model's facts enrich
-            it when present (label · up to N · supports). The standalone Prompt Guide panel is PR-10d. */}
-        <div className="pxc-build-refs">
-          <div className="pxc-build-refs-head">
-            <div className="pxc-part-label">References</div>
-            {block.model && <div className="pxc-build-refs-model">{block.model.label}</div>}
-          </div>
-          <label className="pxc-build-drop">
-            <Icon name="paperclip" size={15} />
-            {maxRefs > 0 ? `Attach — up to ${maxRefs}` : 'Attach references'}
-            <input
-              type="file"
-              accept="image/*"
-              multiple
-              style={{ display: 'none' }}
-              onChange={(e) => {
-                onFiles(e.target.files);
-                e.target.value = '';
-              }}
-            />
-          </label>
-          {refs.length > 0 && (
-            <div className="pxc-build-thumbs">
-              {refs.map((src, i) => (
-                <span key={i} className="pxc-build-thumb">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={src} alt="reference" />
-                  <button type="button" aria-label="Remove" onClick={() => setRefs((r) => r.filter((_, j) => j !== i))}>
-                    <Icon name="x" size={11} />
-                  </button>
-                </span>
-              ))}
-            </div>
-          )}
-          {block.model && block.model.supports.length > 0 && (
-            <div className="pxc-build-supports">Supports: {block.model.supports.join(' · ')}</div>
-          )}
-        </div>
 
         <div className="pxc-build-foot">
           <Button variant="primary" size="md" type="button" disabled={!canRender} onClick={() => onRender(assemble(), refs)}>

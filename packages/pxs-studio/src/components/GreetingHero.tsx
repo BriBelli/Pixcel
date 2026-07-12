@@ -13,6 +13,9 @@
 export interface GreetingHeroProps {
   title: string;
   subtitle?: string;
+  /** 'splash' = the big full-viewport hero (default); 'compact' = a smaller scale for the workspace
+   *  empty state, where it shares the frame with panels and shouldn't shout. Same lockup, sized down. */
+  size?: 'splash' | 'compact';
 }
 
 const CSS = `
@@ -29,14 +32,18 @@ const CSS = `
   letter-spacing: 0.02em;
   line-height: 1.45; margin: var(--a2ui-space-1) 0 0; max-width: 44ch;
 }
+/* compact — the workspace empty state (shares the frame with panels) */
+.pxs-hero-title--sm { font-size: clamp(1.5rem, 1.15rem + 1.4vw, 2rem); } /* ~24 → 32px */
+.pxs-hero-sub--sm { font-size: clamp(1rem, 0.95rem + 0.25vw, 1.125rem); } /* ~16 → 18px */
 `;
 
-export function GreetingHero({ title, subtitle }: GreetingHeroProps) {
+export function GreetingHero({ title, subtitle, size = 'splash' }: GreetingHeroProps) {
+  const sm = size === 'compact';
   return (
     <>
       <style>{CSS}</style>
-      <h1 className="pxs-hero-title">{title}</h1>
-      {subtitle && <p className="pxs-hero-sub">{subtitle}</p>}
+      <h1 className={sm ? 'pxs-hero-title pxs-hero-title--sm' : 'pxs-hero-title'}>{title}</h1>
+      {subtitle && <p className={sm ? 'pxs-hero-sub pxs-hero-sub--sm' : 'pxs-hero-sub'}>{subtitle}</p>}
     </>
   );
 }

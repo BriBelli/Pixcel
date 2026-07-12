@@ -135,11 +135,13 @@ export function ImageStage({ images, generating, medium, contextLabel }: ImageSt
         <div className="pxc-stage-empty">
           {ctx ? (
             <GreetingHero
+              size="compact"
               title={`Let’s shape your ${cleanSubject(ctx)}.`}
               subtitle="Shape it in the panel on the right — tune the parts, tap the chips, then Render. Your images land here."
             />
           ) : (
             <GreetingHero
+              size="compact"
               title={`What ${label}(s) do you want to create?`}
               subtitle={
                 isVideo

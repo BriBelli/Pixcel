@@ -60,7 +60,11 @@ export default function ChatView({ initialPrompt }: Props) {
   // Model agent) and the Agent panel (the conversation with the specialist). The Agent is
   // COLLAPSIBLE; the Build panel is drag-resizable. The center canvas stays free for creations.
   const [rightWidth, setRightWidth] = useState(460); // Build/Guide panel width (resizable)
+  // The "big three" surfaces are all collapsible: the Build/Guide (Prompt guide) panel, the Agent
+  // panel, and the center prompt — toggle any off in a viewport where you don't want it.
+  const [buildOpen, setBuildOpen] = useState(true);
   const [agentOpen, setAgentOpen] = useState(true);
+  const [promptOpen, setPromptOpen] = useState(true);
   const resizeStart = useRef<{ x: number; w: number } | null>(null);
   const onResizeMove = useCallback((e: MouseEvent) => {
     const s = resizeStart.current;
@@ -259,6 +263,11 @@ export default function ChatView({ initialPrompt }: Props) {
         .pxs-agent-head button:hover { background: var(--a2ui-bg-hover); color: var(--a2ui-text-primary); }
         .pxs-agent-tab { width: 42px; display: flex; align-items: flex-start; justify-content: center; padding-top: var(--a2ui-space-4); border: none; border-left: 1px solid var(--a2ui-border-subtle); background: var(--a2ui-bg-app); color: var(--a2ui-text-tertiary); cursor: pointer; transition: color var(--a2ui-transition-fast), background var(--a2ui-transition-fast); }
         .pxs-agent-tab:hover { color: var(--pxs-accent-text); background: var(--a2ui-bg-hover); }
+        .pxs-prompt-wrap { position: relative; }
+        .pxs-prompt-close { position: absolute; top: -10px; right: -10px; z-index: 2; width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; border-radius: var(--a2ui-radius-full); border: 1px solid var(--pxs-border-subtle); background: var(--a2ui-bg-elevated); color: var(--a2ui-text-tertiary); cursor: pointer; box-shadow: 0 2px 8px rgba(0,0,0,0.3); transition: color var(--a2ui-transition-fast), background var(--a2ui-transition-fast); }
+        .pxs-prompt-close:hover { color: var(--a2ui-text-primary); background: var(--a2ui-bg-hover); }
+        .pxs-prompt-show { height: 30px; padding: 0 14px; border-radius: var(--a2ui-radius-full); border: 1px solid var(--pxs-border-subtle); background: var(--a2ui-glass-dark, rgba(20,22,28,0.82)); backdrop-filter: blur(10px); color: var(--a2ui-text-secondary); font-family: var(--a2ui-font-family); font-size: var(--a2ui-text-sm); cursor: pointer; transition: color var(--a2ui-transition-fast), border-color var(--a2ui-transition-fast); }
+        .pxs-prompt-show:hover { color: var(--a2ui-text-primary); border-color: var(--a2ui-border-default); }
       `}</style>
       {inWorkspace ? (
         /* ── WORKSPACE surface — the transfer lands here: center stage (generated images LARGE) +
@@ -274,24 +283,47 @@ export default function ChatView({ initialPrompt }: Props) {
               medium={workspaceMedium}
               contextLabel={activeFrame?.subject || activeFrame?.goal}
             />
-            {builder && builderScore && (
+            {builder && builderScore && promptOpen && (
               <div className="absolute inset-x-0 bottom-0 flex justify-center px-6 pb-6" style={{ pointerEvents: 'none' }}>
-                <div style={{ pointerEvents: 'auto', width: '100%', maxWidth: 760 }}>
+                <div className="pxs-prompt-wrap" style={{ pointerEvents: 'auto', width: '100%', maxWidth: 760 }}>
+                  <button type="button" className="pxs-prompt-close" onClick={() => setPromptOpen(false)} title="Hide the prompt">
+                    <Icon name="x" size={13} />
+                  </button>
                   <PromptString parts={builder.block.parts} values={partValues} score={builderScore} onEditPart={focusPart} />
                 </div>
               </div>
             )}
+            {builder && builderScore && !promptOpen && (
+              <div className="absolute inset-x-0 bottom-0 flex justify-center pb-5" style={{ pointerEvents: 'none' }}>
+                <button type="button" className="pxs-prompt-show" style={{ pointerEvents: 'auto' }} onClick={() => setPromptOpen(true)}>
+                  Show prompt
+                </button>
+              </div>
+            )}
           </div>
 
-          {/* BUILD / GUIDE panel — the living ARTIFACT (the Model agent): parts, live score, the
-              document you edit. Drag-resizable. Only when a builder exists. */}
-          {builder && builderScore && (
+          {/* BUILD / GUIDE (Prompt guide) panel — the living ARTIFACT: parts, live score, the document
+              you edit. Collapsible (like the Agent) + drag-resizable. */}
+          {builder && builderScore && buildOpen && (
             <>
               <div role="separator" aria-orientation="vertical" title="Drag to resize" onMouseDown={startResize} className="pxs-resize shrink-0" />
               <aside
                 className="shrink-0 flex flex-col min-h-0"
                 style={{ width: rightWidth, borderLeft: '1px solid var(--a2ui-border-subtle)', background: 'var(--a2ui-bg-app)' }}
               >
+                <div className="pxs-agent-head">
+                  <span className="pxs-agent-title">
+                    <Icon name="sparkles" size={15} /> Prompt guide
+                    {builder.block.title.includes('·') && (
+                      <span style={{ color: 'var(--a2ui-text-tertiary)', fontWeight: 'var(--a2ui-font-normal)' }}>
+                        {' · '}{builder.block.title.split('·').slice(1).join('·').trim()}
+                      </span>
+                    )}
+                  </span>
+                  <button type="button" onClick={() => setBuildOpen(false)} title="Collapse the Prompt guide">
+                    <Icon name="x" size={15} />
+                  </button>
+                </div>
                 <BuilderPanel
                   key={builder.turnId}
                   block={builder.block}
@@ -303,6 +335,11 @@ export default function ChatView({ initialPrompt }: Props) {
                 />
               </aside>
             </>
+          )}
+          {builder && builderScore && !buildOpen && (
+            <button type="button" className="pxs-agent-tab shrink-0" onClick={() => setBuildOpen(true)} title="Open the Prompt guide">
+              <Icon name="sparkles" size={17} />
+            </button>
           )}
 
           {/* AGENT panel — the CONVERSATION with the specialist (the other output channel of the same

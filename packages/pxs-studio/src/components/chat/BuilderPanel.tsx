@@ -185,17 +185,8 @@ export function BuilderPanel({ block, values, score, onValueChange, onRender, bu
     <div className="pxc-build relative flex-1 min-w-0">
       <style>{CSS}</style>
       <div className="pxc-build-inner">
-        <div className="pxc-build-title">
-          {block.title.includes('·') ? (
-            <>
-              {block.title.split('·')[0]}<span>·{block.title.split('·').slice(1).join('·')}</span>
-            </>
-          ) : (
-            block.title
-          )}
-        </div>
-
-        {/* Score header — the honest quality ring, weighted by the model's formula, climbing live. */}
+        {/* Score header — the honest quality ring, weighted by the model's formula, climbing live.
+            (The panel title lives in the collapsible header in ChatView.) */}
         <div className="pxc-build-score">
           <QualityRing value={score.overall} band={score.overallBand} />
           <div>
@@ -228,6 +219,14 @@ export function BuilderPanel({ block, values, score, onValueChange, onRender, bu
                 value={values[part.id] ?? ''}
                 placeholder={part.recommend || `Describe the ${part.label.toLowerCase()}…`}
                 onChange={(e) => onValueChange(part.id, e.target.value)}
+                // TAB on an empty field accepts the recommendation (the placeholder) — the seed of
+                // type-ahead / IntelliSense. Non-empty fields Tab normally (move focus).
+                onKeyDown={(e) => {
+                  if (e.key === 'Tab' && !e.shiftKey && !(values[part.id] ?? '').trim() && part.recommend) {
+                    e.preventDefault();
+                    onValueChange(part.id, part.recommend);
+                  }
+                }}
               />
               {suggestions.length > 0 && (
                 <div className="pxc-chips">

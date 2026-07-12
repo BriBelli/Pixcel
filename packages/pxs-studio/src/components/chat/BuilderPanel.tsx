@@ -14,7 +14,7 @@
  * phases (PR-10b/c/d); this is the structure working.
  * ───────────────────────────────────────────────────────────────────────────── */
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Button, Icon } from '../ui';
 import type { A2UIBuilderBlock } from '../../store/chat-turns-store';
 import { bandLabel, type ScoreBand, type BuilderScore } from '../../lib/prompt-score';
@@ -28,6 +28,8 @@ export interface BuilderPanelProps {
   score: BuilderScore;
   /** Update a part's value (the single source of truth lives in ChatView). */
   onValueChange: (id: string, value: string) => void;
+  /** The Agent's most recent part edit (the COUPLING) — flashes + scrolls that part into view. */
+  highlight?: { id: string; n: number } | null;
   /** Assemble → generate: hands the composed prompt + attached references to the image agent. */
   onRender: (prompt: string, references: string[]) => void;
   /** Disable Render while a generation is already in flight. */
@@ -63,6 +65,11 @@ const CSS = `
 .pxc-part { display: flex; flex-direction: column; gap: var(--a2ui-space-2);
   background: var(--a2ui-bg-secondary); border: 1px solid var(--pxs-border-subtle);
   border-radius: var(--a2ui-radius-lg); padding: var(--a2ui-space-3) var(--a2ui-space-4); }
+/* The Agent just edited this part (coupling) — a brief accent pulse. */
+@keyframes pxc-part-flash { 0% { box-shadow: 0 0 0 2px var(--a2ui-accent); background: var(--a2ui-accent-subtle); }
+  100% { box-shadow: 0 0 0 0 transparent; background: var(--a2ui-bg-secondary); } }
+.pxc-part-flash { animation: pxc-part-flash 1.5s ease-out; }
+@media (prefers-reduced-motion: reduce) { .pxc-part-flash { animation: none; } }
 .pxc-part-label { font-size: var(--a2ui-text-xs); text-transform: uppercase; letter-spacing: 0.05em; font-weight: var(--a2ui-font-semibold); color: var(--a2ui-text-secondary); }
 .pxc-part-guide { font-size: var(--a2ui-text-sm); color: var(--a2ui-text-tertiary); line-height: var(--a2ui-leading-tight); margin-top: -2px; }
 .pxc-part-field { width: 100%; min-height: 36px; resize: vertical; border-radius: var(--a2ui-radius-md);
@@ -149,10 +156,21 @@ function QualityRing({ value, band }: { value: number; band: ScoreBand }) {
   );
 }
 
-export function BuilderPanel({ block, values, score, onValueChange, onRender, busy }: BuilderPanelProps) {
+export function BuilderPanel({ block, values, score, onValueChange, highlight, onRender, busy }: BuilderPanelProps) {
   // Values are CONTROLLED (owned by ChatView, shared with the center prompt). A chip APPENDS to the
   // field (comma-joined, de-duped); typing edits directly. The recommendation is the placeholder.
   const [refs, setRefs] = useState<string[]>([]);
+
+  // THE COUPLING (visual): when the Agent edits a part, flash it + scroll it into view so you SEE
+  // the change land. `highlight.n` bumps every edit, so re-editing the same part re-triggers.
+  const [flashPart, setFlashPart] = useState<string | null>(null);
+  useEffect(() => {
+    if (!highlight) return;
+    setFlashPart(highlight.id);
+    document.getElementById(`pxc-field-${highlight.id}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    const t = setTimeout(() => setFlashPart(null), 1500);
+    return () => clearTimeout(t);
+  }, [highlight?.n, highlight?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const hasChip = (id: string, chip: string) =>
     (values[id] ?? '').split(',').map((s) => s.trim().toLowerCase()).includes(chip.trim().toLowerCase());
@@ -247,7 +265,7 @@ export function BuilderPanel({ block, values, score, onValueChange, onRender, bu
           // Recommendation = the PLACEHOLDER; chips not already in the value are still offered.
           const suggestions = part.chips.filter((c) => !hasChip(part.id, c));
           return (
-            <div key={part.id} className="pxc-part">
+            <div key={part.id} className={`pxc-part${flashPart === part.id ? ' pxc-part-flash' : ''}`}>
               <div className="pxc-part-head">
                 <div className="pxc-part-label">{part.label}</div>
                 <span className={`pxc-band pxc-band-${bandOfPart(part.id)}`}>{bandOfPart(part.id)}</span>

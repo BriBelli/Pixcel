@@ -338,6 +338,7 @@ export default function ChatView({ initialPrompt }: Props) {
                   values={partValues}
                   score={builderScore}
                   onValueChange={setPartValue}
+                  highlight={lastEdit}
                   busy={generating}
                   onRender={(prompt, references) => send(prompt, references)}
                 />

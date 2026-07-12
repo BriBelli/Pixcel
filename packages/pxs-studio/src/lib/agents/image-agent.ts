@@ -79,6 +79,40 @@ const PLAN_TOOL = {
   },
 } as const;
 
+/** THE COUPLING — how the agent responds when the user is shaping the prompt WITH it in the Builder.
+ *  Instead of always rendering, it decides: edit specific parts, render, or just answer. */
+const WORKSPACE_ACTION_TOOL = {
+  name: 'workspace_action',
+  description: 'Decide how to respond to the user shaping the prompt with you: edit specific parts, render, or answer.',
+  input_schema: {
+    type: 'object',
+    properties: {
+      action: { type: 'string', enum: ['edit', 'render', 'answer'] },
+      edits: {
+        type: 'array',
+        description: "When action='edit': the parts to change, each with its FULL new value (rewrite the whole value, not a fragment).",
+        items: {
+          type: 'object',
+          properties: {
+            id: { type: 'string' }, // subject | action | context | composition | style
+            value: { type: 'string' },
+          },
+          required: ['id', 'value'],
+          additionalProperties: false,
+        },
+      },
+    },
+    required: ['action'],
+    additionalProperties: false,
+  },
+} as const;
+
+const COLLABORATE_SYSTEM = `\n\nWORKSPACE COLLABORATION: the user is shaping their image PROMPT with you in the Prompt Builder; you can see the current parts + values. Respond in TWO parts: (1) ONE short spoken sentence confirming what you did (no fluff); (2) call \`workspace_action\`:
+- "edit" — they asked to change/improve/add to the prompt ("make it night", "stronger context", "add motion blur", "use the placeholders"). Return \`edits\`: only the parts to change, each with its FULL new value (rewrite the whole part). Do NOT render.
+- "render" — they EXPLICITLY asked to generate ("render it", "generate", "go", "make it now").
+- "answer" — a question or advice ("which lens?", "what's weak?"). Just answer in the spoken part; no edits, no render.
+Only render when they clearly ask to. Editing or answering NEVER renders. Honor their intent; don't render unless asked.`;
+
 /** The grounded reference-recommendation the agent surfaces (mirrors A2UIReferencesBlock). */
 export interface ReferencesRecommendation {
   kind: 'references';
@@ -127,6 +161,8 @@ export type ImageAgentEvent =
   | { type: 'agent_text'; delta: string }
   | { type: 'agent_usage'; inputTokens: number; outputTokens: number }
   | { type: 'agent_a2ui'; block: ReferencesRecommendation | ImageBuilderBlock }
+  /** THE COUPLING: the agent edited a Build part from a natural-language instruction (no render). */
+  | { type: 'part_edit'; id: string; value: string }
   | { type: 'gen_start' }
   | { type: 'image'; url: string; modelLabel: string; index: number }
   | { type: 'gen_error'; message: string }
@@ -203,6 +239,9 @@ export interface ImageAgentTurn {
   history?: { role: 'user' | 'assistant'; content: string }[];
   /** Reference images (data/https URLs) the user attached this turn — override the frame's. */
   references?: string[];
+  /** The CURRENT Build state (parts + their live values). Present → COLLABORATION mode: the agent
+   *  decides edit / render / answer instead of always rendering (the coupling). */
+  builder?: { parts: { id: string; label: string; value: string }[] };
 }
 
 /**
@@ -220,6 +259,95 @@ export async function* runImageAgent(frame: EpistemicFrame, turn: ImageAgentTurn
   // A workspace follow-up is an instruction OR attached references (either means "iterate", not
   // "first anchor") — so skip re-emitting the reference recommendation.
   const followUp = instruction.length > 0 || refCount > 0;
+
+  // 0) THE COUPLING — if the message arrives WITH the current Build state, the user is shaping the
+  //    prompt WITH the agent. Decide edit / render / answer instead of always rendering.
+  const builderParts = turn.builder?.parts ?? [];
+  if (followUp && builderParts.length > 0) {
+    let decision: { action?: unknown; edits?: unknown } = {};
+    try {
+      const client = new Anthropic();
+      const partsDump = builderParts.map((p) => `- ${p.label} (${p.id}): ${p.value?.trim() || '(empty)'}`).join('\n');
+      const userContent = `Current prompt parts:\n${partsDump}\n\nUser: ${instruction || '(only attached references)'}`;
+      const params = {
+        model: MODEL,
+        max_tokens: 1000,
+        thinking: { type: 'adaptive', display: 'summarized' },
+        system: IMAGE_AGENT_SYSTEM + COLLABORATE_SYSTEM + imageAgentSkills(),
+        tools: [WORKSPACE_ACTION_TOOL],
+        messages: [
+          ...(turn.history ?? []).map((m) => ({ role: m.role, content: m.content })),
+          { role: 'user' as const, content: userContent },
+        ],
+      };
+      const stream = client.messages.stream(params as any);
+      for await (const event of stream) {
+        if (event.type === 'content_block_delta' && event.delta.type === 'text_delta' && event.delta.text) {
+          yield { type: 'agent_text', delta: event.delta.text };
+        }
+      }
+      const final = await stream.finalMessage();
+      yield {
+        type: 'agent_usage',
+        inputTokens: (final as { usage?: { input_tokens?: number } })?.usage?.input_tokens ?? 0,
+        outputTokens: (final as { usage?: { output_tokens?: number } })?.usage?.output_tokens ?? 0,
+      };
+      const tool = ((final?.content ?? []) as Array<{ type: string; name?: string; input?: unknown }>)
+        .find((b) => b.type === 'tool_use' && b.name === 'workspace_action');
+      decision = (tool?.input as typeof decision) ?? {};
+    } catch (err) {
+      yield { type: 'gen_error', message: err instanceof Error ? err.message : 'Image agent failed' };
+      yield { type: 'gen_done', costUsd: 0 };
+      return;
+    }
+
+    const act = decision.action === 'edit' || decision.action === 'render' || decision.action === 'answer' ? decision.action : 'answer';
+
+    if (act === 'edit') {
+      // Apply the agent's targeted part edits (valid ids only) — they land in the shared state and
+      // animate the Build panel. No render.
+      const validIds = new Set(builderParts.map((p) => p.id));
+      const edits = Array.isArray(decision.edits) ? decision.edits : [];
+      for (const e of edits) {
+        if (!e || typeof e !== 'object') continue;
+        const o = e as Record<string, unknown>;
+        const id = typeof o.id === 'string' ? o.id.trim() : '';
+        const value = typeof o.value === 'string' ? o.value.trim() : '';
+        if (id && validIds.has(id) && value) yield { type: 'part_edit', id, value };
+      }
+      yield { type: 'gen_done', costUsd: 0 };
+      return;
+    }
+    if (act === 'answer') {
+      yield { type: 'gen_done', costUsd: 0 };
+      return;
+    }
+
+    // act === 'render' — generate from the CURRENT shaped values (the assembled prompt).
+    const assembled = builderParts.map((p) => p.value?.trim()).filter(Boolean).join(', ');
+    const req: RoutingRequest = {
+      intent: assembled || frame.goal,
+      needs: refCount > 0 ? ['multi_reference'] : [],
+      count: frame.count,
+      references: turn.references && turn.references.length > 0 ? turn.references : frame.assetRefs,
+      budgetUsd: frame.budgetUsd,
+    };
+    yield { type: 'gen_start' };
+    let cost = 0;
+    for await (const ev of coordinateImage(req, { maxCostUsd: frame.budgetUsd })) {
+      if (ev.type === 'tile') {
+        yield { type: 'image', url: ev.tile.image.url, modelLabel: ev.tile.modelLabel, index: ev.totalSoFar - 1 };
+      } else if (ev.type === 'done') {
+        cost = ev.costUsd;
+      } else if (ev.type === 'notice') {
+        yield { type: 'gen_notice', message: ev.message };
+      } else if (ev.type === 'error' || ev.type === 'model_error') {
+        yield { type: 'gen_error', message: 'message' in ev ? ev.message : `model error: ${ev.reason}` };
+      }
+    }
+    yield { type: 'gen_done', costUsd: cost };
+    return;
+  }
 
   // 1) The Image agent's brain: brief (+ any follow-up) → render plan (opener text + plan_render
   //    tool call). Its craft (plan-then-generate, reference workflows, prompt formulas) is skills.

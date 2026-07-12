@@ -62,6 +62,7 @@ export async function POST(req: Request) {
     thread_id?: string;
     user_id?: string;
     section?: string;
+    builder?: { parts?: { id?: string; label?: string; value?: string }[] };
   };
   try {
     body = await req.json();
@@ -81,6 +82,13 @@ export async function POST(req: Request) {
   const references = Array.isArray(body.references)
     ? body.references.filter((r): r is string => typeof r === 'string' && r.trim().length > 0)
     : [];
+  // COLLABORATION state (the current Build parts + values) — present → the agent can edit/answer.
+  const builderParts = Array.isArray(body.builder?.parts)
+    ? body.builder!.parts
+        .map((p) => ({ id: String(p?.id ?? '').trim(), label: String(p?.label ?? '').trim(), value: String(p?.value ?? '') }))
+        .filter((p) => p.id)
+    : [];
+  const builder = builderParts.length > 0 ? { parts: builderParts } : undefined;
 
   const userId = (body.user_id ?? '').trim() || DEV_USER_ID;
   const db = await getDb();
@@ -186,7 +194,7 @@ export async function POST(req: Request) {
           count: 2,
         };
 
-        for await (const ev of runImageAgent(frame, { userMessage: prompt, history, references })) {
+        for await (const ev of runImageAgent(frame, { userMessage: prompt, history, references, builder })) {
           if (ev.type === 'agent_usage') {
             agentInTok += ev.inputTokens;
             agentOutTok += ev.outputTokens;

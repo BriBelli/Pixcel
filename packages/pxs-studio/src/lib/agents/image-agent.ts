@@ -180,6 +180,9 @@ export interface ImageBuilderBlock {
 /** Events the Image agent streams (the route forwards / meters these). */
 export type ImageAgentEvent =
   | { type: 'agent_start' }
+  /** Honest workflow milestone for the thinking reel (Focus/Stack). start pushes/activates a step
+   *  keyed by id; done flips it done. `detail` is thought-mode sub-text. */
+  | { type: 'step'; id: string; label?: string; status: 'start' | 'done'; detail?: string }
   | { type: 'agent_text'; delta: string }
   | { type: 'agent_usage'; inputTokens: number; outputTokens: number }
   | { type: 'agent_a2ui'; block: ReferencesRecommendation | ImageBuilderBlock }
@@ -287,6 +290,7 @@ export async function* runImageAgent(frame: EpistemicFrame, turn: ImageAgentTurn
   const builderParts = turn.builder?.parts ?? [];
   if (followUp && builderParts.length > 0) {
     let decision: { action?: unknown; edits?: unknown; subject?: unknown; parts?: unknown } = {};
+    yield { type: 'step', id: 'reading', label: 'Reading your prompt…', status: 'start' };
     try {
       const client = new Anthropic();
       const partsDump = builderParts.map((p) => `- ${p.label} (${p.id}): ${p.value?.trim() || '(empty)'}`).join('\n');
@@ -323,12 +327,14 @@ export async function* runImageAgent(frame: EpistemicFrame, turn: ImageAgentTurn
       return;
     }
 
+    yield { type: 'step', id: 'reading', status: 'done' };
     const act =
       decision.action === 'edit' || decision.action === 'render' || decision.action === 'answer' || decision.action === 'rebuild'
         ? decision.action
         : 'answer';
 
     if (act === 'rebuild') {
+      yield { type: 'step', id: 'rebuilding', label: 'Rebuilding for the new subject…', status: 'start' };
       // PIVOT: the user changed to a new subject. Emit a FRESH builder block (new formula parts,
       // chips, recommendations) for the new subject — a new block arrives on this turn, so the
       // workspace re-points to it and the store re-seeds the shared values to iteration zero. This
@@ -343,7 +349,10 @@ export async function* runImageAgent(frame: EpistemicFrame, turn: ImageAgentTurn
         budgetUsd: frame.budgetUsd,
       };
       // Never-null: a router hang must not strip the reference support from the rebuilt guide.
+      yield { type: 'step', id: 'grounding', label: 'Grounding model support…', status: 'start' };
       const facts = await describeModelCapabilitiesOrDefault(req);
+      yield { type: 'step', id: 'grounding', status: 'done' };
+      yield { type: 'step', id: 'rebuilding', status: 'done' };
       const formula = facts.formula;
       const rebuiltFrame: EpistemicFrame = { ...frame, subject: newSubject, goal: newSubject };
       const parts = buildFormulaParts(formula, decision.parts, rebuiltFrame);
@@ -367,6 +376,7 @@ export async function* runImageAgent(frame: EpistemicFrame, turn: ImageAgentTurn
     if (act === 'edit') {
       // Apply the agent's targeted part edits (valid ids only) — they land in the shared state and
       // animate the Build panel. No render.
+      yield { type: 'step', id: 'editing', label: 'Applying your edits…', status: 'start' };
       const validIds = new Set(builderParts.map((p) => p.id));
       const edits = Array.isArray(decision.edits) ? decision.edits : [];
       for (const e of edits) {
@@ -376,6 +386,7 @@ export async function* runImageAgent(frame: EpistemicFrame, turn: ImageAgentTurn
         const value = typeof o.value === 'string' ? o.value.trim() : '';
         if (id && validIds.has(id) && value) yield { type: 'part_edit', id, value };
       }
+      yield { type: 'step', id: 'editing', status: 'done' };
       yield { type: 'gen_done', costUsd: 0 };
       return;
     }
@@ -393,6 +404,8 @@ export async function* runImageAgent(frame: EpistemicFrame, turn: ImageAgentTurn
       references: turn.references && turn.references.length > 0 ? turn.references : frame.assetRefs,
       budgetUsd: frame.budgetUsd,
     };
+    yield { type: 'step', id: 'selecting', label: 'Selecting the model…', status: 'start' };
+    yield { type: 'step', id: 'selecting', status: 'done' };
     yield { type: 'gen_start' };
     let cost = 0;
     for await (const ev of coordinateImage(req, { maxCostUsd: frame.budgetUsd })) {
@@ -412,6 +425,14 @@ export async function* runImageAgent(frame: EpistemicFrame, turn: ImageAgentTurn
 
   // 1) The Image agent's brain: brief (+ any follow-up) → render plan (opener text + plan_render
   //    tool call). Its craft (plan-then-generate, reference workflows, prompt formulas) is skills.
+  // A consult leg (the transfer landing) shows "Shaping the five parts…" in the reel; a render leg
+  // is "Composing your render…" — the workspace's honest milestone (it used to just shimmer here).
+  yield {
+    type: 'step',
+    id: 'shaping',
+    label: followUp ? 'Composing your render…' : 'Shaping the five prompt parts…',
+    status: 'start',
+  };
   let plan: { prompt?: unknown; needs?: unknown; aspectRatio?: unknown; count?: unknown; referenceRecommendation?: unknown; parts?: unknown } = {};
   try {
     const client = new Anthropic();
@@ -468,6 +489,7 @@ export async function* runImageAgent(frame: EpistemicFrame, turn: ImageAgentTurn
     yield { type: 'gen_done', costUsd: 0 };
     return;
   }
+  yield { type: 'step', id: 'shaping', status: 'done' };
 
   // 2) Derive the RoutingRequest — the Image agent OWNS these specs; Gate 1 activates from them.
   const needs = Array.isArray(plan.needs)
@@ -497,7 +519,9 @@ export async function* runImageAgent(frame: EpistemicFrame, turn: ImageAgentTurn
     // Never-null: a router hang must not drop the guide or strip its reference support (issue: the
     // References field silently degraded to a bare "Attach references"). Falls back to the default
     // image model's facts so "attach up to N" + supports are ALWAYS present.
+    yield { type: 'step', id: 'grounding', label: 'Grounding model support…', status: 'start' };
     const facts = await describeModelCapabilitiesOrDefault(req);
+    yield { type: 'step', id: 'grounding', status: 'done' };
     const formula = facts.formula;
     const parts = buildFormulaParts(formula, plan.parts, frame);
     const subject = (frame.subject || frame.goal || 'the subject').trim();
@@ -527,6 +551,8 @@ export async function* runImageAgent(frame: EpistemicFrame, turn: ImageAgentTurn
 
   // 3) Generate — coordinateImage consults the Model agent for selection, then dispatches. Only
   //    NOW does the "Generating…" state turn on (gen_start) — the consult leg above never reaches here.
+  yield { type: 'step', id: 'selecting', label: 'Selecting the model…', status: 'start' };
+  yield { type: 'step', id: 'selecting', status: 'done' };
   yield { type: 'gen_start' };
   let cost = 0;
   for await (const ev of coordinateImage(req, { maxCostUsd: frame.budgetUsd })) {

@@ -65,22 +65,43 @@ export interface SplashState {
   loading: boolean;
 }
 
+// SESSION cache + in-flight dedupe — the splash re-mounts on every nav (and StrictMode double-invokes
+// effects in dev), which was firing a fresh /api/threads on each. Share ONE fetch across all mounts:
+// an in-flight promise coalesces concurrent mounts; the result is cached for the session so later
+// mounts resolve instantly (no repeat calls). Stale until reload — fine for a splash nicety.
+let recentCache: RecentProject[] | null = null;
+let recentInflight: Promise<RecentProject[]> | null = null;
+function fetchRecentProjects(): Promise<RecentProject[]> {
+  if (recentCache) return Promise.resolve(recentCache);
+  if (recentInflight) return recentInflight;
+  recentInflight = fetch(`/api/threads?user_id=${encodeURIComponent(DEV_USER_ID)}&limit=6`)
+    .then((r) => (r.ok ? r.json() : { threads: [] }))
+    .then((d: { threads?: RecentProject[] }) => {
+      recentCache = Array.isArray(d.threads) ? d.threads : [];
+      return recentCache;
+    })
+    .catch(() => [] as RecentProject[])
+    .finally(() => {
+      recentInflight = null;
+    });
+  return recentInflight;
+}
+
 /**
- * The splash's personalized state. Fetches recent projects after mount; offers the two most recent
- * as "Continue: <title>" resume chips, then fills with production starters.
+ * The splash's personalized state. Fetches recent projects after mount (once per session, cached);
+ * offers the two most recent as "Continue: <title>" resume chips, then fills with production starters.
  */
 export function useSplashState(max = 4): SplashState {
-  const [projects, setProjects] = useState<RecentProject[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [projects, setProjects] = useState<RecentProject[]>(() => recentCache ?? []);
+  const [loading, setLoading] = useState(() => recentCache === null);
 
   useEffect(() => {
+    if (recentCache) return; // already have it — no fetch, no flash
     let live = true;
-    fetch(`/api/threads?user_id=${encodeURIComponent(DEV_USER_ID)}&limit=6`)
-      .then((r) => (r.ok ? r.json() : { threads: [] }))
-      .then((d: { threads?: RecentProject[] }) => {
-        if (live) setProjects(Array.isArray(d.threads) ? d.threads : []);
+    fetchRecentProjects()
+      .then((t) => {
+        if (live) setProjects(t);
       })
-      .catch(() => {})
       .finally(() => {
         if (live) setLoading(false);
       });

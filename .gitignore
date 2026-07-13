@@ -70,6 +70,12 @@ packages/pxs-studio/*.pxs-dev-db.json
 # Painter dev-scratch run output (regenerated each run)
 packages/pxs-studio/painter-out/
 
+# Local reference clone (separate repo — not part of the monorepo)
+photolif/
+
+# Duplicate design-system export (canonical copy is pixcel-handoff/)
+Pixcel Design System*.zip
+
 packages/pxs-studio/art-engine/runs/
 
 # Hot-potato quality-engine harness (bundle is generated; runs are output)

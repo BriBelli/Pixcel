@@ -15,7 +15,9 @@ Pixcel is **AI-native pixel-art tooling**: a conversational surface (Pixcel Chat
 ## How to use this package
 
 1. **Read `CLAUDE.md`** — the hard rules (dark canonical, no new hex values, no gradients on chrome, alpha borders, focus halos, radii scale, easing, tone of voice). Reviewers revert PRs that break these.
-2. **Open the prototypes** (below) in a browser. They are the visual + interaction spec. Each is a self-contained HTML file that runs with no build step.
+2. **Open the prototypes** (below) in a browser. They are the visual + interaction spec.
+   - **To just *view* them:** open the matching file in **`preview-standalone/`** — those are self-contained (all scripts inlined) and render correctly when opened directly from your file system (double-click, `file://`).
+   - **The root `.html` files are the editable source spec.** They load their `.jsx`/`.css` from sibling folders at runtime, so a browser will only render them when they're **served over http** (e.g. `npx serve .` in this folder, then open the page) — opened directly via `file://` they show a black screen because the browser blocks local script fetches. This is a browser security rule, not a broken file.
 3. **Read the matching source** in the folder named after the prototype. The prototypes are written in **React (Babel-in-browser)** for fidelity only — production is **Lit + Web Components**. Translate prop names to attributes (`<a2ui-stat label="…" value="…" trend-direction="up">`).
 4. **Use the tokens** in `colors_and_type.css`. Every color, space, radius, shadow, and font is a `--a2ui-*` / `--pxs-*` token. If you need a value that isn't a token, the design is wrong — don't add a hex.
 
@@ -66,8 +68,17 @@ image-slot.js                ← drag-and-drop image-slot web component used by 
 support.js                   ← Design Component runtime (only needed by Canvas.dc.html)
 
 docs/                        ← extra reference: Art Studio integration guide + kickoff prompt
-screenshots/                 ← rendered reference image of each prototype
+screenshots/                 ← rendered PNGs of each prototype (what it looks like in a browser)
+                               · image-ide-workflow.png       — Image tab, tool rail + agent dock
+                               · image-ide-workflow-art-tab.png — Art tab, tailored copy + concept cards
+                               · image-ide-mvp.png            — MVP IDE
+                               · pixcel-art-studio.png        — autonomous artisan
+                               · prompt-guide.png             — prompt guide
+preview-standalone/          ← self-contained copies that render on double-click (file://) — view-only
 ```
+
+> **Tip for Claude Code:** you can't open a browser, but you can *see* these prototypes two ways —
+> read the `.jsx` source (highest fidelity), and view the PNGs in `screenshots/` for the rendered look.
 
 ---
 

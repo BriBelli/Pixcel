@@ -13,7 +13,7 @@ every later component is token-true and brand-correct. Pure conduit foundation �
 
 ## Scope (what's in)
 1. **Canonical tokens.** Replace `packages/pxs-studio/src/app/tokens.css` (my partial) with the real
-   **`colors_and_type.css`** from the design system (`design-system/pixcel-handoff/colors_and_type.css`) — the
+   **`colors_and_type.css`** from the design system (`pixcel-handoff/colors_and_type.css`) — the
    full `--a2ui-*` / `--pxs-*` set + type scale + the IBM Plex `@import`. Per the handoff, `colors_and_type.css`
    and the app's token file are *the same file*; this makes ours that file.
 2. **Keep the additive Pixcel supplement.** Preserve the Pixcel-only additions my partial added that aren't in

@@ -1,8 +1,7 @@
 # Pixcel Art Studio — UI retrofit · Claude Code kickoff
 
-Paste the prompt below into **Claude Code, running in the `BriBelli/Pixcel` repo**. Drop this whole
-`handoff/` folder somewhere in the repo first (e.g. `packages/pxs-studio/design-handoff/`) so Claude
-Code can read the reference files.
+Paste the prompt below into **Claude Code, running in the `BriBelli/Pixcel` repo**. The design handoff
+lives at repo root in `pixcel-handoff/` so Claude Code can read the reference files.
 
 ---
 
@@ -22,7 +21,7 @@ Code can read the reference files.
 ## The prompt to paste
 
 > You're retrofitting the **Pixcel Art Studio** UI in `packages/pxs-studio`. A design prototype lives
-> in `design-handoff/` — `pixcel-art-studio-reference.html` is the visual target; `integration-guide.md`
+> in `pixcel-handoff/` — `pixcel-art-studio-reference.html` is the visual target; `integration-guide.md`
 > is the change plan. Read both before editing.
 >
 > **Ground rules:**

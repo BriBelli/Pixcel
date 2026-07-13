@@ -48,6 +48,10 @@ PXSAnimation = { fps, frames: PXSFrame[], metadata? }
 
 **Web Workers (`packages/pxs-studio/src/workers/`)** keep heavy work off the main thread — `grid.worker.ts` (cell data creation), `image.worker.ts` (WASM image processing), `render.worker.ts` (OffscreenCanvas). They're wrapped by `useGridWorker` / `useImageWorker` / `useRenderWorker` hooks and communicate via Comlink. This is what unlocks >320px resolutions without freezing the browser; keep main-thread CPU work minimal.
 
+## Planning
+
+When asked to write a plan, copy `.claude/templates/PLAN.md`, fill every section, delete the Rules footer, and save to `docs/` or `docs/pr-plan/`. Keep plans short: Why → Goal → Steps → Out of scope → Verify. Split into sub-plans (4a/4b) when a single merge would be too large. Use `.cursor/plans/*.plan.md` only for Cursor todo-tracked execution (see `.cursor/plans/example.plan.md`).
+
 ## Project context
 
 `AGENTS.md` is the authoritative deep-dive on the data model, helpers, and storage adapters — read it when touching `pxs-core` APIs. Note its "Project Structure" section predates the monorepo (it shows the old `src/` layout); trust `packages/` over that diagram. `README.md` is user-facing; `PHASE-4-MIGRATION.md`, `V4-MIGRATION-PLAN.md`, and `WEB-WORKERS-COMPLETE.md` document the in-progress v4 architecture migration the current branch is part of.

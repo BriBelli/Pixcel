@@ -64,7 +64,7 @@ Design), and the React prototypes give us the target for free.
 
 ---
 
-## 📐 Design review — the Claude Design handoff (`design-handoff/pixcel-handoff/`)
+## 📐 Design review — the Claude Design handoff (`pixcel-handoff/`)
 A professional design-system + spec. **It is the UI source of truth.**
 - **What it is:** dark-canonical, warm-charcoal, soft Google-blue accent, frosted glass only on float
   chrome; *"the UI should feel not there."* Tokens (`--a2ui-*` / `--pxs-*`), IBM Plex Sans/Mono, the Pixel-X

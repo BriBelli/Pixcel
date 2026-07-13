@@ -11,10 +11,10 @@
 1. `docs/PIXCEL-UNIFICATION-PLAN.md` — the north star (one product; statue = system primitive; the chef).
 2. `docs/UNIFICATION-LOG.md` — locked decisions + the migration verdict map + resolved forks.
 3. `docs/PIXCEL-AGENT-PRIMITIVE.md` — the chef primitive (context only; don't build it).
-4. `design-handoff/pixcel-handoff/START_HERE.md` — what Pixcel is + how the handoff works.
-5. `design-handoff/pixcel-handoff/CLAUDE.md` — **THE design rules. Non-negotiable. Reviewers revert violations.**
-6. `design-handoff/pixcel-handoff/colors_and_type.css` — the canonical tokens.
-7. `design-handoff/pixcel-handoff/docs/art-studio-integration-guide.md` — how the design maps onto this repo.
+4. `pixcel-handoff/START_HERE.md` — what Pixcel is + how the handoff works.
+5. `pixcel-handoff/CLAUDE.md` — **THE design rules. Non-negotiable. Reviewers revert violations.**
+6. `pixcel-handoff/colors_and_type.css` — the canonical tokens.
+7. `pixcel-handoff/docs/art-studio-integration-guide.md` — how the design maps onto this repo.
 8. `CLAUDE.md` (repo root) — build/architecture + the "Stay Pure" hard rule.
 
 Then skim the **current state** you'll be reviewing:
@@ -40,7 +40,7 @@ Independently review the recent landing + token work (the last ~2 commits). Prod
    system's hard rules; what the crown jewel is and why it's untouchable; why tokens were landed
    *additively* (not a global swap yet).
 2. **Design-system conformance** of `LandingPage.tsx` + `tokens.css` — flag any deviation from
-   `design-handoff/pixcel-handoff/CLAUDE.md` with `file:line`: gradients on chrome, non-token hex, wrong
+   `pixcel-handoff/CLAUDE.md` with `file:line`: gradients on chrome, non-token hex, wrong
    font weights, off radii, emoji, solid gray borders (should be alpha), the Pixel-X mark, the Art squiggle.
 3. **Correctness & safety**: any bugs or React/TS issues; confirm the change is presentation-only and the
    crown jewel is untouched. Run `cd packages/pxs-studio && npx tsc --noEmit` and report the result.

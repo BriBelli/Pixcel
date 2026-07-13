@@ -88,7 +88,7 @@ overnight; human-maintained restrictions are a **bottleneck**, not a feature.
 - **Crown jewel untouched** — the proven artisan engine (`lib/live-jobs.ts` + prompts + bonus-loop +
   keep-best). Only re-skin / re-position its containers.
 - **Splash is FROZEN** — amend only on Brian's explicit say-so.
-- **Canonical design** = `design-handoff/pixcel-handoff/` (the Pixcel Art Studio + Image IDE prototypes, the
+- **Canonical design** = `pixcel-handoff/` (the Pixcel Art Studio + Image IDE prototypes, the
   integration guide, `CLAUDE.md` hard rules, `colors_and_type.css` tokens). DS tokens + the locked brand blue
   `#58a6ff`; **no new hex**.
 - The UI ties to the **agent architecture** (P1 primitive + front-door orchestrator + emergent workflows) —

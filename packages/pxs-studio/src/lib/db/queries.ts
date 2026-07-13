@@ -9,7 +9,7 @@
  * Pure TS — no React/Next/DOM — so it runs under `node:test`.
  */
 
-import type { Interaction } from './models';
+import type { Asset, Interaction } from './models';
 import type { QueryResult, Repository } from './repository';
 
 export interface PageParams {
@@ -37,4 +37,26 @@ export async function listActiveInteractions(
     sort,
   });
   return { items: items as Interaction[], total };
+}
+
+/**
+ * List the ACTIVE assets of a thread (the generated media that survived reload), ascending by
+ * created_at. Scoped by the promoted `thread_id` column — no schema change. The hydrate groups
+ * these by `interaction_id` to repopulate each turn's images.
+ */
+export async function listAssets(
+  repo: Repository,
+  user_id: string,
+  thread_id: string,
+  { limit, offset, sort = 'asc' }: PageParams = {}
+): Promise<QueryResult<Asset>> {
+  const { items, total } = await repo.query({
+    category: 'asset',
+    user_id,
+    filter: { thread_id, status: 'active' },
+    limit,
+    offset,
+    sort,
+  });
+  return { items: items as Asset[], total };
 }

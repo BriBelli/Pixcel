@@ -8,6 +8,7 @@ import {
   DEV_USER_ID,
   getDb,
   recordUsage,
+  type Asset,
   type Interaction,
   type Thread,
 } from '../../../lib/db';
@@ -174,6 +175,9 @@ export async function POST(req: Request) {
       let agentInTok = 0;
       let agentOutTok = 0;
       let genCostTotal = 0;
+      // Accumulate generated tiles so they can be PERSISTED as assets (Slice 1 — they used to be
+      // forwarded and then lost on reload). Mirrors how emittedBlock captures the a2ui.
+      const generatedImages: { url: string; modelLabel: string; index: number }[] = [];
       let emittedBlock:
         | { kind: 'references'; modelLabel: string; maxReferences: number; supports: string[]; recommend: string[]; note?: string }
         | { kind: 'builder'; surface?: 'canvas'; title: string; media: 'image' | 'video' | 'pixel' | 'anim'; parts: { id: string; label: string; guidance: string; value: string; recommend?: string; chips: string[]; weight?: number }[]; modelId?: string; assembly?: string; model?: { label: string; maxReferences: number; supports: string[] } }
@@ -209,8 +213,11 @@ export async function POST(req: Request) {
           } else if (ev.type === 'gen_done') {
             genCostTotal = ev.costUsd;
             send(ev);
+          } else if (ev.type === 'image') {
+            generatedImages.push({ url: ev.url, modelLabel: ev.modelLabel, index: ev.index });
+            send(ev);
           } else {
-            send(ev); // agent_start · image · gen_error
+            send(ev); // agent_start · step · gen_error
           }
         }
 
@@ -232,6 +239,27 @@ export async function POST(req: Request) {
             output_tokens: agentOutTok,
             gen_cost_usd: genCostTotal,
           });
+          // Persist each generated tile as a durable ASSET (Slice 1) — so a reload rehydrates them.
+          const share = generatedImages.length > 0 ? genCostTotal / generatedImages.length : 0;
+          for (const img of generatedImages) {
+            const asset: Asset = {
+              id: newId('asset'),
+              user_id: userId,
+              category: 'asset',
+              status: 'active',
+              created_at: now,
+              updated_at: now,
+              kind: 'image',
+              thread_id: threadId,
+              interaction_id: interactionId,
+              url: img.url,
+              model_label: img.modelLabel || undefined,
+              index: img.index,
+              prompt,
+              gen_cost_usd: share || undefined,
+            };
+            await db.put(asset);
+          }
         } catch (err) {
           console.warn('[image-agent] persist/usage failed (stream unaffected):', err);
         }

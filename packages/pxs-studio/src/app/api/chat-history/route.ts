@@ -1,4 +1,4 @@
-import { DEV_USER_ID, getDb, listActiveInteractions } from '../../../lib/db';
+import { DEV_USER_ID, getDb, listActiveInteractions, listAssets } from '../../../lib/db';
 
 export const runtime = 'nodejs';
 
@@ -37,8 +37,16 @@ export async function GET(req: Request) {
 
     const db = await getDb();
     const { items, total } = await listActiveInteractions(db, userId, threadId, { limit, offset });
+    // Also rehydrate the thread's generated media (Slice 1) — the client groups these by
+    // interaction_id to repopulate each turn's images. Best-effort: a failure just omits them.
+    let assets: unknown[] = [];
+    try {
+      assets = (await listAssets(db, userId, threadId)).items;
+    } catch (err) {
+      console.warn('[chat-history] asset hydrate failed (interactions still returned):', err);
+    }
 
-    return Response.json({ thread_id: threadId, user_id: userId, total, interactions: items });
+    return Response.json({ thread_id: threadId, user_id: userId, total, interactions: items, assets });
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Unknown error';
     return Response.json({ error: `Failed to load chat history: ${message}` }, { status: 500 });

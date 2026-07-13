@@ -29,7 +29,7 @@ export type RecordStatus =
   | 'cancelled';
 
 /** The entity discriminator on every record. */
-export type RecordCategory = 'thread' | 'interaction' | 'prompt' | 'usage' | 'user';
+export type RecordCategory = 'thread' | 'interaction' | 'prompt' | 'usage' | 'user' | 'asset';
 
 /** Fields carried by EVERY record, regardless of category. Timestamps are ms epoch. */
 export interface BaseRecord {
@@ -95,6 +95,46 @@ export interface Usage extends BaseRecord {
   cost_usd: number;
 }
 
+/**
+ * A generated (or uploaded) MEDIA ASSET — the durable artifact a generation produced. Metadata-first:
+ * the record IS the asset's identity + provenance; the bytes ride on `url`/`data`.
+ *
+ * SLICE 1 (persistence backbone) populates the core + provenance + the model output `url` so images
+ * survive reload. Later slices enrich: Slice 2 the full recipe (parts/formula/score) + `tags` +
+ * `parent_asset_id` lineage; Slice 3 hardens `url` (which may be an EXPIRING provider URL) into
+ * durable bytes; Slice 4 the WP editorial fields via the Asset Details drawer.
+ */
+export interface Asset extends BaseRecord {
+  category: 'asset';
+  /** What the asset IS (drives the renderer). Slice 1 persists 'image'. */
+  kind: 'image' | 'video' | 'pixel' | 'vector';
+  /** Provenance — which conversation/turn produced it (the FKs the gallery + hydrate query on). */
+  thread_id: string;
+  interaction_id: string;
+  /** The model output. May be a data: URL or an expiring provider https URL (hardened in Slice 3). */
+  url: string;
+  /** Small JSON substrate (e.g. a PXSFrame) stored inline when the kind carries one. */
+  data?: unknown;
+  /** The model that produced it (label now; id + full recipe in Slice 2). */
+  model_label?: string;
+  model?: string;
+  /** Position within its generation batch (tile index). */
+  index?: number;
+  /** The prompt/recipe that produced it (a string now; structured recipe in Slice 2). */
+  prompt?: string;
+  /** Realized generation spend attributable to this asset (USD). */
+  gen_cost_usd?: number;
+  /** Flat "what it is" tags (Slice 2+). */
+  tags?: string[];
+  /** Lineage: an edit/variation points to the asset it derived from — a version DAG, never overwrite. */
+  parent_asset_id?: string;
+  /** WordPress-style editorial metadata (Slice 4 drawer). */
+  title?: string;
+  alt_text?: string;
+  caption?: string;
+  description?: string;
+}
+
 /** The per-user record holding the running spend totals + the hard cap (Decision 3). */
 export interface UserRecord extends BaseRecord {
   category: 'user';
@@ -105,7 +145,7 @@ export interface UserRecord extends BaseRecord {
 }
 
 /** Union of every stored record shape. */
-export type AnyRecord = Thread | Interaction | Prompt | Usage | UserRecord;
+export type AnyRecord = Thread | Interaction | Prompt | Usage | UserRecord | Asset;
 
 /** Stamped on every stored a2ui snapshot so the renderer can version-gate (Decision 4). */
 export const A2UI_VERSION = 'a2ui-v1';

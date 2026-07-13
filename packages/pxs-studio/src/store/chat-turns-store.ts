@@ -2,7 +2,7 @@
 
 import { create } from 'zustand';
 import { DEV_USER_ID } from '../lib/db/models';
-import type { Interaction } from '../lib/db/models';
+import type { Asset, Interaction } from '../lib/db/models';
 import type { ThinkingStep } from '../components/chat/ThinkingIndicator';
 import type { Source } from '../components/chat/SourcesRow';
 
@@ -506,8 +506,19 @@ export const useChatTurnsStore = create<ChatTurnsState>((set, get) => {
           console.warn(`[chat-turns] loadThread failed: HTTP ${res.status}`);
           return;
         }
-        const data: { interactions?: Interaction[] } = await res.json();
+        const data: { interactions?: Interaction[]; assets?: Asset[] } = await res.json();
         const interactions = Array.isArray(data.interactions) ? data.interactions : [];
+
+        // Group persisted assets by the interaction that produced them → repopulate each turn's
+        // images (Slice 1: generated media now survives reload). Ordered by the tile index.
+        const imagesByInteraction = new Map<string, GalleryImage[]>();
+        for (const a of Array.isArray(data.assets) ? data.assets : []) {
+          if (!a || a.kind !== 'image' || !a.interaction_id || typeof a.url !== 'string') continue;
+          const list = imagesByInteraction.get(a.interaction_id) ?? [];
+          list.push({ url: a.url, modelLabel: a.model_label ?? '', index: typeof a.index === 'number' ? a.index : list.length });
+          imagesByInteraction.set(a.interaction_id, list);
+        }
+        for (const list of imagesByInteraction.values()) list.sort((x, y) => x.index - y.index);
 
         // Map each persisted Interaction → a completed ChatTurn (ascending by created_at — the
         // query already sorts asc; keep the order it returns).
@@ -531,7 +542,7 @@ export const useChatTurnsStore = create<ChatTurnsState>((set, get) => {
                 : null,
             suggestions: [],
             sources: Array.isArray(persistedSources) ? persistedSources : [],
-            images: [],
+            images: imagesByInteraction.get(it.id) ?? [],
             createdAt: it.created_at,
             interactionId: it.id,
           };

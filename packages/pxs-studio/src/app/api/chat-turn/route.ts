@@ -16,6 +16,7 @@ import {
   DEV_USER_ID,
   getDb,
   recordUsage,
+  type Asset,
   type Interaction,
   type Thread,
 } from '../../../lib/db';
@@ -268,6 +269,8 @@ export async function POST(req: Request) {
         let genCostTotal = 0; // realized image spend, metered against the cap
         let agentInTok = 0; // the Image agent's own brain tokens (transfer path), metered too
         let agentOutTok = 0;
+        // Generated tiles from a 'quick' transfer render — persisted as assets (Slice 1).
+        const generatedImages: { url: string; modelLabel: string; index: number }[] = [];
 
         try {
           // The verdict is the `decide` tool call from the ONE Operator stream above.
@@ -325,8 +328,11 @@ export async function POST(req: Request) {
                 send({ type: 'a2ui', block: ev.block });
               } else if (ev.type === 'gen_notice') {
                 send({ type: 'notice', message: ev.message });
+              } else if (ev.type === 'image') {
+                generatedImages.push({ url: ev.url, modelLabel: ev.modelLabel, index: ev.index });
+                send(ev);
               } else {
-                send(ev); // agent_start · agent_text · image · gen_error
+                send(ev); // agent_start · agent_text · step · gen_error
               }
             }
           } else if (result.action === 'ask' && result.question) {
@@ -366,8 +372,7 @@ export async function POST(req: Request) {
             response: {
               text: assistantText,
               tokens_used: outputTokens,
-              // Persist the A2UI block actually emitted (the question, or null). Generated images
-              // aren't persisted yet — that lands with the baton/living-context record.
+              // Persist the A2UI block actually emitted (the question/builder, or null).
               a2ui: emittedBlock,
               a2ui_version: A2UI_VERSION,
             },
@@ -381,6 +386,27 @@ export async function POST(req: Request) {
             output_tokens: outputTokens + agentOutTok,
             gen_cost_usd: genCostTotal,
           });
+          // Persist any 'quick'-transfer generated tiles as durable ASSETS (Slice 1) → survive reload.
+          const share = generatedImages.length > 0 ? genCostTotal / generatedImages.length : 0;
+          for (const img of generatedImages) {
+            const asset: Asset = {
+              id: newId('asset'),
+              user_id: userId,
+              category: 'asset',
+              status: 'active',
+              created_at: now,
+              updated_at: now,
+              kind: 'image',
+              thread_id: threadId,
+              interaction_id: interactionId,
+              url: img.url,
+              model_label: img.modelLabel || undefined,
+              index: img.index,
+              prompt,
+              gen_cost_usd: share || undefined,
+            };
+            await db.put(asset);
+          }
         } catch (err) {
           console.warn('[chat-turn] persist/usage failed (stream unaffected):', err);
         }

@@ -226,11 +226,12 @@ export function MessageTurn({
   const streaming = turn.status === 'streaming';
   const done = turn.status === 'done';
 
-  // POST-text "choosing" phase — a compact inline reel shown briefly after the text
-  // while the classify pass runs, replaced by the a2ui/suggestions reveal on arrival.
-  const choosingStep = turn.steps.find((s) => s.id === 'choosing');
+  // POST-text WORKFLOW phase — the pipeline keeps working AFTER the opener text streams (the transfer
+  // consult: shaping → grounding; a render: selecting → generating). Keep the reel visible through it
+  // — otherwise a slow transfer runs dark for seconds — until the real result (builder/images/
+  // suggestions) arrives. Shows all steps, centered on the active one, per the loading settings.
   const resultArrived = !!turn.a2ui || turn.suggestions.length > 0 || turn.images.length > 0;
-  const showChoosing = !done && !!turn.text && choosingStep?.state === 'active' && !resultArrived;
+  const running = !done && !resultArrived && turn.steps.some((s) => s.state === 'active');
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--a2ui-space-4)' }}>
@@ -274,9 +275,9 @@ export function MessageTurn({
               </div>
             )}
 
-            {showChoosing && choosingStep && (
+            {running && (
               <div className="pxc-choosing-reveal" style={{ marginTop: 'var(--a2ui-space-2)' }}>
-                <ThinkingIndicator steps={[choosingStep]} />
+                <ThinkingIndicator steps={turn.steps} />
               </div>
             )}
 

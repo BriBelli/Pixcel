@@ -231,7 +231,10 @@ export function MessageTurn({
   // — otherwise a slow transfer runs dark for seconds — until the real result (builder/images/
   // suggestions) arrives. Shows all steps, centered on the active one, per the loading settings.
   const resultArrived = !!turn.a2ui || turn.suggestions.length > 0 || turn.images.length > 0;
-  const running = !done && !resultArrived && turn.steps.some((s) => s.state === 'active');
+  // Persist the reel through the WHOLE pipeline — not per-active-step. Keying off "a step is active"
+  // would blink the reel out in the tick between one step finishing and the next starting (jitter).
+  // Once steps exist, hold it steady until the turn is done or the real result lands.
+  const running = !done && !resultArrived && turn.steps.length > 0;
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--a2ui-space-4)' }}>

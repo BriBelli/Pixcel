@@ -3,31 +3,22 @@
 /* ─────────────────────────────────────────────────────────────────────────────
  * ThinkingIndicator — the pre-text "thinking" loader for a chat turn.
  *
- * TWO axes, both user settings (constructive-not-destructive — cover every persona, mix freely):
- *   • Loading DETAIL (how much) — basic · moderate · thought   (settings-store.loadingDetail)
- *   • Loading STYLE  (how it animates) — basic · focus · stack  (settings-store.loadingStyle)
+ * ONE setting (settings-store.loadingMode) — constructive-not-destructive, but no confusing axes:
+ *   • simple   — a spinner + "Loading…" + elapsed seconds. Also the non-SSE / streaming-off state.
+ *   • detailed — the single-row SLOT MACHINE: one active step in a fixed one-line window that rolls
+ *                (one out, one in) as steps advance. It NEVER reflows the surrounding text — the whole
+ *                point is cognitive calm. Depth is on demand: an expand button opens a scrollable box
+ *                to read the full thought history, then collapses back to the calm one row.
  *
- * Concepts ported from photolif's proven a2ui-thinking-indicator (months of real users), rebuilt as
- * our tokens-only React version. Photolif's 4 detail tiers collapse to 3 here (moderate⇄comprehensive
- * blurred — its only extra was per-step detail text, folded into 'thought').
+ * (Stack was removed — its auto-append reflowed the text on every step and broke the calm.)
  *
- *   DETAIL   basic    → no steps; the chauffeured "working" shimmer (agency motion, errors only)
- *            moderate → the named workflow milestones, clean labels
- *            thought  → milestones + per-step detail + a collapsible chain-of-thought panel
- *
- *   STYLE    basic    → minimal: just the current line, cross-fading (most non-engineering, mobile)
- *            focus    → slot machine: one active step in a single-line window, the reel rolls as
- *                       steps advance; a soft top/bottom mask dissolves a step as it rolls out (our
- *                       polish over photolif's hard clip — Brian's "fading into the top of the y-index")
- *            stack    → steps append as a scrollable stack, newest at the bottom
- *
- * Tokens-only, calm register (no avatar/heavy spinner), sentence case, one easing curve
- * (--a2ui-ease-entrance). Reduced motion → static. The component reads the settings itself, so every
- * call site just passes `steps` (+ optional `message`); pass `detail`/`style` only to override.
+ * Tokens-only, sentence case, one easing curve (--a2ui-ease-entrance). Reduced motion → static.
+ * Reads the setting itself, so call sites just pass `steps` (+ optional `message`); pass `mode` only
+ * to override.
  * ───────────────────────────────────────────────────────────────────────────── */
 
-import { useState } from 'react';
-import { useSettings, type LoadingDetail, type LoadingStyle } from '../../store/settings-store';
+import { useEffect, useRef, useState } from 'react';
+import { useSettings, type LoadingMode } from '../../store/settings-store';
 
 export type ThinkingStepState = 'pending' | 'active' | 'done';
 
@@ -36,101 +27,94 @@ export interface ThinkingStep {
   id?: string;
   label: string;
   state: ThinkingStepState;
-  /** Optional sub-text (a tool target / short note) — shown only in 'thought' detail. */
+  /** Optional sub-text (a tool target / short note) — shown in the expanded view. */
   detail?: string;
-  /** Optional chain-of-thought prose — feeds the 'thought' reasoning panel. */
+  /** Optional chain-of-thought prose — shown in the expanded view. */
   reasoning?: string;
 }
 
 export interface ThinkingIndicatorProps {
-  /** The status label for the no-steps case (default "Thinking…"). */
+  /** The status label for the no-steps / simple case (default "Thinking…" / "Loading…"). */
   message?: string;
-  /** The multi-step feed. Filtered + animated per the settings. */
+  /** The multi-step feed. Rolled in the single-row reel; readable in full when expanded. */
   steps?: ThinkingStep[];
-  /** Override the loading detail (defaults to the user setting). */
-  detail?: LoadingDetail;
-  /** Override the loading style (defaults to the user setting). */
-  style?: LoadingStyle;
+  /** Override the loading mode (defaults to the user setting). */
+  mode?: LoadingMode;
 }
 
-/** Height of one reel row (px) — the focus reel translates by this per step. */
+/** Height of one reel row (px) — the single-line window; the reel translates by this per step. */
 const REEL_STEP_H = 24;
 
 const CSS = `
 @keyframes pxc-think-shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
-@keyframes pxc-think-step-in { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
-@keyframes pxc-think-fade { from { opacity: 0; } to { opacity: 1; } }
+@keyframes pxc-think-spin { to { transform: rotate(360deg); } }
+@keyframes pxc-think-step-in { from { opacity: 0; transform: translateY(3px); } to { opacity: 1; transform: translateY(0); } }
 
-.pxc-think { display: flex; flex-direction: column; gap: var(--a2ui-space-2);
-  font-size: var(--a2ui-text-md); line-height: var(--a2ui-leading-normal); min-width: 0; }
+.pxc-think { font-size: var(--a2ui-text-md); line-height: var(--a2ui-leading-normal); min-width: 0; }
 
-/* ── Shimmer label (basic detail, or basic style current-line) ─────────────── */
+/* ── simple: spinner + label + seconds (one line) ──────────────────────────── */
+.pxc-think__simple { display: flex; align-items: center; gap: var(--a2ui-space-2); color: var(--a2ui-text-secondary); }
+.pxc-think__spin { flex-shrink: 0; width: 13px; height: 13px; border: 2px solid var(--a2ui-border-default);
+  border-top-color: var(--a2ui-accent); border-radius: 50%; animation: pxc-think-spin 0.8s linear infinite; }
+.pxc-think__simple-label { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pxc-think__secs { color: var(--a2ui-text-tertiary); font-size: var(--a2ui-text-xs);
+  font-variant-numeric: tabular-nums; flex-shrink: 0; }
+
+/* ── detailed: shimmer label (no steps yet) ────────────────────────────────── */
 .pxc-think__label {
   display: block; color: var(--a2ui-text-secondary);
   background: linear-gradient(100deg,
     var(--a2ui-text-secondary) 0%, var(--a2ui-text-secondary) 35%,
     var(--a2ui-text-primary) 50%,
     var(--a2ui-text-secondary) 65%, var(--a2ui-text-secondary) 100%);
-  background-size: 200% 100%; -webkit-background-clip: text; background-clip: text;
-  -webkit-text-fill-color: transparent;
+  background-size: 200% 100%; -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
   animation: pxc-think-shimmer 2200ms var(--a2ui-ease-entrance) infinite;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 
-/* ── Shared step ───────────────────────────────────────────────────────────── */
-.pxc-think__step { display: flex; align-items: flex-start; gap: var(--a2ui-space-2);
-  color: var(--a2ui-text-tertiary); min-width: 0; }
+/* ── detailed: the row (reel/expanded + expand toggle) ─────────────────────── */
+.pxc-think__row { display: flex; align-items: flex-start; gap: var(--a2ui-space-2); min-width: 0; }
+.pxc-think__area { flex: 1; min-width: 0; }
+
+/* shared step */
+.pxc-think__step { display: flex; align-items: flex-start; gap: var(--a2ui-space-2); color: var(--a2ui-text-tertiary); min-width: 0; }
 .pxc-think__step-check { flex-shrink: 0; width: 12px; height: 12px; margin-top: 4px; color: var(--a2ui-success); }
-.pxc-think__step-spin { flex-shrink: 0; width: 10px; height: 10px; margin-top: 5px;
-  border: 1.5px solid var(--a2ui-border-default); border-top-color: var(--a2ui-text-tertiary);
-  border-radius: 50%; animation: pxc-think-spin 0.8s linear infinite; }
-@keyframes pxc-think-spin { to { transform: rotate(360deg); } }
+.pxc-think__step-spin { flex-shrink: 0; width: 10px; height: 10px; margin-top: 5px; border: 1.5px solid var(--a2ui-border-default);
+  border-top-color: var(--a2ui-text-tertiary); border-radius: 50%; animation: pxc-think-spin 0.8s linear infinite; }
 .pxc-think__step-text { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
 .pxc-think__step-label { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .pxc-think__step-detail { color: var(--a2ui-accent); font-size: 10px; font-style: italic; opacity: 0.85;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pxc-think__step-reason { color: var(--a2ui-text-tertiary); font-size: 11px; line-height: 1.45; white-space: normal; }
 
-/* ── Style: focus (slot machine) ───────────────────────────────────────────── */
-.pxc-think__reel-window {
-  height: ${REEL_STEP_H}px; overflow: hidden; position: relative; width: 100%;
-}
+/* collapsed: the single-line slot-machine window */
+.pxc-think__reel-window { height: ${REEL_STEP_H}px; overflow: hidden; position: relative; }
 .pxc-think__reel { display: flex; flex-direction: column; transition: transform 450ms var(--a2ui-ease-entrance); }
 .pxc-think__reel .pxc-think__step { height: ${REEL_STEP_H}px; flex-shrink: 0; align-items: center;
   opacity: 0.35; transition: opacity 300ms var(--a2ui-ease-entrance), color 300ms var(--a2ui-ease-entrance); }
 .pxc-think__reel .pxc-think__step--current { opacity: 1; color: var(--a2ui-text-primary); }
 
-/* ── Style: stack ──────────────────────────────────────────────────────────── */
-.pxc-think__stack { display: flex; flex-direction: column; gap: 3px; max-height: 148px; overflow-y: auto;
-  scrollbar-width: thin; scrollbar-color: var(--a2ui-border-default) transparent; }
-.pxc-think__stack::-webkit-scrollbar { width: 4px; }
-.pxc-think__stack::-webkit-scrollbar-thumb { background: var(--a2ui-border-default); border-radius: 2px; }
-.pxc-think__stack .pxc-think__step { animation: pxc-think-step-in 300ms var(--a2ui-ease-entrance) both; }
-.pxc-think__stack .pxc-think__step--current { color: var(--a2ui-text-primary); }
-.pxc-think__stack .pxc-think__step--done { opacity: 0.5; }
+/* expanded: the scrollable full history */
+.pxc-think__expanded { display: flex; flex-direction: column; gap: 4px; max-height: 168px; overflow-y: auto;
+  padding-right: 2px; scrollbar-width: thin; scrollbar-color: var(--a2ui-border-default) transparent; }
+.pxc-think__expanded::-webkit-scrollbar { width: 4px; }
+.pxc-think__expanded::-webkit-scrollbar-thumb { background: var(--a2ui-border-default); border-radius: 2px; }
+.pxc-think__expanded .pxc-think__step { animation: pxc-think-step-in 250ms var(--a2ui-ease-entrance) both; }
+.pxc-think__expanded .pxc-think__step--current { color: var(--a2ui-text-primary); }
 
-/* ── Thought panel (chain-of-thought) ──────────────────────────────────────── */
-.pxc-think__thought { border-left: 2px solid var(--a2ui-border-subtle); padding-left: var(--a2ui-space-3); }
-.pxc-think__thought-toggle { display: flex; align-items: center; gap: var(--a2ui-space-1);
-  background: none; border: none; padding: var(--a2ui-space-1) 0; color: var(--a2ui-text-tertiary);
-  font-family: var(--a2ui-font-family); font-size: var(--a2ui-text-xs); font-weight: var(--a2ui-font-medium); cursor: pointer; }
-.pxc-think__thought-toggle:hover { color: var(--a2ui-text-secondary); }
-.pxc-think__chev { width: 10px; height: 10px; transition: transform 0.2s ease; }
-.pxc-think__chev--open { transform: rotate(90deg); }
-.pxc-think__thought-body { max-height: 180px; overflow-y: auto; padding: var(--a2ui-space-1) 0;
-  scrollbar-width: thin; scrollbar-color: var(--a2ui-border-default) transparent;
-  animation: pxc-think-fade 0.2s ease forwards; }
-.pxc-think__thought-body::-webkit-scrollbar { width: 4px; }
-.pxc-think__thought-body::-webkit-scrollbar-thumb { background: var(--a2ui-border-default); border-radius: 2px; }
-.pxc-think__thought-entry { font-size: 11px; line-height: 1.5; color: var(--a2ui-text-tertiary);
-  padding: 2px 0; border-bottom: 1px solid var(--a2ui-border-subtle); }
-.pxc-think__thought-entry:last-child { border-bottom: none; }
-.pxc-think__thought-entry-label { color: var(--a2ui-text-secondary); font-weight: var(--a2ui-font-medium); margin-right: var(--a2ui-space-1); }
+/* expand toggle */
+.pxc-think__expand { flex-shrink: 0; display: inline-flex; align-items: center; justify-content: center;
+  width: 20px; height: ${REEL_STEP_H}px; border: none; background: none; color: var(--a2ui-text-tertiary);
+  cursor: pointer; border-radius: var(--a2ui-radius-sm); }
+.pxc-think__expand:hover { color: var(--a2ui-text-secondary); }
+.pxc-think__expand svg { width: 12px; height: 12px; transition: transform 0.2s ease; }
+.pxc-think__expand[data-open="true"] svg { transform: rotate(180deg); }
 
 @media (prefers-reduced-motion: reduce) {
   .pxc-think__label { animation: none; -webkit-text-fill-color: var(--a2ui-text-secondary); color: var(--a2ui-text-secondary); }
   .pxc-think__reel { transition: none; }
-  .pxc-think__stack .pxc-think__step { animation: none; }
-  .pxc-think__step-spin { animation: none; }
+  .pxc-think__expanded .pxc-think__step { animation: none; }
+  .pxc-think__spin, .pxc-think__step-spin { animation: none; }
 }
 `;
 
@@ -148,116 +132,115 @@ function Check() {
   );
 }
 
-/** One step row (shared by focus + stack). `showDetail` reveals the sub-text (thought detail). */
-function StepRow({ step, current, showDetail }: { step: ThinkingStep; current: boolean; showDetail: boolean }) {
-  const cls = `pxc-think__step${current ? ' pxc-think__step--current' : ''}${step.state === 'done' ? ' pxc-think__step--done' : ''}`;
+/** One step row. `full` (expanded) reveals detail + reasoning; collapsed shows the label only. */
+function StepRow({ step, current, full }: { step: ThinkingStep; current: boolean; full: boolean }) {
   return (
-    <div className={cls}>
+    <div className={`pxc-think__step${current ? ' pxc-think__step--current' : ''}`}>
       {step.state === 'done' ? <Check /> : <span className="pxc-think__step-spin" />}
       <span className="pxc-think__step-text">
         <span className="pxc-think__step-label">{step.label}</span>
-        {showDetail && step.detail && <span className="pxc-think__step-detail">{step.detail}</span>}
+        {full && step.detail && <span className="pxc-think__step-detail">{step.detail}</span>}
+        {full && step.reasoning && <span className="pxc-think__step-reason">{step.reasoning}</span>}
       </span>
     </div>
   );
 }
 
-/** Focus: the slot-machine reel — one active step in a masked single-line window. */
-function FocusReel({ steps, showDetail }: { steps: ThinkingStep[]; showDetail: boolean }) {
-  const active = currentStepIndex(steps);
-  return (
-    <div className="pxc-think__reel-window">
-      <div className="pxc-think__reel" style={{ transform: `translateY(${-active * REEL_STEP_H}px)` }}>
-        {steps.map((s, i) => (
-          <StepRow key={s.id ?? i} step={s} current={i === active} showDetail={showDetail} />
-        ))}
-      </div>
-    </div>
-  );
+/** A live elapsed-seconds counter for simple mode (honest elapsed — not an added delay). */
+function useElapsed(active: boolean): number {
+  const [n, setN] = useState(0);
+  useEffect(() => {
+    if (!active) return;
+    setN(0);
+    const t = window.setInterval(() => setN((v) => v + 1), 1000);
+    return () => clearInterval(t);
+  }, [active]);
+  return n;
 }
 
-/** Stack: every step, scrollable, newest at the bottom (auto-scrolled). */
-function Stack({ steps, showDetail }: { steps: ThinkingStep[]; showDetail: boolean }) {
-  const active = currentStepIndex(steps);
-  const ref = (el: HTMLDivElement | null) => {
-    if (el) el.scrollTop = el.scrollHeight;
-  };
-  return (
-    <div className="pxc-think__stack" ref={ref}>
-      {steps.map((s, i) => (
-        <StepRow key={s.id ?? i} step={s} current={i === active} showDetail={showDetail} />
-      ))}
-    </div>
-  );
-}
-
-/** The collapsible chain-of-thought panel (thought detail only). */
-function ThoughtPanel({ steps }: { steps: ThinkingStep[] }) {
-  const [open, setOpen] = useState(true);
-  const entries = steps.filter((s) => s.reasoning?.trim());
-  if (entries.length === 0) return null;
-  return (
-    <div className="pxc-think__thought">
-      <button type="button" className="pxc-think__thought-toggle" onClick={() => setOpen((v) => !v)}>
-        <svg className={`pxc-think__chev${open ? ' pxc-think__chev--open' : ''}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-          <polyline points="9 18 15 12 9 6" />
-        </svg>
-        Reasoning ({entries.length})
-      </button>
-      {open && (
-        <div className="pxc-think__thought-body">
-          {entries.map((e, i) => (
-            <div key={e.id ?? i} className="pxc-think__thought-entry">
-              <span className="pxc-think__thought-entry-label">{e.label}:</span>
-              {e.reasoning}
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
-
-export function ThinkingIndicator({ message, steps, detail, style }: ThinkingIndicatorProps) {
-  const settingDetail = useSettings((s) => s.loadingDetail);
-  const settingStyle = useSettings((s) => s.loadingStyle);
-  const d = detail ?? settingDetail;
-  const st = style ?? settingStyle;
-
+export function ThinkingIndicator({ message, steps, mode }: ThinkingIndicatorProps) {
+  const settingMode = useSettings((s) => s.loadingMode);
+  const m = mode ?? settingMode;
   const all = Array.isArray(steps) ? steps : [];
-  // DETAIL gates WHAT shows: basic → no steps; moderate/thought → the steps (thought adds sub-text + reasoning).
-  const visible = d === 'basic' ? [] : all;
-  const showDetailText = d === 'thought';
-  const hasSteps = visible.length > 0;
-  const label = message?.trim() || 'Thinking…';
+  const hasSteps = all.length > 0;
+  const active = hasSteps ? currentStepIndex(all) : 0;
 
-  // No steps to show (basic detail, or none fed yet) → the chauffeured shimmer line.
-  if (!hasSteps) {
+  const [expanded, setExpanded] = useState(false);
+  const elapsed = useElapsed(m === 'simple');
+  const scrollRef = useRef<HTMLDivElement>(null);
+  // Keep the expanded view pinned to the active step as new steps stream in.
+  useEffect(() => {
+    if (expanded && scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+  }, [expanded, all.length]);
+
+  // ── SIMPLE: spinner + label + seconds ──
+  if (m === 'simple') {
+    const label = (hasSteps ? all[active].label : message?.trim()) || 'Loading…';
     return (
       <>
         <style>{CSS}</style>
         <div className="pxc-think" role="status" aria-live="polite">
-          <span className="pxc-think__label">{label}</span>
+          <div className="pxc-think__simple">
+            <span className="pxc-think__spin" />
+            <span className="pxc-think__simple-label">{label}</span>
+            {elapsed >= 1 && <span className="pxc-think__secs">{elapsed}s</span>}
+          </div>
         </div>
       </>
     );
   }
 
-  const current = visible[currentStepIndex(visible)];
+  // ── DETAILED: no steps yet → the calm shimmer ──
+  if (!hasSteps) {
+    return (
+      <>
+        <style>{CSS}</style>
+        <div className="pxc-think" role="status" aria-live="polite">
+          <span className="pxc-think__label">{message?.trim() || 'Thinking…'}</span>
+        </div>
+      </>
+    );
+  }
 
+  // ── DETAILED: the single-row slot machine, expandable to the full scrollable history ──
+  const canExpand = all.length > 1;
   return (
     <>
       <style>{CSS}</style>
       <div className="pxc-think" role="status" aria-live="polite">
-        {/* STYLE gates HOW it animates. basic → just the current line (shimmer). */}
-        {st === 'basic' ? (
-          <span className="pxc-think__label">{current.label}</span>
-        ) : st === 'focus' ? (
-          <FocusReel steps={visible} showDetail={showDetailText} />
-        ) : (
-          <Stack steps={visible} showDetail={showDetailText} />
-        )}
-        {d === 'thought' && <ThoughtPanel steps={all} />}
+        <div className="pxc-think__row">
+          <div className="pxc-think__area">
+            {expanded ? (
+              <div className="pxc-think__expanded" ref={scrollRef}>
+                {all.map((s, i) => (
+                  <StepRow key={s.id ?? i} step={s} current={i === active} full />
+                ))}
+              </div>
+            ) : (
+              <div className="pxc-think__reel-window">
+                <div className="pxc-think__reel" style={{ transform: `translateY(${-active * REEL_STEP_H}px)` }}>
+                  {all.map((s, i) => (
+                    <StepRow key={s.id ?? i} step={s} current={i === active} full={false} />
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+          {canExpand && (
+            <button
+              type="button"
+              className="pxc-think__expand"
+              data-open={expanded ? 'true' : 'false'}
+              onClick={() => setExpanded((v) => !v)}
+              title={expanded ? 'Collapse' : 'Expand the full workflow'}
+              aria-label={expanded ? 'Collapse workflow' : 'Expand workflow'}
+            >
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="6 9 12 15 18 9" />
+              </svg>
+            </button>
+          )}
+        </div>
       </div>
     </>
   );

@@ -55,6 +55,12 @@ export default function ChatView({ initialPrompt }: Props) {
   const [draft, setDraft] = useState('');
   const scrollRef = useRef<HTMLDivElement>(null);
   const sentInitial = useRef(false);
+  // THE TRANSITION (splash→workspace): the workspace fades/rises in as one piece (exploration hold),
+  // then the Prompt Guide + center prompt SNAP in the instant the real builder data lands (the payoff).
+  // Each entrance is gated to its FIRST appearance via these refs so a later collapse/re-open never
+  // re-animates (that would be the jitter Brian rejects). No timers — the motion covers REAL work.
+  const guideEnteredRef = useRef(false);
+  const promptEnteredRef = useRef(false);
 
   // The workspace splits into TWO right panels: the Build/Guide panel (the living artifact — the
   // Model agent) and the Agent panel (the conversation with the specialist). The Agent is
@@ -278,12 +284,29 @@ export default function ChatView({ initialPrompt }: Props) {
         .pxs-prompt-close:hover { color: var(--a2ui-text-primary); background: var(--a2ui-bg-hover); }
         .pxs-prompt-show { height: 30px; padding: 0 14px; border-radius: var(--a2ui-radius-full); border: 1px solid var(--pxs-border-subtle); background: var(--a2ui-glass-dark, rgba(20,22,28,0.82)); backdrop-filter: blur(10px); color: var(--a2ui-text-secondary); font-family: var(--a2ui-font-family); font-size: var(--a2ui-text-sm); cursor: pointer; transition: color var(--a2ui-transition-fast), border-color var(--a2ui-transition-fast); }
         .pxs-prompt-show:hover { color: var(--a2ui-text-primary); border-color: var(--a2ui-border-default); }
+
+        /* ── THE TRANSITION ─────────────────────────────────────────────────────────────
+           Exploration hold: the workspace arrives as one calm piece (fade + a short rise),
+           reading as the agency taking the wheel — not a hard layout snap. */
+        @keyframes pxs-ws-enter { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        .pxs-ws-enter { animation: pxs-ws-enter 400ms var(--a2ui-ease-entrance) both; }
+        /* The SNAP: when the real builder data lands, the Prompt Guide MATERIALIZES on a weighted
+           ease-out-expo — a short rise + a hair of scale, precise and solid ("real dimensions of data"
+           arriving). Rise/scale (not a lateral slide) so it can't flash a horizontal scrollbar. */
+        @keyframes pxs-guide-snap { from { opacity: 0; transform: translateY(14px) scale(0.98); } to { opacity: 1; transform: translateY(0) scale(1); } }
+        .pxs-guide-snap { animation: pxs-guide-snap 480ms cubic-bezier(0.16, 1, 0.3, 1) both; transform-origin: top right; }
+        /* The center prompt settles up into place a beat behind the guide. */
+        @keyframes pxs-prompt-enter { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: translateY(0); } }
+        .pxs-prompt-enter { animation: pxs-prompt-enter 440ms 60ms var(--a2ui-ease-entrance) both; }
+        @media (prefers-reduced-motion: reduce) {
+          .pxs-ws-enter, .pxs-guide-snap, .pxs-prompt-enter { animation: none; }
+        }
       `}</style>
       {inWorkspace ? (
         /* ── WORKSPACE surface — the transfer lands here: center stage (generated images LARGE) +
               the conversation continuing in a right pane. This is what makes a transfer read as a
               WORKFLOW, not a dead-end in the chat scroll. ── */
-        <div className="relative flex-1 flex min-w-0">
+        <div className="relative flex-1 flex min-w-0 pxs-ws-enter">
           {/* CENTER canvas — the CREATIONS (gallery) + the floating color-coded PROMPT (a live view
               of the Build panel; click a clause to edit it there). */}
           <div className="relative flex-1 flex min-w-0">
@@ -295,7 +318,11 @@ export default function ChatView({ initialPrompt }: Props) {
             />
             {builder && builderScore && promptOpen && (
               <div className="absolute inset-x-0 bottom-0 flex justify-center px-6 pb-6" style={{ pointerEvents: 'none' }}>
-                <div className="pxs-prompt-wrap" style={{ pointerEvents: 'auto', width: '100%', maxWidth: 760 }}>
+                <div
+                  className={`pxs-prompt-wrap${promptEnteredRef.current ? '' : ' pxs-prompt-enter'}`}
+                  style={{ pointerEvents: 'auto', width: '100%', maxWidth: 760 }}
+                  onAnimationEnd={() => { promptEnteredRef.current = true; }}
+                >
                   <button type="button" className="pxs-prompt-close" onClick={() => setPromptOpen(false)} title="Hide the prompt">
                     <Icon name="x" size={13} />
                   </button>
@@ -318,7 +345,8 @@ export default function ChatView({ initialPrompt }: Props) {
             <>
               <div role="separator" aria-orientation="vertical" title="Drag to resize" onMouseDown={(e) => startResize(e, rightWidth, setRightWidth, 340, 760)} className="pxs-resize shrink-0" />
               <aside
-                className="shrink-0 flex flex-col min-h-0"
+                className={`shrink-0 flex flex-col min-h-0${guideEnteredRef.current ? '' : ' pxs-guide-snap'}`}
+                onAnimationEnd={() => { guideEnteredRef.current = true; }}
                 style={{ width: rightWidth, borderLeft: '1px solid var(--a2ui-border-subtle)', background: 'var(--a2ui-bg-app)' }}
               >
                 <div className="pxs-agent-head">

@@ -25,6 +25,18 @@ export type Theme = 'dark' | 'light';
  *  'logo' = the digital-wall logo. */
 export type SplashStyle = 'greeting' | 'logo';
 
+/** How MUCH pipeline info the thinking indicator surfaces (ported from photolif, collapsed 4→3 —
+ *  'comprehensive' folded into 'thought' since the moderate⇄comprehensive blur caused confusion).
+ *   • basic    — no steps; just the chauffeured "working" state (agency motion, errors only).
+ *   • moderate — named workflow milestones + tool calls, clean labels (the default).
+ *   • thought  — everything: milestones + per-step detail + the chain-of-thought reasoning panel. */
+export type LoadingDetail = 'basic' | 'moderate' | 'thought';
+/** How the pipeline steps are ANIMATED while loading (ported from photolif).
+ *   • basic — minimal transitional loading (most non-engineering, mobile-friendly).
+ *   • focus — slot-machine: one active step in a single-line window, rolls as steps advance.
+ *   • stack — steps append as a scrollable stack, newest at the bottom. */
+export type LoadingStyle = 'basic' | 'focus' | 'stack';
+
 export interface SettingsState {
   /** [wire] Color theme — applied to <html data-theme>, tokens.css does the rest. Default dark. */
   theme: Theme;
@@ -40,6 +52,10 @@ export interface SettingsState {
   conversationHistory: boolean;
   /** Maximum previous messages to include (0–100). Persist-only. */
   maxMessages: number;
+  /** [wire] How much pipeline info the thinking indicator shows. Default moderate. */
+  loadingDetail: LoadingDetail;
+  /** [wire] How pipeline steps animate during loading. Default focus (slot machine). */
+  loadingStyle: LoadingStyle;
 }
 
 export interface SettingsActions {
@@ -51,6 +67,8 @@ export interface SettingsActions {
   setConversationHistory: (v: boolean) => void;
   /** Clamps to 0–100 (photolif's Max Messages range). */
   setMaxMessages: (v: number) => void;
+  setLoadingDetail: (v: LoadingDetail) => void;
+  setLoadingStyle: (v: LoadingStyle) => void;
 }
 
 export type SettingsStore = SettingsState & SettingsActions;
@@ -63,6 +81,8 @@ const DEFAULTS: SettingsState = {
   showSuggestions: true,
   conversationHistory: true,
   maxMessages: 20,
+  loadingDetail: 'moderate',
+  loadingStyle: 'focus',
 };
 
 const clampMax = (v: number): number => {
@@ -82,6 +102,8 @@ export const useSettings = create<SettingsStore>()(
       setShowSuggestions: (showSuggestions) => set({ showSuggestions }),
       setConversationHistory: (conversationHistory) => set({ conversationHistory }),
       setMaxMessages: (v) => set({ maxMessages: clampMax(v) }),
+      setLoadingDetail: (loadingDetail) => set({ loadingDetail }),
+      setLoadingStyle: (loadingStyle) => set({ loadingStyle }),
     }),
     {
       name: 'pxs-settings',
@@ -96,6 +118,8 @@ export const useSettings = create<SettingsStore>()(
         showSuggestions: s.showSuggestions,
         conversationHistory: s.conversationHistory,
         maxMessages: s.maxMessages,
+        loadingDetail: s.loadingDetail,
+        loadingStyle: s.loadingStyle,
       }),
     }
   )

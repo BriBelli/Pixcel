@@ -282,6 +282,37 @@ export function SettingsPanel({ open, onClose }: SettingsPanelProps) {
 
           <div className="a2-settings-divider" />
 
+          {/* ── Loading ── [wire: loadingDetail, loadingStyle] — the thinking indicator. ── */}
+          <div className="a2-settings-section">
+            <p className="a2-settings-section-label">Loading</p>
+            <Field label="Loading detail" description="How much pipeline info the thinking indicator shows.">
+              <Select
+                label="Loading detail"
+                value={s.loadingDetail}
+                onChange={(v) => s.setLoadingDetail(v as 'basic' | 'moderate' | 'thought')}
+                options={[
+                  { value: 'basic', label: 'Basic' },
+                  { value: 'moderate', label: 'Moderate' },
+                  { value: 'thought', label: 'Thought' },
+                ]}
+              />
+            </Field>
+            <Field label="Loading style" description="How pipeline steps are animated during loading.">
+              <Select
+                label="Loading style"
+                value={s.loadingStyle}
+                onChange={(v) => s.setLoadingStyle(v as 'basic' | 'focus' | 'stack')}
+                options={[
+                  { value: 'basic', label: 'Basic' },
+                  { value: 'focus', label: 'Focus' },
+                  { value: 'stack', label: 'Stack' },
+                ]}
+              />
+            </Field>
+          </div>
+
+          <div className="a2-settings-divider" />
+
           {/* ── Conversation ── */}
           <div className="a2-settings-section">
             <p className="a2-settings-section-label">Conversation</p>

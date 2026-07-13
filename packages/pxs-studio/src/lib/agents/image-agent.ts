@@ -12,9 +12,9 @@
 
 import Anthropic from '@anthropic-ai/sdk';
 import { coordinateImage } from '../engine/coordinator';
-import { DEFAULT_IMAGE_FORMULA, type Capability, type PromptFormula } from '../engine/model-registry';
+import { type Capability, type PromptFormula } from '../engine/model-registry';
 import type { RoutingRequest } from '../engine/routing';
-import { describeModelCapabilities, type ModelCapabilityFacts } from './model-agent';
+import { describeModelCapabilitiesOrDefault, type ModelCapabilityFacts } from './model-agent';
 import { imageAgentSkills } from './skills';
 import { assertFrameBudget, type EpistemicFrame } from './epistemic-frame';
 
@@ -342,13 +342,9 @@ export async function* runImageAgent(frame: EpistemicFrame, turn: ImageAgentTurn
         references: frame.assetRefs,
         budgetUsd: frame.budgetUsd,
       };
-      let facts: ModelCapabilityFacts | null = null;
-      try {
-        facts = await describeModelCapabilities(req);
-      } catch {
-        facts = null;
-      }
-      const formula = facts?.formula ?? DEFAULT_IMAGE_FORMULA;
+      // Never-null: a router hang must not strip the reference support from the rebuilt guide.
+      const facts = await describeModelCapabilitiesOrDefault(req);
+      const formula = facts.formula;
       const rebuiltFrame: EpistemicFrame = { ...frame, subject: newSubject, goal: newSubject };
       const parts = buildFormulaParts(formula, decision.parts, rebuiltFrame);
       yield {
@@ -359,11 +355,9 @@ export async function* runImageAgent(frame: EpistemicFrame, turn: ImageAgentTurn
           title: `Prompt guide · ${newSubject}`,
           media: frame.medium === 'video' ? 'video' : 'image',
           parts,
-          modelId: facts?.modelId,
+          modelId: facts.modelId,
           assembly: formula.assembly,
-          model: facts
-            ? { label: facts.modelLabel, maxReferences: facts.maxReferenceImages, supports: capabilityHighlights(facts) }
-            : undefined,
+          model: { label: facts.modelLabel, maxReferences: facts.maxReferenceImages, supports: capabilityHighlights(facts) },
         },
       };
       yield { type: 'gen_done', costUsd: 0 };
@@ -496,13 +490,15 @@ export async function* runImageAgent(frame: EpistemicFrame, turn: ImageAgentTurn
   //     This is the "attach up to N — and here's support you didn't know about" moment; it never
   //     invents a limit. Best-effort — a lookup miss just skips the recommendation, never blocks gen.
   //     Only on the FIRST leg (the transfer) — don't repeat the recommendation on every follow-up.
-  if (!followUp) try {
-    const facts = await describeModelCapabilities(req);
+  if (!followUp) {
     // The STRUCTURED CONSULT (PR-10a/c): the builder's STRUCTURE comes from the TARGET model's
     // documented FORMULA (parts/labels/guidance/weight/order — via the Model agent), and the CONTENT
     // (values + suggested chips) from the agent, matched by id. Different model → different parts.
-    // Falls back to the generic default formula when no model resolves. Nothing per-model hardcoded.
-    const formula = facts?.formula ?? DEFAULT_IMAGE_FORMULA;
+    // Never-null: a router hang must not drop the guide or strip its reference support (issue: the
+    // References field silently degraded to a bare "Attach references"). Falls back to the default
+    // image model's facts so "attach up to N" + supports are ALWAYS present.
+    const facts = await describeModelCapabilitiesOrDefault(req);
+    const formula = facts.formula;
     const parts = buildFormulaParts(formula, plan.parts, frame);
     const subject = (frame.subject || frame.goal || 'the subject').trim();
     yield {
@@ -513,15 +509,11 @@ export async function* runImageAgent(frame: EpistemicFrame, turn: ImageAgentTurn
         title: `Prompt guide · ${subject}`,
         media: frame.medium === 'video' ? 'video' : 'image',
         parts,
-        modelId: facts?.modelId,
+        modelId: facts.modelId,
         assembly: formula.assembly,
-        model: facts
-          ? { label: facts.modelLabel, maxReferences: facts.maxReferenceImages, supports: capabilityHighlights(facts) }
-          : undefined,
+        model: { label: facts.modelLabel, maxReferences: facts.maxReferenceImages, supports: capabilityHighlights(facts) },
       },
     };
-  } catch (err) {
-    console.warn('[image-agent] capability lookup failed (skipping recommendation):', err);
   }
 
   // REFERENCE-FIRST: a GUIDED hand-off's first leg is a CONSULTATION — never spend on a render. The

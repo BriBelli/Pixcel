@@ -9,7 +9,7 @@
  */
 
 import './../engine/adapters'; // register provider adapters (readyProviders reflects them)
-import { getModel, getModelFormula, IMAGE_MODELS, type PromptFormula } from '../engine/model-registry';
+import { getModel, getModelFormula, getDefaultImageModel, IMAGE_MODELS, type ImageModel, type PromptFormula } from '../engine/model-registry';
 import { readyProviders } from '../engine/executor';
 import { route, type RoutingRequest, type RoutingDecision } from '../engine/routing';
 
@@ -59,10 +59,8 @@ export interface ModelCapabilityFacts {
   formula: PromptFormula;
 }
 
-export async function describeModelCapabilities(req: RoutingRequest): Promise<ModelCapabilityFacts | null> {
-  const decision = await selectModels(req);
-  const model = decision ? getModel(decision.primary.modelId) : null;
-  if (!model) return null;
+/** Capability facts for a KNOWN model (synchronous — no routing). */
+export function factsForModel(model: ImageModel): ModelCapabilityFacts {
   return {
     modelId: model.id,
     modelLabel: model.label,
@@ -74,4 +72,22 @@ export async function describeModelCapabilities(req: RoutingRequest): Promise<Mo
     costPerImageUsd: model.costPerImageUsd,
     formula: getModelFormula(model.id),
   };
+}
+
+export async function describeModelCapabilities(req: RoutingRequest): Promise<ModelCapabilityFacts | null> {
+  const decision = await selectModels(req);
+  const model = decision ? getModel(decision.primary.modelId) : null;
+  if (!model) return null;
+  return factsForModel(model);
+}
+
+/** Capability facts that NEVER dead-end: the routed model's if selection succeeds, else the default
+ *  image model's. Used for the builder's reference facts so the References field is always complete —
+ *  a transient router hang must not strip the "attach up to N" support the user relies on. */
+export async function describeModelCapabilitiesOrDefault(req: RoutingRequest): Promise<ModelCapabilityFacts> {
+  try {
+    return (await describeModelCapabilities(req)) ?? factsForModel(getDefaultImageModel());
+  } catch {
+    return factsForModel(getDefaultImageModel());
+  }
 }

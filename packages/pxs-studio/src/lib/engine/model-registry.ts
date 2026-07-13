@@ -313,6 +313,14 @@ export function getModel(id: string): ImageModel | undefined {
   return IMAGE_MODELS.find((m) => m.id === id);
 }
 
+/** The default image model — the graceful fallback when live model SELECTION fails (e.g. the router
+ *  LLM hangs). Used to keep the builder's reference facts populated so the References field is never
+ *  silently empty. nano-banana if present, else the first catalog entry. Never a dead-end. */
+export const DEFAULT_IMAGE_MODEL_ID = 'nano-banana';
+export function getDefaultImageModel(): ImageModel {
+  return getModel(DEFAULT_IMAGE_MODEL_ID) ?? IMAGE_MODELS[0];
+}
+
 /** The generic image formula — the SAFETY NET when a model has no curated `promptFormula` yet.
  *  Structural (the classic 5-part), equal-ish weights. The Model agent replaces this with the
  *  model's REAL formula as it's researched (registry `promptFormula` or a shard). Never a cage. */

@@ -271,7 +271,7 @@ export function MessageTurn({
             {turn.text && (
               <div className="pxc-assistant-text">
                 <Markdown>{turn.text}</Markdown>
-                {streaming && <StreamingCursor />}
+                {streaming && !running && <StreamingCursor />}
               </div>
             )}
 

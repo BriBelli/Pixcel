@@ -26,7 +26,7 @@
  * call site just passes `steps` (+ optional `message`); pass `detail`/`style` only to override.
  * ───────────────────────────────────────────────────────────────────────────── */
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useSettings, type LoadingDetail, type LoadingStyle } from '../../store/settings-store';
 
 export type ThinkingStepState = 'pending' | 'active' | 'done';
@@ -63,11 +63,10 @@ const CSS = `
 
 .pxc-think { display: flex; flex-direction: column; gap: var(--a2ui-space-2);
   font-size: var(--a2ui-text-md); line-height: var(--a2ui-leading-normal); min-width: 0; }
-.pxc-think__head { display: flex; align-items: baseline; gap: var(--a2ui-space-2); }
 
 /* ── Shimmer label (basic detail, or basic style current-line) ─────────────── */
 .pxc-think__label {
-  color: var(--a2ui-text-secondary);
+  display: block; color: var(--a2ui-text-secondary);
   background: linear-gradient(100deg,
     var(--a2ui-text-secondary) 0%, var(--a2ui-text-secondary) 35%,
     var(--a2ui-text-primary) 50%,
@@ -77,8 +76,6 @@ const CSS = `
   animation: pxc-think-shimmer 2200ms var(--a2ui-ease-entrance) infinite;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
-.pxc-think__elapsed { color: var(--a2ui-text-tertiary); font-size: var(--a2ui-text-xs);
-  font-variant-numeric: tabular-nums; flex-shrink: 0; }
 
 /* ── Shared step ───────────────────────────────────────────────────────────── */
 .pxc-think__step { display: flex; align-items: flex-start; gap: var(--a2ui-space-2);
@@ -96,9 +93,6 @@ const CSS = `
 /* ── Style: focus (slot machine) ───────────────────────────────────────────── */
 .pxc-think__reel-window {
   height: ${REEL_STEP_H}px; overflow: hidden; position: relative; width: 100%;
-  /* Our polish: dissolve a step as it rolls out the top / in from the bottom. */
-  -webkit-mask-image: linear-gradient(to bottom, transparent 0%, #000 22%, #000 78%, transparent 100%);
-          mask-image: linear-gradient(to bottom, transparent 0%, #000 22%, #000 78%, transparent 100%);
 }
 .pxc-think__reel { display: flex; flex-direction: column; transition: transform 450ms var(--a2ui-ease-entrance); }
 .pxc-think__reel .pxc-think__step { height: ${REEL_STEP_H}px; flex-shrink: 0; align-items: center;
@@ -224,18 +218,6 @@ function ThoughtPanel({ steps }: { steps: ThinkingStep[] }) {
   );
 }
 
-/** A live elapsed-seconds counter (shown ≥2s, for the stepped detail tiers). */
-function useElapsed(active: boolean): number {
-  const [n, setN] = useState(0);
-  useEffect(() => {
-    if (!active) return;
-    setN(0);
-    const t = window.setInterval(() => setN((v) => v + 1), 1000);
-    return () => clearInterval(t);
-  }, [active]);
-  return n;
-}
-
 export function ThinkingIndicator({ message, steps, detail, style }: ThinkingIndicatorProps) {
   const settingDetail = useSettings((s) => s.loadingDetail);
   const settingStyle = useSettings((s) => s.loadingStyle);
@@ -247,7 +229,6 @@ export function ThinkingIndicator({ message, steps, detail, style }: ThinkingInd
   const visible = d === 'basic' ? [] : all;
   const showDetailText = d === 'thought';
   const hasSteps = visible.length > 0;
-  const elapsed = useElapsed(hasSteps);
   const label = message?.trim() || 'Thinking…';
 
   // No steps to show (basic detail, or none fed yet) → the chauffeured shimmer line.
@@ -270,23 +251,11 @@ export function ThinkingIndicator({ message, steps, detail, style }: ThinkingInd
       <div className="pxc-think" role="status" aria-live="polite">
         {/* STYLE gates HOW it animates. basic → just the current line (shimmer). */}
         {st === 'basic' ? (
-          <div className="pxc-think__head">
-            <span className="pxc-think__label">{current.label}</span>
-            {elapsed >= 2 && <span className="pxc-think__elapsed">{elapsed}s</span>}
-          </div>
+          <span className="pxc-think__label">{current.label}</span>
+        ) : st === 'focus' ? (
+          <FocusReel steps={visible} showDetail={showDetailText} />
         ) : (
-          <>
-            {elapsed >= 2 && (
-              <div className="pxc-think__head">
-                <span className="pxc-think__elapsed">{elapsed}s</span>
-              </div>
-            )}
-            {st === 'focus' ? (
-              <FocusReel steps={visible} showDetail={showDetailText} />
-            ) : (
-              <Stack steps={visible} showDetail={showDetailText} />
-            )}
-          </>
+          <Stack steps={visible} showDetail={showDetailText} />
         )}
         {d === 'thought' && <ThoughtPanel steps={all} />}
       </div>

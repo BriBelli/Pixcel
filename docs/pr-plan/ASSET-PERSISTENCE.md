@@ -16,23 +16,26 @@ Generated media becomes a first-class, durable, metadata-rich **Asset** — pers
 - **Scaffolding to reuse:** the A2UI-block persist pattern (accumulate stream event → write to `response` → re-validate on hydrate) is the exact template for images; `Usage.gen_cost_usd`; `ChatTurn.interactionId` as the FK; the pixel Art gallery (`gallery-store.ts` / `ArtGalleryTab`) as the **UX template** (add/delete/favorite/provenance) — though it's localStorage + PXSFrame, not DB + URL.
 - **The vision layer (photolif, adapt):** metadata-centric kind-discriminated `PxcAsset` (thin required core + optional per-kind facets + opaque `payload`); WP-style library (grid, kind chips, flat **tag cloud**, **Asset Details drawer**, Used-In backlinks); **flat tags = *what the asset is*, decoupled from *role* = *what it plays*** (bound later, per-context); version-DAG provenance (`{prompt, operation, parentAssetId}`); **blob+pointer** durability; storage-adapter boundary built for an IndexedDB/SQLite → DynamoDB swap.
 
-## The Asset model (my shaping — the spine everything stands on)
-One `Asset extends BaseRecord` (`category:'asset'`), metadata-first:
-- **Core:** `id, user_id, category, status, created_at, updated_at` (from BaseRecord) + `kind: 'image'|'video'|'pixel'|'vector'|…`, `tags: string[]`.
-- **Provenance / lineage (the Pixcel divergence):** `interaction_id`, `thread_id`, `workflow_id?`, `parent_asset_id?` (edits = new versioned assets, a DAG — never overwrite), `recipe?: { prompt, parts?, formula?, score?, model, modelLabel }`, `gen_cost_usd?`.
-- **Blob facet (media):** `url` **and/or** `data`, `thumbnail?`, `width?/height?/durationS?`, `mime?`, `index?`.
-- **WP editorial (drawer-editable):** `title?, altText?, caption?, description?`.
-- **Opaque per-kind payload:** `payload?` (e.g. PXSFrame for pixel — small JSON stays inline; heavy pixels/video = blob+pointer).
+## The Asset model (reshaped by Brian's lineage/resource vision — the spine everything stands on)
+Assets are **first-class citizens** with a literal **lineage tree**: images are reusable building blocks/references ("1000 words to the LLM"), a generation's parents = the references + formula that produced it, and editing an upstream asset can propagate to its children. One `Asset extends BaseRecord` (`category:'asset'`), metadata-first:
+- **Core:** BaseRecord + `kind: 'image'|'video'|'pixel'|'vector'|'sketch'|…`, `tags: string[]`.
+- **Provenance:** `source: 'generated'|'upload'`, `interaction_id`, `thread_id`, `workflow_id?`, `recipe?: { prompt, parts?, formula?, score?, model, modelLabel }`, `gen_cost_usd?`.
+- **Lineage (the tree, many-to-many):** `parent_asset_id?` (edit/version lineage — never overwrite) **AND** `reference_asset_ids?: string[]` (the references that produced a generation — the *edges*). This is what the node pre-viz pipeline renders.
+- **Retention (the resource control):** `retention: 'ephemeral'|'saved'` + `expires_at?`. Ephemeral = in-chat attachments + fresh generations: available in chat history, auto-GC'd after a TTL, don't permanently count against quota. Saved = promoted by a **deliberate action** (explicit upload / "Save to assets"): durable, lineage-tracked, counts against the user's asset-space quota.
+- **Blob facet:** `url`/`data`, `thumbnail?`, `width?/height?/durationS?`, `mime?`, `index?`. (nano-banana returns self-contained `data:` URLs — durability is real today; the concern is DB bloat → thumbnails, not URL expiry.)
+- **WP editorial (drawer):** `title?, altText?, caption?, description?`.
 
-Aligns with the checklist's **8-part metadata** + "media-as-JSON + version history/provenance/trajectory." Kept in the asset row; the heavy/expiring bytes get durability hardening in Slice 3.
+Aligns with checklist's **8-part metadata** + media-as-JSON provenance/trajectory. Ties the **per-user resource bucket** (asset-storage quota + AI-spend, tiered/monetized — see `project_business-monetization`): the two-tier retention is how users *control their own resourcing* instead of us bloating or starving them.
 
 ## Slices (statue — each ships + verifies on its own)
 - **Slice 1 — Persistence backbone (close the data-loss gap).** Add `asset` category + `Asset` entity + `AnyRecord` union; accumulate `image` events in both routes (mirror `emittedBlock`); `db.put` one asset per tile linked to `interactionId`; add `listAssets` query; hydrate `loadThread` to populate `images` from assets. **Verify: generate → reload → images still there.** *(This is the existing persist-generation plan.)*
 - **Slice 2 — Metadata + provenance/lineage.** Flesh out the recipe (prompt parts + formula + score + model), tags, `parent_asset_id` lineage. Persist the builder/recipe alongside the image so an asset is reproducible. **Verify: an asset round-trips its full recipe + a re-gen from it produces a linked child.**
 - **Slice 3 — Durable bytes ("never lost").** Provider image URLs **expire** — for money-grade durability, fetch the bytes and store them (data in `doc` for dev/SQLite; blob+pointer + object-storage adapter seam for prod). **Verify: an asset still renders after the provider URL would have expired.** ⚠️ Key risk — flagged.
 - **Slice 4 — The Assets library UI** (the surface). DB-backed grid + kind chips + tag cloud + search; the **Asset Details drawer** (editorial fields, read-only facts, Used-In backlinks); per-asset actions (save/export/open-in-Pixcel-Studio). WP-pattern × Pixcel-metadata. **⛔ NEEDS your reference images + the DB-chat design handoff before building.**
-- **Slice 5 — Feedback loop.** Assets feed back as **references** into new generations (role binding + smart-tag fan-out); ties the model-shaped reference slots.
-- **Slice 6 — Export + cloud-ready.** Download/`.pxc`-style export; confirm the adapter boundary is swap-ready for DynamoDB cloud sync.
+- **Slice 5 — Feedback loop.** Assets feed back as **references** into new generations (role binding + smart-tag fan-out); ties the model-shaped reference slots. Populates `reference_asset_ids` (the lineage edges).
+- **Slice 6 — Retention + resource buckets** (the GIGO control + monetization foundation). Ephemeral vs saved lifecycle; TTL/GC for ephemeral (kept visible in chat history until swept); the **"pending removal" holding tab** where users save keepers; per-user **asset-space quota** alongside `hard_cap_usd` (AI spend), tiered. Dual-shape: land the `retention`/`expires_at` fields + quota accounting in Slice 2/6, enforce GC + the tab here.
+- **Slice 7 — The lineage tree / node pre-viz pipeline** (north-star surface). A **Node-Based Pre-Visualization / Storyboarding / Visual Production Pipeline Builder** that renders + manipulates the asset lineage graph (edit an upstream node → propagate). Big; planned now, built later — the model (`parent_asset_id` + `reference_asset_ids`) is the foundation so we're not caged.
+- **Slice 8 — Export + cloud-ready.** Download/`.pxc`-style export; confirm the adapter boundary is swap-ready for DynamoDB cloud sync.
 
 ## Open inputs (need from Brian before the marked slices)
 1. **The improved DB-chat design handoff** (checklist §B line 44 — "study first"). Slices 1–3 don't conflict with it and can proceed; Slice 4 (UI) and the final metadata lock should align to it.

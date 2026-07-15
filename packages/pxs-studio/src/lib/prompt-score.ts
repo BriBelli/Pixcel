@@ -41,8 +41,11 @@ export interface BuilderScore {
 export function scorePart(value: string, anchors: string[]): { raw: number; band: ScoreBand } {
   const text = [value, ...anchors].join(' ').trim();
   const words = text ? text.split(/\s+/).filter(Boolean).length : 0;
-  // ~8 descriptive words reads as a solid part; anchors add up to +0.3.
-  const base = Math.min(1, words / 8) * 0.8;
+  // Specificity curve — a rich part reaches FULL strength at ~10 descriptive words. (Prior version
+  // multiplied by 0.8, hard-capping every part at 0.8 → the whole prompt could never exceed 80%. The
+  // +0.3 anchor bonus was meant to close that gap, but chips now APPEND into the value, so `anchors` is
+  // empty and the bonus never fired. Let base reach 1.0 so a genuinely strong prompt can score ~95-100.)
+  const base = Math.min(1, words / 10);
   const anchorBonus = Math.min(anchors.filter((a) => a.trim()).length, 3) * 0.1;
   const raw = Math.min(1, base + anchorBonus);
   return { raw, band: bandOf(raw) };

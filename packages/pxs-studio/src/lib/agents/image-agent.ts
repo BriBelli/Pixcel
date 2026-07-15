@@ -441,7 +441,8 @@ export async function* runImageAgent(frame: EpistemicFrame, turn: ImageAgentTurn
       userContent =
         `BRIEF (verified — start at Decide):\n${JSON.stringify(frame)}\n\n` +
         `This is the CONSULTATION (guided) leg: do NOT render — no images are generated now. Your opener is ONE ` +
-        `calm sentence (e.g. "Let's shape this — I've laid out the parts; tune them and hit Render"), never ` +
+        `calm sentence (e.g. "Let's shape this — I've laid out the five parts in the Prompt Builder on the ` +
+        `right; tune them and hit Render when it feels right"). Refer to the Prompt Builder, never "below". Never ` +
         `claiming you're rendering and NOT a long list of specs (the parts ARE the specs). In plan_render, fill ` +
         `\`parts\` (the image FORMULA — Subject/Action/Context/Composition/Style, each with guidance + a value ` +
         `pre-filled from the brief + 3–5 suggested chips) plus prompt + needs so the reference facts are grounded. ` +

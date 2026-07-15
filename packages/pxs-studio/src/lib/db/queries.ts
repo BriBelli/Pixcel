@@ -60,3 +60,24 @@ export async function listAssets(
   });
   return { items: items as Asset[], total };
 }
+
+/**
+ * List the user's SAVED (first-class) assets across ALL threads — the Assets catalog (Slice 4).
+ * Saved = promoted by a deliberate act (retention:'saved'); in-state ephemeral assets are excluded.
+ * Newest first. Retention is filtered in memory (no promoted column yet — fine at catalog scale; a
+ * DynamoDB GSI handles it later). `kind` optionally narrows to one media kind.
+ */
+export async function listSavedAssets(
+  repo: Repository,
+  user_id: string,
+  { kind }: { kind?: Asset['kind'] } = {}
+): Promise<QueryResult<Asset>> {
+  const { items } = await repo.query({
+    category: 'asset',
+    user_id,
+    filter: { status: 'active' },
+    sort: 'desc',
+  });
+  const saved = (items as Asset[]).filter((a) => a.retention === 'saved' && (!kind || a.kind === kind));
+  return { items: saved, total: saved.length };
+}

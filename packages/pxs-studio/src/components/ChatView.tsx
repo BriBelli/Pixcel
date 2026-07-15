@@ -188,6 +188,15 @@ export default function ChatView({ initialPrompt }: Props) {
     }
     return null;
   })();
+  // Rehydrate the Build panel's attached references (Slice 2) from the most recent turn that carried
+  // any — on reload these come from the persisted in-state upload assets (loadThread → userImages).
+  const latestRefs = (() => {
+    for (let i = turns.length - 1; i >= 0; i--) {
+      const u = turns[i].userImages;
+      if (Array.isArray(u) && u.length > 0) return u;
+    }
+    return undefined;
+  })();
 
   // SHARED part-values live in the STORE now (lifted for the two-way binding AND the coupling — the
   // Agent writes to the same source via `part_edit`). Seed from iteration-zero when a NEW builder
@@ -370,6 +379,7 @@ export default function ChatView({ initialPrompt }: Props) {
                   onValueChange={setPartValue}
                   highlight={lastEdit}
                   busy={generating}
+                  initialRefs={latestRefs}
                   onRender={(prompt, references) => send(prompt, references)}
                 />
               </aside>

@@ -108,6 +108,20 @@ export interface Asset extends BaseRecord {
   category: 'asset';
   /** What the asset IS (drives the renderer). Slice 1 persists 'image'. */
   kind: 'image' | 'video' | 'pixel' | 'vector';
+  /** Where it came from (Slice 2). 'generated' = a Pixcel render; 'upload' = a user-attached reference. */
+  source?: 'generated' | 'upload';
+  /**
+   * Retention tier (Slice 2 — THE rule): anything born in a chat (generations AND attached references)
+   * is 'ephemeral' (in-state: visible in history, GC-eligible, doesn't permanently count against quota).
+   * It becomes 'saved' (first-class, durable, quota'd) only by a DELIBERATE act — an explicit upload in
+   * the Asset location or a Save. Enforcement (GC/quota) lands in a later slice; the field lands now.
+   */
+  retention?: 'ephemeral' | 'saved';
+  /** When an ephemeral asset becomes GC-eligible (ms epoch). Unset = swept by the later GC policy. */
+  expires_at?: number;
+  /** Lineage EDGES: the reference assets that produced this generation (the many-to-many web the node
+   *  tree renders). Distinct from `parent_asset_id` (single-parent edit/version lineage). */
+  reference_asset_ids?: string[];
   /** Provenance — which conversation/turn produced it (the FKs the gallery + hydrate query on). */
   thread_id: string;
   interaction_id: string;

@@ -509,16 +509,27 @@ export const useChatTurnsStore = create<ChatTurnsState>((set, get) => {
         const data: { interactions?: Interaction[]; assets?: Asset[] } = await res.json();
         const interactions = Array.isArray(data.interactions) ? data.interactions : [];
 
-        // Group persisted assets by the interaction that produced them → repopulate each turn's
-        // images (Slice 1: generated media now survives reload). Ordered by the tile index.
+        // Group persisted assets by the interaction that produced them → repopulate each turn.
+        // GENERATED assets rehydrate the turn's output images (Slice 1). UPLOAD assets (attached
+        // references) rehydrate the turn's userImages (Slice 2 — the vanishing-attachment bug). Both
+        // ordered by tile index.
         const imagesByInteraction = new Map<string, GalleryImage[]>();
+        const userImagesByInteraction = new Map<string, { url: string; index: number }[]>();
         for (const a of Array.isArray(data.assets) ? data.assets : []) {
           if (!a || a.kind !== 'image' || !a.interaction_id || typeof a.url !== 'string') continue;
-          const list = imagesByInteraction.get(a.interaction_id) ?? [];
-          list.push({ url: a.url, modelLabel: a.model_label ?? '', index: typeof a.index === 'number' ? a.index : list.length });
-          imagesByInteraction.set(a.interaction_id, list);
+          const idx = typeof a.index === 'number' ? a.index : 0;
+          if (a.source === 'upload') {
+            const list = userImagesByInteraction.get(a.interaction_id) ?? [];
+            list.push({ url: a.url, index: idx });
+            userImagesByInteraction.set(a.interaction_id, list);
+          } else {
+            const list = imagesByInteraction.get(a.interaction_id) ?? [];
+            list.push({ url: a.url, modelLabel: a.model_label ?? '', index: idx });
+            imagesByInteraction.set(a.interaction_id, list);
+          }
         }
         for (const list of imagesByInteraction.values()) list.sort((x, y) => x.index - y.index);
+        for (const list of userImagesByInteraction.values()) list.sort((x, y) => x.index - y.index);
 
         // Map each persisted Interaction → a completed ChatTurn (ascending by created_at — the
         // query already sorts asc; keep the order it returns).
@@ -543,6 +554,7 @@ export const useChatTurnsStore = create<ChatTurnsState>((set, get) => {
             suggestions: [],
             sources: Array.isArray(persistedSources) ? persistedSources : [],
             images: imagesByInteraction.get(it.id) ?? [],
+            userImages: (userImagesByInteraction.get(it.id) ?? []).map((u) => u.url),
             createdAt: it.created_at,
             interactionId: it.id,
           };

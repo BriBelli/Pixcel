@@ -34,6 +34,8 @@ export interface BuilderPanelProps {
   onRender: (prompt: string, references: string[]) => void;
   /** Disable Render while a generation is already in flight. */
   busy?: boolean;
+  /** Rehydrate the attached references on reload (Slice 2) — the persisted in-state upload assets. */
+  initialRefs?: string[];
 }
 
 const CSS = `
@@ -156,10 +158,10 @@ function QualityRing({ value, band }: { value: number; band: ScoreBand }) {
   );
 }
 
-export function BuilderPanel({ block, values, score, onValueChange, highlight, onRender, busy }: BuilderPanelProps) {
+export function BuilderPanel({ block, values, score, onValueChange, highlight, onRender, busy, initialRefs }: BuilderPanelProps) {
   // Values are CONTROLLED (owned by ChatView, shared with the center prompt). A chip APPENDS to the
   // field (comma-joined, de-duped); typing edits directly. The recommendation is the placeholder.
-  const [refs, setRefs] = useState<string[]>([]);
+  const [refs, setRefs] = useState<string[]>(() => initialRefs ?? []);
 
   // THE COUPLING (visual): when the Agent edits a part, flash it + scroll it into view so you SEE
   // the change land. `highlight.n` bumps every edit, so re-editing the same part re-triggers.

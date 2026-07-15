@@ -386,7 +386,7 @@ export async function POST(req: Request) {
             output_tokens: outputTokens + agentOutTok,
             gen_cost_usd: genCostTotal,
           });
-          // Persist any 'quick'-transfer generated tiles as durable ASSETS (Slice 1) → survive reload.
+          // Persist any 'quick'-transfer generated tiles as in-state GENERATED assets (Slice 1/2) → reload.
           const share = generatedImages.length > 0 ? genCostTotal / generatedImages.length : 0;
           for (const img of generatedImages) {
             const asset: Asset = {
@@ -397,6 +397,8 @@ export async function POST(req: Request) {
               created_at: now,
               updated_at: now,
               kind: 'image',
+              source: 'generated',
+              retention: 'ephemeral',
               thread_id: threadId,
               interaction_id: interactionId,
               url: img.url,

@@ -239,7 +239,32 @@ export async function POST(req: Request) {
             output_tokens: agentOutTok,
             gen_cost_usd: genCostTotal,
           });
-          // Persist each generated tile as a durable ASSET (Slice 1) — so a reload rehydrates them.
+          // Persist attached REFERENCE images as in-state UPLOAD assets (Slice 2) → they rehydrate into
+          // the builder on reload (kills the vanishing-attachment bug) AND become the lineage edges of
+          // whatever they produced. Ephemeral by the retention rule (chat-born ≠ first-class).
+          const referenceAssetIds: string[] = [];
+          for (let i = 0; i < references.length; i++) {
+            const refId = newId('asset');
+            const refAsset: Asset = {
+              id: refId,
+              user_id: userId,
+              category: 'asset',
+              status: 'active',
+              created_at: now,
+              updated_at: now,
+              kind: 'image',
+              source: 'upload',
+              retention: 'ephemeral',
+              thread_id: threadId,
+              interaction_id: interactionId,
+              url: references[i],
+              index: i,
+            };
+            await db.put(refAsset);
+            referenceAssetIds.push(refId);
+          }
+          // Persist each generated tile as an in-state GENERATED asset, linked (reference_asset_ids) to
+          // the reference assets that produced it — the first real lineage edges of the tree.
           const share = generatedImages.length > 0 ? genCostTotal / generatedImages.length : 0;
           for (const img of generatedImages) {
             const asset: Asset = {
@@ -250,6 +275,8 @@ export async function POST(req: Request) {
               created_at: now,
               updated_at: now,
               kind: 'image',
+              source: 'generated',
+              retention: 'ephemeral',
               thread_id: threadId,
               interaction_id: interactionId,
               url: img.url,
@@ -257,6 +284,7 @@ export async function POST(req: Request) {
               index: img.index,
               prompt,
               gen_cost_usd: share || undefined,
+              reference_asset_ids: referenceAssetIds.length > 0 ? referenceAssetIds : undefined,
             };
             await db.put(asset);
           }

@@ -55,9 +55,9 @@ const CSS = `
 .pxc-stage-tile img { width: 100%; height: 100%; object-fit: cover; display: block; }
 .pxc-stage-overlay {
   position: absolute; inset: 0;
-  display: flex; align-items: flex-end; justify-content: flex-end; gap: var(--a2ui-space-2);
+  display: flex; align-items: flex-start; justify-content: flex-end; gap: 6px;
   padding: var(--a2ui-space-3);
-  background: linear-gradient(180deg, transparent 45%, rgba(0,0,0,0.6) 100%);
+  background: linear-gradient(180deg, rgba(0,0,0,0.5) 0%, transparent 32%);
   opacity: 0; transition: opacity var(--a2ui-transition-fast);
 }
 .pxc-stage-tile:hover .pxc-stage-overlay, .pxc-stage-tile:focus-within .pxc-stage-overlay { opacity: 1; }
@@ -79,13 +79,18 @@ const CSS = `
   cursor: pointer; transition: background var(--a2ui-transition-fast); text-decoration: none;
 }
 .pxc-stage-icon:hover { background: var(--a2ui-bg-elevated); }
+.pxc-stage-icon[data-on="true"] { color: var(--a2ui-success); }
+.pxc-stage-icon:disabled { cursor: default; }
 .pxc-stage-badge {
   position: absolute; left: 8px; bottom: 8px;
   padding: 2px 8px; border-radius: var(--a2ui-radius-full);
   font-size: var(--a2ui-text-xs); color: var(--a2ui-text-primary);
   background: var(--a2ui-glass-dark); backdrop-filter: blur(8px);
   border: 1px solid var(--pxs-glass-border);
+  opacity: 0; transition: opacity var(--a2ui-transition-fast);
 }
+/* Model badge + actions both reveal together, ONLY on hover (or tap/focus on mobile). */
+.pxc-stage-tile:hover .pxc-stage-badge, .pxc-stage-tile:focus-within .pxc-stage-badge { opacity: 1; }
 .pxc-stage-pending {
   display: flex; align-items: center; justify-content: center;
   color: var(--a2ui-text-tertiary); font-size: var(--a2ui-text-sm);
@@ -151,28 +156,27 @@ export function ImageStage({ images, generating, medium, contextLabel, onSaveAss
           <div className="pxc-stage-grid">
             {generating && <div className="pxc-stage-pending">Generating…</div>}
             {images.map((img) => (
-              <div key={`${img.turnId}-${img.index}`} className="pxc-stage-tile">
+              <div key={`${img.turnId}-${img.index}`} className="pxc-stage-tile" tabIndex={0}>
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img src={img.url} alt={img.modelLabel || 'generated image'} />
                 <div className="pxc-stage-overlay">
                   {onSaveAsset && (
                     <button
                       type="button"
-                      className="pxc-stage-action"
+                      className="pxc-stage-icon"
                       data-on={saved.has(keyOf(img)) ? 'true' : 'false'}
                       onClick={() => handleSave(img)}
                       disabled={savingKey === keyOf(img) || saved.has(keyOf(img))}
-                      title="Save to Assets"
+                      title={saved.has(keyOf(img)) ? 'Saved to Assets' : 'Save to Assets'}
                     >
-                      <Icon name={saved.has(keyOf(img)) ? 'check' : 'plus'} size={14} />{' '}
-                      {saved.has(keyOf(img)) ? 'Saved' : savingKey === keyOf(img) ? 'Saving…' : 'Save to Assets'}
+                      <Icon name={saved.has(keyOf(img)) ? 'check' : 'plus'} size={15} />
                     </button>
                   )}
                   <button type="button" className="pxc-stage-icon" onClick={() => handleCopy(img)} title="Copy image">
-                    <Icon name="copy" size={14} />
+                    <Icon name="copy" size={15} />
                   </button>
                   <a className="pxc-stage-icon" href={img.url} download={`pixcel-${img.index + 1}.png`} title="Download">
-                    <Icon name="download" size={14} />
+                    <Icon name="download" size={15} />
                   </a>
                 </div>
                 {img.modelLabel && <span className="pxc-stage-badge">{img.modelLabel}</span>}

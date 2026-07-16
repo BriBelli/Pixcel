@@ -39,14 +39,31 @@ const CSS = `
 .pxp-new:hover { color: var(--a2ui-text-primary); border-color: var(--a2ui-accent); }
 .pxp-list { flex: 1; overflow-y: auto; padding: 0 var(--a2ui-space-2) var(--a2ui-space-3);
   display: flex; flex-direction: column; gap: 1px; }
-.pxp-item { display: flex; flex-direction: column; gap: 2px; padding: 8px 10px; border-radius: var(--a2ui-radius-md);
-  border: none; background: none; text-align: left; cursor: pointer; width: 100%;
+.pxp-item { position: relative; display: flex; align-items: center; border-radius: var(--a2ui-radius-md);
   transition: background var(--a2ui-transition-fast); }
 .pxp-item:hover { background: var(--a2ui-bg-hover); }
 .pxp-item[data-on="true"] { background: var(--a2ui-bg-active); }
+.pxp-item-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; padding: 8px 10px;
+  border: none; background: none; text-align: left; cursor: pointer; }
 .pxp-item-title { font-size: var(--a2ui-text-sm); color: var(--a2ui-text-primary); white-space: nowrap;
   overflow: hidden; text-overflow: ellipsis; }
 .pxp-item-time { font-size: var(--a2ui-text-xs); color: var(--a2ui-text-tertiary); }
+.pxp-acts { display: flex; gap: 1px; padding-right: 6px; opacity: 0; transition: opacity var(--a2ui-transition-fast); }
+.pxp-item:hover .pxp-acts { opacity: 1; }
+.pxp-mini { width: 24px; height: 24px; display: inline-flex; align-items: center; justify-content: center; border: none;
+  background: none; color: var(--a2ui-text-tertiary); cursor: pointer; border-radius: var(--a2ui-radius-sm); }
+.pxp-mini:hover { background: var(--a2ui-bg-active); color: var(--a2ui-text-primary); }
+.pxp-mini--danger:hover { color: var(--a2ui-error, #f87171); }
+.pxp-edit { flex: 1; min-width: 0; margin: 5px 8px; padding: 6px 8px; border-radius: var(--a2ui-radius-sm);
+  border: 1px solid var(--a2ui-accent); background: var(--a2ui-bg-input); color: var(--a2ui-text-primary);
+  font-family: inherit; font-size: var(--a2ui-text-sm); }
+.pxp-edit:focus { outline: none; box-shadow: 0 0 0 2px var(--a2ui-accent-subtle); }
+.pxp-confirm { display: flex; align-items: center; gap: 6px; padding: 7px 8px 7px 10px; width: 100%; }
+.pxp-confirm-txt { flex: 1; min-width: 0; font-size: var(--a2ui-text-xs); color: var(--a2ui-text-secondary); }
+.pxp-cbtn { height: 24px; padding: 0 9px; border-radius: var(--a2ui-radius-sm); border: none; font-family: inherit;
+  font-size: var(--a2ui-text-xs); font-weight: var(--a2ui-font-medium); cursor: pointer; }
+.pxp-cyes { background: var(--a2ui-error, #f87171); color: #fff; }
+.pxp-cno { background: var(--a2ui-bg-active); color: var(--a2ui-text-secondary); }
 .pxp-empty { padding: var(--a2ui-space-4); font-size: var(--a2ui-text-sm); color: var(--a2ui-text-tertiary); text-align: center; }
 `;
 
@@ -78,6 +95,9 @@ export interface ProjectsPanelProps {
 export function ProjectsPanel({ activeId, onClose, onOpenProject, onNewProject, left }: ProjectsPanelProps) {
   const [projects, setProjects] = useState<ProjectRow[]>([]);
   const [loading, setLoading] = useState(true);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editValue, setEditValue] = useState('');
+  const [confirmId, setConfirmId] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -105,6 +125,29 @@ export function ProjectsPanel({ activeId, onClose, onOpenProject, onNewProject, 
     onOpenProject(id);
   };
 
+  const startEdit = (p: ProjectRow) => {
+    setConfirmId(null);
+    setEditingId(p.id);
+    setEditValue(p.title);
+  };
+  const saveEdit = async () => {
+    const id = editingId;
+    const title = editValue.trim();
+    setEditingId(null);
+    if (!id || !title) return;
+    setProjects((prev) => prev.map((p) => (p.id === id ? { ...p, title } : p)));
+    await fetch(`/api/threads/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ title }),
+    }).catch(() => {});
+  };
+  const del = async (id: string) => {
+    setConfirmId(null);
+    setProjects((prev) => prev.filter((p) => p.id !== id));
+    await fetch(`/api/threads/${id}?user_id=${encodeURIComponent(DEV_USER_ID)}`, { method: 'DELETE' }).catch(() => {});
+  };
+
   return (
     <div className="pxp" style={{ left }}>
       <style>{CSS}</style>
@@ -124,10 +167,42 @@ export function ProjectsPanel({ activeId, onClose, onOpenProject, onNewProject, 
           <div className="pxp-empty">No projects yet. Start creating and they land here.</div>
         ) : (
           projects.map((p) => (
-            <button key={p.id} type="button" className="pxp-item" data-on={activeId === p.id ? 'true' : 'false'} onClick={() => open(p.id)}>
-              <span className="pxp-item-title">{p.title}</span>
-              <span className="pxp-item-time">{relTime(p.updated_at)}</span>
-            </button>
+            <div key={p.id} className="pxp-item" data-on={activeId === p.id ? 'true' : 'false'}>
+              {editingId === p.id ? (
+                <input
+                  className="pxp-edit"
+                  value={editValue}
+                  autoFocus
+                  onChange={(e) => setEditValue(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') void saveEdit();
+                    else if (e.key === 'Escape') setEditingId(null);
+                  }}
+                  onBlur={() => void saveEdit()}
+                />
+              ) : confirmId === p.id ? (
+                <div className="pxp-confirm">
+                  <span className="pxp-confirm-txt">Delete project + its assets?</span>
+                  <button type="button" className="pxp-cbtn pxp-cno" onClick={() => setConfirmId(null)}>Keep</button>
+                  <button type="button" className="pxp-cbtn pxp-cyes" onClick={() => void del(p.id)}>Delete</button>
+                </div>
+              ) : (
+                <>
+                  <button type="button" className="pxp-item-main" onClick={() => open(p.id)}>
+                    <span className="pxp-item-title">{p.title}</span>
+                    <span className="pxp-item-time">{relTime(p.updated_at)}</span>
+                  </button>
+                  <div className="pxp-acts">
+                    <button type="button" className="pxp-mini" title="Rename" onClick={() => startEdit(p)}>
+                      <Icon name="pencil" size={13} />
+                    </button>
+                    <button type="button" className="pxp-mini pxp-mini--danger" title="Delete" onClick={() => setConfirmId(p.id)}>
+                      <Icon name="trash-2" size={13} />
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
           ))
         )}
       </div>

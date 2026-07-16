@@ -266,7 +266,6 @@ export default function Home() {
                 activeSection={navActive}
                 onHome={handleNavHome}
                 onSection={handleNavSection}
-                onUtility={() => transitionTo('studio')}
                 onOpenSettings={() => setSettingsOpen(true)}
                 onToggleProjects={() => setProjectsOpen((v) => !v)}
                 projectsOpen={projectsOpen}

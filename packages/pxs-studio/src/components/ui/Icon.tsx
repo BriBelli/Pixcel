@@ -17,6 +17,7 @@ export type IconName =
   | 'settings'
   | 'copy'
   | 'save'
+  | 'pencil'
   | 'trash-2'
   | 'image'
   | 'message-square'
@@ -154,6 +155,13 @@ const PATHS: Record<IconName, JSX.Element> = {
       <path d="M12 15V3" />
       <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
       <path d="m7 10 5 5 5-5" />
+    </>
+  ),
+  /* pencil — Lucide; the rename affordance. */
+  pencil: (
+    <>
+      <path d="M12 20h9" />
+      <path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z" />
     </>
   ),
   /* save — the Lucide floppy; the Save-to-Assets action glyph. */

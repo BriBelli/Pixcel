@@ -74,15 +74,12 @@ function Ic({ name, size = 20 }: { name: IconName; size?: number }) {
    and "Art" was a nonsense label for it. It returns later as its own named medium ("Pixel Art")
    once the platform is dialed in — we are NOT competing with image models via a generic "Art" tab.
    Current focus = the IMAGE medium/workflow. */
+/* The interconnected-web SECTIONS. Assets is a first-class section (not a bottom utility) — it's the
+   inventory that ties chat/image/video together. (Brian, 2026-07-16.) */
 const SECTIONS: { id: string; label: string; icon: IconName }[] = [
   { id: 'chat', label: 'Chat', icon: 'chat' },
   { id: 'image', label: 'Image', icon: 'image' },
   { id: 'video', label: 'Video', icon: 'video' },
-];
-/* Export lives where something is actually being created (the A2UI / asset view), not the primary
-   nav. The Assistant is an openable right panel (Claude Design), not a nav item. Settings moved into
-   the avatar popover. So the utility cluster is just Assets. (Brian, 2026-07-07.) */
-const UTILITY: { id: string; label: string; icon: IconName }[] = [
   { id: 'assets', label: 'Assets', icon: 'assets' },
 ];
 
@@ -280,7 +277,7 @@ interface NavRailProps {
   projectsOpen?: boolean;
 }
 
-export default function NavRail({ activeSection = 'chat', onHome, onSection, onUtility, activeUtility, utilityBadges, onOpenSettings, onToggleProjects, projectsOpen }: NavRailProps) {
+export default function NavRail({ activeSection = 'chat', onHome, onSection, onOpenSettings, onToggleProjects, projectsOpen }: NavRailProps) {
   const handleSection = (id: string) => {
     if (id === 'chat') return onHome?.();
     (onSection ?? (() => onHome?.()))(id);
@@ -292,14 +289,18 @@ export default function NavRail({ activeSection = 'chat', onHome, onSection, onU
         <PixcelMark size={22} />
       </button>
       {onToggleProjects && (
-        <button
-          onClick={onToggleProjects}
-          data-active={projectsOpen}
-          title="Projects"
-          className="pxl-navbtn mb-4 flex h-8 w-14 items-center justify-center text-base font-semibold"
-        >
-          {projectsOpen ? '«' : '»'}
-        </button>
+        <>
+          <button
+            onClick={onToggleProjects}
+            data-active={projectsOpen}
+            title="Projects"
+            className="pxl-navbtn mb-2 flex h-8 w-9 items-center justify-center text-base font-semibold"
+          >
+            {projectsOpen ? '«' : '»'}
+          </button>
+          {/* hairline — the » is the rail's expand affordance, NOT a system section. */}
+          <div className="mb-3 h-px w-7" style={{ background: 'var(--a2ui-border-subtle)' }} />
+        </>
       )}
       <div className="flex flex-col gap-1.5">
         {SECTIONS.map((s) => (
@@ -315,31 +316,7 @@ export default function NavRail({ activeSection = 'chat', onHome, onSection, onU
           </button>
         ))}
       </div>
-      <div className="mt-auto flex flex-col gap-1.5">
-        {UTILITY.map((s) => {
-          const badge = utilityBadges?.[s.id];
-          return (
-            <button
-              key={s.id}
-              onClick={() => onUtility?.(s.id)}
-              data-active={s.id === activeUtility}
-              title={badge != null ? `${s.label} · ${badge}` : s.label}
-              className="pxl-navbtn relative flex flex-col items-center gap-1 w-14 py-2"
-            >
-              <Ic name={s.icon} size={18} />
-              {badge != null && badge > 0 && (
-                <span
-                  className="absolute top-1 right-2 min-w-[15px] h-[15px] px-1 rounded-full flex items-center justify-center text-[8.5px] font-semibold leading-none"
-                  style={{ background: 'var(--a2ui-accent)', color: 'var(--a2ui-text-inverse)' }}
-                >
-                  {badge > 99 ? '99+' : badge}
-                </span>
-              )}
-              <span className="text-[10px] font-medium">{s.label}</span>
-            </button>
-          );
-        })}
-      </div>
+      <div className="mt-auto" />
 
       {/* FUTURE: Alerts/notification icon goes HERE (above the avatar), with a push-style unread
           badge dot on the avatar below. For now just the avatar — Settings lives in its popover. */}

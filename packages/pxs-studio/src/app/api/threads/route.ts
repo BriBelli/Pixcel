@@ -10,22 +10,19 @@ export const runtime = 'nodejs';
 export async function GET(req: Request) {
   const url = new URL(req.url);
   const userId = (url.searchParams.get('user_id') ?? '').trim() || DEV_USER_ID;
-  const limit = Math.min(20, Math.max(1, Number(url.searchParams.get('limit')) || 8));
+  const limit = Math.min(100, Math.max(1, Number(url.searchParams.get('limit')) || 8));
 
   try {
     const db = await getDb();
-    const { items } = await db.query({
-      category: 'thread',
-      user_id: userId,
-      filter: { status: 'active' },
-      sort: 'desc', // newest first
-      limit,
-    });
-    const threads = (items as Thread[]).map((t) => ({
-      id: t.id,
-      title: (t.title ?? '').trim() || 'Untitled',
-      updated_at: t.updated_at,
-    }));
+    // Fetch the active threads, then sort by LAST-UPDATED desc (the project record's updated_at — a
+    // thread rises when you work on it or open it, like Cursor/Claude-Code history). The repo query
+    // sorts by created_at, so we re-sort in memory (fine at project scale; a GSI handles it later).
+    const { items } = await db.query({ category: 'thread', user_id: userId, filter: { status: 'active' } });
+    const threads = (items as Thread[])
+      .slice()
+      .sort((a, b) => b.updated_at - a.updated_at)
+      .slice(0, limit)
+      .map((t) => ({ id: t.id, title: (t.title ?? '').trim() || 'Untitled', updated_at: t.updated_at }));
     return Response.json({ threads });
   } catch (err) {
     console.warn('[threads] list failed:', err);

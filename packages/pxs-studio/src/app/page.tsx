@@ -8,6 +8,7 @@ import NavRail from '../components/NavRail';
 import DigitalWall from '../components/DigitalWall';
 import SettingsPanel from '../components/SettingsPanel';
 import AssetsCatalog from '../components/AssetsCatalog';
+import ProjectsPanel from '../components/ProjectsPanel';
 import { ToastContainer, useToasts } from '../components/Toast';
 import AuthProvider from '../components/AuthProvider';
 import LoginModalProvider from '../components/LoginModalProvider';
@@ -148,12 +149,16 @@ export default function Home() {
   // ── PR-8 persistent shell state (nav + wall + settings live here, not in the views) ──
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [assetsOpen, setAssetsOpen] = useState(false);
+  const [projectsOpen, setProjectsOpen] = useState(false);
   const [promptY, setPromptY] = useState(DEFAULT_PROMPT_Y);
   const { toasts: toastList, dismiss: dismissToast } = useToasts();
   const splashStyle = useSettings((s) => s.splashStyle);
   const theme = useSettings((s) => s.theme);
   const activeMedium = useChatTurnsStore((s) => s.activeMedium);
   const setActiveMedium = useChatTurnsStore((s) => s.setActiveMedium);
+  const loadThread = useChatTurnsStore((s) => s.loadThread);
+  const resetChat = useChatTurnsStore((s) => s.reset);
+  const activeThreadId = useChatTurnsStore((s) => s.threadId);
 
   // Theme applies to <html> from the shell, so it holds across splash + chat (not just in-app).
   useEffect(() => {
@@ -263,6 +268,8 @@ export default function Home() {
                 onSection={handleNavSection}
                 onUtility={() => transitionTo('studio')}
                 onOpenSettings={() => setSettingsOpen(true)}
+                onToggleProjects={() => setProjectsOpen((v) => !v)}
+                projectsOpen={projectsOpen}
               />
             </div>
 
@@ -275,6 +282,29 @@ export default function Home() {
               )}
               {assetsOpen && <AssetsCatalog onClose={() => setAssetsOpen(false)} />}
             </div>
+
+            {/* Projects slide-out (Slice 5) — THE THREAD IS THE PROJECT. Docked right of the nav rail. */}
+            {projectsOpen && (
+              <ProjectsPanel
+                left={72}
+                activeId={activeThreadId}
+                onClose={() => setProjectsOpen(false)}
+                onNewProject={() => {
+                  setProjectsOpen(false);
+                  setAssetsOpen(false);
+                  resetChat();
+                  setActiveMedium('chat');
+                  if (stage !== 'chat') transitionTo('chat');
+                }}
+                onOpenProject={(id) => {
+                  setProjectsOpen(false);
+                  setAssetsOpen(false);
+                  setActiveMedium('chat');
+                  if (stage !== 'chat') transitionTo('chat');
+                  void loadThread(id);
+                }}
+              />
+            )}
 
             <SettingsPanel open={settingsOpen} onClose={() => setSettingsOpen(false)} />
             <ToastContainer toasts={toastList} onDismiss={dismissToast} />

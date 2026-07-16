@@ -386,6 +386,8 @@ export async function POST(req: Request) {
             output_tokens: outputTokens + agentOutTok,
             gen_cost_usd: genCostTotal,
           });
+          // Bump the thread's updated_at so the project rises to the top of the Projects list.
+          await db.update('thread', threadId, {});
           // Persist any 'quick'-transfer generated tiles as in-state GENERATED assets (Slice 1/2) → reload.
           const share = generatedImages.length > 0 ? genCostTotal / generatedImages.length : 0;
           for (const img of generatedImages) {

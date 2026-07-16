@@ -274,9 +274,13 @@ interface NavRailProps {
   utilityBadges?: Partial<Record<string, number>>;
   /** Open the settings slide-over (the gear affordance above the avatar). */
   onOpenSettings?: () => void;
+  /** Toggle the Projects list panel (the » affordance under the mark). */
+  onToggleProjects?: () => void;
+  /** Whether the Projects panel is currently open (highlights the » affordance). */
+  projectsOpen?: boolean;
 }
 
-export default function NavRail({ activeSection = 'chat', onHome, onSection, onUtility, activeUtility, utilityBadges, onOpenSettings }: NavRailProps) {
+export default function NavRail({ activeSection = 'chat', onHome, onSection, onUtility, activeUtility, utilityBadges, onOpenSettings, onToggleProjects, projectsOpen }: NavRailProps) {
   const handleSection = (id: string) => {
     if (id === 'chat') return onHome?.();
     (onSection ?? (() => onHome?.()))(id);
@@ -284,9 +288,19 @@ export default function NavRail({ activeSection = 'chat', onHome, onSection, onU
   return (
     <nav className="pxl-rail-scope pxl-rail flex flex-col items-center w-[72px] py-4 shrink-0">
       <style>{RAIL_CSS}</style>
-      <button onClick={onHome} title="Home — back to Chat" className="pxl-rail-mark mb-6 flex h-10 w-10 items-center justify-center">
+      <button onClick={onHome} title="Home — back to Chat" className="pxl-rail-mark mb-2 flex h-10 w-10 items-center justify-center">
         <PixcelMark size={22} />
       </button>
+      {onToggleProjects && (
+        <button
+          onClick={onToggleProjects}
+          data-active={projectsOpen}
+          title="Projects"
+          className="pxl-navbtn mb-4 flex h-8 w-14 items-center justify-center text-base font-semibold"
+        >
+          {projectsOpen ? '«' : '»'}
+        </button>
+      )}
       <div className="flex flex-col gap-1.5">
         {SECTIONS.map((s) => (
           <button

@@ -239,6 +239,8 @@ export async function POST(req: Request) {
             output_tokens: agentOutTok,
             gen_cost_usd: genCostTotal,
           });
+          // Bump the thread's updated_at so the project rises to the top of the Projects list.
+          await db.update('thread', threadId, {});
           // Persist attached REFERENCE images as in-state UPLOAD assets (Slice 2) → they rehydrate into
           // the builder on reload (kills the vanishing-attachment bug) AND become the lineage edges of
           // whatever they produced. Ephemeral by the retention rule (chat-born ≠ first-class).

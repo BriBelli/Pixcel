@@ -19,15 +19,28 @@
  *   - Enter submits, Shift+Enter newlines.
  * ───────────────────────────────────────────────────────────────────────────── */
 
-import { useLayoutEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { IconButton } from './IconButton';
 import { Icon } from './Icon';
+import { DEV_USER_ID } from '../../lib/db/models';
 
 /** One attached reference image (read as a data URL). */
 export interface ComposerAttachment {
   id: string;
   name: string;
   dataUrl: string;
+  /** When the attachment is an EXISTING saved asset (picked via @-mention), its asset id — so the
+   *  generation links its lineage to the real asset instead of re-uploading a copy. */
+  assetId?: string;
+}
+
+/** A saved asset offered in the @-mention typeahead. */
+interface MentionAsset {
+  id: string;
+  name: string;
+  url: string;
+  kind?: string;
+  tags?: string[];
 }
 
 export interface ComposerProps {
@@ -48,6 +61,7 @@ export interface ComposerProps {
 
 const CSS = `
 .a2-composer {
+  position: relative;
   display: flex; flex-direction: column; gap: var(--a2ui-space-2); width: 100%;
   padding: var(--a2ui-space-2) var(--a2ui-space-3);
   background: var(--a2ui-bg-input); color: var(--a2ui-text-primary);
@@ -55,6 +69,22 @@ const CSS = `
   transition: border-color var(--a2ui-transition-fast), box-shadow var(--a2ui-transition-fast),
               background var(--a2ui-transition-fast);
 }
+/* @-mention typeahead — floats above the composer (assets picker). */
+.a2-mention { position: absolute; left: 0; bottom: calc(100% + 8px); z-index: 50; width: min(340px, 100%);
+  max-height: 280px; overflow-y: auto; padding: 4px;
+  background: var(--a2ui-glass-dark, rgba(18,18,22,0.94)); backdrop-filter: blur(20px);
+  border: 1px solid var(--pxs-glass-border, rgba(255,255,255,0.08)); border-radius: var(--a2ui-radius-lg);
+  box-shadow: var(--a2ui-shadow-lg); }
+.a2-mention-head { padding: 6px 10px 4px; font-size: 10px; font-weight: var(--a2ui-font-semibold);
+  text-transform: uppercase; letter-spacing: 0.08em; color: var(--a2ui-text-tertiary); }
+.a2-mention-row { display: flex; align-items: center; gap: 8px; width: 100%; padding: 6px 8px; border: none;
+  background: none; text-align: left; cursor: pointer; border-radius: var(--a2ui-radius-md); color: var(--a2ui-text-primary); }
+.a2-mention-row[data-on="true"] { background: var(--a2ui-bg-active); }
+.a2-mention-thumb { width: 26px; height: 26px; border-radius: var(--a2ui-radius-sm); object-fit: cover;
+  flex-shrink: 0; background: var(--a2ui-bg-secondary); }
+.a2-mention-name { flex: 1; min-width: 0; font-size: var(--a2ui-text-sm); white-space: nowrap; overflow: hidden;
+  text-overflow: ellipsis; }
+.a2-mention-kind { font-size: var(--a2ui-text-xs); color: var(--a2ui-text-tertiary); text-transform: capitalize; flex-shrink: 0; }
 .a2-composer:hover:not(.a2-composer--disabled):not(:focus-within) { border-color: var(--a2ui-border-strong); }
 /* active = pointer down inside frame → subtle bg elevation (no scale-pop) */
 .a2-composer:active:not(.a2-composer--disabled) { background: var(--a2ui-bg-input-focus); }
@@ -107,6 +137,17 @@ function readAsDataUrl(file: File): Promise<string> {
   });
 }
 
+/** If the caret sits inside an @-token (@ then word chars, no whitespace), return its query + start. */
+function detectMention(value: string, caret: number): { query: string; start: number } | null {
+  const upto = value.slice(0, caret);
+  const at = upto.lastIndexOf('@');
+  if (at < 0) return null;
+  if (at > 0 && !/\s/.test(upto[at - 1])) return null; // must start the token (BOL or after space)
+  const query = upto.slice(at + 1);
+  if (/\s/.test(query)) return null; // a space ends the token
+  return { query, start: at };
+}
+
 export function Composer({
   value,
   onChange,
@@ -122,8 +163,61 @@ export function Composer({
   const taRef = useRef<HTMLTextAreaElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const [attachments, setAttachments] = useState<ComposerAttachment[]>([]);
+  // @-mention typeahead against your saved assets (workspace only). Type "@" → live matches.
+  const [assetPool, setAssetPool] = useState<MentionAsset[]>([]);
+  const [mention, setMention] = useState<{ query: string; start: number } | null>(null);
+  const [activeIdx, setActiveIdx] = useState(0);
   const locked = disabled;
   const canSend = !locked && !busy && (value.trim().length > 0 || attachments.length > 0);
+
+  useEffect(() => {
+    if (!attachEnabled) return;
+    let live = true;
+    fetch(`/api/assets?user_id=${encodeURIComponent(DEV_USER_ID)}`)
+      .then((r) => r.json())
+      .then((d: { assets?: MentionAsset[] & { title?: string }[] }) => {
+        if (!live) return;
+        const rows = Array.isArray(d.assets) ? d.assets : [];
+        setAssetPool(
+          rows.map((a) => ({
+            id: String((a as { id?: string }).id ?? ''),
+            name: String((a as { title?: string }).title ?? '').trim() || 'Untitled',
+            url: String((a as { url?: string }).url ?? ''),
+            kind: (a as { kind?: string }).kind,
+            tags: (a as { tags?: string[] }).tags,
+          }))
+        );
+      })
+      .catch(() => {});
+    return () => {
+      live = false;
+    };
+  }, [attachEnabled]);
+
+  const matches =
+    mention && assetPool.length > 0
+      ? assetPool
+          .filter((a) => {
+            const q = mention.query.toLowerCase();
+            return !q || a.name.toLowerCase().includes(q) || (a.tags ?? []).some((t) => t.toLowerCase().includes(q));
+          })
+          .slice(0, 6)
+      : [];
+
+  const pickMention = (asset: MentionAsset) => {
+    if (!mention) return;
+    const before = value.slice(0, mention.start);
+    const after = value.slice(mention.start + 1 + mention.query.length);
+    onChange(`${before}@${asset.name} ${after}`);
+    setMention(null);
+    // Attach the EXISTING asset (id-linked) so the generation's lineage points at the real asset.
+    setAttachments((prev) =>
+      prev.some((a) => a.assetId === asset.id)
+        ? prev
+        : [...prev, { id: `asset-${asset.id}`, name: asset.name, dataUrl: asset.url, assetId: asset.id }].slice(0, maxAttachments)
+    );
+    requestAnimationFrame(() => taRef.current?.focus());
+  };
 
   // grow the textarea to fit content (capped by max-height in CSS)
   useLayoutEffect(() => {
@@ -140,10 +234,24 @@ export function Composer({
   };
 
   const onKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    // When the @-mention list is open, arrows/enter/escape drive it (not the composer).
+    if (mention && matches.length > 0) {
+      if (e.key === 'ArrowDown') { e.preventDefault(); setActiveIdx((i) => (i + 1) % matches.length); return; }
+      if (e.key === 'ArrowUp') { e.preventDefault(); setActiveIdx((i) => (i - 1 + matches.length) % matches.length); return; }
+      if (e.key === 'Enter' || e.key === 'Tab') { e.preventDefault(); pickMention(matches[activeIdx]); return; }
+      if (e.key === 'Escape') { e.preventDefault(); setMention(null); return; }
+    }
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       submit();
     }
+  };
+
+  const handleChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    onChange(e.target.value);
+    const caret = e.target.selectionStart ?? e.target.value.length;
+    setMention(detectMention(e.target.value, caret));
+    setActiveIdx(0);
   };
 
   const handleFiles = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -175,6 +283,29 @@ export function Composer({
           submit();
         }}
       >
+        {attachEnabled && mention && matches.length > 0 && (
+          <div className="a2-mention" role="listbox">
+            <div className="a2-mention-head">Assets</div>
+            {matches.map((a, i) => (
+              <button
+                key={a.id}
+                type="button"
+                role="option"
+                aria-selected={i === activeIdx}
+                className="a2-mention-row"
+                data-on={i === activeIdx ? 'true' : 'false'}
+                onMouseEnter={() => setActiveIdx(i)}
+                onMouseDown={(e) => { e.preventDefault(); pickMention(a); }}
+              >
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img className="a2-mention-thumb" src={a.url} alt="" />
+                <span className="a2-mention-name">@{a.name}</span>
+                {a.kind && <span className="a2-mention-kind">{a.kind}</span>}
+              </button>
+            ))}
+          </div>
+        )}
+
         {attachEnabled && attachments.length > 0 && (
           <div className="a2-composer__refs">
             {attachments.map((a) => (
@@ -228,7 +359,7 @@ export function Composer({
             placeholder={placeholder}
             disabled={locked}
             aria-busy={busy || undefined}
-            onChange={(e) => onChange(e.target.value)}
+            onChange={handleChange}
             onKeyDown={onKeyDown}
           />
 

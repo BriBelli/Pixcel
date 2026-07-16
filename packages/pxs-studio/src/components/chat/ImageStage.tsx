@@ -13,7 +13,7 @@
  * first; a pulsing placeholder while the specialist is still generating.
  * ───────────────────────────────────────────────────────────────────────────── */
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Icon } from '../ui';
 import { GreetingHero } from '../GreetingHero';
 import { toastManager } from '../Toast';
@@ -91,6 +91,27 @@ const CSS = `
 }
 /* Model badge + actions both reveal together, ONLY on hover (or tap/focus on mobile). */
 .pxc-stage-tile:hover .pxc-stage-badge, .pxc-stage-tile:focus-within .pxc-stage-badge { opacity: 1; }
+
+/* ── Full-screen artifact viewer (the eye) ── */
+.pxc-viewer { position: fixed; inset: 0; z-index: 200; display: flex; align-items: center; justify-content: center;
+  background: rgba(0,0,0,0.88); backdrop-filter: blur(6px); padding: 48px; animation: pxc-viewer-in 0.18s ease; }
+@keyframes pxc-viewer-in { from { opacity: 0; } to { opacity: 1; } }
+.pxc-viewer-img { max-width: min(92vw, 1400px); max-height: 86vh; object-fit: contain;
+  border-radius: var(--a2ui-radius-lg); box-shadow: 0 24px 90px rgba(0,0,0,0.65); }
+.pxc-viewer-btn { position: absolute; display: inline-flex; align-items: center; justify-content: center;
+  border: 1px solid var(--pxs-glass-border); background: var(--a2ui-glass-dark); backdrop-filter: blur(10px);
+  color: var(--a2ui-text-primary); cursor: pointer; border-radius: var(--a2ui-radius-full);
+  transition: background var(--a2ui-transition-fast); }
+.pxc-viewer-btn:hover { background: var(--a2ui-bg-elevated); }
+.pxc-viewer-close { top: 20px; right: 20px; width: 40px; height: 40px; }
+.pxc-viewer-prev, .pxc-viewer-next { top: 50%; transform: translateY(-50%); width: 46px; height: 46px; }
+.pxc-viewer-prev { left: 20px; }
+.pxc-viewer-prev svg { transform: rotate(180deg); }
+.pxc-viewer-next { right: 20px; }
+.pxc-viewer-meta { position: absolute; bottom: 24px; left: 50%; transform: translateX(-50%);
+  padding: 6px 14px; border-radius: var(--a2ui-radius-full); font-size: var(--a2ui-text-sm);
+  color: var(--a2ui-text-secondary); background: var(--a2ui-glass-dark); backdrop-filter: blur(10px);
+  border: 1px solid var(--pxs-glass-border); font-variant-numeric: tabular-nums; }
 .pxc-stage-pending {
   display: flex; align-items: center; justify-content: center;
   color: var(--a2ui-text-tertiary); font-size: var(--a2ui-text-sm);
@@ -123,6 +144,7 @@ export function ImageStage({ images, generating, medium, contextLabel, onSaveAss
   const ctx = contextLabel?.trim();
   const [saved, setSaved] = useState<Set<string>>(new Set());
   const [savingKey, setSavingKey] = useState<string | null>(null);
+  const [viewerIndex, setViewerIndex] = useState<number | null>(null);
 
   const keyOf = (img: StageImage) => `${img.turnId}-${img.index}`;
   const handleSave = async (img: StageImage) => {
@@ -155,7 +177,7 @@ export function ImageStage({ images, generating, medium, contextLabel, onSaveAss
         <div className="pxc-stage-scroll">
           <div className="pxc-stage-grid">
             {generating && <div className="pxc-stage-pending">Generating…</div>}
-            {images.map((img) => (
+            {images.map((img, i) => (
               <div key={`${img.turnId}-${img.index}`} className="pxc-stage-tile" tabIndex={0}>
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img src={img.url} alt={img.modelLabel || 'generated image'} />
@@ -169,9 +191,12 @@ export function ImageStage({ images, generating, medium, contextLabel, onSaveAss
                       disabled={savingKey === keyOf(img) || saved.has(keyOf(img))}
                       title={saved.has(keyOf(img)) ? 'Saved to Assets' : 'Save to Assets'}
                     >
-                      <Icon name={saved.has(keyOf(img)) ? 'check' : 'plus'} size={15} />
+                      <Icon name={saved.has(keyOf(img)) ? 'check' : 'save'} size={15} />
                     </button>
                   )}
+                  <button type="button" className="pxc-stage-icon" onClick={() => setViewerIndex(i)} title="View">
+                    <Icon name="eye" size={15} />
+                  </button>
                   <button type="button" className="pxc-stage-icon" onClick={() => handleCopy(img)} title="Copy image">
                     <Icon name="copy" size={15} />
                   </button>
@@ -205,6 +230,57 @@ export function ImageStage({ images, generating, medium, contextLabel, onSaveAss
           )}
         </div>
       )}
+
+      {viewerIndex !== null && images[viewerIndex] && (
+        <StageViewer images={images} index={viewerIndex} onIndex={setViewerIndex} onClose={() => setViewerIndex(null)} />
+      )}
+    </div>
+  );
+}
+
+/** Full-screen artifact viewer — browse the project's images large, prev/next (arrows or ←/→). */
+function StageViewer({
+  images,
+  index,
+  onIndex,
+  onClose,
+}: {
+  images: StageImage[];
+  index: number;
+  onIndex: (i: number) => void;
+  onClose: () => void;
+}) {
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+      else if (e.key === 'ArrowLeft' && index > 0) onIndex(index - 1);
+      else if (e.key === 'ArrowRight' && index < images.length - 1) onIndex(index + 1);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [index, images.length, onIndex, onClose]);
+
+  const img = images[index];
+  return (
+    <div className="pxc-viewer" onClick={onClose} role="dialog" aria-modal="true">
+      <button type="button" className="pxc-viewer-btn pxc-viewer-close" onClick={onClose} aria-label="Close viewer">
+        <Icon name="x" size={18} />
+      </button>
+      {index > 0 && (
+        <button type="button" className="pxc-viewer-btn pxc-viewer-prev" onClick={(e) => { e.stopPropagation(); onIndex(index - 1); }} aria-label="Previous">
+          <Icon name="arrow-right" size={20} />
+        </button>
+      )}
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img className="pxc-viewer-img" src={img.url} alt={img.modelLabel || 'artifact'} onClick={(e) => e.stopPropagation()} />
+      {index < images.length - 1 && (
+        <button type="button" className="pxc-viewer-btn pxc-viewer-next" onClick={(e) => { e.stopPropagation(); onIndex(index + 1); }} aria-label="Next">
+          <Icon name="arrow-right" size={20} />
+        </button>
+      )}
+      <div className="pxc-viewer-meta">
+        {img.modelLabel ? `${img.modelLabel} · ` : ''}{index + 1} / {images.length}
+      </div>
     </div>
   );
 }

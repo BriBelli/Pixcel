@@ -285,23 +285,9 @@ export default function NavRail({ activeSection = 'chat', onHome, onSection, onO
   return (
     <nav className="pxl-rail-scope pxl-rail flex flex-col items-center w-[72px] py-4 shrink-0">
       <style>{RAIL_CSS}</style>
-      <button onClick={onHome} title="Home — back to Chat" className="pxl-rail-mark mb-2 flex h-10 w-10 items-center justify-center">
+      <button onClick={onHome} title="Home — back to Chat" className="pxl-rail-mark mb-6 flex h-10 w-10 items-center justify-center">
         <PixcelMark size={22} />
       </button>
-      {onToggleProjects && (
-        <>
-          <button
-            onClick={onToggleProjects}
-            data-active={projectsOpen}
-            title="Projects"
-            className="pxl-navbtn mb-2 flex h-8 w-9 items-center justify-center text-base font-semibold"
-          >
-            {projectsOpen ? '«' : '»'}
-          </button>
-          {/* hairline — the » is the rail's expand affordance, NOT a system section. */}
-          <div className="mb-3 h-px w-7" style={{ background: 'var(--a2ui-border-subtle)' }} />
-        </>
-      )}
       <div className="flex flex-col gap-1.5">
         {SECTIONS.map((s) => (
           <button
@@ -317,6 +303,19 @@ export default function NavRail({ activeSection = 'chat', onHome, onSection, onO
         ))}
       </div>
       <div className="mt-auto" />
+
+      {/* Projects panel toggle — the rail's expand affordance, docked at the bottom above the avatar
+          (a panel toggle, not a system section). */}
+      {onToggleProjects && (
+        <button
+          onClick={onToggleProjects}
+          data-active={projectsOpen}
+          title={projectsOpen ? 'Close projects' : 'Projects'}
+          className="pxl-navbtn mb-2 flex h-11 w-11 items-center justify-center text-2xl font-semibold leading-none"
+        >
+          {projectsOpen ? '«' : '»'}
+        </button>
+      )}
 
       {/* FUTURE: Alerts/notification icon goes HERE (above the avatar), with a push-style unread
           badge dot on the avatar below. For now just the avatar — Settings lives in its popover. */}

@@ -7,6 +7,8 @@ import ChatView from '../components/ChatView';
 import NavRail from '../components/NavRail';
 import DigitalWall from '../components/DigitalWall';
 import SettingsPanel from '../components/SettingsPanel';
+import AssetsCatalog from '../components/AssetsCatalog';
+import { ToastContainer, useToasts } from '../components/Toast';
 import AuthProvider from '../components/AuthProvider';
 import LoginModalProvider from '../components/LoginModalProvider';
 import { PixcelMark } from '../components/ui';
@@ -145,7 +147,9 @@ export default function Home() {
 
   // ── PR-8 persistent shell state (nav + wall + settings live here, not in the views) ──
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [assetsOpen, setAssetsOpen] = useState(false);
   const [promptY, setPromptY] = useState(DEFAULT_PROMPT_Y);
+  const { toasts: toastList, dismiss: dismissToast } = useToasts();
   const splashStyle = useSettings((s) => s.splashStyle);
   const theme = useSettings((s) => s.theme);
   const activeMedium = useChatTurnsStore((s) => s.activeMedium);
@@ -174,13 +178,17 @@ export default function Home() {
   const inStudio = stage === 'studio';
 
   // Nav handlers — the shell owns the ONE persistent rail (stage-aware).
-  const navActive = stage === 'chat' ? activeMedium : 'chat';
+  const navActive = assetsOpen ? 'assets' : stage === 'chat' ? activeMedium : 'chat';
   const handleNavHome = () => {
+    setAssetsOpen(false);
     // From a workspace → back to the conversation; from plain chat/splash → the splash.
     if (stage === 'chat' && activeMedium !== 'chat') setActiveMedium('chat');
     else transitionTo('splash', undefined, false);
   };
   const handleNavSection = (id: string) => {
+    // Assets is a full-view overlay over the shell (its own surface, not a chat medium).
+    if (id === 'assets') { if (stage === 'splash') transitionTo('chat'); setAssetsOpen(true); return; }
+    setAssetsOpen(false);
     if (stage === 'splash') { transitionTo('chat'); return; }
     if (id === 'image' || id === 'video') setActiveMedium(id);
     else setActiveMedium('chat');
@@ -258,15 +266,18 @@ export default function Home() {
               />
             </div>
 
-            {/* Content well — ONLY this cross-fades between splash ⇄ chat. */}
+            {/* Content well — ONLY this cross-fades between splash ⇄ chat. The Assets catalog is a
+                full-view overlay ON this well (right of the persistent nav), its own surface. */}
             <div className="relative z-10 flex-1 min-w-0 h-full">
               <div key={stage} style={layerStyle('incoming')}>{renderContent(stage)}</div>
               {transitioning && outgoing && outgoing !== 'studio' && (
                 <div key={outgoing} style={layerStyle('outgoing')}>{renderContent(outgoing)}</div>
               )}
+              {assetsOpen && <AssetsCatalog onClose={() => setAssetsOpen(false)} />}
             </div>
 
             <SettingsPanel open={settingsOpen} onClose={() => setSettingsOpen(false)} />
+            <ToastContainer toasts={toastList} onDismiss={dismissToast} />
           </div>
         )}
       </LoginModalProvider>

@@ -26,6 +26,7 @@ import { useSettings } from '../store/settings-store';
 import { Composer, Icon, type ComposerAttachment } from './ui';
 import { MessageTurn } from './chat/MessageTurn';
 import { ImageStage, type StageImage } from './chat/ImageStage';
+import { toastManager } from './Toast';
 import { PromptGuidePanel } from './chat/PromptGuidePanel';
 import { BuilderPanel } from './chat/BuilderPanel';
 import { PromptString } from './chat/PromptString';
@@ -46,6 +47,7 @@ export default function ChatView({ initialPrompt }: Props) {
   const turns = useChatTurnsStore((s) => s.turns);
   const activeMedium = useChatTurnsStore((s) => s.activeMedium);
   const activeFrame = useChatTurnsStore((s) => s.activeFrame);
+  const threadId = useChatTurnsStore((s) => s.threadId);
   const setActiveMedium = useChatTurnsStore((s) => s.setActiveMedium);
   const send = useChatTurnsStore((s) => s.send);
   const loadThread = useChatTurnsStore((s) => s.loadThread);
@@ -215,6 +217,38 @@ export default function ChatView({ initialPrompt }: Props) {
         : null,
     [builder, partValues]
   );
+  // Save a generated tile → the Assets catalog (promote in-state → first-class), with metadata
+  // prefilled from the live workflow (title = subject, the assembled prompt, model, thread).
+  const onSaveAsset = useCallback(
+    async (img: StageImage): Promise<boolean> => {
+      const prompt = builder
+        ? builder.block.parts.map((p) => (partValues[p.id] ?? '').trim()).filter(Boolean).join(', ')
+        : undefined;
+      try {
+        const res = await fetch('/api/assets', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            url: img.url,
+            model_label: img.modelLabel,
+            kind: 'image',
+            source: 'generated',
+            title: activeFrame?.subject || activeFrame?.goal,
+            prompt: prompt || undefined,
+            thread_id: threadId ?? undefined,
+          }),
+        });
+        if (!res.ok) throw new Error('save failed');
+        toastManager.success('Saved to Assets');
+        return true;
+      } catch {
+        toastManager.error('Could not save to Assets');
+        return false;
+      }
+    },
+    [builder, partValues, activeFrame, threadId]
+  );
+
   // Click a clause in the center prompt → focus that part's field in the Build panel (two-way binding).
   const focusPart = useCallback((id: string) => {
     const el = document.getElementById(`pxc-field-${id}`);
@@ -321,6 +355,7 @@ export default function ChatView({ initialPrompt }: Props) {
           <div className="relative flex-1 flex min-w-0">
             <ImageStage
               images={stageImages}
+              onSaveAsset={onSaveAsset}
               generating={generating}
               medium={workspaceMedium}
               contextLabel={activeFrame?.subject || activeFrame?.goal}

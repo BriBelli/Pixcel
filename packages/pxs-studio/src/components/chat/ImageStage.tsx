@@ -13,8 +13,10 @@
  * first; a pulsing placeholder while the specialist is still generating.
  * ───────────────────────────────────────────────────────────────────────────── */
 
+import { useState } from 'react';
 import { Icon } from '../ui';
 import { GreetingHero } from '../GreetingHero';
+import { toastManager } from '../Toast';
 
 export interface StageImage {
   url: string;
@@ -30,6 +32,9 @@ interface ImageStageProps {
   /** The active workflow's subject/goal — personalizes the empty state to the in-state context
    *  (consult-first framing) instead of a generic placeholder. */
   contextLabel?: string;
+  /** Save a generated tile to the Assets catalog (promote in-state → first-class). Returns true on
+   *  success so the tile can flip to a "Saved" state. */
+  onSaveAsset?: (img: StageImage) => Promise<boolean>;
 }
 
 const CSS = `
@@ -66,6 +71,14 @@ const CSS = `
   transition: background var(--a2ui-transition-fast);
 }
 .pxc-stage-action:hover { background: var(--a2ui-bg-elevated); }
+.pxc-stage-action[data-on="true"] { color: var(--a2ui-success); }
+.pxc-stage-icon {
+  display: inline-flex; align-items: center; justify-content: center; width: 30px; height: 30px;
+  border-radius: var(--a2ui-radius-md); border: 1px solid var(--pxs-glass-border);
+  background: var(--a2ui-glass-dark); backdrop-filter: blur(8px); color: var(--a2ui-text-primary);
+  cursor: pointer; transition: background var(--a2ui-transition-fast); text-decoration: none;
+}
+.pxc-stage-icon:hover { background: var(--a2ui-bg-elevated); }
 .pxc-stage-badge {
   position: absolute; left: 8px; bottom: 8px;
   padding: 2px 8px; border-radius: var(--a2ui-radius-full);
@@ -98,11 +111,36 @@ function cleanSubject(s: string): string {
   return s.replace(/^\s*(a|an|the)\s+/i, '').trim() || s.trim();
 }
 
-export function ImageStage({ images, generating, medium, contextLabel }: ImageStageProps) {
+export function ImageStage({ images, generating, medium, contextLabel, onSaveAsset }: ImageStageProps) {
   const isVideo = medium === 'video';
   const label = isVideo ? 'video' : 'image';
   const hasContent = images.length > 0 || generating;
   const ctx = contextLabel?.trim();
+  const [saved, setSaved] = useState<Set<string>>(new Set());
+  const [savingKey, setSavingKey] = useState<string | null>(null);
+
+  const keyOf = (img: StageImage) => `${img.turnId}-${img.index}`;
+  const handleSave = async (img: StageImage) => {
+    if (!onSaveAsset || saved.has(keyOf(img))) return;
+    setSavingKey(keyOf(img));
+    const ok = await onSaveAsset(img).catch(() => false);
+    setSavingKey(null);
+    if (ok) setSaved((prev) => new Set(prev).add(keyOf(img)));
+  };
+  const handleCopy = async (img: StageImage) => {
+    try {
+      const blob = await (await fetch(img.url)).blob();
+      await navigator.clipboard.write([new ClipboardItem({ [blob.type]: blob })]);
+      toastManager.success('Copied to clipboard');
+    } catch {
+      try {
+        await navigator.clipboard.writeText(img.url);
+        toastManager.success('Image URL copied');
+      } catch {
+        toastManager.error('Could not copy');
+      }
+    }
+  };
 
   return (
     <div className="pxc-stage relative flex-1 flex flex-col min-w-0 min-h-0">
@@ -117,13 +155,24 @@ export function ImageStage({ images, generating, medium, contextLabel }: ImageSt
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img src={img.url} alt={img.modelLabel || 'generated image'} />
                 <div className="pxc-stage-overlay">
-                  <a
-                    className="pxc-stage-action"
-                    href={img.url}
-                    download={`pixcel-${img.index + 1}.png`}
-                    title="Download"
-                  >
-                    <Icon name="download" size={14} /> Download
+                  {onSaveAsset && (
+                    <button
+                      type="button"
+                      className="pxc-stage-action"
+                      data-on={saved.has(keyOf(img)) ? 'true' : 'false'}
+                      onClick={() => handleSave(img)}
+                      disabled={savingKey === keyOf(img) || saved.has(keyOf(img))}
+                      title="Save to Assets"
+                    >
+                      <Icon name={saved.has(keyOf(img)) ? 'check' : 'plus'} size={14} />{' '}
+                      {saved.has(keyOf(img)) ? 'Saved' : savingKey === keyOf(img) ? 'Saving…' : 'Save to Assets'}
+                    </button>
+                  )}
+                  <button type="button" className="pxc-stage-icon" onClick={() => handleCopy(img)} title="Copy image">
+                    <Icon name="copy" size={14} />
+                  </button>
+                  <a className="pxc-stage-icon" href={img.url} download={`pixcel-${img.index + 1}.png`} title="Download">
+                    <Icon name="download" size={14} />
                   </a>
                 </div>
                 {img.modelLabel && <span className="pxc-stage-badge">{img.modelLabel}</span>}

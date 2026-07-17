@@ -68,8 +68,13 @@ A workflow NEVER pays a live-traversal tax mid-turn.
    run on a schedule — that's 2b. DONE (engine).
    - ✅ **2b:** `model_refresh` record + `model-refresh-runner.ts` (overlay persisted freshness on the
      seed, persist each pass) + `POST/GET /api/models/refresh` + a guarded fire-and-forget from the
-     image-agent route (zero network unless past TTL). DONE. Still TODO: enrich discoveries / retire
-     ghosts via the maintenance agent (the LLM judgment step).
+     image-agent route (zero network unless past TTL). DONE.
+   - ✅ **2c (loop closed):** maintenance agent (`model-maintenance.ts`) — LLM-research discoveries
+     into routable records; retire ghosts on repeated-miss EVIDENCE (never an LLM guess), reversibly.
+     `model_card` living layer + `live-catalog.ts` merged read (seed+freshness+cards, guarded).
+     `POST/GET /api/models/maintain` (deliberate/metered). 16 tests. DONE.
+   - **2d (final wire):** swap the model-agent/router read from raw `IMAGE_MODELS` → `getLiveCatalog`
+     (guarded fallback) so discovered models actually route. Small + isolated.
 3. **Registry ⇄ roster wiring + video models** — models reference a `providerId`; extend registry
    beyond image (video: Google/Replicate/etc.), seeded version-agnostic.
 4. **Capability-vs-technique resolver** — native-first; techniques toolkit (burst/sheet/motion) as

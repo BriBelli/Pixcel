@@ -66,8 +66,10 @@ A workflow NEVER pays a live-traversal tax mid-turn.
    conservative `reconcile` (confirm / discover / flag, never auto-retire). I/O injected, pure +
    tested (11 tests). Real per-provider network fetch behind default deps. Does NOT yet persist or
    run on a schedule — that's 2b. DONE (engine).
-   - **2b (next):** persist reconcile diffs to a registry store + a background trigger (so results
-     stick and the loop actually runs). Enrich discoveries / retire ghosts via the maintenance agent.
+   - ✅ **2b:** `model_refresh` record + `model-refresh-runner.ts` (overlay persisted freshness on the
+     seed, persist each pass) + `POST/GET /api/models/refresh` + a guarded fire-and-forget from the
+     image-agent route (zero network unless past TTL). DONE. Still TODO: enrich discoveries / retire
+     ghosts via the maintenance agent (the LLM judgment step).
 3. **Registry ⇄ roster wiring + video models** — models reference a `providerId`; extend registry
    beyond image (video: Google/Replicate/etc.), seeded version-agnostic.
 4. **Capability-vs-technique resolver** — native-first; techniques toolkit (burst/sheet/motion) as

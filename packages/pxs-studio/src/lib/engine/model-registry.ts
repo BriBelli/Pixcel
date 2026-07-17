@@ -104,6 +104,15 @@ export interface ImageModel {
    *  routing (never spends on them), but the Model agent can still reason/report about them
    *  ("keeps up with the models" without breaking the working flow). Flip when it goes live. */
   preview?: boolean;
+  /** The provider's OWN canonical model id — the string the adapter passes to the API — when it
+   *  differs from our registry `id` slug (e.g. nano-banana → 'gemini-2.5-flash-image'). The refresh
+   *  worker matches a provider's live listing against THIS (falling back to `id`) to confirm a model
+   *  still exists. Absent → match on `id`. */
+  providerModelId?: string;
+  /** A model the refresh worker DISCOVERED live but that hasn't been curated/researched yet. Like
+   *  `preview`, Gate 1 excludes it from spend — the Model agent knows it exists and must research it
+   *  before it's routable. Reversible. */
+  needsResearch?: boolean;
 }
 
 const REFRESHED = '2026-07-06';
@@ -119,6 +128,7 @@ export const IMAGE_MODELS: ImageModel[] = [
     label: 'GPT Image 1 (OpenAI)',
     provider: 'openai',
     envKey: 'OPENAI_API_KEY',
+    providerModelId: 'gpt-image-1',
     tier: 3,
     strengths: { photorealism: 5, prompt_adherence: 5, editing: 5, style_versatility: 5, text_rendering: 5, speed: 2, resolution: 5, consistency: 5, multimodal: 5 },
     capabilities: ['text_in_image', 'editing', 'multi_reference', 'photorealism', 'high_resolution'],
@@ -176,6 +186,7 @@ export const IMAGE_MODELS: ImageModel[] = [
     label: 'Nano Banana (Gemini 2.5 Flash Image)',
     provider: 'gemini',
     envKey: 'GEMINI_API_KEY',
+    providerModelId: 'gemini-2.5-flash-image',
     tier: 2,
     strengths: { photorealism: 4, prompt_adherence: 5, editing: 5, style_versatility: 4, text_rendering: 4, speed: 4, resolution: 4, consistency: 5, multimodal: 5 },
     capabilities: ['editing', 'multi_reference', 'text_in_image', 'fast', 'photorealism', 'high_resolution'],

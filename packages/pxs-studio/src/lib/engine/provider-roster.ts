@@ -44,6 +44,10 @@ export interface Provider {
   /** What this provider produces — the coarse routing filter before live capability resolution. */
   modalities: Modality[];
   status: ProviderStatus;
+  /** The registry provider TAG this company's models carry (`ImageModel.provider`) when it differs
+   *  from the roster `id` — Google's image models are tagged `'gemini'`, not `'google'`. Defaults to
+   *  `id`. Bridges roster↔registry without renaming the adapter-facing tag. */
+  registryTag?: string;
   /** Why it's here / notable constraint (policy tier, "Flux lives here", "dropped because…"). */
   note?: string;
 }
@@ -65,6 +69,7 @@ export const PROVIDERS: Provider[] = [
     modelsEndpoint: 'https://generativelanguage.googleapis.com/v1beta/models',
     modalities: ['image', 'video', 'audio', 'text'],
     status: 'active',
+    registryTag: 'gemini',
     note: 'The backbone. Full-suite emphasis (Codex primary directive) — Gemini image, Veo video, Omni multimodal, Lyria audio. Must not miss Google capabilities.',
   },
   {
@@ -167,6 +172,11 @@ export const PROVIDERS: Provider[] = [
 /** Look a provider up by id. */
 export function getProvider(id: string): Provider | undefined {
   return PROVIDERS.find((p) => p.id === id);
+}
+
+/** The registry provider tag this company's models carry (bridges roster id → `ImageModel.provider`). */
+export function registryTag(p: Provider): string {
+  return p.registryTag ?? p.id;
 }
 
 /** Providers we actively route to (status 'active'). Experimental/dropped are excluded from spend

@@ -29,7 +29,15 @@ export type RecordStatus =
   | 'cancelled';
 
 /** The entity discriminator on every record. */
-export type RecordCategory = 'thread' | 'interaction' | 'prompt' | 'usage' | 'user' | 'asset' | 'model_refresh';
+export type RecordCategory =
+  | 'thread'
+  | 'interaction'
+  | 'prompt'
+  | 'usage'
+  | 'user'
+  | 'asset'
+  | 'model_refresh'
+  | 'model_card';
 
 /** Fields carried by EVERY record, regardless of category. Timestamps are ms epoch. */
 export interface BaseRecord {
@@ -178,8 +186,44 @@ export interface ModelRefreshRecord extends BaseRecord {
   unconfirmed: string[];
 }
 
+/**
+ * The living per-model record — the maintenance layer that CLOSES the self-maintaining loop. Two
+ * origins: a `discovered` card is a model the refresh worker found live and the maintenance agent
+ * researched into a routable record (`card` = a full ImageModel); a `seed_override` card annotates a
+ * SEED model without mutating the const — today only to retire a persistent ghost (`card` = null).
+ * Id is stable: `model_card:<model_id>`. System-scoped. Retirement is REVERSIBLE + evidence-based
+ * (`miss_count` across passes), never an LLM guess.
+ */
+export interface ModelCard extends BaseRecord {
+  category: 'model_card';
+  /** The registry model id this card is for (matches ImageModel.id). */
+  model_id: string;
+  /** Roster provider id. */
+  provider: string;
+  /** The researched ImageModel for a discovery; null for a pure seed_override (e.g. a retirement). */
+  card: unknown | null;
+  origin: 'discovered' | 'seed_override';
+  /** How trusted the research is. Below 'high' → kept out of routing (preview/needsResearch). */
+  confidence: 'low' | 'medium' | 'high';
+  /** A seed model retired after repeated misses. Reversible — cleared when it reappears live. */
+  retired?: boolean;
+  /** Consecutive refresh passes a seed model was unconfirmed (evidence toward retirement). */
+  miss_count?: number;
+  researched_at: number;
+  /** Where the research was grounded (docs url / listing) — provenance. */
+  source?: string;
+}
+
 /** Union of every stored record shape. */
-export type AnyRecord = Thread | Interaction | Prompt | Usage | UserRecord | Asset | ModelRefreshRecord;
+export type AnyRecord =
+  | Thread
+  | Interaction
+  | Prompt
+  | Usage
+  | UserRecord
+  | Asset
+  | ModelRefreshRecord
+  | ModelCard;
 
 /** Stamped on every stored a2ui snapshot so the renderer can version-gate (Decision 4). */
 export const A2UI_VERSION = 'a2ui-v1';

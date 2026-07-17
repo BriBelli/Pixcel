@@ -1,5 +1,6 @@
 import Anthropic from '@anthropic-ai/sdk';
 import { runImageAgent } from '../../../lib/agents/image-agent';
+import { refreshRegistryIfDue } from '../../../lib/agents/model-refresh-runner';
 import type { EpistemicFrame } from '../../../lib/agents/epistemic-frame';
 import {
   A2UI_VERSION,
@@ -102,6 +103,12 @@ export async function POST(req: Request) {
   const userId = (body.user_id ?? '').trim() || DEV_USER_ID;
   const db = await getDb();
   const living = createLivingContext(db);
+
+  // Keep the model registry self-maintaining WITHOUT taxing this turn: fire-and-forget, fully
+  // guarded, and — critically — it only reaches the network when a provider is actually past its
+  // TTL (see refreshRegistryIfDue). On the vast majority of turns nothing is due, so it's a single
+  // cheap DB read and returns instantly. The user's response never waits on it. (stale-while-revalidate)
+  void refreshRegistryIfDue(db, Date.now()).catch(() => {});
 
   const history: HistoryMsg[] = Array.isArray(body.history)
     ? body.history

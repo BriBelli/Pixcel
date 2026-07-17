@@ -29,7 +29,7 @@ export type RecordStatus =
   | 'cancelled';
 
 /** The entity discriminator on every record. */
-export type RecordCategory = 'thread' | 'interaction' | 'prompt' | 'usage' | 'user' | 'asset';
+export type RecordCategory = 'thread' | 'interaction' | 'prompt' | 'usage' | 'user' | 'asset' | 'model_refresh';
 
 /** Fields carried by EVERY record, regardless of category. Timestamps are ms epoch. */
 export interface BaseRecord {
@@ -158,8 +158,28 @@ export interface UserRecord extends BaseRecord {
   hard_cap_usd: number;
 }
 
+/**
+ * The persisted outcome of ONE provider's registry refresh (the living overlay on the seed catalog).
+ * System-scoped (not per end-user). Id is stable: `model_refresh:<provider>` — upserted each pass, so
+ * `checked_at` is the freshness the due-check reads (keeps the seed const immutable — the DB holds the
+ * living freshness + discoveries, layered on top). See `agents/model-refresh-runner.ts`.
+ */
+export interface ModelRefreshRecord extends BaseRecord {
+  category: 'model_refresh';
+  /** Roster provider id checked (e.g. 'google', 'openai'). */
+  provider: string;
+  /** Epoch ms of the last SUCCESSFUL reconcile — the effective freshness for this provider's models. */
+  checked_at: number;
+  /** Curated registry ids confirmed present in the live listing this pass. */
+  confirmed: string[];
+  /** Live models with no curated match — research candidates the maintenance agent must vet. */
+  discovered: { id: string; label?: string }[];
+  /** Curated ids not found live this pass — flagged for review; NEVER auto-retired. */
+  unconfirmed: string[];
+}
+
 /** Union of every stored record shape. */
-export type AnyRecord = Thread | Interaction | Prompt | Usage | UserRecord | Asset;
+export type AnyRecord = Thread | Interaction | Prompt | Usage | UserRecord | Asset | ModelRefreshRecord;
 
 /** Stamped on every stored a2ui snapshot so the renderer can version-gate (Decision 4). */
 export const A2UI_VERSION = 'a2ui-v1';

@@ -62,8 +62,12 @@ A workflow NEVER pays a live-traversal tax mid-turn.
 ## Build order (slices)
 
 1. ✅ **Provider roster (floor) + staleness policy** — `provider-roster.ts`, `staleness.ts`. DONE.
-2. **Background refresh worker** — consume `isDueForRefresh`; hit `modelsEndpoint` where present, else
-   WebFetch `docsUrl`; Model agent reconciles the shard; stamp `sourceRefreshedAt`. Out-of-band.
+2. ✅ **Refresh worker (reconcile engine)** — `model-refresh.ts`: `providersDue` → `fetchLive` →
+   conservative `reconcile` (confirm / discover / flag, never auto-retire). I/O injected, pure +
+   tested (11 tests). Real per-provider network fetch behind default deps. Does NOT yet persist or
+   run on a schedule — that's 2b. DONE (engine).
+   - **2b (next):** persist reconcile diffs to a registry store + a background trigger (so results
+     stick and the loop actually runs). Enrich discoveries / retire ghosts via the maintenance agent.
 3. **Registry ⇄ roster wiring + video models** — models reference a `providerId`; extend registry
    beyond image (video: Google/Replicate/etc.), seeded version-agnostic.
 4. **Capability-vs-technique resolver** — native-first; techniques toolkit (burst/sheet/motion) as

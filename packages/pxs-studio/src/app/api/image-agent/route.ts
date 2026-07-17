@@ -60,6 +60,7 @@ export async function POST(req: Request) {
     frame?: PostedFrame;
     history?: HistoryMsg[];
     references?: string[];
+    reference_asset_ids?: (string | null)[];
     thread_id?: string;
     user_id?: string;
     section?: string;
@@ -80,9 +81,16 @@ export async function POST(req: Request) {
   const medium: 'image' | 'video' = body.frame?.medium === 'video' ? 'video' : 'image';
   const subject = (body.frame?.subject ?? '').trim() || undefined;
   const section = ((body.section ?? 'image').trim() || 'image').toLowerCase();
-  const references = Array.isArray(body.references)
-    ? body.references.filter((r): r is string => typeof r === 'string' && r.trim().length > 0)
-    : [];
+  // Reference URLs paired with an optional saved-asset id (from @-mentions), kept index-aligned so
+  // an existing asset is LINKED (real lineage) instead of re-persisted as a duplicate.
+  const rawRefIds = Array.isArray(body.reference_asset_ids) ? body.reference_asset_ids : [];
+  const refPairs = (Array.isArray(body.references) ? body.references : [])
+    .map((url, i) => ({
+      url: typeof url === 'string' ? url.trim() : '',
+      assetId: typeof rawRefIds[i] === 'string' && (rawRefIds[i] as string).trim() ? (rawRefIds[i] as string) : null,
+    }))
+    .filter((p) => p.url.length > 0);
+  const references = refPairs.map((p) => p.url);
   // COLLABORATION state (the current Build parts + values) — present → the agent can edit/answer.
   const builderParts = Array.isArray(body.builder?.parts)
     ? body.builder!.parts
@@ -241,11 +249,16 @@ export async function POST(req: Request) {
           });
           // Bump the thread's updated_at so the project rises to the top of the Projects list.
           await db.update('thread', threadId, {});
-          // Persist attached REFERENCE images as in-state UPLOAD assets (Slice 2) → they rehydrate into
-          // the builder on reload (kills the vanishing-attachment bug) AND become the lineage edges of
-          // whatever they produced. Ephemeral by the retention rule (chat-born ≠ first-class).
+          // Reference lineage edges (Slice 2 + @-mention id-linking): an @-mentioned SAVED asset is
+          // LINKED by its real id (no duplicate); a fresh upload is persisted as an in-state upload
+          // asset. Either way the generation's reference_asset_ids point at the true reference.
           const referenceAssetIds: string[] = [];
-          for (let i = 0; i < references.length; i++) {
+          for (let i = 0; i < refPairs.length; i++) {
+            const pair = refPairs[i];
+            if (pair.assetId) {
+              referenceAssetIds.push(pair.assetId); // link to the existing saved asset — the real edge
+              continue;
+            }
             const refId = newId('asset');
             const refAsset: Asset = {
               id: refId,
@@ -259,7 +272,7 @@ export async function POST(req: Request) {
               retention: 'ephemeral',
               thread_id: threadId,
               interaction_id: interactionId,
-              url: references[i],
+              url: pair.url,
               index: i,
             };
             await db.put(refAsset);

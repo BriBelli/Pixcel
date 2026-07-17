@@ -206,7 +206,10 @@ interface ChatTurnsState {
   send: (
     prompt: string,
     references?: string[],
-    builder?: { parts: { id: string; label: string; value: string }[] }
+    builder?: { parts: { id: string; label: string; value: string }[] },
+    /** Aligned with `references` by index — the saved-asset id for @-mentioned refs (null = a new
+     *  upload). Lets the generation link lineage to the REAL asset instead of a duplicate. */
+    referenceAssetIds?: (string | null)[]
   ) => string;
   /** Restore a persisted conversation from the SQLite store (reload/reopen hydration). */
   loadThread: (threadId: string) => Promise<void>;
@@ -226,7 +229,8 @@ export const useChatTurnsStore = create<ChatTurnsState>((set, get) => {
     id: string,
     prompt: string,
     references: string[] = [],
-    builder?: { parts: { id: string; label: string; value: string }[] }
+    builder?: { parts: { id: string; label: string; value: string }[] },
+    referenceAssetIds?: (string | null)[]
   ) {
     // Carry the COMPLETED prior turns as history so follow-ups stay coherent. (The just-added
     // turn is excluded — its assistant text doesn't exist yet.) An image-agent turn's reply lives
@@ -258,6 +262,7 @@ export const useChatTurnsStore = create<ChatTurnsState>((set, get) => {
                 frame: st.activeFrame,
                 section: st.activeMedium,
                 references, // attached reference images (data URLs) for the Image agent
+                reference_asset_ids: referenceAssetIds, // aligned with references — existing saved-asset ids (lineage)
                 builder, // present → COLLABORATION: the agent can edit the parts, not just render
               }
             : {
@@ -464,7 +469,7 @@ export const useChatTurnsStore = create<ChatTurnsState>((set, get) => {
       })),
     seedBuilder: (turnId, seed) =>
       set((s) => (s.partSeedTurn === turnId ? {} : { partValues: seed, partSeedTurn: turnId, lastEdit: null })),
-    send: (prompt, references = [], builder) => {
+    send: (prompt, references = [], builder, referenceAssetIds) => {
       const clean = prompt.trim();
       const id =
         typeof crypto !== 'undefined' && crypto.randomUUID
@@ -490,7 +495,7 @@ export const useChatTurnsStore = create<ChatTurnsState>((set, get) => {
         ],
       }));
       // Fire and forget — the turn lives in the store, streamed in the background.
-      void run(id, clean, references, builder);
+      void run(id, clean, references, builder, referenceAssetIds);
       return id;
     },
     loadThread: async (threadId) => {

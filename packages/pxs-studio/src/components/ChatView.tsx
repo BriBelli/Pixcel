@@ -135,7 +135,10 @@ export default function ChatView({ initialPrompt }: Props) {
   const submit = useCallback(
     (text: string, attachments?: ComposerAttachment[]) => {
       const t = text.trim();
-      const refs = attachments?.map((a) => a.dataUrl).filter(Boolean) ?? [];
+      // Keep the URL + its saved-asset id aligned (@-mentioned refs carry an assetId → real lineage).
+      const valid = (attachments ?? []).filter((a) => a.dataUrl);
+      const refs = valid.map((a) => a.dataUrl);
+      const refIds = valid.map((a) => a.assetId ?? null);
       if (!t && refs.length === 0) return;
       // Attach the CURRENT builder state (read live from the store) → an Agent-panel message becomes a
       // COLLABORATION: the agent can edit the parts / answer, not just render. No builder (chat home)
@@ -149,7 +152,7 @@ export default function ChatView({ initialPrompt }: Props) {
           break;
         }
       }
-      send(t, refs, builderState);
+      send(t, refs, builderState, refIds);
       setDraft('');
     },
     [send]

@@ -91,9 +91,12 @@ const CSS = `
 .pxc-user-bubble {
   max-width: min(600px, 100%);
   padding: var(--a2ui-space-3) var(--a2ui-space-4);
-  background: var(--a2ui-accent); color: var(--a2ui-text-inverse);
+  /* Outlined, not filled: no background, a blue stroke bubble + blue text. */
+  background: transparent; color: var(--a2ui-accent);
+  border: 1px solid var(--a2ui-accent);
   border-radius: var(--a2ui-radius-xl);
-  border-bottom-right-radius: var(--a2ui-radius-sm);
+  /* The bubble's angle sits at the TOP-right (toward the avatar), not bottom-right. */
+  border-top-right-radius: var(--a2ui-radius-sm);
   line-height: var(--a2ui-leading-normal);
   white-space: pre-wrap; word-break: break-word;
 }

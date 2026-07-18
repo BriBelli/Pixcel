@@ -91,10 +91,9 @@ const CSS = `
 .pxc-user-bubble {
   max-width: min(600px, 100%);
   padding: var(--a2ui-space-3) var(--a2ui-space-4);
-  /* Subtle: a faint blue-tinted fill (keeps a little pop + definition) with NORMAL readable text —
-     so big prompts don't become a wall of blue. A hairline neutral border crisps the edge. */
-  background: var(--a2ui-accent-subtle); color: var(--a2ui-text-primary);
-  border: 1px solid var(--pxs-border-subtle);
+  /* Outlined: no fill, blue text, a 1px blue stroke. */
+  background: transparent; color: var(--a2ui-accent);
+  border: 1px solid var(--a2ui-accent);
   border-radius: var(--a2ui-radius-xl);
   /* The bubble's angle sits at the TOP-right (toward the avatar), not bottom-right. */
   border-top-right-radius: var(--a2ui-radius-sm);

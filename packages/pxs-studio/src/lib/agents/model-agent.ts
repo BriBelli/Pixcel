@@ -9,18 +9,38 @@
  */
 
 import './../engine/adapters'; // register provider adapters (readyProviders reflects them)
-import { getModel, getModelFormula, getDefaultImageModel, IMAGE_MODELS, type ImageModel, type PromptFormula } from '../engine/model-registry';
+import { getModelFormula, getDefaultImageModel, IMAGE_MODELS, type ImageModel, type PromptFormula } from '../engine/model-registry';
 import { readyProviders } from '../engine/executor';
 import { route, type RoutingRequest, type RoutingDecision } from '../engine/routing';
+import { getLiveCatalog } from './live-catalog';
+import { getDb } from '../db';
+
+/**
+ * The LIVE catalog — seed + persisted freshness + discovered/retired model cards (2d). This is what
+ * makes the self-maintaining registry actually FEED routing: a discovered+researched model becomes
+ * routable, a retired ghost drops out. Guarded — any failure falls back to the plain seed, so the
+ * living layer can never dead-end selection.
+ */
+async function loadCatalog(): Promise<ImageModel[]> {
+  try {
+    return await getLiveCatalog(await getDb());
+  } catch {
+    return IMAGE_MODELS;
+  }
+}
 
 /**
  * Select the model(s) + fan-out for a request. Restricts to providers that actually have a
  * configured adapter (never routes to a dead provider), then runs the two-gate router. Returns
  * null when no configured provider can satisfy the request.
  */
-export async function selectModels(req: RoutingRequest): Promise<RoutingDecision | null> {
+export async function selectModels(
+  req: RoutingRequest,
+  opts: { catalog?: ImageModel[] } = {}
+): Promise<RoutingDecision | null> {
+  const all = opts.catalog ?? (await loadCatalog());
   const ready = new Set(readyProviders());
-  const catalog = IMAGE_MODELS.filter((m) => ready.has(m.provider));
+  const catalog = all.filter((m) => ready.has(m.provider));
   if (catalog.length === 0) return null;
 
   let decision = await route(req, { catalog });
@@ -75,8 +95,11 @@ export function factsForModel(model: ImageModel): ModelCapabilityFacts {
 }
 
 export async function describeModelCapabilities(req: RoutingRequest): Promise<ModelCapabilityFacts | null> {
-  const decision = await selectModels(req);
-  const model = decision ? getModel(decision.primary.modelId) : null;
+  // Load the live catalog ONCE and both select from it and look the chosen model up in it — so a
+  // DISCOVERED model surfaces real facts (getModel reads only the seed, which wouldn't have it).
+  const catalog = await loadCatalog();
+  const decision = await selectModels(req, { catalog });
+  const model = decision ? catalog.find((m) => m.id === decision.primary.modelId) : null;
   if (!model) return null;
   return factsForModel(model);
 }

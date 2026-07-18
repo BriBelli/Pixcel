@@ -73,13 +73,24 @@ A workflow NEVER pays a live-traversal tax mid-turn.
      into routable records; retire ghosts on repeated-miss EVIDENCE (never an LLM guess), reversibly.
      `model_card` living layer + `live-catalog.ts` merged read (seed+freshness+cards, guarded).
      `POST/GET /api/models/maintain` (deliberate/metered). 16 tests. DONE.
-   - **2d (final wire):** swap the model-agent/router read from raw `IMAGE_MODELS` → `getLiveCatalog`
-     (guarded fallback) so discovered models actually route. Small + isolated.
+   - ✅ **2d (loop fully wired):** `selectModels` + `describeModelCapabilities` read `getLiveCatalog`
+     (guarded → seed fallback) — discovered models route, retired ghosts drop out. DONE.
+
+   **→ The self-maintaining registry is COMPLETE: floor → refresh engine → persist+trigger →
+   maintenance → routing. It heals itself and feeds routing. Remaining polish is optional (docs-scrape
+   for endpoint-less providers; a cron to drive `/maintain`; the fan-out score dropdown, slice 7).**
 3. **Registry ⇄ roster wiring + video models** — models reference a `providerId`; extend registry
    beyond image (video: Google/Replicate/etc.), seeded version-agnostic.
 4. **Capability-vs-technique resolver** — native-first; techniques toolkit (burst/sheet/motion) as
    agent-selected fallbacks.
-5. **Character / Object Profile** — single ref → base sheet → tagged asset; expansion sheets on demand.
+5. **Reference Profile** (reframed — was "Character Profile") — ONE universal primitive, not N features.
+   A Profile = a canonical multi-view capture of ANY subject, saved as a tagged `@`-mentionable asset.
+   `kind` discriminator (character | object | environment | style) selects a **shot RECIPE** (how to
+   capture that class: character = 360 turnaround + expressions; object = orthographic/¾ views;
+   environment = establishing shots + real coords/StreetView OR invented; style = swatch board). New
+   kinds are recipe DATA, not code — contains the spiral. Build **character + object first**; leave the
+   `source` open (uploaded / generated / external coords) as a hook. Single ref → base sheet → tagged
+   asset; expansion sheets (poses/action/style) on demand. Spec: `docs/pr-plan/REFERENCE-PROFILE.md`.
 6. **Audio timing track** in the JSON substrate — beat map + sync points; design the slot now.
 7. **Fan-out surfacing** — per-model score dropdown in the Prompt Guide (hooks exist; score already
    per-model).

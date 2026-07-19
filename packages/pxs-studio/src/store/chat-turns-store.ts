@@ -7,7 +7,7 @@ import type { ThinkingStep } from '../components/chat/ThinkingIndicator';
 import type { Source } from '../components/chat/SourcesRow';
 
 /** localStorage key holding the active thread id so a reload can restore the conversation. */
-const THREAD_STORAGE_KEY = 'pxs-chat-thread';
+export const THREAD_STORAGE_KEY = 'pxs-chat-thread';
 
 /**
  * THE CHAT TURNS STORE — the Operator front door's view-model.

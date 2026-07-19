@@ -14,8 +14,12 @@ import AuthProvider from '../components/AuthProvider';
 import LoginModalProvider from '../components/LoginModalProvider';
 import { PixcelMark } from '../components/ui';
 import { useSettings } from '../store/settings-store';
-import { useChatTurnsStore } from '../store/chat-turns-store';
+import { useChatTurnsStore, THREAD_STORAGE_KEY } from '../store/chat-turns-store';
 import { RES } from '../lib/resolutions';
+
+/** localStorage key holding the last shell screen (stage + medium) so a reload RESTORES where you
+ *  were — not a hard bounce back to the splash. Pairs with THREAD_STORAGE_KEY (the active thread). */
+const SHELL_STATE_KEY = 'pxs-shell-state';
 
 // Dynamically import Studio component (client-side only for Web Workers)
 const Studio = dynamic(() => import('../components/Studio'), {
@@ -37,11 +41,13 @@ function LoadingScreen() {
         background: 'var(--a2ui-bg-app)',
       }}
     >
-      <style>{`@keyframes pxl-boot { 0%, 100% { opacity: 0.4; transform: scale(0.98); } 50% { opacity: 1; transform: scale(1); } }`}</style>
+      <style>{`@keyframes pxl-boot { 0%, 100% { opacity: 0.65; transform: scale(0.985); } 50% { opacity: 1; transform: scale(1); } }`}</style>
       <PixcelMark
         size={44}
         style={{
-          color: 'var(--a2ui-accent)',
+          // The canonical Pixcel blue — vibrant, not muted — with a higher opacity floor so the
+          // breathing never dips to a dim/dark X.
+          color: 'var(--pxl-brand-blue)',
           animation: 'pxl-boot 1.6s var(--a2ui-ease-entrance, ease-in-out) infinite',
         }}
       />
@@ -96,13 +102,6 @@ export default function Home() {
   const outTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const doneTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const rafId = useRef<number | null>(null);
-
-  useEffect(() => {
-    // The splash is ALWAYS the front door — a reload lands on the personalized greeting, never
-    // silently into an old (often empty) chat. Resuming the last conversation is an explicit choice:
-    // the greeting's "Continue where you left off" chip (splash-suggestions) restores it on demand.
-    setMounted(true);
-  }, []);
 
   // Clear any pending timers on unmount.
   useEffect(() => () => {
@@ -160,6 +159,40 @@ export default function Home() {
   const resetChat = useChatTurnsStore((s) => s.reset);
   const activeThreadId = useChatTurnsStore((s) => s.threadId);
 
+  // RELOAD = RESTORE where you were (persist the workspace across refresh), not a hard bounce to the
+  // splash. Reading synchronously in this mount effect means the FIRST post-mount render already
+  // shows the right stage — no splash flash (the pre-mount render is the LoadingScreen, not splash).
+  // A genuinely fresh visit (no saved state) still lands on the splash front door.
+  useEffect(() => {
+    try {
+      const raw = window.localStorage.getItem(SHELL_STATE_KEY);
+      if (raw) {
+        const saved = JSON.parse(raw) as { stage?: Stage; medium?: 'chat' | 'image' | 'video' };
+        if (saved.stage === 'chat') {
+          setStage('chat');
+          if (saved.medium) setActiveMedium(saved.medium);
+          const tid = window.localStorage.getItem(THREAD_STORAGE_KEY);
+          if (tid) void loadThread(tid);
+        }
+      }
+    } catch {
+      /* non-fatal — fall through to the splash */
+    }
+    setMounted(true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Persist the current screen (stage + medium) so a reload can restore it. The active thread id is
+  // persisted separately by the chat store (THREAD_STORAGE_KEY).
+  useEffect(() => {
+    if (!mounted) return;
+    try {
+      window.localStorage.setItem(SHELL_STATE_KEY, JSON.stringify({ stage, medium: activeMedium }));
+    } catch {
+      /* non-fatal */
+    }
+  }, [mounted, stage, activeMedium]);
+
   // Theme applies to <html> from the shell, so it holds across splash + chat (not just in-app).
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', theme);
@@ -191,12 +224,17 @@ export default function Home() {
     else transitionTo('splash', undefined, false);
   };
   const handleNavSection = (id: string) => {
-    // Assets is a full-view overlay over the shell (its own surface, not a chat medium).
+    // The primary nav is the PHONE MENU: clicking a specialist FORWARDS you to a FRESH, intent-scoped
+    // workspace with that agent — you've pre-declared your intent, so you skip straight to the group
+    // ("press 2 for image"). It NEVER resumes the last project (that's the Projects panel). So: reset
+    // to a clean workflow, then select the medium (the specialist). This also fixes the splash
+    // off-by-one — we set the medium AND transition in ONE click instead of bouncing to chat first.
     if (id === 'assets') { if (stage === 'splash') transitionTo('chat'); setAssetsOpen(true); return; }
     setAssetsOpen(false);
-    if (stage === 'splash') { transitionTo('chat'); return; }
-    if (id === 'image' || id === 'video') setActiveMedium(id);
-    else setActiveMedium('chat');
+    const medium = id === 'image' || id === 'video' ? id : 'chat';
+    resetChat(); // fresh workflow (reset() lands on medium 'chat')…
+    setActiveMedium(medium); // …then forward to the chosen specialist.
+    if (stage !== 'chat') transitionTo('chat');
   };
 
   // The persistent wall re-tunes by SCENARIO (never disabled): splash+logo = active flare

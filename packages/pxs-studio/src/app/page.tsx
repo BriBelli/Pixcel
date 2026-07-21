@@ -156,6 +156,7 @@ export default function Home() {
   const activeMedium = useChatTurnsStore((s) => s.activeMedium);
   const setActiveMedium = useChatTurnsStore((s) => s.setActiveMedium);
   const loadThread = useChatTurnsStore((s) => s.loadThread);
+  const enterSection = useChatTurnsStore((s) => s.enterSection);
   const resetChat = useChatTurnsStore((s) => s.reset);
   const activeThreadId = useChatTurnsStore((s) => s.threadId);
 
@@ -224,16 +225,17 @@ export default function Home() {
     else transitionTo('splash', undefined, false);
   };
   const handleNavSection = (id: string) => {
-    // The primary nav is the PHONE MENU: clicking a specialist FORWARDS you to a FRESH, intent-scoped
-    // workspace with that agent — you've pre-declared your intent, so you skip straight to the group
-    // ("press 2 for image"). It NEVER resumes the last project (that's the Projects panel). So: reset
-    // to a clean workflow, then select the medium (the specialist). This also fixes the splash
-    // off-by-one — we set the medium AND transition in ONE click instead of bouncing to chat first.
+    // The primary nav is the PHONE MENU — but a BATON HAND-OFF, not a reset. Clicking a section
+    // hands you back to the Operator at that section's ROOT ("what do you want to do?"), section
+    // aware, WITH THE CURRENT PROJECT'S STATE INTACT (turns + thread survive). The rule: when you'd
+    // EXPECT state you get it; only the in-flight workflow FRAME is dropped, which is what returns
+    // you to the operator instead of an IDE mid-flight. (A TRANSFER is the opposite: it carries the
+    // exact intent forward, in flight, without breaking the workflow.)
+    // Also fixes the splash off-by-one — medium + transition happen in ONE click.
     if (id === 'assets') { if (stage === 'splash') transitionTo('chat'); setAssetsOpen(true); return; }
     setAssetsOpen(false);
     const medium = id === 'image' || id === 'video' ? id : 'chat';
-    resetChat(); // fresh workflow (reset() lands on medium 'chat')…
-    setActiveMedium(medium); // …then forward to the chosen specialist.
+    enterSection(medium);
     if (stage !== 'chat') transitionTo('chat');
   };
 

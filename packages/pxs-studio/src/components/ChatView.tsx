@@ -158,9 +158,11 @@ export default function ChatView({ initialPrompt }: Props) {
     [send]
   );
 
-  // The workspace surface is on whenever a specialist medium is active (Image/Video). It's entered
-  // by a TRANSFER, a transfer CTA click, or the nav Image/Video item — never a dead-end.
-  const inWorkspace = activeMedium !== 'chat';
+  // CHAT-FIRST: every section STARTS as the conversation (the Operator), never as a bare IDE. The
+  // workspace/IDE surfaces only once a workflow is actually IN FLIGHT — i.e. a TRANSFER captured an
+  // `activeFrame`. Selecting Image/Video from the nav alone lands you at the Operator's root for that
+  // section (section-aware, project state intact); it must NOT drop you into an empty IDE stage.
+  const inWorkspace = activeMedium !== 'chat' && activeFrame != null;
   const workspaceMedium: 'image' | 'video' = activeMedium === 'video' ? 'video' : 'image';
 
   // Every generated image across the conversation, newest first — the workspace stage's content.

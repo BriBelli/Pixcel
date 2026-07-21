@@ -219,6 +219,12 @@ interface ChatTurnsState {
   reset: () => void;
   /** Switch the active workflow medium (drives the nav + the surface layout). */
   setActiveMedium: (medium: 'chat' | 'image' | 'video') => void;
+  /** Enter a section from the primary NAV — the phone-menu hand-off. Selects the medium and DROPS
+   *  any in-flight workflow frame (so you land back at the Operator's root for that section: "what
+   *  do you want to do?"), while KEEPING the project state (turns + thread). Nav is "same project,
+   *  back to the operator HERE" — it is NOT a reset, and it is NOT resuming a workspace mid-flight.
+   *  A TRANSFER is the opposite move: it carries intent forward in flight (sets the frame). */
+  enterSection: (medium: 'chat' | 'image' | 'video') => void;
 }
 
 export const useChatTurnsStore = create<ChatTurnsState>((set, get) => {
@@ -609,5 +615,7 @@ export const useChatTurnsStore = create<ChatTurnsState>((set, get) => {
       set({ turns: [], threadId: null, activeMedium: 'chat', activeFrame: null, partValues: {}, partSeedTurn: null, lastEdit: null });
     },
     setActiveMedium: (medium) => set({ activeMedium: medium }),
+    // Keep turns + threadId (the project); only the in-flight frame is dropped.
+    enterSection: (medium) => set({ activeMedium: medium, activeFrame: null }),
   };
 });

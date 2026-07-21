@@ -159,6 +159,11 @@ export default function Home() {
   const enterSection = useChatTurnsStore((s) => s.enterSection);
   const resetChat = useChatTurnsStore((s) => s.reset);
   const activeThreadId = useChatTurnsStore((s) => s.threadId);
+  const threadTitle = useChatTurnsStore((s) => s.threadTitle);
+  const setThreadTitle = useChatTurnsStore((s) => s.setThreadTitle);
+  // Selecting the derived STRING (not the turns array) keeps the shell from re-rendering on every
+  // streaming token — it only changes when the project's first prompt does.
+  const firstPrompt = useChatTurnsStore((s) => s.turns[0]?.userPrompt ?? null);
 
   // RELOAD = RESTORE where you were (persist the workspace across refresh), not a hard bounce to the
   // splash. Reading synchronously in this mount effect means the FIRST post-mount render already
@@ -224,6 +229,21 @@ export default function Home() {
     if (stage === 'chat' && activeMedium !== 'chat') setActiveMedium('chat');
     else transitionTo('splash', undefined, false);
   };
+  // The active project's display name — the title when we know it, else the project's first prompt
+  // (a brand-new project is titled server-side from the goal, so the prompt is the honest stand-in).
+  const projectName = (threadTitle ?? '').trim() || (firstPrompt ? firstPrompt.trim().slice(0, 48) : '');
+
+  // ONE explicit way to open a project — from the Projects panel or an asset's Details drawer.
+  // Always deliberate, and the shell's project chip immediately reflects WHERE you landed.
+  const openProject = (id: string, title?: string) => {
+    setProjectsOpen(false);
+    setAssetsOpen(false);
+    setActiveMedium('chat');
+    setThreadTitle(title?.trim() ? title : null);
+    if (stage !== 'chat') transitionTo('chat');
+    void loadThread(id);
+  };
+
   const handleNavSection = (id: string) => {
     // The primary nav is the PHONE MENU — but a BATON HAND-OFF, not a reset. Clicking a section
     // hands you back to the Operator at that section's ROOT ("what do you want to do?"), section
@@ -315,11 +335,49 @@ export default function Home() {
             {/* Content well — ONLY this cross-fades between splash ⇄ chat. The Assets catalog is a
                 full-view overlay ON this well (right of the persistent nav), its own surface. */}
             <div className="relative z-10 flex-1 min-w-0 h-full">
+              {/* PERSISTENT PROJECT IDENTITY — quiet, always-there, so you always know which project
+                  you're in (and can jump to the list). A project you can't name is one you can't trust. */}
+              {stage === 'chat' && !assetsOpen && projectName && (
+                <button
+                  type="button"
+                  onClick={() => setProjectsOpen((v) => !v)}
+                  title="Projects"
+                  style={{
+                    position: 'absolute',
+                    top: 'var(--a2ui-space-4)',
+                    left: 'var(--a2ui-space-4)',
+                    zIndex: 20,
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: 8,
+                    height: 28,
+                    maxWidth: 320,
+                    padding: '0 12px',
+                    borderRadius: 'var(--a2ui-radius-full)',
+                    border: '1px solid var(--a2ui-border-subtle)',
+                    background: 'var(--a2ui-bg-elevated)',
+                    color: 'var(--a2ui-text-tertiary)',
+                    fontFamily: 'var(--a2ui-font-family)',
+                    fontSize: 'var(--a2ui-text-xs)',
+                    cursor: 'pointer',
+                    whiteSpace: 'nowrap',
+                    overflow: 'hidden',
+                  }}
+                >
+                  <span
+                    aria-hidden="true"
+                    style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--a2ui-accent)', flexShrink: 0 }}
+                  />
+                  <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{projectName}</span>
+                </button>
+              )}
               <div key={stage} style={layerStyle('incoming')}>{renderContent(stage)}</div>
               {transitioning && outgoing && outgoing !== 'studio' && (
                 <div key={outgoing} style={layerStyle('outgoing')}>{renderContent(outgoing)}</div>
               )}
-              {assetsOpen && <AssetsCatalog onClose={() => setAssetsOpen(false)} />}
+              {assetsOpen && (
+                <AssetsCatalog onClose={() => setAssetsOpen(false)} onOpenProject={(id) => openProject(id)} />
+              )}
             </div>
 
             {/* Projects slide-out (Slice 5) — THE THREAD IS THE PROJECT. Docked right of the nav rail. */}
@@ -335,13 +393,7 @@ export default function Home() {
                   setActiveMedium('chat');
                   if (stage !== 'chat') transitionTo('chat');
                 }}
-                onOpenProject={(id) => {
-                  setProjectsOpen(false);
-                  setAssetsOpen(false);
-                  setActiveMedium('chat');
-                  if (stage !== 'chat') transitionTo('chat');
-                  void loadThread(id);
-                }}
+                onOpenProject={(id, title) => openProject(id, title)}
               />
             )}
 

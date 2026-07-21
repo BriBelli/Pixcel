@@ -139,7 +139,14 @@ function fmtDate(ms: number): string {
   }
 }
 
-export function AssetsCatalog({ onClose }: { onClose: () => void }) {
+export function AssetsCatalog({
+  onClose,
+  onOpenProject,
+}: {
+  onClose: () => void;
+  /** Explicitly open an asset's project (from the Details drawer). */
+  onOpenProject?: (threadId: string) => void;
+}) {
   const [assets, setAssets] = useState<AssetRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [kind, setKind] = useState<'all' | AssetRow['kind']>('all');
@@ -280,6 +287,7 @@ export function AssetsCatalog({ onClose }: { onClose: () => void }) {
               setAssets((prev) => prev.filter((a) => a.id !== id));
               setSelectedId(null);
             }}
+            onOpenProject={onOpenProject}
           />
         )}
       </div>
@@ -293,11 +301,15 @@ function AssetDrawer({
   onClose,
   onSaved,
   onDeleted,
+  onOpenProject,
 }: {
   asset: AssetRow;
   onClose: () => void;
   onSaved: (a: AssetRow) => void;
   onDeleted: (id: string) => void;
+  /** Explicitly open the project this asset belongs to. Deliberate + visible — selecting an asset
+   *  must NEVER silently swap your project out from under you. */
+  onOpenProject?: (threadId: string) => void;
 }) {
   const [title, setTitle] = useState(asset.title ?? '');
   const [altText, setAltText] = useState(asset.alt_text ?? '');
@@ -358,6 +370,18 @@ function AssetDrawer({
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src={asset.url} alt={asset.alt_text || 'asset preview'} />
         </div>
+        {/* Explicit route back to the work this asset came from — an intentional act, never a
+            side-effect of selecting a thumbnail. */}
+        {asset.thread_id && onOpenProject && (
+          <button
+            type="button"
+            className="pxa-btn"
+            onClick={() => onOpenProject(asset.thread_id as string)}
+            style={{ height: 32, justifyContent: 'center' }}
+          >
+            Open project
+          </button>
+        )}
         <div className="pxa-field">
           <label className="pxa-label">Title</label>
           <input className="pxa-input" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Untitled" />

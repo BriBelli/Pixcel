@@ -182,6 +182,10 @@ interface ChatTurnsState {
   turns: ChatTurn[];
   /** The active thread id — captured from the `done` event, persisted to localStorage. */
   threadId: string | null;
+  /** The active project's display TITLE — so the shell can always show WHICH project you're in
+   *  (a project you can't name is a project you can't trust). Set when a project is opened; the
+   *  shell falls back to the first user prompt for a brand-new, not-yet-titled project. */
+  threadTitle: string | null;
   /** The active workflow medium — flips to 'image'/'video' when the Operator TRANSFERS,
    *  driving the left-nav highlight (and, in Slice 2, the Image IDE surface). */
   activeMedium: 'chat' | 'image' | 'video';
@@ -219,6 +223,8 @@ interface ChatTurnsState {
   reset: () => void;
   /** Switch the active workflow medium (drives the nav + the surface layout). */
   setActiveMedium: (medium: 'chat' | 'image' | 'video') => void;
+  /** Name the active project (set when one is opened, so the shell can display it). */
+  setThreadTitle: (title: string | null) => void;
   /** Enter a section from the primary NAV — the phone-menu hand-off. Selects the medium and DROPS
    *  any in-flight workflow frame (so you land back at the Operator's root for that section: "what
    *  do you want to do?"), while KEEPING the project state (turns + thread). Nav is "same project,
@@ -463,6 +469,7 @@ export const useChatTurnsStore = create<ChatTurnsState>((set, get) => {
   return {
     turns: [],
     threadId: null,
+    threadTitle: null,
     activeMedium: 'chat',
     activeFrame: null,
     partValues: {},
@@ -612,9 +619,10 @@ export const useChatTurnsStore = create<ChatTurnsState>((set, get) => {
           /* non-fatal */
         }
       }
-      set({ turns: [], threadId: null, activeMedium: 'chat', activeFrame: null, partValues: {}, partSeedTurn: null, lastEdit: null });
+      set({ turns: [], threadId: null, threadTitle: null, activeMedium: 'chat', activeFrame: null, partValues: {}, partSeedTurn: null, lastEdit: null });
     },
     setActiveMedium: (medium) => set({ activeMedium: medium }),
+    setThreadTitle: (title) => set({ threadTitle: title }),
     // Keep turns + threadId (the project); only the in-flight frame is dropped.
     enterSection: (medium) => set({ activeMedium: medium, activeFrame: null }),
   };

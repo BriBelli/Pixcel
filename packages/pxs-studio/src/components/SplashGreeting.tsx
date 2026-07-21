@@ -59,7 +59,7 @@ export function SplashGreeting({ onSelect }: SplashGreetingProps) {
     : 'What are we making today?';
   const subtitle = returning
     ? 'Pick up where you left off, or start something new.'
-    : "Your studio's ready — lets take your idea to the final cut.";
+    : "Let's take your idea to the next level.";
 
   return (
     <div className="pxs-greet">

@@ -87,7 +87,7 @@ export interface ProjectsPanelProps {
   /** The active project (thread) id — highlighted in the list. */
   activeId?: string | null;
   onClose: () => void;
-  onOpenProject: (id: string) => void;
+  onOpenProject: (id: string, title: string) => void;
   onNewProject: () => void;
   left: number;
 }
@@ -118,11 +118,14 @@ export function ProjectsPanel({ activeId, onClose, onOpenProject, onNewProject, 
   const open = (id: string) => {
     // Optimistic "shoots to top" — move the clicked project to the front locally; the server bump
     // (on the next interaction) persists it. Then load the project.
+    let title = '';
     setProjects((prev) => {
       const hit = prev.find((p) => p.id === id);
+      if (hit) title = hit.title;
       return hit ? [hit, ...prev.filter((p) => p.id !== id)] : prev;
     });
-    onOpenProject(id);
+    // Hand the TITLE up too, so the shell can show which project you're now in.
+    onOpenProject(id, title);
   };
 
   const startEdit = (p: ProjectRow) => {

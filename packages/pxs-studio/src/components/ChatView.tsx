@@ -30,7 +30,23 @@ import { toastManager } from './Toast';
 import { PromptGuidePanel } from './chat/PromptGuidePanel';
 import { BuilderPanel } from './chat/BuilderPanel';
 import { PromptString } from './chat/PromptString';
+import { GreetingHero } from './GreetingHero';
 import { scoreBuilder } from '../lib/prompt-score';
+
+/** The fresh-section greeting. Every section STARTS as the conversation, so an empty section must
+ *  read as an invitation to talk — never a blank canvas. Same lockup as the splash (identical
+ *  treatment), only the copy is section-aware: you've already told us the medium by being here. */
+const EMPTY_GREETING: Record<'chat' | 'image' | 'video', { title: string; subtitle: string }> = {
+  chat: { title: 'What are we making today?', subtitle: "Let's take your idea to the next level." },
+  image: {
+    title: 'What image are we making?',
+    subtitle: 'Describe it — or bring a reference — and I’ll shape the details with you.',
+  },
+  video: {
+    title: 'What video are we making?',
+    subtitle: 'Describe the shot — or bring a reference — and I’ll shape the details with you.',
+  },
+};
 
 interface Props {
   /** The prompt typed on the splash (front door). Auto-sent once on mount. */
@@ -270,6 +286,24 @@ export default function ChatView({ initialPrompt }: Props) {
       <div ref={scrollRef} className="flex-1 overflow-y-auto">
         <div className={capped ? 'mx-auto w-full px-6 py-8' : 'w-full px-5 py-6'} style={capped ? COLUMN_STYLE : undefined}>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--a2ui-space-6)' }}>
+            {turns.length === 0 && (
+              <div
+                style={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  textAlign: 'center',
+                  minHeight: capped ? '52vh' : '32vh',
+                }}
+              >
+                <GreetingHero
+                  title={EMPTY_GREETING[activeMedium].title}
+                  subtitle={EMPTY_GREETING[activeMedium].subtitle}
+                  size={capped ? 'splash' : 'compact'}
+                />
+              </div>
+            )}
             {turns.map((t, i) => {
               const isLast = i === turns.length - 1;
               const isDone = t.status === 'done';

@@ -304,10 +304,10 @@ export default function NavRail({ activeSection = 'chat', onHome, onSection, onO
   return (
     <nav className="pxl-rail-scope pxl-rail flex flex-col items-center w-[72px] py-4 shrink-0">
       <style>{RAIL_CSS}</style>
+      <hr/>
       <button onClick={onHome} title="Home — back to Chat" className="pxl-rail-mark mb-3 flex h-10 w-10 items-center justify-center">
         <PixcelMark size={22} />
       </button>
-
       {/* Projects toggle — docked under the mark, sharing the section items' footprint + spacing so
           it reads as part of the rail. NO label + a larger icon is what marks it a CONTROL, not a
           destination. */}
@@ -333,7 +333,9 @@ export default function NavRail({ activeSection = 'chat', onHome, onSection, onO
             className="pxl-navbtn flex flex-col items-center justify-center gap-1 w-14"
           >
             <Ic name={s.icon} size={20} />
-            <span className="text-[10px] font-medium">{s.label}</span>
+            {/* leading-none: an arbitrary text size sets NO line-height, so the label inherited a
+                taller line box whose extra leading pushed the icon+label group off optical centre. */}
+            <span className="text-[10px] font-medium leading-none">{s.label}</span>
           </button>
         ))}
       </div>

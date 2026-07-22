@@ -45,9 +45,9 @@ function LoadingScreen() {
       <PixcelMark
         size={44}
         style={{
-          // The canonical Pixcel blue — vibrant, not muted — with a higher opacity floor so the
-          // breathing never dips to a dim/dark X.
-          color: 'var(--pxl-brand-blue)',
+          // White (the same tone as the rail's mark) — the breathing dips it to a soft off-white
+          // rather than a dim/dark X. Not the accent blue: the boot mark IS the identity.
+          color: 'var(--a2ui-text-primary)',
           animation: 'pxl-boot 1.6s var(--a2ui-ease-entrance, ease-in-out) infinite',
         }}
       />

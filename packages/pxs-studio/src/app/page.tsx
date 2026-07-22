@@ -317,20 +317,18 @@ export default function Home() {
               />
             </div>
 
-            {/* The ONE persistent left NavRail — the anchor, never fades. z-30 keeps its mark +
-                avatar ABOVE the wall AND above the content well, so the avatar popover (which
-                overhangs the content) stays clickable. `flex` lets the rail stretch to FULL height
-                (else the wrapper's a plain block and the rail collapses to content height). */}
-            <div className="relative z-30 shrink-0 flex">
-              <NavRail
-                activeSection={navActive}
-                onHome={handleNavHome}
-                onSection={handleNavSection}
-                onOpenSettings={() => setSettingsOpen(true)}
-                onToggleProjects={() => setProjectsOpen((v) => !v)}
-                projectsOpen={projectsOpen}
-              />
-            </div>
+            {/* The ONE persistent NavRail — the anchor, never fades. It FLOATS: `.pxl-rail` is
+                absolutely positioned (z-30) against this shell, so it reserves NO layout column and
+                the wall + content run full-bleed beneath it. No wrapper div — the rail positions
+                itself (see NavRail's RAIL_CSS). */}
+            <NavRail
+              activeSection={navActive}
+              onHome={handleNavHome}
+              onSection={handleNavSection}
+              onOpenSettings={() => setSettingsOpen(true)}
+              onToggleProjects={() => setProjectsOpen((v) => !v)}
+              projectsOpen={projectsOpen}
+            />
 
             {/* Content well — ONLY this cross-fades between splash ⇄ chat. The Assets catalog is a
                 full-view overlay ON this well (right of the persistent nav), its own surface. */}

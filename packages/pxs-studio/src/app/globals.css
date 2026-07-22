@@ -13,6 +13,13 @@
   --pxl-glow-blue:    #3b82f6;  /* old hero-glow blue (decorative) */
   --pxl-glow-purple:  #8b5cf6;  /* old hero-glow violet (decorative) */
 
+  /* NAV EDGE GRADIENT — the "bold offset" that gives the rail some life. Tokenised so the accent
+     pair is swappable in ONE place (never hard-coded hexes in a component). Defaults to the brand
+     pair, first → second (complementary). For the warm offset instead, set:
+       --pxs-nav-edge-from: #ff7e5f;  --pxs-nav-edge-to: #feb47b; */
+  --pxs-nav-edge-from: var(--pxl-brand-blue);
+  --pxs-nav-edge-to:   var(--pxl-brand-purple);
+
   /* LOCKED (2026-06-27): the carried brand blue IS the app accent (replaces the DS Google-blue).
      Purple stays a named token for deliberate AI/special actions (e.g. Refine in Studio). */
   --a2ui-accent:        var(--pxl-brand-blue);

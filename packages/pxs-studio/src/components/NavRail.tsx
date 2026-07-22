@@ -1,72 +1,153 @@
-'use client';
+"use client";
 
-import { useEffect, useRef, useState } from 'react';
-import { useAuth0 } from '@auth0/auth0-react';
-import { useCurrentUser } from '../lib/use-current-user';
-import { useLoginModal } from './LoginModalProvider';
-import { clearCredentialsSession } from '../lib/credentials-auth';
-import { useSettings } from '../store/settings-store';
+import { useEffect, useRef, useState } from "react";
+import { useAuth0 } from "@auth0/auth0-react";
+import { useCurrentUser } from "../lib/use-current-user";
+import { useLoginModal } from "./LoginModalProvider";
+import { clearCredentialsSession } from "../lib/credentials-auth";
+import { useSettings } from "../store/settings-store";
 
 /* ─────────────────────────────────────────────────────────────────────────────
- * NavRail — the primary app-feature switcher (Chat · Art · Image · Video
- * + Export · Assets · Assistant utility cluster, and the signed-in user's avatar
- * pinned at the very bottom).
+ * NavRail — the primary app-feature switcher (Chat · Image · Video · Assets), the
+ * Projects panel control, and the signed-in user's avatar pinned at the bottom.
+ *
+ * IT FLOATS. The rail is absolutely positioned over the digital wall + content and
+ * reserves NO layout column, so the canvas runs full-bleed beneath it. Everything is
+ * transparent except ONE surface — `.primary-nav-container`, a card with a brand-lit
+ * gradient edge (tokens: --pxs-nav-edge-from/-to).
+ *
+ * Layout, top → bottom:  MARK (top) · nav container (vertically centred) · AVATAR (bottom).
  *
  * This is the SHARED extraction of the rail pattern that lives inline in the FROZEN
- * LandingPage.tsx (the Chat splash). Marks, icons, `.pxl-*` styles, SECTIONS/UTILITY
- * items and tokens are copied verbatim from that gold reference so the rail is
- * pixel-identical across the splash and the Studio. LandingPage keeps its own inline
- * rail — do NOT route it through this component (it is frozen).
- *
- * The Studio uses this rail as its leftmost column. The active creative section is
- * highlighted; the Pixcel-X mark (and the active item) navigate home to the splash.
+ * LandingPage.tsx (the Chat splash). LandingPage keeps its own inline rail — do NOT
+ * route it through this component (it is frozen).
  * ───────────────────────────────────────────────────────────────────────────── */
 
 /* ── Iconography (Claude Design handoff): the Pixel-X mark + Lucide line icons
    (stroke 2, currentColor, viewBox 0 0 24 24). Art glyph is the `scribble` squiggle. ── */
 function PixcelMark({ size = 22 }: { size?: number }) {
   return (
-    <svg width={size} height={size} viewBox="0 0 100 100" shapeRendering="crispEdges" fill="currentColor" role="img" aria-label="Pixcel">
-      <rect x="-0.5" y="-0.5" width="21" height="21" /><rect x="79.5" y="-0.5" width="21" height="21" />
-      <rect x="19.5" y="19.5" width="21" height="21" /><rect x="59.5" y="19.5" width="21" height="21" />
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 100 100"
+      shapeRendering="crispEdges"
+      fill="currentColor"
+      role="img"
+      aria-label="Pixcel"
+    >
+      <rect x="-0.5" y="-0.5" width="21" height="21" />
+      <rect x="79.5" y="-0.5" width="21" height="21" />
+      <rect x="19.5" y="19.5" width="21" height="21" />
+      <rect x="59.5" y="19.5" width="21" height="21" />
       <rect x="39.5" y="39.5" width="21" height="21" />
-      <rect x="19.5" y="59.5" width="21" height="21" /><rect x="59.5" y="59.5" width="21" height="21" />
-      <rect x="-0.5" y="79.5" width="21" height="21" /><rect x="79.5" y="79.5" width="21" height="21" />
+      <rect x="19.5" y="59.5" width="21" height="21" />
+      <rect x="59.5" y="59.5" width="21" height="21" />
+      <rect x="-0.5" y="79.5" width="21" height="21" />
+      <rect x="79.5" y="79.5" width="21" height="21" />
     </svg>
   );
 }
 
-type IconName = 'chat' | 'scribble' | 'image' | 'video' | 'export' | 'assets' | 'assistant' | 'user' | 'login' | 'settings' | 'sun' | 'moon' | 'logout' | 'chevronsRight' | 'chevronsLeft';
+type IconName =
+  | "chat"
+  | "scribble"
+  | "image"
+  | "video"
+  | "export"
+  | "assets"
+  | "assistant"
+  | "user"
+  | "login"
+  | "settings"
+  | "sun"
+  | "moon"
+  | "logout"
+  | "chevronsRight"
+  | "chevronsLeft";
 
 const PATHS: Record<IconName, string[]> = {
-  chat: ['M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z'],
-  scribble: ['M3.0 12.00L3.7 9.65L4.3 8.81L5.0 10.02L5.7 12.50L6.4 14.66L7.0 15.11L7.7 13.56L8.4 11.01L9.1 9.09L9.8 9.04L10.4 10.89L11.1 13.45L11.8 15.08L12.4 14.73L13.1 12.62L13.8 10.12L14.5 8.82L15.2 9.57L15.8 11.87L16.5 14.26L17.2 15.20L17.9 14.08L18.5 11.62L19.2 9.41L19.9 8.86L20.6 10.33L21.0 12.00'],
-  image: ['M3 5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z', 'M8.5 11a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3z', 'm21 15-5-5L5 21'],
-  video: ['M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20z', 'm10 8 6 4-6 4z'],
-  export: ['M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4', 'M7 9l5-5 5 5', 'M12 4v12'],
-  assets: ['M3 5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z', 'M8.5 11a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3z', 'm21 15-5-5L5 21'],
-  assistant: ['M5 3h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z', 'M15 3v18'],
+  chat: ["M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"],
+  scribble: [
+    "M3.0 12.00L3.7 9.65L4.3 8.81L5.0 10.02L5.7 12.50L6.4 14.66L7.0 15.11L7.7 13.56L8.4 11.01L9.1 9.09L9.8 9.04L10.4 10.89L11.1 13.45L11.8 15.08L12.4 14.73L13.1 12.62L13.8 10.12L14.5 8.82L15.2 9.57L15.8 11.87L16.5 14.26L17.2 15.20L17.9 14.08L18.5 11.62L19.2 9.41L19.9 8.86L20.6 10.33L21.0 12.00",
+  ],
+  image: [
+    "M3 5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z",
+    "M8.5 11a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3z",
+    "m21 15-5-5L5 21",
+  ],
+  video: ["M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20z", "m10 8 6 4-6 4z"],
+  export: [
+    "M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4",
+    "M7 9l5-5 5 5",
+    "M12 4v12",
+  ],
+  assets: [
+    "M3 5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z",
+    "M8.5 11a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3z",
+    "m21 15-5-5L5 21",
+  ],
+  assistant: [
+    "M5 3h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z",
+    "M15 3v18",
+  ],
   // Lucide `user` — avatar fallback glyph.
-  user: ['M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2', 'M12 7a4 4 0 1 0 0 8 4 4 0 0 0 0-8z'],
+  user: [
+    "M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2",
+    "M12 7a4 4 0 1 0 0 8 4 4 0 0 0 0-8z",
+  ],
   // Lucide `log-in` — the signed-out "Sign in" affordance.
-  login: ['M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4', 'M10 17l5-5-5-5', 'M15 12H3'],
+  login: [
+    "M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4",
+    "M10 17l5-5-5-5",
+    "M15 12H3",
+  ],
   // Lucide `settings` (gear) — opens the settings slide-over.
-  settings: ['M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z', 'M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z'],
+  settings: [
+    "M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z",
+    "M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z",
+  ],
   // Lucide `sun` — switch to light mode.
-  sun: ['M12 2v2', 'M12 20v2', 'm4.93 4.93 1.41 1.41', 'm17.66 17.66 1.41 1.41', 'M2 12h2', 'M20 12h2', 'm6.34 17.66-1.41 1.41', 'm19.07 4.93-1.41 1.41', 'M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8z'],
+  sun: [
+    "M12 2v2",
+    "M12 20v2",
+    "m4.93 4.93 1.41 1.41",
+    "m17.66 17.66 1.41 1.41",
+    "M2 12h2",
+    "M20 12h2",
+    "m6.34 17.66-1.41 1.41",
+    "m19.07 4.93-1.41 1.41",
+    "M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8z",
+  ],
   // Lucide `moon` — switch to dark mode.
-  moon: ['M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9z'],
+  moon: ["M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9z"],
   // Lucide `log-out` — sign out.
-  logout: ['M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4', 'M16 17l5-5-5-5', 'M21 12H9'],
+  logout: [
+    "M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4",
+    "M16 17l5-5-5-5",
+    "M21 12H9",
+  ],
   // Lucide `chevrons-right` / `chevrons-left` — the Projects panel open/close control.
-  chevronsRight: ['m6 17 5-5-5-5', 'm13 17 5-5-5-5'],
-  chevronsLeft: ['m11 17-5-5 5-5', 'm18 17-5-5 5-5'],
+  chevronsRight: ["m6 17 5-5-5-5", "m13 17 5-5-5-5"],
+  chevronsLeft: ["m11 17-5-5 5-5", "m18 17-5-5 5-5"],
 };
 
 function Ic({ name, size = 20 }: { name: IconName; size?: number }) {
   return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      {PATHS[name].map((d, i) => <path key={i} d={d} />)}
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={2}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      {PATHS[name].map((d, i) => (
+        <path key={i} d={d} />
+      ))}
     </svg>
   );
 }
@@ -80,10 +161,10 @@ function Ic({ name, size = 20 }: { name: IconName; size?: number }) {
 /* The interconnected-web SECTIONS. Assets is a first-class section (not a bottom utility) — it's the
    inventory that ties chat/image/video together. (Brian, 2026-07-16.) */
 const SECTIONS: { id: string; label: string; icon: IconName }[] = [
-  { id: 'chat', label: 'Chat', icon: 'chat' },
-  { id: 'image', label: 'Image', icon: 'image' },
-  { id: 'video', label: 'Video', icon: 'video' },
-  { id: 'assets', label: 'Assets', icon: 'assets' },
+  { id: "chat", label: "Chat", icon: "chat" },
+  { id: "image", label: "Image", icon: "image" },
+  { id: "video", label: "Video", icon: "video" },
+  { id: "assets", label: "Assets", icon: "assets" },
 ];
 
 /* The `.pxl-*` rail styles, lifted verbatim from the frozen splash so the rail is
@@ -91,9 +172,32 @@ const SECTIONS: { id: string; label: string; icon: IconName }[] = [
    splash's own inline <style> (which scopes under .pxl-root). */
 const RAIL_CSS = `
   .pxl-rail-scope { font-family: var(--a2ui-font-family); -webkit-font-smoothing: antialiased; }
-  /* Rail sits on the near-black cool-950 (Claude Design PrimaryNav) — NOT the lighter bg-primary,
-     which washed the tertiary labels out ("light grey on medium grey"). */
-  .pxl-rail { background: var(--a2ui-cool-950); border-right: 1px solid var(--a2ui-border-subtle); border-top: 1px solid var(--a2ui-border-subtle); }
+  /* The rail FLOATS over the digital wall + content — it no longer owns a slice of the layout.
+     Fully transparent: the ONLY surface in the rail is .primary-nav-container. pointer-events are
+     off on the rail itself and re-enabled per control, so the floating column never swallows clicks
+     meant for the canvas behind it. */
+  .pxl-rail {
+    position: absolute; top: 0; bottom: 0; left: 0; width: 72px; z-index: 30;
+    background: transparent; border: none; pointer-events: none;
+  }
+  .pxl-rail > * { pointer-events: auto; }
+
+  /* THE one surface in the rail: the main nav group — a floating card with a brand-lit edge.
+     Two-layer background-clip: layer 1 (padding-box) is the solid inner fill, layer 2 (border-box)
+     is the gradient that shows ONLY in the 1px border ring. Gradient stops are TOKENISED
+     (--pxs-nav-edge-*, see globals.css) so the accent pair swaps in one place — never a hex here. */
+  .primary-nav-container {
+    display: flex; flex-direction: column; align-items: center;
+    padding: 6px;
+    border: 1px solid transparent;
+    border-radius: 12px;
+    background-image:
+      linear-gradient(var(--a2ui-cool-950), var(--a2ui-cool-950)),
+      linear-gradient(to bottom, var(--pxs-nav-edge-from), var(--pxs-nav-edge-to));
+    background-origin: border-box;
+    background-clip: padding-box, border-box;
+    box-shadow: var(--a2ui-shadow-lg);
+  }
   .pxl-navbtn { color: var(--a2ui-text-tertiary); border-radius: var(--a2ui-radius-lg); transition: color var(--a2ui-transition-fast), background var(--a2ui-transition-fast); position: relative; }
   /* ONE shared height for every rail button so the label-less Projects control lines up EXACTLY
      with the labelled section items (py-2 + icon 20 + gap 4 + 10px label ≈ 52px). Both reference
@@ -116,10 +220,13 @@ const RAIL_CSS = `
   }
   .pxl-railtoggle:hover { color: var(--a2ui-text-secondary); background: var(--a2ui-bg-hover); }
   .pxl-railtoggle[data-open="true"] { color: var(--a2ui-text-primary); background: var(--a2ui-bg-active); }
-  .pxl-avatar { width: 34px; height: 34px; border-radius: var(--a2ui-radius-full); border: 1px solid var(--a2ui-border-default); overflow: hidden; display: flex; align-items: center; justify-content: center; transition: border-color var(--a2ui-transition-fast); }
+  /* Account avatar — the identity anchor at the foot of the rail. Deliberately a touch LARGER than
+     a nav icon: it's a person, not a destination. Shows their image, else their initial, else the
+     signed-out glyph. */
+  .pxl-avatar { width: 40px; height: 40px; border-radius: var(--a2ui-radius-full); border: 1px solid var(--a2ui-border-default); overflow: hidden; display: flex; align-items: center; justify-content: center; transition: border-color var(--a2ui-transition-fast); }
   .pxl-avatar:hover { border-color: var(--a2ui-border-strong); }
   .pxl-avatar img { width: 100%; height: 100%; object-fit: cover; display: block; }
-  .pxl-avatar-fallback { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; background: var(--a2ui-bg-tertiary); color: var(--a2ui-text-secondary); font-size: 13px; font-weight: 500; text-transform: uppercase; }
+  .pxl-avatar-fallback { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; background: var(--a2ui-bg-tertiary); color: var(--a2ui-text-secondary); font-size: 15px; font-weight: 500; text-transform: uppercase; }
 
   /* Account popover — floating chrome (gospel §glass): opens up + to the right of the avatar. */
   .pxl-pop {
@@ -172,23 +279,29 @@ function UserAvatar({ onOpenSettings }: { onOpenSettings?: () => void }) {
   useEffect(() => {
     if (!open) return;
     const onDoc = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+      if (ref.current && !ref.current.contains(e.target as Node))
+        setOpen(false);
     };
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setOpen(false);
+      if (e.key === "Escape") setOpen(false);
     };
-    document.addEventListener('mousedown', onDoc);
-    document.addEventListener('keydown', onKey);
+    document.addEventListener("mousedown", onDoc);
+    document.addEventListener("keydown", onKey);
     return () => {
-      document.removeEventListener('mousedown', onDoc);
-      document.removeEventListener('keydown', onKey);
+      document.removeEventListener("mousedown", onDoc);
+      document.removeEventListener("keydown", onKey);
     };
   }, [open]);
 
   // Signed out: a round "Sign in" button → opens our CUSTOM login modal.
   if (!user) {
     return (
-      <button type="button" title="Sign in" onClick={openLogin} className="pxl-avatar">
+      <button
+        type="button"
+        title="Sign in"
+        onClick={openLogin}
+        className="pxl-avatar"
+      >
         <span className="pxl-avatar-fallback">
           <Ic name="login" size={18} />
         </span>
@@ -205,15 +318,18 @@ function UserAvatar({ onOpenSettings }: { onOpenSettings?: () => void }) {
     }
   };
 
-  const name = (user.name || user.firstName || '').trim();
-  const email = (user.email || '').trim();
-  const initial = (user.firstName || user.name || user.email || '').trim().charAt(0).toUpperCase();
+  const name = (user.name || user.firstName || "").trim();
+  const email = (user.email || "").trim();
+  const initial = (user.firstName || user.name || user.email || "")
+    .trim()
+    .charAt(0)
+    .toUpperCase();
 
   return (
-    <div ref={ref} style={{ position: 'relative' }}>
+    <div ref={ref} style={{ position: "relative" }}>
       <button
         type="button"
-        title={name || email || 'Account'}
+        title={name || email || "Account"}
         aria-haspopup="menu"
         aria-expanded={open}
         onClick={() => setOpen((o) => !o)}
@@ -222,7 +338,9 @@ function UserAvatar({ onOpenSettings }: { onOpenSettings?: () => void }) {
         {user.avatarUrl ? (
           <img src={user.avatarUrl} alt="" />
         ) : (
-          <span className="pxl-avatar-fallback">{initial || <Ic name="user" size={18} />}</span>
+          <span className="pxl-avatar-fallback">
+            {initial || <Ic name="user" size={18} />}
+          </span>
         )}
       </button>
 
@@ -230,10 +348,14 @@ function UserAvatar({ onOpenSettings }: { onOpenSettings?: () => void }) {
         <div className="pxl-pop" role="menu">
           <div className="pxl-pop-head">
             <span className="pxl-pop-avatar">
-              {user.avatarUrl ? <img src={user.avatarUrl} alt="" /> : initial || <Ic name="user" size={16} />}
+              {user.avatarUrl ? (
+                <img src={user.avatarUrl} alt="" />
+              ) : (
+                initial || <Ic name="user" size={16} />
+              )}
             </span>
             <span className="pxl-pop-id">
-              <span className="pxl-pop-name">{name || email || 'Account'}</span>
+              <span className="pxl-pop-name">{name || email || "Account"}</span>
               {email && <span className="pxl-pop-email">{email}</span>}
             </span>
           </div>
@@ -244,10 +366,10 @@ function UserAvatar({ onOpenSettings }: { onOpenSettings?: () => void }) {
             type="button"
             role="menuitem"
             className="pxl-pop-item"
-            onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+            onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
           >
-            <Ic name={theme === 'dark' ? 'sun' : 'moon'} size={18} />
-            {theme === 'dark' ? 'Light mode' : 'Dark mode'}
+            <Ic name={theme === "dark" ? "sun" : "moon"} size={18} />
+            {theme === "dark" ? "Light mode" : "Dark mode"}
           </button>
           <button
             type="button"
@@ -264,7 +386,12 @@ function UserAvatar({ onOpenSettings }: { onOpenSettings?: () => void }) {
 
           <div className="pxl-pop-sep" />
 
-          <button type="button" role="menuitem" className="pxl-pop-item pxl-pop-danger" onClick={handleLogout}>
+          <button
+            type="button"
+            role="menuitem"
+            className="pxl-pop-item pxl-pop-danger"
+            onClick={handleLogout}
+          >
             <Ic name="logout" size={18} />
             Sign out
           </button>
@@ -296,56 +423,75 @@ interface NavRailProps {
   projectsOpen?: boolean;
 }
 
-export default function NavRail({ activeSection = 'chat', onHome, onSection, onOpenSettings, onToggleProjects, projectsOpen }: NavRailProps) {
+export default function NavRail({
+  activeSection = "chat",
+  onHome,
+  onSection,
+  onOpenSettings,
+  onToggleProjects,
+  projectsOpen,
+}: NavRailProps) {
   const handleSection = (id: string) => {
-    if (id === 'chat') return onHome?.();
+    if (id === "chat") return onHome?.();
     (onSection ?? (() => onHome?.()))(id);
   };
+  // Three stops, top → bottom: the MARK (top-aligned) · the nav container (vertically centred via
+  // my-auto, which splits the free space evenly above and below) · the ACCOUNT avatar (bottom).
+  // The rail itself is transparent and floats — see .pxl-rail.
   return (
-    <nav className="pxl-rail-scope pxl-rail flex flex-col items-center w-[72px] py-4 shrink-0">
+    <nav className="pxl-rail-scope pxl-rail flex flex-col items-center py-4">
       <style>{RAIL_CSS}</style>
-      <hr/>
-      <button onClick={onHome} title="Home — back to Chat" className="pxl-rail-mark mb-3 flex h-10 w-10 items-center justify-center">
-        <PixcelMark size={22} />
+
+      <button
+        onClick={onHome}
+        title="Home — back to Chat"
+        className="pxl-rail-mark flex h-11 w-11 items-center justify-center"
+      >
+        <PixcelMark size={26} />
       </button>
-      {/* Projects toggle — docked under the mark, sharing the section items' footprint + spacing so
+
+      <div className="primary-nav-container my-auto">
+        {/* Projects toggle — docked under the mark, sharing the section items' footprint + spacing so
           it reads as part of the rail. NO label + a larger icon is what marks it a CONTROL, not a
           destination. */}
-      {onToggleProjects && (
-        <button
-          onClick={onToggleProjects}
-          data-open={projectsOpen ? 'true' : 'false'}
-          aria-expanded={projectsOpen}
-          title={projectsOpen ? 'Close projects' : 'Projects'}
-          className="pxl-railtoggle mb-1.5 flex w-14 items-center justify-center"
-        >
-          <Ic name={projectsOpen ? 'chevronsLeft' : 'chevronsRight'} size={24} />
-        </button>
-      )}
-
-      <div className="flex flex-col gap-1.5">
-        {SECTIONS.map((s) => (
+        {onToggleProjects && (
           <button
-            key={s.id}
-            onClick={() => handleSection(s.id)}
-            data-active={s.id === activeSection}
-            title={s.label}
-            className="pxl-navbtn flex flex-col items-center justify-center gap-1 w-14"
+            onClick={onToggleProjects}
+            data-open={projectsOpen ? "true" : "false"}
+            aria-expanded={projectsOpen}
+            title={projectsOpen ? "Close projects" : "Projects"}
+            className="pxl-railtoggle mb-1.5 flex w-14 items-center justify-center"
           >
-            <Ic name={s.icon} size={20} />
-            {/* leading-none: an arbitrary text size sets NO line-height, so the label inherited a
-                taller line box whose extra leading pushed the icon+label group off optical centre. */}
-            <span className="text-[10px] font-medium leading-none">{s.label}</span>
+            <Ic
+              name={projectsOpen ? "chevronsLeft" : "chevronsRight"}
+              size={24}
+            />
           </button>
-        ))}
-      </div>
-      <div className="mt-auto" />
+        )}
 
-      {/* FUTURE: Alerts/notification icon goes HERE (above the avatar), with a push-style unread
-          badge dot on the avatar below. For now just the avatar — Settings lives in its popover. */}
-      <div className="mt-3 flex flex-col items-center gap-1.5">
-        <UserAvatar onOpenSettings={onOpenSettings} />
+        <div className="flex flex-col gap-1.5">
+          {SECTIONS.map((s) => (
+            <button
+              key={s.id}
+              onClick={() => handleSection(s.id)}
+              data-active={s.id === activeSection}
+              title={s.label}
+              className="pxl-navbtn flex flex-col items-center justify-center gap-1 w-14"
+            >
+              <Ic name={s.icon} size={20} />
+              {/* leading-none: an arbitrary text size sets NO line-height, so the label inherited a
+                taller line box whose extra leading pushed the icon+label group off optical centre. */}
+              <span className="text-[10px] font-medium leading-none">
+                {s.label}
+              </span>
+            </button>
+          ))}
+        </div>
       </div>
+      {/* Account — pinned at the bottom (the nav container's my-auto already absorbs the free space,
+          so no spacer div is needed). FUTURE: an alerts icon sits directly above this, with a
+          push-style unread dot on the avatar. Settings lives in the avatar's popover. */}
+      <UserAvatar onOpenSettings={onOpenSettings} />
     </nav>
   );
 }

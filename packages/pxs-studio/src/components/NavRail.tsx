@@ -95,6 +95,10 @@ const RAIL_CSS = `
      which washed the tertiary labels out ("light grey on medium grey"). */
   .pxl-rail { background: var(--a2ui-cool-950); border-right: 1px solid var(--a2ui-border-subtle); border-top: 1px solid var(--a2ui-border-subtle); }
   .pxl-navbtn { color: var(--a2ui-text-tertiary); border-radius: var(--a2ui-radius-lg); transition: color var(--a2ui-transition-fast), background var(--a2ui-transition-fast); position: relative; }
+  /* ONE shared height for every rail button so the label-less Projects control lines up EXACTLY
+     with the labelled section items (py-2 + icon 20 + gap 4 + 10px label ≈ 52px). Both reference
+     this single rule, so they can never drift apart. */
+  .pxl-navbtn, .pxl-railtoggle { height: 52px; }
   .pxl-navbtn:hover { color: var(--a2ui-text-secondary); background: var(--a2ui-bg-hover); }
   /* Active: subtle bg-active tint only (no left accent bar). */
   .pxl-navbtn[data-active="true"] { color: var(--a2ui-text-primary); background: var(--a2ui-bg-active); }

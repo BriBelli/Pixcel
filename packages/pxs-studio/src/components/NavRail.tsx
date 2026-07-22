@@ -97,6 +97,20 @@ const RAIL_CSS = `
   .pxl-navbtn[data-active="true"] { color: var(--a2ui-text-primary); background: var(--a2ui-bg-active); }
   .pxl-rail-mark { color: var(--a2ui-text-primary); border-radius: var(--a2ui-radius-lg); transition: color var(--a2ui-transition-fast), background var(--a2ui-transition-fast); }
   .pxl-rail-mark:hover { color: var(--a2ui-text-primary); background: var(--a2ui-bg-hover); }
+
+  /* The rail's expand/collapse CONTROL (Projects) — deliberately NOT a nav item. It belongs to the
+     rail, so it shares the rail's color language; but it must never read as a destination. Hence:
+     a PILL (sections are rounded squares), no text label (sections are labelled), smaller, and an
+     "open" state that OUTLINES rather than filling with the solid bg-active the sections use.
+     A hairline below fences the control zone off from the destinations. */
+  .pxl-railtoggle {
+    color: var(--a2ui-text-tertiary); background: transparent;
+    border: 1px solid transparent; border-radius: var(--a2ui-radius-full);
+    transition: color var(--a2ui-transition-fast), background var(--a2ui-transition-fast), border-color var(--a2ui-transition-fast);
+  }
+  .pxl-railtoggle:hover { color: var(--a2ui-text-secondary); background: var(--a2ui-bg-hover); }
+  .pxl-railtoggle[data-open="true"] { color: var(--a2ui-text-primary); border-color: var(--a2ui-border-default); background: transparent; }
+  .pxl-rail-sep { width: 24px; height: 1px; background: var(--a2ui-border-subtle); }
   .pxl-avatar { width: 34px; height: 34px; border-radius: var(--a2ui-radius-full); border: 1px solid var(--a2ui-border-default); overflow: hidden; display: flex; align-items: center; justify-content: center; transition: border-color var(--a2ui-transition-fast); }
   .pxl-avatar:hover { border-color: var(--a2ui-border-strong); }
   .pxl-avatar img { width: 100%; height: 100%; object-fit: cover; display: block; }
@@ -285,9 +299,27 @@ export default function NavRail({ activeSection = 'chat', onHome, onSection, onO
   return (
     <nav className="pxl-rail-scope pxl-rail flex flex-col items-center w-[72px] py-4 shrink-0">
       <style>{RAIL_CSS}</style>
-      <button onClick={onHome} title="Home — back to Chat" className="pxl-rail-mark mb-6 flex h-10 w-10 items-center justify-center">
+      <button onClick={onHome} title="Home — back to Chat" className="pxl-rail-mark mb-3 flex h-10 w-10 items-center justify-center">
         <PixcelMark size={22} />
       </button>
+
+      {/* Projects toggle — docked under the mark, in the rail's CONTROL zone (see .pxl-railtoggle):
+          part of the rail, but visibly not a nav item. The hairline separates control from destinations. */}
+      {onToggleProjects && (
+        <>
+          <button
+            onClick={onToggleProjects}
+            data-open={projectsOpen ? 'true' : 'false'}
+            aria-expanded={projectsOpen}
+            title={projectsOpen ? 'Close projects' : 'Projects'}
+            className="pxl-railtoggle flex h-7 w-9 items-center justify-center text-lg font-semibold leading-none"
+          >
+            {projectsOpen ? '«' : '»'}
+          </button>
+          <div className="pxl-rail-sep my-3" />
+        </>
+      )}
+
       <div className="flex flex-col gap-1.5">
         {SECTIONS.map((s) => (
           <button
@@ -303,19 +335,6 @@ export default function NavRail({ activeSection = 'chat', onHome, onSection, onO
         ))}
       </div>
       <div className="mt-auto" />
-
-      {/* Projects panel toggle — the rail's expand affordance, docked at the bottom above the avatar
-          (a panel toggle, not a system section). */}
-      {onToggleProjects && (
-        <button
-          onClick={onToggleProjects}
-          data-active={projectsOpen}
-          title={projectsOpen ? 'Close projects' : 'Projects'}
-          className="pxl-navbtn mb-2 flex h-11 w-11 items-center justify-center text-2xl font-semibold leading-none"
-        >
-          {projectsOpen ? '«' : '»'}
-        </button>
-      )}
 
       {/* FUTURE: Alerts/notification icon goes HERE (above the avatar), with a push-style unread
           badge dot on the avatar below. For now just the avatar — Settings lives in its popover. */}

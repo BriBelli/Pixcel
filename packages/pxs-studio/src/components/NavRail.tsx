@@ -36,7 +36,7 @@ function PixcelMark({ size = 22 }: { size?: number }) {
   );
 }
 
-type IconName = 'chat' | 'scribble' | 'image' | 'video' | 'export' | 'assets' | 'assistant' | 'user' | 'login' | 'settings' | 'sun' | 'moon' | 'logout';
+type IconName = 'chat' | 'scribble' | 'image' | 'video' | 'export' | 'assets' | 'assistant' | 'user' | 'login' | 'settings' | 'sun' | 'moon' | 'logout' | 'chevronsRight' | 'chevronsLeft';
 
 const PATHS: Record<IconName, string[]> = {
   chat: ['M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z'],
@@ -58,6 +58,9 @@ const PATHS: Record<IconName, string[]> = {
   moon: ['M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9z'],
   // Lucide `log-out` — sign out.
   logout: ['M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4', 'M16 17l5-5-5-5', 'M21 12H9'],
+  // Lucide `chevrons-right` / `chevrons-left` — the Projects panel open/close control.
+  chevronsRight: ['m6 17 5-5-5-5', 'm13 17 5-5-5-5'],
+  chevronsLeft: ['m11 17-5-5 5-5', 'm18 17-5-5 5-5'],
 };
 
 function Ic({ name, size = 20 }: { name: IconName; size?: number }) {
@@ -90,7 +93,7 @@ const RAIL_CSS = `
   .pxl-rail-scope { font-family: var(--a2ui-font-family); -webkit-font-smoothing: antialiased; }
   /* Rail sits on the near-black cool-950 (Claude Design PrimaryNav) — NOT the lighter bg-primary,
      which washed the tertiary labels out ("light grey on medium grey"). */
-  .pxl-rail { background: var(--a2ui-cool-950); border-right: 1px solid var(--a2ui-border-subtle); }
+  .pxl-rail { background: var(--a2ui-cool-950); border-right: 1px solid var(--a2ui-border-subtle); border-top: 1px solid var(--a2ui-border-subtle); }
   .pxl-navbtn { color: var(--a2ui-text-tertiary); border-radius: var(--a2ui-radius-lg); transition: color var(--a2ui-transition-fast), background var(--a2ui-transition-fast); position: relative; }
   .pxl-navbtn:hover { color: var(--a2ui-text-secondary); background: var(--a2ui-bg-hover); }
   /* Active: subtle bg-active tint only (no left accent bar). */
@@ -98,19 +101,17 @@ const RAIL_CSS = `
   .pxl-rail-mark { color: var(--a2ui-text-primary); border-radius: var(--a2ui-radius-lg); transition: color var(--a2ui-transition-fast), background var(--a2ui-transition-fast); }
   .pxl-rail-mark:hover { color: var(--a2ui-text-primary); background: var(--a2ui-bg-hover); }
 
-  /* The rail's expand/collapse CONTROL (Projects) — deliberately NOT a nav item. It belongs to the
-     rail, so it shares the rail's color language; but it must never read as a destination. Hence:
-     a PILL (sections are rounded squares), no text label (sections are labelled), smaller, and an
-     "open" state that OUTLINES rather than filling with the solid bg-active the sections use.
-     A hairline below fences the control zone off from the destinations. */
+  /* The rail's expand/collapse CONTROL (Projects). It shares the section items' footprint, radius
+     and hover/active language so it clearly BELONGS to the rail — the distinction is carried by
+     having NO text label and a slightly LARGER icon, which reads as a control rather than a
+     destination without needing a different shape. */
   .pxl-railtoggle {
     color: var(--a2ui-text-tertiary); background: transparent;
-    border: 1px solid transparent; border-radius: var(--a2ui-radius-full);
-    transition: color var(--a2ui-transition-fast), background var(--a2ui-transition-fast), border-color var(--a2ui-transition-fast);
+    border-radius: var(--a2ui-radius-lg);
+    transition: color var(--a2ui-transition-fast), background var(--a2ui-transition-fast);
   }
   .pxl-railtoggle:hover { color: var(--a2ui-text-secondary); background: var(--a2ui-bg-hover); }
-  .pxl-railtoggle[data-open="true"] { color: var(--a2ui-text-primary); border-color: var(--a2ui-border-default); background: transparent; }
-  .pxl-rail-sep { width: 24px; height: 1px; background: var(--a2ui-border-subtle); }
+  .pxl-railtoggle[data-open="true"] { color: var(--a2ui-text-primary); background: var(--a2ui-bg-active); }
   .pxl-avatar { width: 34px; height: 34px; border-radius: var(--a2ui-radius-full); border: 1px solid var(--a2ui-border-default); overflow: hidden; display: flex; align-items: center; justify-content: center; transition: border-color var(--a2ui-transition-fast); }
   .pxl-avatar:hover { border-color: var(--a2ui-border-strong); }
   .pxl-avatar img { width: 100%; height: 100%; object-fit: cover; display: block; }
@@ -303,21 +304,19 @@ export default function NavRail({ activeSection = 'chat', onHome, onSection, onO
         <PixcelMark size={22} />
       </button>
 
-      {/* Projects toggle — docked under the mark, in the rail's CONTROL zone (see .pxl-railtoggle):
-          part of the rail, but visibly not a nav item. The hairline separates control from destinations. */}
+      {/* Projects toggle — docked under the mark, sharing the section items' footprint + spacing so
+          it reads as part of the rail. NO label + a larger icon is what marks it a CONTROL, not a
+          destination. */}
       {onToggleProjects && (
-        <>
-          <button
-            onClick={onToggleProjects}
-            data-open={projectsOpen ? 'true' : 'false'}
-            aria-expanded={projectsOpen}
-            title={projectsOpen ? 'Close projects' : 'Projects'}
-            className="pxl-railtoggle flex h-7 w-9 items-center justify-center text-lg font-semibold leading-none"
-          >
-            {projectsOpen ? '«' : '»'}
-          </button>
-          <div className="pxl-rail-sep my-3" />
-        </>
+        <button
+          onClick={onToggleProjects}
+          data-open={projectsOpen ? 'true' : 'false'}
+          aria-expanded={projectsOpen}
+          title={projectsOpen ? 'Close projects' : 'Projects'}
+          className="pxl-railtoggle mb-1.5 flex w-14 items-center justify-center py-2"
+        >
+          <Ic name={projectsOpen ? 'chevronsLeft' : 'chevronsRight'} size={24} />
+        </button>
       )}
 
       <div className="flex flex-col gap-1.5">

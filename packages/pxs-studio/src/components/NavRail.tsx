@@ -317,7 +317,7 @@ export default function NavRail({ activeSection = 'chat', onHome, onSection, onO
           data-open={projectsOpen ? 'true' : 'false'}
           aria-expanded={projectsOpen}
           title={projectsOpen ? 'Close projects' : 'Projects'}
-          className="pxl-railtoggle mb-1.5 flex w-14 items-center justify-center py-2"
+          className="pxl-railtoggle mb-1.5 flex w-14 items-center justify-center"
         >
           <Ic name={projectsOpen ? 'chevronsLeft' : 'chevronsRight'} size={24} />
         </button>
@@ -330,7 +330,7 @@ export default function NavRail({ activeSection = 'chat', onHome, onSection, onO
             onClick={() => handleSection(s.id)}
             data-active={s.id === activeSection}
             title={s.label}
-            className="pxl-navbtn flex flex-col items-center gap-1 w-14 py-2"
+            className="pxl-navbtn flex flex-col items-center justify-center gap-1 w-14"
           >
             <Ic name={s.icon} size={20} />
             <span className="text-[10px] font-medium">{s.label}</span>

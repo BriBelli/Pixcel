@@ -246,7 +246,9 @@ export interface DigitalWallProps {
   className?: string;
 }
 
-const BRAND_BLUE = '#58a6ff'; // locked --pxl-brand-blue
+/* The wall's accent. Canvas can't read CSS custom properties, so this mirrors --pxs-brand-primary
+   by hand — keep the two in sync (it is the ONE sanctioned hex outside globals.css). */
+const BRAND_ACCENT = '#ff7e5f'; // mirrors --pxs-brand-primary
 const BG_FALLBACK = '#161618'; // --a2ui-cool-900
 const LOGO_INK = '#e4e4e8';
 const GRIDLINE_FALLBACK = '#30363d'; // --a2ui-border-default family
@@ -266,7 +268,7 @@ export default function DigitalWall({
   // show fewer cells, like a TV), so asking for smaller than the resolution allows just keeps it at
   // that floor — raise `pixels` to actually go smaller. ~0.68 ≈ native two-thirds on a 40-wide screen.
   logoScale = 0.68,
-  accent = BRAND_BLUE,
+  accent = BRAND_ACCENT,
   background,
   onLogoLayout,
   className,

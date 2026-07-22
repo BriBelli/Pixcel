@@ -24,12 +24,33 @@
   --pxs-nav-edge-from: var(--pxs-brand-primary);
   --pxs-nav-edge-to:   var(--pxs-brand-secondary);
 
-  /* LOCKED (2026-06-27): the carried brand blue IS the app accent (replaces the DS Google-blue).
-     Purple stays a named token for deliberate AI/special actions (e.g. Refine in Studio). */
-  --a2ui-accent:        var(--pxl-brand-blue);
-  --a2ui-accent-hover:  #79b8ff;
-  --a2ui-accent-active: #1f6feb;
-  --a2ui-accent-subtle: rgba(88, 166, 255, 0.16);
+  /* ══ TOKEN REFRESH (2026-07-22) — THE BRAND PAIR *IS* THE ACCENT SYSTEM ══════════════════════
+     ⤷ STASHABLE: revert THIS BLOCK ALONE to fall back to the previous blue accent. Nothing else
+       in the codebase hard-codes these — every component reads the tokens.
+
+     Intent: the greys stay cool, minimal and near-invisible; ALL the pop comes from the two brand
+     colors, placed where they carry meaning rather than sprayed for decoration:
+       • CORAL (primary)  = the user's action surface — accents, focus, primary buttons.
+       • VIOLET (second)  = the system's voice — links, AI / special actions.
+     Reading them as two different roles is what keeps it feeling designed instead of merely
+     colorful, and it survives a future light mode (same hues, different luminance).
+
+     Supersedes the 2026-06-27 "brand blue IS the accent" lock — the Google-descended blue is gone. */
+  --a2ui-accent:        var(--pxs-brand-primary);
+  --a2ui-accent-hover:  #ff9578;  /* lighter — hover */
+  --a2ui-accent-active: #e8663f;  /* deeper  — pressed */
+  --a2ui-accent-subtle: rgba(255, 126, 95, 0.16);
+
+  /* Links + AI/special actions take the second brand color (was Google-descended indigo). */
+  --a2ui-link:          var(--pxs-brand-secondary);
+  --a2ui-link-hover:    #a273ee;
+  --a2ui-link-visited:  #c58af9;
+
+  /* Decorative hero/wall glows follow the pair so the canvas warms instead of reading dead.
+     (Legacy token NAMES — the values are now the brand pair. Remove just these two lines if the
+     ambient wall feels too warm; the rest of the refresh is independent of them.) */
+  --pxl-glow-blue:      var(--pxs-brand-primary);
+  --pxl-glow-purple:    var(--pxs-brand-secondary);
 }
 
 @tailwind base;

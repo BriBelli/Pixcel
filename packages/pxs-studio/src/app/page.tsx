@@ -5,6 +5,7 @@ import dynamic from 'next/dynamic';
 import LandingPage from '../components/LandingPage';
 import ChatView from '../components/ChatView';
 import NavRail from '../components/NavRail';
+import AccountAvatar from '../components/AccountAvatar';
 import DigitalWall from '../components/DigitalWall';
 import SettingsPanel from '../components/SettingsPanel';
 import AssetsCatalog from '../components/AssetsCatalog';
@@ -325,10 +326,13 @@ export default function Home() {
               activeSection={navActive}
               onHome={handleNavHome}
               onSection={handleNavSection}
-              onOpenSettings={() => setSettingsOpen(true)}
               onToggleProjects={() => setProjectsOpen((v) => !v)}
               projectsOpen={projectsOpen}
             />
+
+            {/* Account — pinned top-right of the viewport (fixed), above every surface. It's not a
+                nav destination, it's the user; the shell owns it so it's identical on splash + chat. */}
+            <AccountAvatar onOpenSettings={() => setSettingsOpen(true)} />
 
             {/* Content well — ONLY this cross-fades between splash ⇄ chat. The Assets catalog is a
                 full-view overlay ON this well (right of the persistent nav), its own surface. */}

@@ -13,12 +13,16 @@
   --pxl-glow-blue:    #3b82f6;  /* old hero-glow blue (decorative) */
   --pxl-glow-purple:  #8b5cf6;  /* old hero-glow violet (decorative) */
 
-  /* NAV EDGE GRADIENT — the "bold offset" that gives the rail some life. Tokenised so the accent
-     pair is swappable in ONE place (never hard-coded hexes in a component). Defaults to the brand
-     pair, first → second (complementary). For the warm offset instead, set:
-       --pxs-nav-edge-from: #ff7e5f;  --pxs-nav-edge-to: #feb47b; */
-  --pxs-nav-edge-from: var(--pxl-brand-blue);
-  --pxs-nav-edge-to:   var(--pxl-brand-purple);
+  /* ── THE PIXCEL BRAND PAIR (2026-07-22) ───────────────────────────────────────────────────
+     The identity is these two colors. Everything expressive in the UI draws from them; the rest of
+     the system stays cool, minimal and near-invisible so THESE are what pop. Defined once here —
+     never hard-code either hex in a component. */
+  --pxs-brand-primary:   #ff7e5f;  /* first  — warm coral */
+  --pxs-brand-secondary: #8957e5;  /* second — violet (complementary) */
+
+  /* Nav edge gradient: primary → secondary, top → bottom. */
+  --pxs-nav-edge-from: var(--pxs-brand-primary);
+  --pxs-nav-edge-to:   var(--pxs-brand-secondary);
 
   /* LOCKED (2026-06-27): the carried brand blue IS the app accent (replaces the DS Google-blue).
      Purple stays a named token for deliberate AI/special actions (e.g. Refine in Studio). */

@@ -283,7 +283,14 @@ export default function ChatView({ initialPrompt }: Props) {
   // right pane. `capped` centers it under the chat-width cap (chat home); the pane fills its column.
   const conversation = (capped: boolean) => (
     <div className="relative z-10 flex-1 flex flex-col min-h-0">
-      <div ref={scrollRef} className="flex-1 overflow-y-auto">
+      {/* EMPTY state → centre the greeting by centring the scroll container itself (two lines, no
+          min-height guesswork). Scoped to empty ONLY: with content, `align-items: center` would also
+          centre a real conversation and can clip the top of tall content out of scroll reach. */}
+      <div
+        ref={scrollRef}
+        className="flex-1 overflow-y-auto"
+        style={turns.length === 0 ? { display: 'flex', alignItems: 'center' } : undefined}
+      >
         <div className={capped ? 'mx-auto w-full px-6 py-8' : 'w-full px-5 py-6'} style={capped ? COLUMN_STYLE : undefined}>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--a2ui-space-6)' }}>
             {turns.length === 0 && (
@@ -294,7 +301,6 @@ export default function ChatView({ initialPrompt }: Props) {
                   alignItems: 'center',
                   justifyContent: 'center',
                   textAlign: 'center',
-                  minHeight: capped ? '52vh' : '32vh',
                 }}
               >
                 <GreetingHero

@@ -3,18 +3,13 @@
 import AccountAvatar from "./AccountAvatar";
 
 /* ─────────────────────────────────────────────────────────────────────────────
- * NavRail — the primary app-feature switcher (Chat · Image · Video · Assets), the
- * Projects control, and the account avatar pinned at the BOTTOM. Three persistent
- * top-level surfaces: the mark, the glass nav pane, and the glass avatar.
+ * NavRail — the primary switcher: Chat · Image · Video · Projects · Assets, + the account avatar.
  *
- * IT FLOATS. The rail is absolutely positioned over the digital wall + content and
- * reserves NO layout column, so the canvas runs full-bleed beneath it. Everything is
- * transparent except ONE surface — `.primary-nav-container`, a card with a brand-lit
- * gradient edge (tokens: --pxs-nav-edge-from/-to).
+ * The rail itself is NOT a panel — just a floating absolutely-positioned BLUR strip (no fill, no
+ * border). Items float on it; the ACTIVE item is the only thing that pops (its 2px brand-gradient
+ * border). Projects is a normal nav item (folder) that opens the projects popover — no chevron.
  *
- * Layout, top → bottom:  MARK (top) · nav container (vertically centred).
- *
- * Shared by BOTH the splash and the chat shell, so the two are identical by construction.
+ * Layout, top → bottom:  MARK · nav items · AVATAR (bottom). Shared by splash + chat shell.
  * ───────────────────────────────────────────────────────────────────────────── */
 
 /* ── Iconography (Claude Design handoff): the Pixel-X mark + Lucide line icons
@@ -47,9 +42,8 @@ type IconName =
   | "chat"
   | "image"
   | "video"
-  | "assets"
-  | "chevronsRight"
-  | "chevronsLeft";
+  | "projects"
+  | "assets";
 
 const PATHS: Record<IconName, string[]> = {
   chat: ["M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"],
@@ -64,10 +58,8 @@ const PATHS: Record<IconName, string[]> = {
     "M8.5 11a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3z",
     "m21 15-5-5L5 21",
   ],
-  // Lucide `moon` — switch to dark mode.
-  // Lucide `chevrons-right` / `chevrons-left` — the Projects panel open/close control.
-  chevronsRight: ["m6 17 5-5-5-5", "m13 17 5-5-5-5"],
-  chevronsLeft: ["m11 17-5-5 5-5", "m18 17-5-5 5-5"],
+  // Lucide `folder` — the Projects panel entry (a real nav item, not a toggle chevron).
+  projects: ["M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2z"],
 };
 
 function Ic({ name, size = 20 }: { name: IconName; size?: number }) {
@@ -102,6 +94,7 @@ const SECTIONS: { id: string; label: string; icon: IconName }[] = [
   { id: "chat", label: "Chat", icon: "chat" },
   { id: "image", label: "Image", icon: "image" },
   { id: "video", label: "Video", icon: "video" },
+  { id: "projects", label: "Projects", icon: "projects" },
   { id: "assets", label: "Assets", icon: "assets" },
 ];
 
@@ -110,22 +103,22 @@ const SECTIONS: { id: string; label: string; icon: IconName }[] = [
    splash's own inline <style> (which scopes under .pxl-root). */
 const RAIL_CSS = `
   .pxl-rail-scope { font-family: var(--a2ui-font-family); -webkit-font-smoothing: antialiased; }
-  /* THE RAIL *IS* THE GLASS PANEL. A single floating glass column (Brian's tested pattern via
-     .pxc-glass) — it OVERLAYS the wall + content and lets them show through the blur; content pads
-     itself clear (--pxs-rail-space). No inner boxed card, no drop shadow — just this one pane.
-     Inset from the viewport edges so its 25px radius reads as a floating column. */
+  /* The rail is NOT a glass panel — just a subtle BLUR strip. No fill, no border; the items float
+     on it and the active item is what pops (its gradient border). Not every element needs the full
+     frost treatment. */
   .pxl-rail {
     position: absolute;
     top: var(--pxs-rail-inset); bottom: var(--pxs-rail-inset); left: var(--pxs-rail-inset);
     width: var(--pxs-rail-w); z-index: 30;
     border-radius: 16px;
     padding: 12px 0;
+    backdrop-filter: blur(15px); -webkit-backdrop-filter: blur(15px);
   }
   .pxl-navbtn { color: var(--a2ui-text-tertiary); border: 2px solid transparent; border-radius: var(--a2ui-radius-lg); transition: color var(--a2ui-transition-fast), background var(--a2ui-transition-fast); position: relative; }
   /* ONE shared height for every rail button so the label-less Projects control lines up EXACTLY
      with the labelled section items (py-2 + icon 20 + gap 4 + 10px label ≈ 52px). Both reference
      this single rule, so they can never drift apart. */
-  .pxl-navbtn, .pxl-railtoggle { height: 52px; }
+  .pxl-navbtn { height: 52px; }
   .pxl-navbtn:hover { color: var(--a2ui-text-secondary); background: var(--a2ui-bg-hover); }
   /* Active: a 2px BRAND-GRADIENT border (Brian's background-clip technique). Layer 1 (padding-box)
      is the opaque dark chip fill; layer 2 (border-box) is the gradient, showing only in the 2px ring.
@@ -140,18 +133,6 @@ const RAIL_CSS = `
   }
   .pxl-rail-mark { color: var(--a2ui-text-primary); border-radius: var(--a2ui-radius-lg); transition: color var(--a2ui-transition-fast), background var(--a2ui-transition-fast); }
   .pxl-rail-mark:hover { color: var(--a2ui-text-primary); background: var(--a2ui-bg-hover); }
-
-  /* The rail's expand/collapse CONTROL (Projects). It shares the section items' footprint, radius
-     and hover/active language so it clearly BELONGS to the rail — the distinction is carried by
-     having NO text label and a slightly LARGER icon, which reads as a control rather than a
-     destination without needing a different shape. */
-  .pxl-railtoggle {
-    color: var(--a2ui-text-tertiary); background: transparent;
-    border-radius: var(--a2ui-radius-lg);
-    transition: color var(--a2ui-transition-fast), background var(--a2ui-transition-fast);
-  }
-  .pxl-railtoggle:hover { color: var(--a2ui-text-secondary); background: var(--a2ui-bg-hover); }
-  .pxl-railtoggle[data-open="true"] { color: var(--a2ui-text-primary); background: var(--a2ui-bg-active); }
 
 `;
 
@@ -186,13 +167,14 @@ export default function NavRail({
   onOpenSettings,
 }: NavRailProps) {
   const handleSection = (id: string) => {
+    if (id === "projects") return onToggleProjects?.();
     if (id === "chat") return onHome?.();
     (onSection ?? (() => onHome?.()))(id);
   };
   // The rail IS one glass column: MARK (top) · nav items (stacked) · AVATAR (bottom, mt-auto).
   // No inner boxes — items sit directly on the glass. See .pxl-rail (+ .pxc-glass).
   return (
-    <nav className="pxl-rail-scope pxl-rail pxc-glass flex flex-col items-center">
+    <nav className="pxl-rail-scope pxl-rail flex flex-col items-center">
       <style>{RAIL_CSS}</style>
 
       <button
@@ -203,25 +185,14 @@ export default function NavRail({
         <PixcelMark size={26} />
       </button>
 
-      {/* Nav items stacked directly on the glass — projects control, then the sections. */}
+      {/* Nav items stacked directly on the rail. Projects is a normal nav item (folder) that opens
+          the projects popover — no separate chevron toggle. */}
       <div className="flex flex-col items-center gap-1.5">
-        {onToggleProjects && (
-          <button
-            onClick={onToggleProjects}
-            data-open={projectsOpen ? "true" : "false"}
-            aria-expanded={projectsOpen}
-            title={projectsOpen ? "Close projects" : "Projects"}
-            className="pxl-railtoggle flex w-14 items-center justify-center"
-          >
-            <Ic name={projectsOpen ? "chevronsLeft" : "chevronsRight"} size={24} />
-          </button>
-        )}
-
         {SECTIONS.map((s) => (
           <button
             key={s.id}
             onClick={() => handleSection(s.id)}
-            data-active={s.id === activeSection}
+            data-active={s.id === "projects" ? Boolean(projectsOpen) : s.id === activeSection}
             title={s.label}
             className="pxl-navbtn flex flex-col items-center justify-center gap-1 w-14"
           >

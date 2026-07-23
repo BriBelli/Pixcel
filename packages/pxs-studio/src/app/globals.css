@@ -41,7 +41,7 @@
 
   /* Floating-rail geometry — one source of truth so the content behind can pad itself clear. */
   --pxs-rail-w:     60px;
-  --pxs-rail-inset: 16px;
+  --pxs-rail-inset: 8px;
   --pxs-rail-space: calc(var(--pxs-rail-inset) + var(--pxs-rail-w) + var(--pxs-rail-inset));
 
   /* The accent SYSTEM (--a2ui-accent / -hover / -active / -subtle, --a2ui-link…) is defined ONCE in

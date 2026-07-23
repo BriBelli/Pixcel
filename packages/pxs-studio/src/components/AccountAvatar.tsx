@@ -50,31 +50,32 @@ function initialsOf(name: string, email: string): string {
 }
 
 const CSS = `
-  /* Pinned top-right of the viewport, above every surface. The wrapper is pointer-events:none so a
-     fixed element can never block the canvas; only the button itself is clickable. */
-  .pxs-account { position: fixed; top: 16px; right: 16px; z-index: 70; pointer-events: none; }
-  .pxs-account > * { pointer-events: auto; }
+  .pxs-account { position: relative; }
 
+  /* The avatar is one of the three persistent top-level surfaces, so it wears the SAME glass +
+     2px brand-gradient stroke as the nav pane (via .pxs-glass-stroke). Round, 40px, a hair larger
+     than a nav icon — it's a person, not a destination. The frosted fill + gradient ring come from
+     the shared helper; only the size/shape/content live here. */
   .pxs-av {
-    width: 38px; height: 38px; border-radius: var(--a2ui-radius-full);
+    width: 40px; height: 40px; border-radius: var(--a2ui-radius-full);
     display: flex; align-items: center; justify-content: center; overflow: hidden;
-    background: var(--a2ui-bg-tertiary); color: var(--a2ui-text-secondary);
-    border: 1px solid var(--a2ui-border-default); cursor: pointer; padding: 0;
-    transition: border-color var(--a2ui-transition-fast), box-shadow var(--a2ui-transition-fast), transform var(--a2ui-transition-fast);
+    color: var(--a2ui-text-secondary); cursor: pointer; padding: 0;
+    transition: box-shadow var(--a2ui-transition-fast), transform var(--a2ui-transition-fast);
   }
-  .pxs-av:hover { border-color: var(--a2ui-border-strong); box-shadow: 0 0 0 3px var(--a2ui-bg-hover); }
-  .pxs-av:focus-visible { outline: none; border-color: var(--pxs-brand-primary); box-shadow: 0 0 0 3px var(--a2ui-accent-subtle); }
-  .pxs-av img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .pxs-av:hover { transform: translateY(-1px); }
+  .pxs-av:focus-visible { outline: none; box-shadow: 0 0 0 3px var(--a2ui-accent-subtle); }
+  .pxs-av img { width: 100%; height: 100%; object-fit: cover; display: block; border-radius: inherit; }
   /* Initials: the brand pair, so a signed-in user is instantly identifiable and on-brand. */
   .pxs-av-initials {
     width: 100%; height: 100%; display: flex; align-items: center; justify-content: center;
     background: linear-gradient(135deg, var(--pxs-brand-primary), var(--pxs-brand-secondary));
-    color: #fff; font-size: 13px; font-weight: 600; letter-spacing: 0.02em;
+    color: #fff; font-size: 14px; font-weight: 600; letter-spacing: 0.02em;
   }
 
-  /* Account popover — hangs DOWN-LEFT (the avatar is top-right anchored). */
+  /* Account popover — opens UP + to the RIGHT, out of the rail (the avatar sits bottom-left). */
   .pxs-acct-pop {
-    position: absolute; top: calc(100% + 10px); right: 0; width: 260px;
+    position: absolute; bottom: 0; left: calc(100% + 12px); width: 260px;
+    z-index: 70;
     background: var(--a2ui-glass-dark, rgba(18,18,22,0.9)); backdrop-filter: blur(20px);
     border: 1px solid var(--pxs-glass-border, rgba(255,255,255,0.08)); border-radius: var(--a2ui-radius-xl);
     box-shadow: var(--a2ui-shadow-lg); padding: var(--a2ui-space-2);
@@ -128,7 +129,7 @@ export default function AccountAvatar({ onOpenSettings }: { onOpenSettings?: () 
     return (
       <div className="pxs-account">
         <style>{CSS}</style>
-        <button type="button" title="Sign in" aria-label="Sign in" onClick={openLogin} className="pxs-av">
+        <button type="button" title="Sign in" aria-label="Sign in" onClick={openLogin} className="pxs-av pxs-glass-stroke">
           <Ic name="user" size={19} />
         </button>
       </div>
@@ -156,7 +157,7 @@ export default function AccountAvatar({ onOpenSettings }: { onOpenSettings?: () 
           aria-haspopup="menu"
           aria-expanded={open}
           onClick={() => setOpen((o) => !o)}
-          className="pxs-av"
+          className="pxs-av pxs-glass-stroke"
         >
           {/* photo → initials (never the generic glyph once signed in). */}
           {user.avatarUrl ? <img src={user.avatarUrl} alt="" /> : <span className="pxs-av-initials">{initials || <Ic name="user" size={19} />}</span>}

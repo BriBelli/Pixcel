@@ -36,9 +36,11 @@ const CSS = `
 .a2-iconbtn:focus-visible { outline: none; box-shadow: 0 0 0 2px var(--a2ui-accent-subtle); }
 .a2-iconbtn--active { background: var(--a2ui-bg-active); color: var(--a2ui-text-primary); }
 
-.a2-iconbtn--primary { background: var(--a2ui-accent); color: var(--a2ui-text-inverse); }
-.a2-iconbtn--primary:hover:not(:disabled) { background: var(--a2ui-accent-hover); }
-.a2-iconbtn--primary:active:not(:disabled) { background: var(--a2ui-accent-active); }
+/* Primary action = the BRAND GRADIENT fill (coral → violet). White glyph for contrast on the
+   mid-tone gradient; a soft brand halo on hover so it lifts rather than just darkening. */
+.a2-iconbtn--primary { background: linear-gradient(135deg, var(--pxs-brand-primary), var(--pxs-brand-secondary)); color: #fff; }
+.a2-iconbtn--primary:hover:not(:disabled) { filter: brightness(1.08); box-shadow: 0 2px 12px var(--a2ui-accent-subtle); }
+.a2-iconbtn--primary:active:not(:disabled) { filter: brightness(0.96); }
 
 .a2-iconbtn--subtle { background: var(--a2ui-bg-tertiary); color: var(--a2ui-text-primary); }
 .a2-iconbtn--subtle:hover:not(:disabled) { background: var(--a2ui-bg-elevated); }

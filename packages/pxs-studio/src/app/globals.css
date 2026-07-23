@@ -24,6 +24,18 @@
   --pxs-nav-edge-from: var(--pxs-brand-primary);
   --pxs-nav-edge-to:   var(--pxs-brand-secondary);
 
+  /* ── THE GLASS LAYER (2026-07-22) — separation by blur, not drop shadow ─────────────────────
+     A top-level element is a frosted pane: a translucent fill + backdrop-blur lifts it off the
+     dark wall and lets the wall's colors bleed through as a soft haze, and a 2px BRAND-GRADIENT
+     stroke rims it so it reads as a distinct z-layer above everything. Used on the persistent
+     parent surfaces (primary nav, avatar). Apply via the `.pxs-glass` / `.pxs-glass-stroke`
+     helpers below — never re-derive these values in a component. */
+  --pxs-glass:        rgba(255, 255, 255, 0.055); /* the frosted fill — lifts off the dark wall */
+  --pxs-glass-strong: rgba(255, 255, 255, 0.09);  /* a touch brighter, for smaller pills/avatar */
+  --pxs-glass-blur:   20px;
+  --pxs-edge-width:   2px;                         /* the stroke weight (Brian: 2px, not 1px) */
+  --pxs-edge-gradient: linear-gradient(to bottom, var(--pxs-brand-primary), var(--pxs-brand-secondary));
+
   /* ══ TOKEN REFRESH (2026-07-22) — THE BRAND PAIR *IS* THE ACCENT SYSTEM ══════════════════════
      ⤷ STASHABLE: revert THIS BLOCK ALONE to fall back to the previous blue accent. Nothing else
        in the codebase hard-codes these — every component reads the tokens.
@@ -98,6 +110,29 @@
 
 /* Custom scrollbar */
 @layer components {
+  /* GLASS PANE + 2px BRAND STROKE — the top-level separation layer (tokens in :root above).
+     Translucent frosted fill (lifts off the wall, picks up its colors through the blur) rimmed by a
+     masked 2px brand-gradient ring. The ring is a ::before so the fill can stay translucent — the
+     background-clip trick can't (it needs an opaque inner layer). Set border-radius on the element;
+     the ring inherits it. */
+  .pxs-glass-stroke {
+    position: relative;
+    background: var(--pxs-glass);
+    backdrop-filter: blur(var(--pxs-glass-blur));
+    -webkit-backdrop-filter: blur(var(--pxs-glass-blur));
+    border: var(--pxs-edge-width) solid transparent;
+  }
+  .pxs-glass-stroke::before {
+    content: ''; position: absolute; inset: 0; border-radius: inherit;
+    padding: var(--pxs-edge-width);
+    background: var(--pxs-edge-gradient);
+    -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+    -webkit-mask-composite: xor; mask-composite: exclude;
+    pointer-events: none;
+  }
+  /* The brand gradient as a FILL — for a primary action (e.g. the composer send button). */
+  .pxs-brand-fill { background: linear-gradient(135deg, var(--pxs-brand-primary), var(--pxs-brand-secondary)); }
+
   ::-webkit-scrollbar {
     @apply w-2 h-2;
   }

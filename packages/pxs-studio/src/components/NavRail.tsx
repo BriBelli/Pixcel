@@ -1,9 +1,11 @@
 "use client";
 
+import AccountAvatar from "./AccountAvatar";
+
 /* ─────────────────────────────────────────────────────────────────────────────
- * NavRail — the primary app-feature switcher (Chat · Image · Video · Assets) plus the
- * Projects panel control. The account avatar is NOT here: it lives in the shell,
- * pinned top-right (see AccountAvatar).
+ * NavRail — the primary app-feature switcher (Chat · Image · Video · Assets), the
+ * Projects control, and the account avatar pinned at the BOTTOM. Three persistent
+ * top-level surfaces: the mark, the glass nav pane, and the glass avatar.
  *
  * IT FLOATS. The rail is absolutely positioned over the digital wall + content and
  * reserves NO layout column, so the canvas runs full-bleed beneath it. Everything is
@@ -118,21 +120,13 @@ const RAIL_CSS = `
   }
   .pxl-rail > * { pointer-events: auto; }
 
-  /* THE one surface in the rail: the main nav group — a floating card with a brand-lit edge.
-     Two-layer background-clip: layer 1 (padding-box) is the solid inner fill, layer 2 (border-box)
-     is the gradient that shows ONLY in the 1px border ring. Gradient stops are TOKENISED
-     (--pxs-nav-edge-*, see globals.css) so the accent pair swaps in one place — never a hex here. */
+  /* THE nav surface: a GLASS pane (see .pxs-glass-stroke in globals) with the 2px brand-gradient
+     rim. Just the radius + the stacked layout live here — the frosted fill + stroke come from the
+     shared helper class so nav + avatar stay identical. */
   .primary-nav-container {
-    display: flex; flex-direction: column; align-items: center;
+    display: flex; flex-direction: column; align-items: center; gap: 6px;
     padding: 6px;
-    border: 1px solid transparent;
-    border-radius: 12px;
-    background-image:
-      linear-gradient(var(--a2ui-cool-950), var(--a2ui-cool-950)),
-      linear-gradient(to bottom, var(--pxs-nav-edge-from), var(--pxs-nav-edge-to));
-    background-origin: border-box;
-    background-clip: padding-box, border-box;
-    box-shadow: var(--a2ui-shadow-lg);
+    border-radius: 18px;
   }
   .pxl-navbtn { color: var(--a2ui-text-tertiary); border-radius: var(--a2ui-radius-lg); transition: color var(--a2ui-transition-fast), background var(--a2ui-transition-fast); position: relative; }
   /* ONE shared height for every rail button so the label-less Projects control lines up EXACTLY
@@ -177,6 +171,8 @@ interface NavRailProps {
   onToggleProjects?: () => void;
   /** Whether the Projects panel is currently open (highlights the » affordance). */
   projectsOpen?: boolean;
+  /** Open the settings slide-over (from the bottom avatar's account popover). */
+  onOpenSettings?: () => void;
 }
 
 export default function NavRail({
@@ -185,6 +181,7 @@ export default function NavRail({
   onSection,
   onToggleProjects,
   projectsOpen,
+  onOpenSettings,
 }: NavRailProps) {
   const handleSection = (id: string) => {
     if (id === "chat") return onHome?.();
@@ -205,43 +202,41 @@ export default function NavRail({
         <PixcelMark size={26} />
       </button>
 
-      <div className="primary-nav-container my-auto">
-        {/* Projects toggle — docked under the mark, sharing the section items' footprint + spacing so
-          it reads as part of the rail. NO label + a larger icon is what marks it a CONTROL, not a
-          destination. */}
+      {/* GLASS nav pane — top-aligned right under the mark (no centring). Items stack in order:
+          projects toggle, then the sections. */}
+      <div className="primary-nav-container pxs-glass-stroke">
         {onToggleProjects && (
           <button
             onClick={onToggleProjects}
             data-open={projectsOpen ? "true" : "false"}
             aria-expanded={projectsOpen}
             title={projectsOpen ? "Close projects" : "Projects"}
-            className="pxl-railtoggle mb-1.5 flex w-14 items-center justify-center"
+            className="pxl-railtoggle flex w-14 items-center justify-center"
           >
-            <Ic
-              name={projectsOpen ? "chevronsLeft" : "chevronsRight"}
-              size={24}
-            />
+            <Ic name={projectsOpen ? "chevronsLeft" : "chevronsRight"} size={24} />
           </button>
         )}
 
-        <div className="flex flex-col gap-1.5">
-          {SECTIONS.map((s) => (
-            <button
-              key={s.id}
-              onClick={() => handleSection(s.id)}
-              data-active={s.id === activeSection}
-              title={s.label}
-              className="pxl-navbtn flex flex-col items-center justify-center gap-1 w-14"
-            >
-              <Ic name={s.icon} size={20} />
-              {/* leading-none: an arbitrary text size sets NO line-height, so the label inherited a
+        {SECTIONS.map((s) => (
+          <button
+            key={s.id}
+            onClick={() => handleSection(s.id)}
+            data-active={s.id === activeSection}
+            title={s.label}
+            className="pxl-navbtn flex flex-col items-center justify-center gap-1 w-14"
+          >
+            <Ic name={s.icon} size={20} />
+            {/* leading-none: an arbitrary text size sets NO line-height, so the label inherited a
                 taller line box whose extra leading pushed the icon+label group off optical centre. */}
-              <span className="text-[10px] font-medium leading-none">
-                {s.label}
-              </span>
-            </button>
-          ))}
-        </div>
+            <span className="text-[10px] font-medium leading-none">{s.label}</span>
+          </button>
+        ))}
+      </div>
+
+      {/* Account avatar — pushed to the BOTTOM of the rail (mt-auto), its own glass + gradient
+          stroke (see AccountAvatar). It's the user, the third persistent top-level element. */}
+      <div className="mt-auto pt-4">
+        <AccountAvatar onOpenSettings={onOpenSettings} />
       </div>
     </nav>
   );

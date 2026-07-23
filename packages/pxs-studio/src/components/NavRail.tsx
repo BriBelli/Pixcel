@@ -90,10 +90,15 @@ function Ic({ name, size = 20 }: { name: IconName; size?: number }) {
    Current focus = the IMAGE medium/workflow. */
 /* The interconnected-web SECTIONS. Assets is a first-class section (not a bottom utility) — it's the
    inventory that ties chat/image/video together. (Brian, 2026-07-16.) */
-const SECTIONS: { id: string; label: string; icon: IconName }[] = [
+type NavItem = { id: string; label: string; icon: IconName };
+/* TOP group — the creative mediums. */
+const SECTIONS_TOP: NavItem[] = [
   { id: "chat", label: "Chat", icon: "chat" },
   { id: "image", label: "Image", icon: "image" },
   { id: "video", label: "Video", icon: "video" },
+];
+/* BOTTOM group — Projects + Assets, grouped with the avatar at the foot of the rail. */
+const SECTIONS_BOTTOM: NavItem[] = [
   { id: "projects", label: "Projects", icon: "projects" },
   { id: "assets", label: "Assets", icon: "assets" },
 ];
@@ -171,6 +176,20 @@ export default function NavRail({
     if (id === "chat") return onHome?.();
     (onSection ?? (() => onHome?.()))(id);
   };
+  const renderItem = (s: NavItem) => (
+    <button
+      key={s.id}
+      onClick={() => handleSection(s.id)}
+      data-active={s.id === "projects" ? Boolean(projectsOpen) : s.id === activeSection}
+      title={s.label}
+      className="pxl-navbtn flex flex-col items-center justify-center gap-1 w-14"
+    >
+      <Ic name={s.icon} size={20} />
+      {/* leading-none: an arbitrary text size sets NO line-height, else the label's line box pushes
+          the icon+label group off optical centre. */}
+      <span className="text-[10px] font-medium leading-none">{s.label}</span>
+    </button>
+  );
   // The rail IS one glass column: MARK (top) · nav items (stacked) · AVATAR (bottom, mt-auto).
   // No inner boxes — items sit directly on the glass. See .pxl-rail (+ .pxc-glass).
   return (
@@ -185,28 +204,17 @@ export default function NavRail({
         <PixcelMark size={26} />
       </button>
 
-      {/* Nav items stacked directly on the rail. Projects is a normal nav item (folder) that opens
-          the projects popover — no separate chevron toggle. */}
+      {/* TOP group — the creative mediums. */}
       <div className="flex flex-col items-center gap-1.5">
-        {SECTIONS.map((s) => (
-          <button
-            key={s.id}
-            onClick={() => handleSection(s.id)}
-            data-active={s.id === "projects" ? Boolean(projectsOpen) : s.id === activeSection}
-            title={s.label}
-            className="pxl-navbtn flex flex-col items-center justify-center gap-1 w-14"
-          >
-            <Ic name={s.icon} size={20} />
-            {/* leading-none: an arbitrary text size sets NO line-height, so the label inherited a
-                taller line box whose extra leading pushed the icon+label group off optical centre. */}
-            <span className="text-[10px] font-medium leading-none">{s.label}</span>
-          </button>
-        ))}
+        {SECTIONS_TOP.map(renderItem)}
       </div>
 
-      {/* Account avatar — pushed to the BOTTOM of the glass column (mt-auto). */}
-      <div className="mt-auto pt-3">
-        <AccountAvatar onOpenSettings={onOpenSettings} />
+      {/* BOTTOM group — Projects · Assets · Avatar, pushed to the foot of the rail (mt-auto). */}
+      <div className="mt-auto flex flex-col items-center gap-1.5">
+        {SECTIONS_BOTTOM.map(renderItem)}
+        <div className="pt-1">
+          <AccountAvatar onOpenSettings={onOpenSettings} />
+        </div>
       </div>
     </nav>
   );

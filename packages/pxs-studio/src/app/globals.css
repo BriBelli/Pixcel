@@ -32,12 +32,12 @@
      behind show through — they do NOT box or push content. The bright BRAND GRADIENT is reserved
      for POP / ACTION elements only (buttons), never panels. Apply via `.pxc-glass` below. */
   /* The glass tints toward slate-900 (matches the #1f2937 border family). The "60/30/20" weights —
-     Brian's CamelotAI tested value for overlays is 0.2 (VERY see-through, the frosted-airy look). */
+     Brian's tested value for overlays is 0.2 (VERY see-through, the frosted-airy look). */
   --pxc-glass-base:    17, 24, 39;
   --pxc-bg-glass-60:   rgba(var(--pxc-glass-base), 0.60);
   --pxc-bg-glass-45:   rgba(var(--pxc-glass-base), 0.45);
   --pxc-bg-glass-30:   rgba(var(--pxc-glass-base), 0.30);
-  --pxc-bg-glass-20:   rgba(var(--pxc-glass-base), 0.20); /* CamelotAI default overlay weight */
+  --pxc-bg-glass-20:   rgba(var(--pxc-glass-base), 0.20); /* default overlay weight (tested) */
   --pxc-border-subtle: #1f2937;
   --pxc-glass-blur:    15px;
 
@@ -130,13 +130,13 @@
     border: 1px solid var(--pxc-border-subtle);
     box-shadow: none;
   }
-  /* The airy 20% weight — CamelotAI's exact overlay value for popovers/menus/docks. */
+  /* The airy 20% weight — the tested overlay value for popovers/menus/docks. */
   .pxc-glass--20 { background: var(--pxc-bg-glass-20); }
 
   /* The brand GRADIENT as a fill — POP/ACTION ONLY (buttons, clickable CTAs). Never on a panel. */
   .pxs-brand-fill { background: linear-gradient(135deg, var(--pxs-brand-primary), var(--pxs-brand-secondary)); }
 
-  /* BENTO CARD — the CamelotAI content-tile primitive. A slightly-lifted dark surface with the
+  /* BENTO CARD — the content-tile primitive. A slightly-lifted dark surface with the
      subtle #1f2937 cut-edge and GENEROUS padding. Solid (not glass): cards are content, glass is
      for overlays. Use for stat tiles, chart containers, result tiles, guide panels. */
   .pxc-card {

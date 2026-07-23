@@ -53,7 +53,7 @@ smart routing.
 - **Model registry & orchestration** — centralized management, smart routing, fallbacks, unified interfaces;
   hybrid chat/IDE interface. *(→ autonomous ranking oracle, not a registry tree.)*
 - **Data & metadata layer** — an 8-part media metadata schema; YAML data-source manifests for secure AI
-  discovery/traversal/routing (PHI/PII restrictions for enterprise, e.g. Camelot).
+  discovery/traversal/routing (PHI/PII restrictions for enterprise).
 
 ## 4. Multi-model integrations & provider strategy
 - **Image:** FLUX, Ideogram, Recraft (V4.1+), Stability, Gemini, xAI/Grok, Seedream 4.0, Nano Banana /
@@ -81,7 +81,7 @@ dimensions/geometry mentally); Adobe-user perspective (CS2 Photoshop as referenc
 
 ## 8. Business & scaling vision
 Scale to a full AI-provider platform: unified APIs, smart routing, advanced controls, subscription/API plans
-("cable provider" model). **Camelot:** enterprise AI-agent warehouse (Databricks + Unity Catalog + Agent
+("cable provider" model). **Enterprise tier:** enterprise AI-agent warehouse (Databricks + Unity Catalog + Agent
 Bricks) — multi-agent pipelines (Analyze/Router/A2UI), RAG, secure YAML manifests.
 
 ## 9. Content policy

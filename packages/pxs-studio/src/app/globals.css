@@ -36,7 +36,7 @@
   --pxc-bg-glass-45:   rgba(var(--pxc-glass-base), 0.08);
   --pxc-bg-glass-30:   rgba(var(--pxc-glass-base), 0.065);
   --pxc-bg-glass-20:   rgba(var(--pxc-glass-base), 0.05); /* default overlay weight (tested) */
-  --pxc-border-subtle: rgba(var(--pxc-glass-base), 0.18);
+  --pxc-border-subtle: rgba(var(--pxc-glass-base), 0.08);
   --pxc-glass-blur:    15px;
 
   /* Floating-rail geometry — one source of truth so the content behind can pad itself clear. */

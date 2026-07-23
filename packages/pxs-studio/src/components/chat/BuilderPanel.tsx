@@ -47,7 +47,7 @@ const CSS = `
 /* Score header — the quality ring builds up as parts fill (the Guide, in motion). */
 .pxc-build-score { display: flex; align-items: center; gap: var(--a2ui-space-3);
   background: var(--a2ui-bg-secondary); border: 1px solid var(--pxs-border-subtle);
-  border-radius: var(--a2ui-radius-lg); padding: var(--a2ui-space-3) var(--a2ui-space-4); }
+  border-radius: 14px; padding: var(--a2ui-space-4) var(--a2ui-space-5); }
 .pxc-ring { flex-shrink: 0; }
 .pxc-ring-track { stroke: var(--a2ui-bg-tertiary); }
 .pxc-ring-fill { transition: stroke-dashoffset var(--a2ui-transition-normal), stroke var(--a2ui-transition-normal); stroke-linecap: round; }
@@ -66,7 +66,7 @@ const CSS = `
 /* Each part is a CARD — grouped, tight, scannable (no big gaps between loose form elements). */
 .pxc-part { display: flex; flex-direction: column; gap: var(--a2ui-space-2);
   background: var(--a2ui-bg-secondary); border: 1px solid var(--pxs-border-subtle);
-  border-radius: var(--a2ui-radius-lg); padding: var(--a2ui-space-3) var(--a2ui-space-4); }
+  border-radius: 14px; padding: var(--a2ui-space-4) var(--a2ui-space-5); }
 /* The Agent just edited this part (coupling) — a brief accent pulse. */
 @keyframes pxc-part-flash { 0% { box-shadow: 0 0 0 2px var(--a2ui-accent); background: var(--a2ui-accent-subtle); }
   100% { box-shadow: 0 0 0 0 transparent; background: var(--a2ui-bg-secondary); } }
@@ -107,7 +107,7 @@ const CSS = `
 
 .pxc-build-refs { display: flex; flex-direction: column; gap: var(--a2ui-space-2);
   background: var(--a2ui-bg-secondary); border: 1px solid var(--pxs-border-subtle);
-  border-radius: var(--a2ui-radius-lg); padding: var(--a2ui-space-3) var(--a2ui-space-4); }
+  border-radius: 14px; padding: var(--a2ui-space-4) var(--a2ui-space-5); }
 .pxc-build-refs-head { display: flex; align-items: baseline; gap: var(--a2ui-space-2); }
 .pxc-build-refs-model { font-size: var(--a2ui-text-sm); color: var(--a2ui-text-tertiary); }
 .pxc-build-drop { display: flex; align-items: center; gap: var(--a2ui-space-2); height: 44px; padding: 0 var(--a2ui-space-3);

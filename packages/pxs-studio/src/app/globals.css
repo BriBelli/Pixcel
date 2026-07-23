@@ -136,6 +136,21 @@
   /* The brand GRADIENT as a fill — POP/ACTION ONLY (buttons, clickable CTAs). Never on a panel. */
   .pxs-brand-fill { background: linear-gradient(135deg, var(--pxs-brand-primary), var(--pxs-brand-secondary)); }
 
+  /* BENTO CARD — the CamelotAI content-tile primitive. A slightly-lifted dark surface with the
+     subtle #1f2937 cut-edge and GENEROUS padding. Solid (not glass): cards are content, glass is
+     for overlays. Use for stat tiles, chart containers, result tiles, guide panels. */
+  .pxc-card {
+    background: var(--a2ui-bg-secondary);
+    border: 1px solid var(--pxc-border-subtle);
+    border-radius: 14px;
+    padding: 18px;
+  }
+  .pxc-card--pad-lg { padding: 22px; }
+  .pxc-card--tight { padding: 12px; }
+  /* Interactive card (a result tile you can click/hover) — the border warms to the brand on hover. */
+  .pxc-card--action { cursor: pointer; transition: border-color var(--a2ui-transition-fast), transform var(--a2ui-transition-fast); }
+  .pxc-card--action:hover { border-color: var(--pxs-brand-primary); transform: translateY(-1px); }
+
   ::-webkit-scrollbar {
     @apply w-2 h-2;
   }

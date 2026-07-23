@@ -20,9 +20,14 @@ interface ProjectRow {
 }
 
 const CSS = `
-.pxp { position: absolute; top: 0; bottom: 0; z-index: 25; width: 280px;
-  display: flex; flex-direction: column; background: var(--a2ui-bg-primary);
-  border-right: 1px solid var(--a2ui-border-subtle); box-shadow: var(--a2ui-shadow-lg);
+/* A floating GLASS popover that OVERLAYS the canvas (does not push/box it) — a bubble connected to
+   the rail's Projects control. Same .pxc-glass pattern: glass fill + subtle border + blur, no shadow,
+   rounded, floating clear of the top/bottom edges. The left offset (inline) clears the rail. */
+.pxp { position: absolute; top: 16px; bottom: 16px; z-index: 25; width: 300px;
+  display: flex; flex-direction: column; overflow: hidden;
+  background: var(--pxc-bg-glass-80);
+  backdrop-filter: blur(var(--pxc-glass-blur)); -webkit-backdrop-filter: blur(var(--pxc-glass-blur));
+  border: 1px solid var(--pxc-border-subtle); border-radius: 20px; box-shadow: none;
   font-family: var(--a2ui-font-family); animation: pxp-in 0.22s cubic-bezier(0.22,1,0.36,1); }
 @keyframes pxp-in { from { transform: translateX(-8px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
 .pxp-head { display: flex; align-items: center; justify-content: space-between; gap: var(--a2ui-space-2);
@@ -89,7 +94,8 @@ export interface ProjectsPanelProps {
   onClose: () => void;
   onOpenProject: (id: string, title: string) => void;
   onNewProject: () => void;
-  left: number;
+  /** Distance from the left edge — clears the floating rail (number px or a CSS length). */
+  left: number | string;
 }
 
 export function ProjectsPanel({ activeId, onClose, onOpenProject, onNewProject, left }: ProjectsPanelProps) {

@@ -8,16 +8,15 @@ import { clearCredentialsSession } from '../lib/credentials-auth';
 import { useSettings } from '../store/settings-store';
 
 /* ─────────────────────────────────────────────────────────────────────────────
- * AccountAvatar — the identity anchor, pinned to the TOP-RIGHT of the viewport.
+ * AccountAvatar — the identity anchor at the BOTTOM of the glass rail.
  *
- * Lives in the shell (not the nav rail): it is not a destination, it's *you*. Standard avatar
- * behaviour, in strict fallback order:
+ * A glass circle (same .pxc-glass as the rail). Standard avatar fallback order:
  *     signed in + photo  → the photo
- *     signed in, no photo→ their INITIALS (1–2 letters, from name, else email)
+ *     signed in, no photo→ their INITIALS (1–2 letters, brand-gradient chip)
  *     signed out         → a neutral person glyph  →  opens the login modal
  *
- * Clicking (when signed in) opens the account popover: theme · Settings · Sign out. The popover
- * hangs DOWN-LEFT from the avatar (it's top-right anchored, so it must not run off-screen).
+ * Clicking (when signed in) opens the account popover (theme · Settings · Sign out) as a glass
+ * bubble that opens UP + to the RIGHT out of the rail and overlays the canvas.
  * ───────────────────────────────────────────────────────────────────────────── */
 
 type IconName = 'user' | 'settings' | 'sun' | 'moon' | 'logout';
@@ -52,10 +51,10 @@ function initialsOf(name: string, email: string): string {
 const CSS = `
   .pxs-account { position: relative; }
 
-  /* The avatar is one of the three persistent top-level surfaces, so it wears the SAME glass +
-     2px brand-gradient stroke as the nav pane (via .pxs-glass-stroke). Round, 40px, a hair larger
-     than a nav icon — it's a person, not a destination. The frosted fill + gradient ring come from
-     the shared helper; only the size/shape/content live here. */
+  /* The avatar is a persistent glass surface like the rail — same .pxc-glass treatment (applied via
+     className), round, 40px. The frosted fill + subtle border come from the shared helper; only the
+     size/shape/content live here. (The initials chip inside carries the brand gradient — that's the
+     one on-brand pop, since identity reads as an "action" element.) */
   .pxs-av {
     width: 40px; height: 40px; border-radius: var(--a2ui-radius-full);
     display: flex; align-items: center; justify-content: center; overflow: hidden;
@@ -72,13 +71,15 @@ const CSS = `
     color: #fff; font-size: 14px; font-weight: 600; letter-spacing: 0.02em;
   }
 
-  /* Account popover — opens UP + to the RIGHT, out of the rail (the avatar sits bottom-left). */
+  /* Account popover — a glass bubble that OVERLAYS the canvas, opening UP + to the RIGHT out of the
+     rail (the avatar sits bottom-left). Same .pxc-glass pattern; no drop shadow. */
   .pxs-acct-pop {
     position: absolute; bottom: 0; left: calc(100% + 12px); width: 260px;
     z-index: 70;
-    background: var(--a2ui-glass-dark, rgba(18,18,22,0.9)); backdrop-filter: blur(20px);
-    border: 1px solid var(--pxs-glass-border, rgba(255,255,255,0.08)); border-radius: var(--a2ui-radius-xl);
-    box-shadow: var(--a2ui-shadow-lg); padding: var(--a2ui-space-2);
+    background: var(--pxc-bg-glass-80);
+    backdrop-filter: blur(var(--pxc-glass-blur)); -webkit-backdrop-filter: blur(var(--pxc-glass-blur));
+    border: 1px solid var(--pxc-border-subtle); border-radius: var(--a2ui-radius-xl);
+    box-shadow: none; padding: var(--a2ui-space-2);
     display: flex; flex-direction: column; gap: 2px;
   }
   .pxs-acct-head { display: flex; align-items: center; gap: var(--a2ui-space-3); padding: var(--a2ui-space-2) var(--a2ui-space-2) var(--a2ui-space-3); }
@@ -129,7 +130,7 @@ export default function AccountAvatar({ onOpenSettings }: { onOpenSettings?: () 
     return (
       <div className="pxs-account">
         <style>{CSS}</style>
-        <button type="button" title="Sign in" aria-label="Sign in" onClick={openLogin} className="pxs-av pxs-glass-stroke">
+        <button type="button" title="Sign in" aria-label="Sign in" onClick={openLogin} className="pxs-av pxc-glass">
           <Ic name="user" size={19} />
         </button>
       </div>
@@ -157,7 +158,7 @@ export default function AccountAvatar({ onOpenSettings }: { onOpenSettings?: () 
           aria-haspopup="menu"
           aria-expanded={open}
           onClick={() => setOpen((o) => !o)}
-          className="pxs-av pxs-glass-stroke"
+          className="pxs-av pxc-glass"
         >
           {/* photo → initials (never the generic glyph once signed in). */}
           {user.avatarUrl ? <img src={user.avatarUrl} alt="" /> : <span className="pxs-av-initials">{initials || <Ic name="user" size={19} />}</span>}

@@ -110,23 +110,16 @@ const SECTIONS: { id: string; label: string; icon: IconName }[] = [
    splash's own inline <style> (which scopes under .pxl-root). */
 const RAIL_CSS = `
   .pxl-rail-scope { font-family: var(--a2ui-font-family); -webkit-font-smoothing: antialiased; }
-  /* The rail FLOATS over the digital wall + content — it no longer owns a slice of the layout.
-     Fully transparent: the ONLY surface in the rail is .primary-nav-container. pointer-events are
-     off on the rail itself and re-enabled per control, so the floating column never swallows clicks
-     meant for the canvas behind it. */
+  /* THE RAIL *IS* THE GLASS PANEL. A single floating glass column (Brian's tested pattern via
+     .pxc-glass) — it OVERLAYS the wall + content and lets them show through the blur; content pads
+     itself clear (--pxs-rail-space). No inner boxed card, no drop shadow — just this one pane.
+     Inset from the viewport edges so its 25px radius reads as a floating column. */
   .pxl-rail {
-    position: absolute; top: 0; bottom: 0; left: 0; width: 72px; z-index: 30;
-    background: transparent; border: none; pointer-events: none;
-  }
-  .pxl-rail > * { pointer-events: auto; }
-
-  /* THE nav surface: a GLASS pane (see .pxs-glass-stroke in globals) with the 2px brand-gradient
-     rim. Just the radius + the stacked layout live here — the frosted fill + stroke come from the
-     shared helper class so nav + avatar stay identical. */
-  .primary-nav-container {
-    display: flex; flex-direction: column; align-items: center; gap: 6px;
-    padding: 6px;
-    border-radius: 18px;
+    position: absolute;
+    top: var(--pxs-rail-inset); bottom: var(--pxs-rail-inset); left: var(--pxs-rail-inset);
+    width: var(--pxs-rail-w); z-index: 30;
+    border-radius: 25px;
+    padding: 12px 0;
   }
   .pxl-navbtn { color: var(--a2ui-text-tertiary); border-radius: var(--a2ui-radius-lg); transition: color var(--a2ui-transition-fast), background var(--a2ui-transition-fast); position: relative; }
   /* ONE shared height for every rail button so the label-less Projects control lines up EXACTLY
@@ -187,24 +180,22 @@ export default function NavRail({
     if (id === "chat") return onHome?.();
     (onSection ?? (() => onHome?.()))(id);
   };
-  // Three stops, top → bottom: the MARK (top-aligned) · the nav container (vertically centred via
-  // my-auto, which splits the free space evenly above and below) · the ACCOUNT avatar (bottom).
-  // The rail itself is transparent and floats — see .pxl-rail.
+  // The rail IS one glass column: MARK (top) · nav items (stacked) · AVATAR (bottom, mt-auto).
+  // No inner boxes — items sit directly on the glass. See .pxl-rail (+ .pxc-glass).
   return (
-    <nav className="pxl-rail-scope pxl-rail flex flex-col items-center py-4">
+    <nav className="pxl-rail-scope pxl-rail pxc-glass flex flex-col items-center">
       <style>{RAIL_CSS}</style>
 
       <button
         onClick={onHome}
         title="Home — back to Chat"
-        className="pxl-rail-mark flex h-11 w-11 items-center justify-center"
+        className="pxl-rail-mark mb-2 flex h-11 w-11 items-center justify-center"
       >
         <PixcelMark size={26} />
       </button>
 
-      {/* GLASS nav pane — top-aligned right under the mark (no centring). Items stack in order:
-          projects toggle, then the sections. */}
-      <div className="primary-nav-container pxs-glass-stroke">
+      {/* Nav items stacked directly on the glass — projects control, then the sections. */}
+      <div className="flex flex-col items-center gap-1.5">
         {onToggleProjects && (
           <button
             onClick={onToggleProjects}
@@ -233,9 +224,8 @@ export default function NavRail({
         ))}
       </div>
 
-      {/* Account avatar — pushed to the BOTTOM of the rail (mt-auto), its own glass + gradient
-          stroke (see AccountAvatar). It's the user, the third persistent top-level element. */}
-      <div className="mt-auto pt-4">
+      {/* Account avatar — pushed to the BOTTOM of the glass column (mt-auto). */}
+      <div className="mt-auto pt-3">
         <AccountAvatar onOpenSettings={onOpenSettings} />
       </div>
     </nav>

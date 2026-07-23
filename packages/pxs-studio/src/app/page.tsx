@@ -331,8 +331,13 @@ export default function Home() {
             />
 
             {/* Content well — ONLY this cross-fades between splash ⇄ chat. The Assets catalog is a
-                full-view overlay ON this well (right of the persistent nav), its own surface. */}
-            <div className="relative z-10 flex-1 min-w-0 h-full">
+                full-view overlay ON this well (right of the persistent nav), its own surface.
+                paddingLeft clears the FLOATING glass rail (which is absolute + overlays), so content
+                auto-adjusts to the nav location instead of hiding beneath it. */}
+            <div
+              className="relative z-10 flex-1 min-w-0 h-full"
+              style={{ paddingLeft: 'var(--pxs-rail-space)' }}
+            >
               {/* PERSISTENT PROJECT IDENTITY — quiet, always-there, so you always know which project
                   you're in (and can jump to the list). A project you can't name is one you can't trust. */}
               {stage === 'chat' && !assetsOpen && projectName && (
@@ -381,7 +386,7 @@ export default function Home() {
             {/* Projects slide-out (Slice 5) — THE THREAD IS THE PROJECT. Docked right of the nav rail. */}
             {projectsOpen && (
               <ProjectsPanel
-                left={72}
+                left={'calc(var(--pxs-rail-space) - 6px)'}
                 activeId={activeThreadId}
                 onClose={() => setProjectsOpen(false)}
                 onNewProject={() => {

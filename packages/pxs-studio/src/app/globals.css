@@ -38,15 +38,10 @@
   --pxc-bg-glass-20:   rgba(var(--pxc-glass-base), 0.05); /* default overlay weight (tested) */
   --pxc-border-subtle: rgba(var(--pxc-glass-base), 0.18);
   --pxc-glass-blur:    15px;
-  /* The frost catches LIGHT + COLOR, not grey: blur + saturate (colors behind pop through) +
-     brightness (the frost reads icy, not muddy). One token → every glass surface is identical. */
-  --pxc-glass-filter:  blur(var(--pxc-glass-blur)) saturate(1.6) brightness(1.12);
-  /* A soft brand luminance bleeding into the glass (top-left), like light hitting ice. Subtle. */
-  --pxc-glass-glow:    radial-gradient(130% 100% at 22% -25%, rgba(var(--pxc-violet-rgb), 0.11), transparent 55%);
 
   /* Floating-rail geometry — one source of truth so the content behind can pad itself clear. */
   --pxs-rail-w:     60px;
-  --pxs-rail-inset: 8px;
+  --pxs-rail-inset: 16px;
   --pxs-rail-space: calc(var(--pxs-rail-inset) + var(--pxs-rail-w) + var(--pxs-rail-inset));
 
   /* The accent SYSTEM (--a2ui-accent / -hover / -active / -subtle, --a2ui-link…) is defined ONCE in
@@ -109,15 +104,12 @@
      popovers, panels). Semi-opaque dark fill + backdrop-blur + a subtle sharp border, no shadow.
      Set border-radius per element. This is the ONLY panel treatment — surfaces overlay, never box. */
   .pxc-glass {
-    background: var(--pxc-glass-glow), var(--pxc-bg-glass-30);
-    backdrop-filter: var(--pxc-glass-filter);
-    -webkit-backdrop-filter: var(--pxc-glass-filter);
+    background: var(--pxc-bg-glass-30);
+    backdrop-filter: blur(var(--pxc-glass-blur));
+    -webkit-backdrop-filter: blur(var(--pxc-glass-blur));
     border: 1px solid var(--pxc-border-subtle);
     box-shadow: none;
   }
-  /* The airy 20% weight — the tested overlay value for popovers/menus/docks. */
-  .pxc-glass--20 { background: var(--pxc-bg-glass-20); }
-
   /* The brand GRADIENT as a fill — POP/ACTION ONLY (buttons, clickable CTAs). Never on a panel. */
   .pxs-brand-fill { background: linear-gradient(135deg, var(--pxs-brand-primary), var(--pxs-brand-secondary)); }
 

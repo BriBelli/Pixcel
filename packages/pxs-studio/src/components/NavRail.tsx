@@ -108,16 +108,17 @@ const SECTIONS_BOTTOM: NavItem[] = [
    splash's own inline <style> (which scopes under .pxl-root). */
 const RAIL_CSS = `
   .pxl-rail-scope { font-family: var(--a2ui-font-family); -webkit-font-smoothing: antialiased; }
-  /* The rail is NOT a glass panel — just a subtle BLUR strip. No fill, no border; the items float
-     on it and the active item is what pops (its gradient border). Not every element needs the full
-     frost treatment. */
+  /* The rail is a frosted GLASS column. It needs a FILL (not just blur) — blur alone over the flat
+     dark wall is invisible; the light frost + luminance glow is what you actually see. */
   .pxl-rail {
     position: absolute;
     top: var(--pxs-rail-inset); bottom: var(--pxs-rail-inset); left: var(--pxs-rail-inset);
     width: var(--pxs-rail-w); z-index: 30;
     border-radius: 16px;
     padding: 12px 0;
+    background: var(--pxc-glass-glow), var(--pxc-bg-glass-30);
     backdrop-filter: var(--pxc-glass-filter); -webkit-backdrop-filter: var(--pxc-glass-filter);
+    border: 1px solid var(--pxc-border-subtle);
   }
   .pxl-navbtn { color: var(--a2ui-text-tertiary); border: 2px solid transparent; border-radius: var(--a2ui-radius-lg); transition: color var(--a2ui-transition-fast), background var(--a2ui-transition-fast); position: relative; }
   /* ONE shared height for every rail button so the label-less Projects control lines up EXACTLY

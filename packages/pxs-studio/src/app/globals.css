@@ -31,10 +31,13 @@
      glass for a fine-cut edge. box-shadow: none. Surfaces OVERLAY each other and let the layers
      behind show through — they do NOT box or push content. The bright BRAND GRADIENT is reserved
      for POP / ACTION elements only (buttons), never panels. Apply via `.pxc-glass` below. */
-  --pxc-bg-glass-80:   rgba(17, 24, 39, 0.80);
-  --pxc-bg-glass-60:   rgba(17, 24, 39, 0.60);
-  --pxc-bg-glass-40:   rgba(17, 24, 39, 0.40);
-  --pxc-bg-glass-30:   rgba(17, 24, 39, 0.30);
+  /* The glass tints toward slate-900 (matches the #1f2937 border family). The "60/30/20" weights —
+     Brian's CamelotAI tested value for overlays is 0.2 (VERY see-through, the frosted-airy look). */
+  --pxc-glass-base:    17, 24, 39;
+  --pxc-bg-glass-60:   rgba(var(--pxc-glass-base), 0.60);
+  --pxc-bg-glass-45:   rgba(var(--pxc-glass-base), 0.45);
+  --pxc-bg-glass-30:   rgba(var(--pxc-glass-base), 0.30);
+  --pxc-bg-glass-20:   rgba(var(--pxc-glass-base), 0.20); /* CamelotAI default overlay weight */
   --pxc-border-subtle: #1f2937;
   --pxc-glass-blur:    15px;
 
@@ -121,14 +124,14 @@
      popovers, panels). Semi-opaque dark fill + backdrop-blur + a subtle sharp border, no shadow.
      Set border-radius per element. This is the ONLY panel treatment — surfaces overlay, never box. */
   .pxc-glass {
-    background: var(--pxc-bg-glass-60);
+    background: var(--pxc-bg-glass-30);
     backdrop-filter: blur(var(--pxc-glass-blur));
     -webkit-backdrop-filter: blur(var(--pxc-glass-blur));
     border: 1px solid var(--pxc-border-subtle);
     box-shadow: none;
   }
-  /* A brighter glass (popovers/menus that need to read clearly over busy canvas). */
-  .pxc-glass--80 { background: var(--pxc-bg-glass-80); }
+  /* The airy 20% weight — CamelotAI's exact overlay value for popovers/menus/docks. */
+  .pxc-glass--20 { background: var(--pxc-bg-glass-20); }
 
   /* The brand GRADIENT as a fill — POP/ACTION ONLY (buttons, clickable CTAs). Never on a panel. */
   .pxs-brand-fill { background: linear-gradient(135deg, var(--pxs-brand-primary), var(--pxs-brand-secondary)); }

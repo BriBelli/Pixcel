@@ -27,11 +27,24 @@
   --a2ui-cool-200: #6e6e78;
   --a2ui-cool-100: #8a8a94;
 
-  --a2ui-indigo-600: #669df6;
-  --a2ui-indigo-500: #8ab4f8;
-  --a2ui-indigo-400: #aecbfa;
-  --a2ui-indigo-300: #d2e3fc;
-  --a2ui-indigo-200: #e8f0fe;
+  /* ── BRAND RAMPS — the ONLY place raw brand hexes live. Everything downstream references these. */
+  --pxc-coral-300:  #ffb499;
+  --pxc-coral-400:  #ff9578;
+  --pxc-coral-500:  #ff7e5f;   /* brand PRIMARY  (coral) */
+  --pxc-coral-600:  #e8663f;
+  --pxc-coral-700:  #c9542f;
+  --pxc-coral-rgb:  255, 126, 95;
+
+  --pxc-violet-300: #b99bf0;
+  --pxc-violet-400: #a273ee;
+  --pxc-violet-500: #8957e5;   /* brand SECONDARY (violet) */
+  --pxc-violet-600: #7546c9;
+  --pxc-violet-700: #5f37a8;
+  --pxc-violet-rgb: 137, 87, 229;
+
+  /* Semantic brand aliases → the ramp (the names components reference). */
+  --pxs-brand-primary:   var(--pxc-coral-500);
+  --pxs-brand-secondary: var(--pxc-violet-500);
 
   --a2ui-glass-dark:   rgba(18, 18, 22, 0.82);
   --a2ui-glass-medium: rgba(18, 18, 22, 0.70);
@@ -58,13 +71,13 @@
   --a2ui-text-inverse:   #1c1c1f;
 
   --a2ui-accent:         var(--pxs-brand-primary);
-  --a2ui-accent-hover:   #ff9578;
-  --a2ui-accent-active:  #e8663f;
-  --a2ui-accent-subtle:  rgba(138, 180, 248, 0.15);
+  --a2ui-accent-hover:   var(--pxc-coral-400);
+  --a2ui-accent-active:  var(--pxc-coral-600);
+  --a2ui-accent-subtle:  rgba(var(--pxc-coral-rgb), 0.15);
 
   --a2ui-link:           var(--pxs-brand-secondary);
-  --a2ui-link-hover:     #a273ee;
-  --a2ui-link-visited:   #c58af9;
+  --a2ui-link-hover:     var(--pxc-violet-400);
+  --a2ui-link-visited:   var(--pxc-violet-300);
 
   --a2ui-success:    #6ee7a0;
   --a2ui-success-bg: rgba(110, 231, 160, 0.12);
@@ -73,7 +86,7 @@
   --a2ui-error:      #f87171;
   --a2ui-error-bg:   rgba(248, 113, 113, 0.12);
   --a2ui-info:       var(--pxs-brand-secondary);
-  --a2ui-info-bg:    rgba(138, 180, 248, 0.15);
+  --a2ui-info-bg:    rgba(var(--pxc-violet-rgb), 0.15);
 
   --a2ui-border-default: rgba(255, 255, 255, 0.12);
   --a2ui-border-strong:  rgba(255, 255, 255, 0.18);
@@ -106,13 +119,13 @@
   --a2ui-text-inverse:   #ffffff;
 
   --a2ui-accent:         var(--pxs-brand-primary);
-  --a2ui-accent-hover:   #e8663f;
-  --a2ui-accent-active:  #c9542f;
-  --a2ui-accent-subtle:  rgba(26, 115, 232, 0.1);
+  --a2ui-accent-hover:   var(--pxc-coral-600);
+  --a2ui-accent-active:  var(--pxc-coral-700);
+  --a2ui-accent-subtle:  rgba(var(--pxc-coral-rgb), 0.12);
 
   --a2ui-link:           var(--pxs-brand-secondary);
-  --a2ui-link-hover:     #7546c9;
-  --a2ui-link-visited:   #8430ce;
+  --a2ui-link-hover:     var(--pxc-violet-600);
+  --a2ui-link-visited:   var(--pxc-violet-700);
 
   --a2ui-success:    #1e8e3e;
   --a2ui-success-bg: rgba(30, 142, 62, 0.1);
@@ -121,7 +134,7 @@
   --a2ui-error:      #d93025;
   --a2ui-error-bg:   rgba(217, 48, 37, 0.1);
   --a2ui-info:       var(--pxs-brand-secondary);
-  --a2ui-info-bg:    rgba(26, 115, 232, 0.1);
+  --a2ui-info-bg:    rgba(var(--pxc-violet-rgb), 0.12);
 
   --a2ui-border-default: rgba(0, 0, 0, 0.12);
   --a2ui-border-strong:  rgba(0, 0, 0, 0.20);

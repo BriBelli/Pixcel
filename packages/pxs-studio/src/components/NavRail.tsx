@@ -121,14 +121,23 @@ const RAIL_CSS = `
     border-radius: 16px;
     padding: 12px 0;
   }
-  .pxl-navbtn { color: var(--a2ui-text-tertiary); border-radius: var(--a2ui-radius-lg); transition: color var(--a2ui-transition-fast), background var(--a2ui-transition-fast); position: relative; }
+  .pxl-navbtn { color: var(--a2ui-text-tertiary); border: 2px solid transparent; border-radius: var(--a2ui-radius-lg); transition: color var(--a2ui-transition-fast), background var(--a2ui-transition-fast); position: relative; }
   /* ONE shared height for every rail button so the label-less Projects control lines up EXACTLY
      with the labelled section items (py-2 + icon 20 + gap 4 + 10px label ≈ 52px). Both reference
      this single rule, so they can never drift apart. */
   .pxl-navbtn, .pxl-railtoggle { height: 52px; }
   .pxl-navbtn:hover { color: var(--a2ui-text-secondary); background: var(--a2ui-bg-hover); }
-  /* Active: subtle bg-active tint only (no left accent bar). */
-  .pxl-navbtn[data-active="true"] { color: var(--a2ui-text-primary); background: var(--a2ui-bg-active); }
+  /* Active: a 2px BRAND-GRADIENT border (Brian's background-clip technique). Layer 1 (padding-box)
+     is the opaque dark chip fill; layer 2 (border-box) is the gradient, showing only in the 2px ring.
+     Gradient tokenised (--pxs-nav-edge-*) → one-line swap. */
+  .pxl-navbtn[data-active="true"] {
+    color: var(--a2ui-text-primary);
+    background-image:
+      linear-gradient(var(--a2ui-bg-secondary), var(--a2ui-bg-secondary)),
+      linear-gradient(to bottom, var(--pxs-nav-edge-from), var(--pxs-nav-edge-to));
+    background-origin: border-box;
+    background-clip: padding-box, border-box;
+  }
   .pxl-rail-mark { color: var(--a2ui-text-primary); border-radius: var(--a2ui-radius-lg); transition: color var(--a2ui-transition-fast), background var(--a2ui-transition-fast); }
   .pxl-rail-mark:hover { color: var(--a2ui-text-primary); background: var(--a2ui-bg-hover); }
 

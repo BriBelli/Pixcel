@@ -8,17 +8,15 @@
    from the DS "no new hex" rule (flagged in docs). These override the canonical accent
    app-wide WITHOUT editing the frozen splash. Revert by deleting this block. ── */
 :root {
-  --pxl-brand-blue:   #58a6ff;  /* old --primary (primary buttons) */
-  --pxl-brand-purple: #8957e5;  /* old --accent-purple (AI / special actions) */
-  --pxl-glow-blue:    #3b82f6;  /* old hero-glow blue (decorative) */
-  --pxl-glow-purple:  #8b5cf6;  /* old hero-glow violet (decorative) */
+  /* Legacy names, repointed onto the brand ramp (no stray hexes). */
+  --pxl-brand-blue:   var(--pxc-coral-500);
+  --pxl-brand-purple: var(--pxc-violet-500);
+  --pxl-glow-blue:    var(--pxc-coral-500);
+  --pxl-glow-purple:  var(--pxc-violet-500);
 
-  /* ── THE PIXCEL BRAND PAIR (2026-07-22) ───────────────────────────────────────────────────
-     The identity is these two colors. Everything expressive in the UI draws from them; the rest of
-     the system stays cool, minimal and near-invisible so THESE are what pop. Defined once here —
-     never hard-code either hex in a component. */
-  --pxs-brand-primary:   #ff7e5f;  /* first  — warm coral */
-  --pxs-brand-secondary: #8957e5;  /* second — violet (complementary) */
+  /* Brand pair (--pxs-brand-primary / -secondary) + the coral/violet ramps are the SINGLE source of
+     truth in tokens.css (Tier 1). Nothing here re-declares a brand hex — everything references those
+     tokens, so a palette change cascades from one place. */
 
   /* Nav edge gradient: primary → secondary, top → bottom. */
   --pxs-nav-edge-from: var(--pxs-brand-primary);
@@ -46,31 +44,13 @@
   --pxs-rail-inset: 16px;
   --pxs-rail-space: calc(var(--pxs-rail-inset) + var(--pxs-rail-w) + var(--pxs-rail-inset));
 
-  /* ══ TOKEN REFRESH (2026-07-22) — THE BRAND PAIR *IS* THE ACCENT SYSTEM ══════════════════════
-     ⤷ STASHABLE: revert THIS BLOCK ALONE to fall back to the previous blue accent. Nothing else
-       in the codebase hard-codes these — every component reads the tokens.
+  /* The accent SYSTEM (--a2ui-accent / -hover / -active / -subtle, --a2ui-link…) is defined ONCE in
+     tokens.css Tier 2, mapped onto the coral/violet ramps. Not re-declared here.
 
-     Intent: the greys stay cool, minimal and near-invisible; ALL the pop comes from the two brand
-     colors, placed where they carry meaning rather than sprayed for decoration:
-       • CORAL (primary)  = the user's action surface — accents, focus, primary buttons.
-       • VIOLET (second)  = the system's voice — links, AI / special actions.
-     Reading them as two different roles is what keeps it feeling designed instead of merely
-     colorful, and it survives a future light mode (same hues, different luminance).
+     Roles (why two colors, not decoration): CORAL = the user's action surface (accent, focus,
+     primary buttons); VIOLET = the system's voice (links, AI / special). */
 
-     Supersedes the 2026-06-27 "brand blue IS the accent" lock — the Google-descended blue is gone. */
-  --a2ui-accent:        var(--pxs-brand-primary);
-  --a2ui-accent-hover:  #ff9578;  /* lighter — hover */
-  --a2ui-accent-active: #e8663f;  /* deeper  — pressed */
-  --a2ui-accent-subtle: rgba(255, 126, 95, 0.16);
-
-  /* Links + AI/special actions take the second brand color (was Google-descended indigo). */
-  --a2ui-link:          var(--pxs-brand-secondary);
-  --a2ui-link-hover:    #a273ee;
-  --a2ui-link-visited:  #c58af9;
-
-  /* Decorative hero/wall glows follow the pair so the canvas warms instead of reading dead.
-     (Legacy token NAMES — the values are now the brand pair. Remove just these two lines if the
-     ambient wall feels too warm; the rest of the refresh is independent of them.) */
+  /* Decorative hero/wall glows follow the brand pair so the canvas warms instead of reading dead. */
   --pxl-glow-blue:      var(--pxs-brand-primary);
   --pxl-glow-purple:    var(--pxs-brand-secondary);
 }

@@ -40,8 +40,17 @@ const KINDS: { id: 'all' | AssetRow['kind']; label: string }[] = [
 ];
 
 const CSS = `
-.pxa { position: absolute; inset: 0; z-index: 20; display: flex; flex-direction: column;
-  background: var(--a2ui-bg-app); color: var(--a2ui-text-primary); font-family: var(--a2ui-font-family); }
+/* A large GLASS popover (the full catalog lives inside a glass panel, not a solid full-screen page).
+   Overlays the wall, inset so the digital wall shows through the gaps — same glass as the rail. */
+.pxa { position: absolute;
+  top: var(--pxs-rail-inset); bottom: var(--pxs-rail-inset);
+  left: var(--pxs-rail-space); right: var(--pxs-rail-inset);
+  z-index: 20; display: flex; flex-direction: column; overflow: hidden;
+  border-radius: 16px;
+  background: var(--pxc-glass-glow), var(--pxc-bg-glass-20);
+  backdrop-filter: var(--pxc-glass-filter); -webkit-backdrop-filter: var(--pxc-glass-filter);
+  border: 1px solid var(--pxc-border-subtle);
+  color: var(--a2ui-text-primary); font-family: var(--a2ui-font-family); }
 .pxa-head { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--a2ui-space-4);
   padding: var(--a2ui-space-6) var(--a2ui-space-8) var(--a2ui-space-4); }
 .pxa-title { margin: 0; font-size: var(--a2ui-text-2xl); font-weight: var(--a2ui-font-semibold); letter-spacing: -0.01em; }

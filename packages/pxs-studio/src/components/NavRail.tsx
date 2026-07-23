@@ -117,7 +117,7 @@ const RAIL_CSS = `
     width: var(--pxs-rail-w); z-index: 30;
     border-radius: 16px;
     padding: 12px 0;
-    backdrop-filter: blur(15px); -webkit-backdrop-filter: blur(15px);
+    backdrop-filter: var(--pxc-glass-filter); -webkit-backdrop-filter: var(--pxc-glass-filter);
   }
   .pxl-navbtn { color: var(--a2ui-text-tertiary); border: 2px solid transparent; border-radius: var(--a2ui-radius-lg); transition: color var(--a2ui-transition-fast), background var(--a2ui-transition-fast); position: relative; }
   /* ONE shared height for every rail button so the label-less Projects control lines up EXACTLY
@@ -130,8 +130,8 @@ const RAIL_CSS = `
      trick can't — it needs an opaque inner). Gradient tokenised (--pxs-nav-edge-*). */
   .pxl-navbtn[data-active="true"] {
     color: var(--a2ui-text-primary);
-    background: var(--pxc-bg-glass-30);
-    backdrop-filter: blur(var(--pxc-glass-blur)); -webkit-backdrop-filter: blur(var(--pxc-glass-blur));
+    background: var(--pxc-glass-glow), var(--pxc-bg-glass-30);
+    backdrop-filter: var(--pxc-glass-filter); -webkit-backdrop-filter: var(--pxc-glass-filter);
   }
   .pxl-navbtn[data-active="true"]::before {
     content: ''; position: absolute; inset: 0; border-radius: inherit; padding: 2px;

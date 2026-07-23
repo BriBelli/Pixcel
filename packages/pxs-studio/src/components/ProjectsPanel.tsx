@@ -25,8 +25,8 @@ const CSS = `
    rounded, floating clear of the top/bottom edges. The left offset (inline) clears the rail. */
 .pxp { position: absolute; top: 16px; bottom: 16px; z-index: 25; width: 300px;
   display: flex; flex-direction: column; overflow: hidden;
-  background: var(--pxc-bg-glass-20);
-  backdrop-filter: blur(var(--pxc-glass-blur)); -webkit-backdrop-filter: blur(var(--pxc-glass-blur));
+  background: var(--pxc-glass-glow), var(--pxc-bg-glass-20);
+  backdrop-filter: var(--pxc-glass-filter); -webkit-backdrop-filter: var(--pxc-glass-filter);
   border: 1px solid var(--pxc-border-subtle); border-radius: 16px; box-shadow: none;
   font-family: var(--a2ui-font-family); animation: pxp-in 0.22s cubic-bezier(0.22,1,0.36,1); }
 @keyframes pxp-in { from { transform: translateX(-8px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }

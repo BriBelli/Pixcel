@@ -17,11 +17,11 @@
 /* Tier 1 — Primitives */
 :root {
   --a2ui-cool-950: #111113;
-  --a2ui-cool-900: #0d1117;
-  --a2ui-cool-800: #12161f;
-  --a2ui-cool-700: #171c26;
+  --a2ui-cool-900: #161618;
+  --a2ui-cool-800: #1c1c1f;
+  --a2ui-cool-700: #232326;
   --a2ui-cool-600: #2a2a2e;
-  --a2ui-cool-500: #2a313d;
+  --a2ui-cool-500: #35353b;
   --a2ui-cool-400: #43434b;
   --a2ui-cool-300: #55555f;
   --a2ui-cool-200: #6e6e78;
@@ -57,13 +57,13 @@
   --a2ui-text-disabled:  #49494f;
   --a2ui-text-inverse:   #1c1c1f;
 
-  --a2ui-accent:         var(--a2ui-indigo-500);
-  --a2ui-accent-hover:   var(--a2ui-indigo-400);
-  --a2ui-accent-active:  var(--a2ui-indigo-600);
+  --a2ui-accent:         var(--pxs-brand-primary);
+  --a2ui-accent-hover:   #ff9578;
+  --a2ui-accent-active:  #e8663f;
   --a2ui-accent-subtle:  rgba(138, 180, 248, 0.15);
 
-  --a2ui-link:           var(--a2ui-indigo-400);
-  --a2ui-link-hover:     var(--a2ui-indigo-300);
+  --a2ui-link:           var(--pxs-brand-secondary);
+  --a2ui-link-hover:     #a273ee;
   --a2ui-link-visited:   #c58af9;
 
   --a2ui-success:    #6ee7a0;
@@ -72,12 +72,12 @@
   --a2ui-warning-bg: rgba(251, 191, 36, 0.12);
   --a2ui-error:      #f87171;
   --a2ui-error-bg:   rgba(248, 113, 113, 0.12);
-  --a2ui-info:       var(--a2ui-indigo-400);
+  --a2ui-info:       var(--pxs-brand-secondary);
   --a2ui-info-bg:    rgba(138, 180, 248, 0.15);
 
-  --a2ui-border-default: #2a3342;
+  --a2ui-border-default: rgba(255, 255, 255, 0.12);
   --a2ui-border-strong:  rgba(255, 255, 255, 0.18);
-  --a2ui-border-subtle:  #1f2937;
+  --a2ui-border-subtle:  rgba(255, 255, 255, 0.08);
 
   --a2ui-shadow-sm: 0 1px 2px  rgba(0, 0, 0, 0.4);
   --a2ui-shadow-md: 0 2px 6px  rgba(0, 0, 0, 0.5);
@@ -105,13 +105,13 @@
   --a2ui-text-disabled:  #bdc1c6;
   --a2ui-text-inverse:   #ffffff;
 
-  --a2ui-accent:         #1a73e8;
-  --a2ui-accent-hover:   #1967d2;
-  --a2ui-accent-active:  #185abc;
+  --a2ui-accent:         var(--pxs-brand-primary);
+  --a2ui-accent-hover:   #e8663f;
+  --a2ui-accent-active:  #c9542f;
   --a2ui-accent-subtle:  rgba(26, 115, 232, 0.1);
 
-  --a2ui-link:           #1a73e8;
-  --a2ui-link-hover:     #1967d2;
+  --a2ui-link:           var(--pxs-brand-secondary);
+  --a2ui-link-hover:     #7546c9;
   --a2ui-link-visited:   #8430ce;
 
   --a2ui-success:    #1e8e3e;
@@ -120,7 +120,7 @@
   --a2ui-warning-bg: rgba(249, 171, 0, 0.1);
   --a2ui-error:      #d93025;
   --a2ui-error-bg:   rgba(217, 48, 37, 0.1);
-  --a2ui-info:       #1a73e8;
+  --a2ui-info:       var(--pxs-brand-secondary);
   --a2ui-info-bg:    rgba(26, 115, 232, 0.1);
 
   --a2ui-border-default: rgba(0, 0, 0, 0.12);
@@ -142,9 +142,9 @@
   --pxs-bg-chrome:     var(--a2ui-cool-700);
   --pxs-bg-canvas:     var(--a2ui-cool-900);
   --pxs-border:        var(--a2ui-cool-500);
-  --pxs-border-subtle: #1f2937;
+  --pxs-border-subtle: rgba(255, 255, 255, 0.08);
   --pxs-glass:         var(--a2ui-glass-dark);
-  --pxs-glass-border:  #1f2937;
+  --pxs-glass-border:  rgba(255, 255, 255, 0.12);
   --pxs-glass-menu:    var(--a2ui-glass-menu);
   --pxs-text:          var(--a2ui-text-primary);
   --pxs-text-muted:    rgba(255, 255, 255, 0.55);
@@ -152,8 +152,8 @@
   --pxs-accent:        var(--a2ui-accent);
   --pxs-accent-hover:  var(--a2ui-accent-active);
   --pxs-accent-subtle: var(--a2ui-accent-subtle);
-  --pxs-accent-text:   var(--a2ui-indigo-300);
-  --pxs-accent-focus:  var(--a2ui-indigo-400);
+  --pxs-accent-text:   var(--pxs-brand-primary);
+  --pxs-accent-focus:  var(--pxs-brand-primary);
 }
 
 /* Typography + scale */

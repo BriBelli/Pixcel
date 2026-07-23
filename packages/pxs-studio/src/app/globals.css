@@ -33,12 +33,12 @@
      for POP / ACTION elements only (buttons), never panels. Apply via `.pxc-glass` below. */
   /* The glass tints toward slate-900 (matches the #1f2937 border family). The "60/30/20" weights —
      Brian's tested value for overlays is 0.2 (VERY see-through, the frosted-airy look). */
-  --pxc-glass-base:    17, 24, 39;
-  --pxc-bg-glass-60:   rgba(var(--pxc-glass-base), 0.60);
-  --pxc-bg-glass-45:   rgba(var(--pxc-glass-base), 0.45);
-  --pxc-bg-glass-30:   rgba(var(--pxc-glass-base), 0.30);
-  --pxc-bg-glass-20:   rgba(var(--pxc-glass-base), 0.20); /* default overlay weight (tested) */
-  --pxc-border-subtle: #1f2937;
+  --pxc-glass-base:    255, 255, 255;
+  --pxc-bg-glass-60:   rgba(var(--pxc-glass-base), 0.10);
+  --pxc-bg-glass-45:   rgba(var(--pxc-glass-base), 0.08);
+  --pxc-bg-glass-30:   rgba(var(--pxc-glass-base), 0.065);
+  --pxc-bg-glass-20:   rgba(var(--pxc-glass-base), 0.05); /* default overlay weight (tested) */
+  --pxc-border-subtle: rgba(var(--pxc-glass-base), 0.18);
   --pxc-glass-blur:    15px;
 
   /* Floating-rail geometry — one source of truth so the content behind can pad itself clear. */

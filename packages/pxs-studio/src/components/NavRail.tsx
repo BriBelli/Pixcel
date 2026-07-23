@@ -118,7 +118,7 @@ const RAIL_CSS = `
     position: absolute;
     top: var(--pxs-rail-inset); bottom: var(--pxs-rail-inset); left: var(--pxs-rail-inset);
     width: var(--pxs-rail-w); z-index: 30;
-    border-radius: 25px;
+    border-radius: 16px;
     padding: 12px 0;
   }
   .pxl-navbtn { color: var(--a2ui-text-tertiary); border-radius: var(--a2ui-radius-lg); transition: color var(--a2ui-transition-fast), background var(--a2ui-transition-fast); position: relative; }

@@ -64,8 +64,10 @@ const CSS = `
   position: relative;
   display: flex; flex-direction: column; gap: var(--a2ui-space-2); width: 100%;
   padding: var(--a2ui-space-2) var(--a2ui-space-3);
-  background: var(--a2ui-bg-input); color: var(--a2ui-text-primary);
-  border: 1px solid var(--a2ui-border-default); border-radius: var(--a2ui-radius-lg);
+  /* SAME glass material + radius as the rail (one coherent surface language). */
+  background: var(--pxc-bg-glass-30); color: var(--a2ui-text-primary);
+  backdrop-filter: blur(var(--pxc-glass-blur)); -webkit-backdrop-filter: blur(var(--pxc-glass-blur));
+  border: 1px solid var(--pxc-border-subtle); border-radius: 16px;
   transition: border-color var(--a2ui-transition-fast), box-shadow var(--a2ui-transition-fast),
               background var(--a2ui-transition-fast);
 }

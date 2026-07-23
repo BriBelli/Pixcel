@@ -51,6 +51,9 @@ const CSS = `
 .a2-iconbtn--error:focus-visible { box-shadow: 0 0 0 2px var(--a2ui-error-bg); }
 
 .a2-iconbtn:disabled { cursor: not-allowed; color: var(--a2ui-text-disabled); background: transparent; }
+/* Primary stays SOLID when disabled — a clean muted fill, never a washed-out transparent gradient
+   ghost (transparency is for panels, not buttons). Enabled = the full vibrant brand gradient. */
+.a2-iconbtn--primary:disabled { background: var(--a2ui-bg-tertiary); color: var(--a2ui-text-tertiary); filter: none; }
 .a2-iconbtn--primary:disabled { background: var(--a2ui-bg-tertiary); color: var(--a2ui-text-disabled); }
 .a2-iconbtn--subtle:disabled { background: var(--a2ui-bg-secondary); color: var(--a2ui-text-disabled); }
 .a2-iconbtn[aria-busy="true"] { cursor: progress; }

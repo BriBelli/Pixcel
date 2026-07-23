@@ -27,7 +27,7 @@ const CSS = `
   display: flex; flex-direction: column; overflow: hidden;
   background: var(--pxc-bg-glass-20);
   backdrop-filter: blur(var(--pxc-glass-blur)); -webkit-backdrop-filter: blur(var(--pxc-glass-blur));
-  border: 1px solid var(--pxc-border-subtle); border-radius: 20px; box-shadow: none;
+  border: 1px solid var(--pxc-border-subtle); border-radius: 16px; box-shadow: none;
   font-family: var(--a2ui-font-family); animation: pxp-in 0.22s cubic-bezier(0.22,1,0.36,1); }
 @keyframes pxp-in { from { transform: translateX(-8px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
 .pxp-head { display: flex; align-items: center; justify-content: space-between; gap: var(--a2ui-space-2);

@@ -252,7 +252,7 @@ export default function Home() {
     // you to the operator instead of an IDE mid-flight. (A TRANSFER is the opposite: it carries the
     // exact intent forward, in flight, without breaking the workflow.)
     // Also fixes the splash off-by-one — medium + transition happen in ONE click.
-    if (id === 'assets') { if (stage === 'splash') transitionTo('chat'); setAssetsOpen(true); return; }
+    if (id === 'assets') { if (stage === 'splash') transitionTo('chat'); setProjectsOpen(false); setAssetsOpen(true); return; }
     setAssetsOpen(false);
     const medium = id === 'image' || id === 'video' ? id : 'chat';
     enterSection(medium);
@@ -325,7 +325,7 @@ export default function Home() {
               activeSection={navActive}
               onHome={handleNavHome}
               onSection={handleNavSection}
-              onToggleProjects={() => setProjectsOpen((v) => !v)}
+              onToggleProjects={() => { setAssetsOpen(false); setProjectsOpen((v) => !v); }}
               projectsOpen={projectsOpen}
               onOpenSettings={() => setSettingsOpen(true)}
             />

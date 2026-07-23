@@ -40,11 +40,11 @@ const EMPTY_GREETING: Record<'chat' | 'image' | 'video', { title: string; subtit
   chat: { title: 'What are we making today?', subtitle: "Let's take your idea to the next level." },
   image: {
     title: 'What image are we making?',
-    subtitle: 'Describe it — or bring a reference — and I’ll shape the details with you.',
+    subtitle: 'Describe it, or bring a reference.',
   },
   video: {
     title: 'What video are we making?',
-    subtitle: 'Describe the shot — or bring a reference — and I’ll shape the details with you.',
+    subtitle: 'Describe the shot, or bring a reference.',
   },
 };
 

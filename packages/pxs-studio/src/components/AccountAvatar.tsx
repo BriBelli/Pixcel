@@ -58,6 +58,7 @@ const CSS = `
   .pxs-av {
     width: 40px; height: 40px; border-radius: var(--a2ui-radius-full);
     display: flex; align-items: center; justify-content: center; overflow: hidden;
+    background: var(--a2ui-bg-tertiary); border: 1px solid var(--pxc-border-subtle);
     color: var(--a2ui-text-secondary); cursor: pointer; padding: 0;
     transition: box-shadow var(--a2ui-transition-fast), transform var(--a2ui-transition-fast);
   }
@@ -130,8 +131,8 @@ export default function AccountAvatar({ onOpenSettings }: { onOpenSettings?: () 
     return (
       <div className="pxs-account">
         <style>{CSS}</style>
-        <button type="button" title="Sign in" aria-label="Sign in" onClick={openLogin} className="pxs-av pxc-glass">
-          <Ic name="user" size={19} />
+        <button type="button" title="Sign in" aria-label="Sign in" onClick={openLogin} className="pxs-av">
+          <Ic name="user" size={20} />
         </button>
       </div>
     );
@@ -158,10 +159,10 @@ export default function AccountAvatar({ onOpenSettings }: { onOpenSettings?: () 
           aria-haspopup="menu"
           aria-expanded={open}
           onClick={() => setOpen((o) => !o)}
-          className="pxs-av pxc-glass"
+          className="pxs-av"
         >
           {/* photo → initials (never the generic glyph once signed in). */}
-          {user.avatarUrl ? <img src={user.avatarUrl} alt="" /> : <span className="pxs-av-initials">{initials || <Ic name="user" size={19} />}</span>}
+          {user.avatarUrl ? <img src={user.avatarUrl} alt="" /> : <span className="pxs-av-initials">{initials || <Ic name="user" size={20} />}</span>}
         </button>
 
         {open && (

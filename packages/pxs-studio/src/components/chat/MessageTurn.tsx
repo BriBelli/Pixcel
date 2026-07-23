@@ -91,14 +91,21 @@ const CSS = `
 .pxc-user-bubble {
   max-width: min(600px, 100%);
   padding: var(--a2ui-space-3) var(--a2ui-space-4);
-  /* Outlined: no fill, blue text, a 1px blue stroke. */
-  background: transparent; color: var(--a2ui-accent);
-  border: 1px solid var(--a2ui-accent);
+  /* Subtle GLASS — almost part of the background: frosted, no coral. Double-click to expand. */
+  background: var(--pxc-bg-glass-20); color: var(--a2ui-text-primary);
+  backdrop-filter: blur(var(--pxc-glass-blur)); -webkit-backdrop-filter: blur(var(--pxc-glass-blur));
+  border: 1px solid var(--pxc-border-subtle);
   border-radius: var(--a2ui-radius-xl);
   /* The bubble's angle sits at the TOP-right (toward the avatar), not bottom-right. */
   border-top-right-radius: var(--a2ui-radius-sm);
   line-height: var(--a2ui-leading-normal);
   white-space: pre-wrap; word-break: break-word;
+  /* Expanded (double-clicked) — tall content scrolls in place rather than pushing the chat. */
+  max-height: 42vh; overflow-y: auto; cursor: default;
+}
+/* Collapsed by default: clip to ~6 lines with a trailing ellipsis. */
+.pxc-user-bubble.pxc-clamped {
+  display: -webkit-box; -webkit-line-clamp: 6; -webkit-box-orient: vertical; overflow: hidden;
 }
 .pxc-user-meta {
   margin-top: var(--a2ui-space-1);
@@ -256,7 +263,15 @@ export function MessageTurn({
                 ))}
               </div>
             )}
-            {turn.userPrompt && <div className="pxc-user-bubble">{turn.userPrompt}</div>}
+            {turn.userPrompt && (
+              <div
+                className="pxc-user-bubble pxc-clamped"
+                title="Double-click to expand"
+                onDoubleClick={(e) => e.currentTarget.classList.toggle('pxc-clamped')}
+              >
+                {turn.userPrompt}
+              </div>
+            )}
             <div className="pxc-user-meta">{formatTime(turn.createdAt)}</div>
           </div>
         </div>

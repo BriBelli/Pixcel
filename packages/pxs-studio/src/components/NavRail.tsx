@@ -123,18 +123,22 @@ const RAIL_CSS = `
   /* ONE shared height for every rail button so the label-less Projects control lines up EXACTLY
      with the labelled section items (py-2 + icon 20 + gap 4 + 10px label ≈ 52px). Both reference
      this single rule, so they can never drift apart. */
-  .pxl-navbtn { height: 52px; }
+  .pxl-navbtn { height: 46px; }
   .pxl-navbtn:hover { color: var(--a2ui-text-secondary); background: var(--a2ui-bg-hover); }
-  /* Active: a 2px BRAND-GRADIENT border (Brian's background-clip technique). Layer 1 (padding-box)
-     is the opaque dark chip fill; layer 2 (border-box) is the gradient, showing only in the 2px ring.
-     Gradient tokenised (--pxs-nav-edge-*) → one-line swap. */
+  /* Active: FROSTED GLASS fill (the pulsing wall shows through the blur) + a 2px brand-gradient
+     ring. The ring is a masked ::before so the fill can stay translucent glass (the background-clip
+     trick can't — it needs an opaque inner). Gradient tokenised (--pxs-nav-edge-*). */
   .pxl-navbtn[data-active="true"] {
     color: var(--a2ui-text-primary);
-    background-image:
-      linear-gradient(var(--a2ui-bg-secondary), var(--a2ui-bg-secondary)),
-      linear-gradient(to bottom, var(--pxs-nav-edge-from), var(--pxs-nav-edge-to));
-    background-origin: border-box;
-    background-clip: padding-box, border-box;
+    background: var(--pxc-bg-glass-30);
+    backdrop-filter: blur(var(--pxc-glass-blur)); -webkit-backdrop-filter: blur(var(--pxc-glass-blur));
+  }
+  .pxl-navbtn[data-active="true"]::before {
+    content: ''; position: absolute; inset: 0; border-radius: inherit; padding: 2px;
+    background: linear-gradient(to bottom, var(--pxs-nav-edge-from), var(--pxs-nav-edge-to));
+    -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+    -webkit-mask-composite: xor; mask-composite: exclude;
+    pointer-events: none;
   }
   .pxl-rail-mark { color: var(--a2ui-text-primary); border-radius: var(--a2ui-radius-lg); transition: color var(--a2ui-transition-fast), background var(--a2ui-transition-fast); }
   .pxl-rail-mark:hover { color: var(--a2ui-text-primary); background: var(--a2ui-bg-hover); }
@@ -182,7 +186,7 @@ export default function NavRail({
       onClick={() => handleSection(s.id)}
       data-active={s.id === "projects" ? Boolean(projectsOpen) : s.id === activeSection}
       title={s.label}
-      className="pxl-navbtn flex flex-col items-center justify-center gap-1 w-14"
+      className="pxl-navbtn flex flex-col items-center justify-center gap-0.5 w-12"
     >
       <Ic name={s.icon} size={20} />
       {/* leading-none: an arbitrary text size sets NO line-height, else the label's line box pushes

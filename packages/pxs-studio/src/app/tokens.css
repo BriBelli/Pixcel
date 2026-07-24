@@ -17,7 +17,7 @@
 /* Tier 1 — Primitives */
 :root {
   --a2ui-cool-950: #111113;
-  --a2ui-cool-900: rgb(var(--pxc-bg-rgb)); /* dial ① — see globals.css glass recipe */
+  --a2ui-cool-900: #131316;  /* dial ① — base canvas (glass recipe) */
   --a2ui-cool-800: #1c1c1f;
   --a2ui-cool-700: #232326;
   --a2ui-cool-600: #2a2a2e;
@@ -64,8 +64,8 @@
   --a2ui-bg-hover:       rgba(255, 255, 255, 0.06);
   --a2ui-bg-active:      rgba(255, 255, 255, 0.10);
 
-  --a2ui-text-primary:   var(--pxc-text);       /* dial ③ */
-  --a2ui-text-secondary: var(--pxc-text-muted); /* dial ③ */
+  --a2ui-text-primary:   #e8eded;  /* dial ③ — default text */
+  --a2ui-text-secondary: #9ca3af;  /* dial ③ — muted text */
   --a2ui-text-tertiary:  #6e727b;               /* a touch brighter than before (was #636370) */
   --a2ui-text-disabled:  #49494f;
   --a2ui-text-inverse:   #1c1c1f;

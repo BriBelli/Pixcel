@@ -22,31 +22,26 @@
   --pxs-nav-edge-from: var(--pxs-brand-primary);
   --pxs-nav-edge-to:   var(--pxs-brand-secondary);
 
-  /* ═══════════ THE GLASS RECIPE — 5 EXPLICIT DIALS. Tune each LIVE in the viewer. ═══════════════
-     Same relationships as the reference, in OUR neutral hue (not slate-blue). The app's base bg,
-     the glass, the stroke and the text all DERIVE from these — turn a dial, the system follows.
-     Reference for parity: base #111827 · glass rgba(17,24,39,0.7) · stroke #1f2937 · text
-     #e8eded/#9ca3af · blur 15px. Ours mirrors that in neutral greys. */
+  /* ═══════════ THE GLASS RECIPE — the dials. Tune each LIVE in the viewer. ══════════════════════
+     Mirrors the reference (base #111827 · glass rgba(17,24,39,0.7) · stroke #1f2937 · text
+     #e8eded/#9ca3af · blur 15px) in OUR neutral greys.
+       ① BASE BG + ③ TEXT live in tokens.css (--a2ui-cool-900 / --a2ui-text-primary,-secondary) —
+          kept as direct hexes so nothing can go invalid. ② ④ ⑤ are here. */
 
-  /* ① BASE BACKGROUND — the canvas (rgb). DARKER → the stroke pops harder. Drives --a2ui-cool-900. */
-  --pxc-bg-rgb:        19, 19, 22;                        /* #131316 — neutral, a touch darker */
+  /* ② STROKE — a hair LIGHTER than the base, so it reads as a sharp cut line on the dark bg. */
+  --pxc-stroke:        #34363b;
 
-  /* ② STROKE — a hair LIGHTER than the base, so it reads as a sharp cut line on the darker bg. */
-  --pxc-stroke:        #34363b;                           /* your 54,57,61 idea, our grey */
-
-  /* ③ TEXT — default near-white + a muted grey. Drives --a2ui-text-primary / -secondary. */
-  --pxc-text:          #e8eded;
-  --pxc-text-muted:    #9ca3af;
-
-  /* ④ GLASS / FROST — the BASE color made translucent: it blends (same hue) and lifts via blur. */
-  --pxc-bg-glass-30:   rgba(var(--pxc-bg-rgb), 0.70);     /* slightly transparent (panels/rail-active) */
-  --pxc-bg-glass-20:   rgba(var(--pxc-bg-rgb), 0.55);     /* very transparent (overlays) */
-  --pxc-bg-glass-10:   rgba(var(--pxc-bg-rgb), 0.30);     /* super transparent (whisper) */
+  /* ④ GLASS / FROST — a HAIR LIGHTER than the base (32,32,38 vs base 19,19,22) so panels LIFT off
+       the bg, then translucent + blur = frost. (Exact-match with the bg made them invisible.) */
+  --pxc-glass-rgb:     32, 32, 38;
+  --pxc-bg-glass-30:   rgba(var(--pxc-glass-rgb), 0.72);  /* slightly transparent (panels/rail-active) */
+  --pxc-bg-glass-20:   rgba(var(--pxc-glass-rgb), 0.55);  /* very transparent (overlays) */
+  --pxc-bg-glass-10:   rgba(var(--pxc-glass-rgb), 0.30);  /* super transparent (whisper) */
 
   /* ⑤ BLUR. */
   --pxc-blur:          15px;
 
-  /* ── wiring: the token names components already use, pointed at the dials (do not hard-code) ── */
+  /* ── wiring: the token names components use, pointed at the dials (do not hard-code) ── */
   --pxc-border-subtle: var(--pxc-stroke);
   --pxc-glass-blur:    var(--pxc-blur);
   --pxc-glass-filter:  blur(var(--pxc-blur));

@@ -23,6 +23,12 @@ const CSS = `
 /* A floating GLASS popover that OVERLAYS the canvas (does not push/box it) — a bubble connected to
    the rail's Projects control. Same .pxc-glass pattern: glass fill + subtle border + blur, no shadow,
    rounded, floating clear of the top/bottom edges. The left offset (inline) clears the rail. */
+.pxp[data-full="true"] { right: var(--pxs-rail-inset); width: auto; }
+.pxp[data-full="true"] .pxp-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 6px; align-content: start; }
+.pxp-full { display: inline-flex; align-items: center; height: 26px; padding: 0 10px; border: 1px solid var(--pxc-border-subtle);
+  border-radius: var(--a2ui-radius-md); background: none; color: var(--a2ui-text-tertiary); font-family: inherit;
+  font-size: var(--a2ui-text-xs); cursor: pointer; transition: color var(--a2ui-transition-fast), border-color var(--a2ui-transition-fast); }
+.pxp-full:hover { color: var(--a2ui-text-primary); border-color: var(--a2ui-border-default); }
 .pxp { position: absolute; top: 16px; bottom: 16px; z-index: 25; width: 300px;
   display: flex; flex-direction: column; overflow: hidden;
   background: var(--pxc-glass-glow), var(--pxc-bg-glass-20);
@@ -100,6 +106,7 @@ export interface ProjectsPanelProps {
 
 export function ProjectsPanel({ activeId, onClose, onOpenProject, onNewProject, left }: ProjectsPanelProps) {
   const [projects, setProjects] = useState<ProjectRow[]>([]);
+  const [full, setFull] = useState(false); // quick (narrow) vs full (wide), same glass panel
   const [loading, setLoading] = useState(true);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editValue, setEditValue] = useState('');
@@ -158,13 +165,16 @@ export function ProjectsPanel({ activeId, onClose, onOpenProject, onNewProject, 
   };
 
   return (
-    <div className="pxp" style={{ left }}>
+    <div className="pxp" data-full={full ? 'true' : 'false'} style={{ left }}>
       <style>{CSS}</style>
       <div className="pxp-head">
         <span className="pxp-title">Projects</span>
-        <button type="button" className="pxp-x" onClick={onClose} aria-label="Close projects">
-          <Icon name="x" size={15} />
-        </button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          <button type="button" className="pxp-full" onClick={() => setFull((f) => !f)}>{full ? 'Compact' : 'Open full view'}</button>
+          <button type="button" className="pxp-x" onClick={onClose} aria-label="Close projects">
+            <Icon name="x" size={15} />
+          </button>
+        </div>
       </div>
       <button type="button" className="pxp-new" onClick={onNewProject}>
         <Icon name="plus" size={15} /> New project

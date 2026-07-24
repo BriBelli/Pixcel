@@ -40,17 +40,30 @@ const KINDS: { id: 'all' | AssetRow['kind']; label: string }[] = [
 ];
 
 const CSS = `
-/* A large GLASS popover (the full catalog lives inside a glass panel, not a solid full-screen page).
-   Overlays the wall, inset so the digital wall shows through the gaps — same glass as the rail. */
+/* A GLASS popover with two modes: QUICK (compact, a recent strip) and FULL (the whole catalog),
+   both inside the SAME glass panel — "Open full view" just expands it in place. Overlays the wall,
+   inset so the wall shows through the gaps — same glass as the rail. */
 .pxa { position: absolute;
   top: var(--pxs-rail-inset); bottom: var(--pxs-rail-inset);
-  left: var(--pxs-rail-space); right: var(--pxs-rail-inset);
+  left: var(--pxs-rail-space);
   z-index: 20; display: flex; flex-direction: column; overflow: hidden;
   border-radius: 16px;
   background: var(--pxc-glass-glow), var(--pxc-bg-glass-20);
   backdrop-filter: var(--pxc-glass-filter); -webkit-backdrop-filter: var(--pxc-glass-filter);
   border: 1px solid var(--pxc-border-subtle);
   color: var(--a2ui-text-primary); font-family: var(--a2ui-font-family); }
+.pxa[data-full="false"] { width: min(440px, 46vw); }   /* quick view — a narrow glass popover */
+.pxa[data-full="true"]  { right: var(--pxs-rail-inset); } /* full view — expands to fill, in place */
+/* Quick view tightens the chrome (this popover is narrow). */
+.pxa[data-full="false"] .pxa-head { padding: var(--a2ui-space-4) var(--a2ui-space-4) var(--a2ui-space-3); }
+.pxa[data-full="false"] .pxa-bar,
+.pxa[data-full="false"] .pxa-grid-wrap { padding-left: var(--a2ui-space-4); padding-right: var(--a2ui-space-4); }
+.pxa[data-full="false"] .pxa-grid { grid-template-columns: repeat(2, 1fr); }
+.pxa-fulltoggle { display: inline-flex; align-items: center; gap: 6px; height: 34px; padding: 0 12px; flex-shrink: 0;
+  border: 1px solid var(--pxc-border-subtle); border-radius: var(--a2ui-radius-md); background: transparent;
+  color: var(--a2ui-text-secondary); font-family: inherit; font-size: var(--a2ui-text-sm); cursor: pointer;
+  transition: color var(--a2ui-transition-fast), border-color var(--a2ui-transition-fast); }
+.pxa-fulltoggle:hover { color: var(--a2ui-text-primary); border-color: var(--a2ui-border-default); }
 .pxa-head { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--a2ui-space-4);
   padding: var(--a2ui-space-6) var(--a2ui-space-8) var(--a2ui-space-4); }
 .pxa-title { margin: 0; font-size: var(--a2ui-text-2xl); font-weight: var(--a2ui-font-semibold); letter-spacing: -0.01em; }
@@ -162,6 +175,7 @@ export function AssetsCatalog({
   const [query, setQuery] = useState('');
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [dragging, setDragging] = useState(false);
+  const [full, setFull] = useState(false); // quick (compact) vs full (whole catalog), same glass panel
   const fileRef = useRef<HTMLInputElement>(null);
 
   const load = useCallback(async () => {
@@ -215,6 +229,7 @@ export function AssetsCatalog({
   return (
     <div
       className="pxa"
+      data-full={full ? 'true' : 'false'}
       data-drag={dragging ? 'true' : 'false'}
       onDragOver={(e) => {
         e.preventDefault();
@@ -236,25 +251,34 @@ export function AssetsCatalog({
       <div className="pxa-head">
         <div>
           <h1 className="pxa-title">Assets</h1>
-          <p className="pxa-sub">
-            Everything you&rsquo;ve saved, in one place. Tag with flat labels (e.g. Johnny, Jump-Kick, Low-Angle Shot);
-            the workflow picks which assets play which role.
-          </p>
+          {full && (
+            <p className="pxa-sub">
+              Everything you&rsquo;ve saved, in one place. Tag with flat labels (e.g. Johnny, Jump-Kick, Low-Angle Shot);
+              the workflow picks which assets play which role.
+            </p>
+          )}
         </div>
-        <button type="button" className="pxa-add" onClick={() => fileRef.current?.click()}>
-          <Icon name="plus" size={15} /> Add assets
-        </button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--a2ui-space-2)', flexShrink: 0 }}>
+          <button type="button" className="pxa-fulltoggle" onClick={() => setFull((f) => !f)}>
+            {full ? 'Compact' : 'Open full view'}
+          </button>
+          <button type="button" className="pxa-add" onClick={() => fileRef.current?.click()}>
+            <Icon name="plus" size={15} /> Add assets
+          </button>
+        </div>
         <input ref={fileRef} type="file" accept="image/*" multiple style={{ display: 'none' }} onChange={(e) => { uploadFiles(e.target.files); e.target.value = ''; }} />
       </div>
 
       <div className="pxa-bar">
-        <div className="pxa-chips">
-          {KINDS.filter((k) => k.id === 'all' || counts[k.id]).map((k) => (
-            <button key={k.id} type="button" className="pxa-chip" data-on={kind === k.id ? 'true' : 'false'} onClick={() => setKind(k.id)}>
-              {k.label} <span className="pxa-chip-n">{counts[k.id] ?? 0}</span>
-            </button>
-          ))}
-        </div>
+        {full && (
+          <div className="pxa-chips">
+            {KINDS.filter((k) => k.id === 'all' || counts[k.id]).map((k) => (
+              <button key={k.id} type="button" className="pxa-chip" data-on={kind === k.id ? 'true' : 'false'} onClick={() => setKind(k.id)}>
+                {k.label} <span className="pxa-chip-n">{counts[k.id] ?? 0}</span>
+              </button>
+            ))}
+          </div>
+        )}
         <input className="pxa-search" placeholder="Search title, tags, prompt…" value={query} onChange={(e) => setQuery(e.target.value)} />
       </div>
 
@@ -269,7 +293,7 @@ export function AssetsCatalog({
             </div>
           ) : (
             <div className="pxa-grid">
-              {filtered.map((a) => (
+              {(full ? filtered : filtered.slice(0, 8)).map((a) => (
                 <div key={a.id} className="pxa-tile" data-on={selectedId === a.id ? 'true' : 'false'} onClick={() => setSelectedId(a.id)}>
                   <span className="pxa-badge">{a.source === 'upload' ? 'Upload' : a.kind}</span>
                   <div className="pxa-tile-media">

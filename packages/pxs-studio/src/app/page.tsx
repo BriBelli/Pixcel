@@ -306,7 +306,7 @@ export default function Home() {
             {/* BEHIND everything — the ONE persistent DigitalWall (opaque canvas), so it must sit at a
                 NEGATIVE z inside the shell's isolate context or it paints OVER the static nav (a
                 positioned z-0 element paints above static siblings). Scenario-tuned; never re-mounts. */}
-            <div className="pointer-events-none absolute inset-0 -z-10" aria-hidden="true">
+            <div className="pxs-wall pointer-events-none absolute inset-0 -z-10" aria-hidden="true">
               <DigitalWall
                 className="absolute inset-0 h-full w-full"
                 pixels={RES.retro}
@@ -335,7 +335,7 @@ export default function Home() {
                 paddingLeft clears the FLOATING glass rail (which is absolute + overlays), so content
                 auto-adjusts to the nav location instead of hiding beneath it. */}
             <div
-              className="relative z-10 flex-1 min-w-0 h-full"
+              className="pxs-content relative z-10 flex-1 min-w-0 h-full"
               style={{ paddingLeft: 'var(--pxs-rail-space)' }}
             >
               {/* PERSISTENT PROJECT IDENTITY — quiet, always-there, so you always know which project
@@ -343,6 +343,7 @@ export default function Home() {
               {stage === 'chat' && !assetsOpen && projectName && (
                 <button
                   type="button"
+                  className="pxs-project-chip"
                   onClick={() => setProjectsOpen((v) => !v)}
                   title="Projects"
                   style={{
@@ -374,9 +375,9 @@ export default function Home() {
                   <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{projectName}</span>
                 </button>
               )}
-              <div key={stage} style={layerStyle('incoming')}>{renderContent(stage)}</div>
+              <div key={stage} className="pxs-stage" style={layerStyle('incoming')}>{renderContent(stage)}</div>
               {transitioning && outgoing && outgoing !== 'studio' && (
-                <div key={outgoing} style={layerStyle('outgoing')}>{renderContent(outgoing)}</div>
+                <div key={outgoing} className="pxs-stage" style={layerStyle('outgoing')}>{renderContent(outgoing)}</div>
               )}
               {assetsOpen && (
                 <AssetsCatalog onClose={() => setAssetsOpen(false)} onOpenProject={(id) => openProject(id)} />

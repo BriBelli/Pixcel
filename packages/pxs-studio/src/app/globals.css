@@ -30,6 +30,7 @@
   --pxc-glass-base:    28, 28, 35;                        /* = cool-800, a hair lighter than bg-app */
   --pxc-bg-glass-30:   rgba(var(--pxc-glass-base), 0.62); /* slightly transparent frost */
   --pxc-bg-glass-20:   rgba(var(--pxc-glass-base), 0.45); /* very transparent frost */
+  --pxc-bg-glass-10:   rgba(var(--pxc-glass-base), 0.10); /* super transparent melted frost/glass */
   --pxc-border-subtle: rgba(255, 255, 255, 0.05);         /* a whisper edge — not a hard line */
   --pxc-glass-blur:    14px;
   --pxc-glass-filter:  blur(var(--pxc-glass-blur));       /* JUST blur (10–20). Nothing else. */

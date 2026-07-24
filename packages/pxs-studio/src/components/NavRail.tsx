@@ -111,7 +111,7 @@ const RAIL_CSS = `
     position: absolute; top: 0; bottom: 0; left: 0;
     width: var(--pxs-rail-w); z-index: 30;
     padding: var(--pxs-rail-gap);
-    background: var(--pxc-bg-glass-20);
+    background: var(--pxc-bg-glass-10);
     backdrop-filter: var(--pxc-glass-filter); -webkit-backdrop-filter: var(--pxc-glass-filter);
   }
 
@@ -119,7 +119,7 @@ const RAIL_CSS = `
   .pxl-navbtn {
     position: relative; height: 46px;
     color: var(--a2ui-text-tertiary);
-    border: 2px solid transparent; border-radius: var(--a2ui-radius-lg);
+    border: 1px solid transparent; border-radius: var(--a2ui-radius-md);
     transition: color var(--a2ui-transition-fast), background var(--a2ui-transition-fast);
   }
   .pxl-navbtn:hover { color: var(--a2ui-text-secondary); background: var(--a2ui-bg-hover); }
@@ -131,7 +131,7 @@ const RAIL_CSS = `
     backdrop-filter: var(--pxc-glass-filter); -webkit-backdrop-filter: var(--pxc-glass-filter);
   }
   .pxl-navbtn[data-active="true"]::before {
-    content: ''; position: absolute; inset: 0; border-radius: inherit; padding: 2px;
+    content: ''; position: absolute; inset: 0; border-radius: inherit; padding: 1px;
     background: linear-gradient(to bottom, var(--pxs-nav-edge-from), var(--pxs-nav-edge-to));
     -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
     -webkit-mask-composite: xor; mask-composite: exclude;
@@ -194,7 +194,7 @@ export default function NavRail({
       <Ic name={s.icon} size={20} />
       {/* leading-none: an arbitrary text size sets NO line-height, else the label's line box pushes
           the icon+label group off optical centre. */}
-      <span className="text-[10px] font-medium leading-none">{s.label}</span>
+      <span className="pxl-navbtn-label text-[10px] font-medium leading-none">{s.label}</span>
     </button>
   );
   // The rail IS one glass column: MARK (top) · nav items (stacked) · AVATAR (bottom, mt-auto).
@@ -212,14 +212,14 @@ export default function NavRail({
       </button>
 
       {/* TOP group — the creative mediums. */}
-      <div className="flex flex-col items-center gap-1.5">
+      <div className="pxl-rail-group pxl-rail-group--top flex flex-col items-center gap-1.5">
         {SECTIONS_TOP.map(renderItem)}
       </div>
 
       {/* BOTTOM group — Projects · Assets · Avatar, pushed to the foot of the rail (mt-auto). */}
-      <div className="mt-auto flex flex-col items-center gap-1.5">
+      <div className="pxl-rail-group pxl-rail-group--bottom mt-auto flex flex-col items-center gap-1.5">
         {SECTIONS_BOTTOM.map(renderItem)}
-        <div className="pt-1">
+        <div className="pxl-rail-account pt-1">
           <AccountAvatar onOpenSettings={onOpenSettings} />
         </div>
       </div>

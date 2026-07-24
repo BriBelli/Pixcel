@@ -22,18 +22,34 @@
   --pxs-nav-edge-from: var(--pxs-brand-primary);
   --pxs-nav-edge-to:   var(--pxs-brand-secondary);
 
-  /* ── THE GLASS ──────────────────────────────────────────────────────────────────────────────
-     The glass IS the base bg color (carbon), a hair lighter, made transparent + blurred — so it
-     blends with the background (same hues) yet lifts. That's the whole trick; no glow/saturate.
-     Two shades: -30 slightly transparent, -20 very transparent. Tune the tone by nudging
-     --pxc-glass-base a hair lighter/darker; tune the see-through by the alpha on each shade. */
-  --pxc-glass-base:    28, 28, 35;                        /* = cool-800, a hair lighter than bg-app */
-  --pxc-bg-glass-30:   rgba(var(--pxc-glass-base), 0.62); /* slightly transparent frost */
-  --pxc-bg-glass-20:   rgba(var(--pxc-glass-base), 0.45); /* very transparent frost */
-  --pxc-bg-glass-10:   rgba(var(--pxc-glass-base), 0.10); /* super transparent melted frost/glass */
-  --pxc-border-subtle: rgba(255, 255, 255, 0.05);         /* a whisper edge — not a hard line */
-  --pxc-glass-blur:    14px;
-  --pxc-glass-filter:  blur(var(--pxc-glass-blur));       /* JUST blur (10–20). Nothing else. */
+  /* ═══════════ THE GLASS RECIPE — 5 EXPLICIT DIALS. Tune each LIVE in the viewer. ═══════════════
+     Same relationships as the reference, in OUR neutral hue (not slate-blue). The app's base bg,
+     the glass, the stroke and the text all DERIVE from these — turn a dial, the system follows.
+     Reference for parity: base #111827 · glass rgba(17,24,39,0.7) · stroke #1f2937 · text
+     #e8eded/#9ca3af · blur 15px. Ours mirrors that in neutral greys. */
+
+  /* ① BASE BACKGROUND — the canvas (rgb). DARKER → the stroke pops harder. Drives --a2ui-cool-900. */
+  --pxc-bg-rgb:        19, 19, 22;                        /* #131316 — neutral, a touch darker */
+
+  /* ② STROKE — a hair LIGHTER than the base, so it reads as a sharp cut line on the darker bg. */
+  --pxc-stroke:        #34363b;                           /* your 54,57,61 idea, our grey */
+
+  /* ③ TEXT — default near-white + a muted grey. Drives --a2ui-text-primary / -secondary. */
+  --pxc-text:          #e8eded;
+  --pxc-text-muted:    #9ca3af;
+
+  /* ④ GLASS / FROST — the BASE color made translucent: it blends (same hue) and lifts via blur. */
+  --pxc-bg-glass-30:   rgba(var(--pxc-bg-rgb), 0.70);     /* slightly transparent (panels/rail-active) */
+  --pxc-bg-glass-20:   rgba(var(--pxc-bg-rgb), 0.55);     /* very transparent (overlays) */
+  --pxc-bg-glass-10:   rgba(var(--pxc-bg-rgb), 0.30);     /* super transparent (whisper) */
+
+  /* ⑤ BLUR. */
+  --pxc-blur:          15px;
+
+  /* ── wiring: the token names components already use, pointed at the dials (do not hard-code) ── */
+  --pxc-border-subtle: var(--pxc-stroke);
+  --pxc-glass-blur:    var(--pxc-blur);
+  --pxc-glass-filter:  blur(var(--pxc-blur));
 
   /* Floating-rail geometry — one source of truth so the content behind can pad itself clear. */
   --pxs-rail-w:     60px;

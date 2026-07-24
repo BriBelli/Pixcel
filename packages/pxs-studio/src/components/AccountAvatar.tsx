@@ -77,7 +77,7 @@ const CSS = `
   .pxs-acct-pop {
     position: absolute; bottom: 0; left: calc(100% + 12px); width: 260px;
     z-index: 70;
-    background: var(--pxc-glass-glow), var(--pxc-bg-glass-20);
+    background: var(--pxc-bg-glass-20);
     backdrop-filter: var(--pxc-glass-filter); -webkit-backdrop-filter: var(--pxc-glass-filter);
     border: 1px solid var(--pxc-border-subtle); border-radius: var(--a2ui-radius-xl);
     box-shadow: none; padding: var(--a2ui-space-2);

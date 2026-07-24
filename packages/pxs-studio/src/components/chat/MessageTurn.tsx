@@ -92,7 +92,7 @@ const CSS = `
   max-width: min(600px, 100%);
   padding: var(--a2ui-space-3) var(--a2ui-space-4);
   /* Subtle GLASS — almost part of the background: frosted, no coral. Double-click to expand. */
-  background: var(--pxc-glass-glow), var(--pxc-bg-glass-20); color: var(--a2ui-text-primary);
+  background: var(--pxc-bg-glass-20); color: var(--a2ui-text-primary);
   backdrop-filter: var(--pxc-glass-filter); -webkit-backdrop-filter: var(--pxc-glass-filter);
   border: 1px solid var(--pxc-border-subtle);
   border-radius: var(--a2ui-radius-xl);

@@ -48,7 +48,7 @@ const CSS = `
   left: var(--pxs-rail-space);
   z-index: 20; display: flex; flex-direction: column; overflow: hidden;
   border-radius: 16px;
-  background: var(--pxc-glass-glow), var(--pxc-bg-glass-20);
+  background: var(--pxc-bg-glass-20);
   backdrop-filter: var(--pxc-glass-filter); -webkit-backdrop-filter: var(--pxc-glass-filter);
   border: 1px solid var(--pxc-border-subtle);
   color: var(--a2ui-text-primary); font-family: var(--a2ui-font-family); }

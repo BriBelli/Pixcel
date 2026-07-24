@@ -113,7 +113,6 @@ const RAIL_CSS = `
     width: var(--pxs-rail-w); z-index: 30;
     border-radius: 16px;
     padding: 12px 0;
-    background: var(--pxc-glass-glow), var(--pxc-bg-glass-30);
     backdrop-filter: var(--pxc-glass-filter);
     -webkit-backdrop-filter: var(--pxc-glass-filter);
   }
@@ -128,7 +127,7 @@ const RAIL_CSS = `
      trick can't — it needs an opaque inner). Gradient tokenised (--pxs-nav-edge-*). */
   .pxl-navbtn[data-active="true"] {
     color: var(--a2ui-text-primary);
-    background: var(--pxc-glass-glow), var(--pxc-bg-glass-30);
+    background: var(--pxc-bg-glass-30);
     backdrop-filter: var(--pxc-glass-filter); -webkit-backdrop-filter: var(--pxc-glass-filter);
   }
   .pxl-navbtn[data-active="true"]::before {

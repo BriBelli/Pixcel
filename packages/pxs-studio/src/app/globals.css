@@ -38,6 +38,13 @@
   --pxc-bg-glass-20:   rgba(var(--pxc-glass-base), 0.05); /* default overlay weight (tested) */
   --pxc-border-subtle: rgba(var(--pxc-glass-base), 0.08);
   --pxc-glass-blur:    15px;
+  /* The frost catches LIGHT + COLOR, not grey: blur + saturate (colors behind pop through) +
+     brightness (icy, not muddy). ONE token → every glass surface identical. (Do not remove — every
+     glass backdrop-filter references it; if it's gone, all blur silently disappears.) */
+  --pxc-glass-filter:  blur(var(--pxc-glass-blur)) saturate(1.6) brightness(1.12);
+  /* A soft brand luminance bleeding into the glass (top-left), like light hitting ice. Subtle.
+     (Do not remove — glass backgrounds layer this; if it's gone, the whole background is invalid.) */
+  --pxc-glass-glow:    radial-gradient(130% 100% at 22% -25%, rgba(var(--pxc-violet-rgb), 0.11), transparent 55%);
 
   /* Floating-rail geometry — one source of truth so the content behind can pad itself clear. */
   --pxs-rail-w:     60px;

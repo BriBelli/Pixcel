@@ -38,12 +38,7 @@ function PixcelMark({ size = 22 }: { size?: number }) {
   );
 }
 
-type IconName =
-  | "chat"
-  | "image"
-  | "video"
-  | "projects"
-  | "assets";
+type IconName = "chat" | "image" | "video" | "projects" | "assets";
 
 const PATHS: Record<IconName, string[]> = {
   chat: ["M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"],
@@ -59,7 +54,9 @@ const PATHS: Record<IconName, string[]> = {
     "m21 15-5-5L5 21",
   ],
   // Lucide `folder` — the Projects panel entry (a real nav item, not a toggle chevron).
-  projects: ["M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2z"],
+  projects: [
+    "M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2z",
+  ],
 };
 
 function Ic({ name, size = 20 }: { name: IconName; size?: number }) {
@@ -117,8 +114,8 @@ const RAIL_CSS = `
     border-radius: 16px;
     padding: 12px 0;
     background: var(--pxc-glass-glow), var(--pxc-bg-glass-30);
-    backdrop-filter: var(--pxc-glass-filter); -webkit-backdrop-filter: var(--pxc-glass-filter);
-    border: 1px solid var(--pxc-border-subtle);
+    backdrop-filter: var(--pxc-glass-filter);
+    -webkit-backdrop-filter: var(--pxc-glass-filter);
   }
   .pxl-navbtn { color: var(--a2ui-text-tertiary); border: 2px solid transparent; border-radius: var(--a2ui-radius-lg); transition: color var(--a2ui-transition-fast), background var(--a2ui-transition-fast); position: relative; }
   /* ONE shared height for every rail button so the label-less Projects control lines up EXACTLY
@@ -185,7 +182,9 @@ export default function NavRail({
     <button
       key={s.id}
       onClick={() => handleSection(s.id)}
-      data-active={s.id === "projects" ? Boolean(projectsOpen) : s.id === activeSection}
+      data-active={
+        s.id === "projects" ? Boolean(projectsOpen) : s.id === activeSection
+      }
       title={s.label}
       className="pxl-navbtn flex flex-col items-center justify-center gap-0.5 w-12"
     >

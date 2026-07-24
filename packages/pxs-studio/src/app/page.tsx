@@ -312,7 +312,7 @@ export default function Home() {
                 pixels={RES.retro}
                 showLogo={wallLogo}
                 logoScale={0.25}
-                intensity={wallLogo ? 0.14 : 0.02}
+                intensity={wallLogo ? 0.2 : 0.14}
                 onLogoLayout={wallLogo ? handleLogoLayout : undefined}
               />
             </div>

@@ -105,26 +105,26 @@ const SECTIONS_BOTTOM: NavItem[] = [
    splash's own inline <style> (which scopes under .pxl-root). */
 const RAIL_CSS = `
   .pxl-rail-scope { font-family: var(--a2ui-font-family); -webkit-font-smoothing: antialiased; }
-  /* The rail is a frosted GLASS column. It needs a FILL (not just blur) — blur alone over the flat
-     dark wall is invisible; the light frost + luminance glow is what you actually see. */
+
+  /* The rail — a frosted-glass column (carbon-matched fill + blur). */
   .pxl-rail {
-    position: absolute;
-    top: var(--pxs-rail-inset); bottom: var(--pxs-rail-inset); left: var(--pxs-rail-inset);
+    position: absolute; top: 0; bottom: 0; left: 0;
     width: var(--pxs-rail-w); z-index: 30;
-    border-radius: 16px;
-    padding: 12px 0;
-    backdrop-filter: var(--pxc-glass-filter);
-    -webkit-backdrop-filter: var(--pxc-glass-filter);
+    padding: var(--pxs-rail-gap);
+    background: var(--pxc-bg-glass-20);
+    backdrop-filter: var(--pxc-glass-filter); -webkit-backdrop-filter: var(--pxc-glass-filter);
   }
-  .pxl-navbtn { color: var(--a2ui-text-tertiary); border: 2px solid transparent; border-radius: var(--a2ui-radius-lg); transition: color var(--a2ui-transition-fast), background var(--a2ui-transition-fast); position: relative; }
-  /* ONE shared height for every rail button so the label-less Projects control lines up EXACTLY
-     with the labelled section items (py-2 + icon 20 + gap 4 + 10px label ≈ 52px). Both reference
-     this single rule, so they can never drift apart. */
-  .pxl-navbtn { height: 46px; }
+
+  /* Nav item — ONE rule. The 2px transparent border reserves the active gradient ring's space. */
+  .pxl-navbtn {
+    position: relative; height: 46px;
+    color: var(--a2ui-text-tertiary);
+    border: 2px solid transparent; border-radius: var(--a2ui-radius-lg);
+    transition: color var(--a2ui-transition-fast), background var(--a2ui-transition-fast);
+  }
   .pxl-navbtn:hover { color: var(--a2ui-text-secondary); background: var(--a2ui-bg-hover); }
-  /* Active: FROSTED GLASS fill (the pulsing wall shows through the blur) + a 2px brand-gradient
-     ring. The ring is a masked ::before so the fill can stay translucent glass (the background-clip
-     trick can't — it needs an opaque inner). Gradient tokenised (--pxs-nav-edge-*). */
+
+  /* Active item — glass chip + a 2px brand-gradient ring (masked ::before, so the fill stays glass). */
   .pxl-navbtn[data-active="true"] {
     color: var(--a2ui-text-primary);
     background: var(--pxc-bg-glass-30);
@@ -137,9 +137,13 @@ const RAIL_CSS = `
     -webkit-mask-composite: xor; mask-composite: exclude;
     pointer-events: none;
   }
-  .pxl-rail-mark { color: var(--a2ui-text-primary); border-radius: var(--a2ui-radius-lg); transition: color var(--a2ui-transition-fast), background var(--a2ui-transition-fast); }
-  .pxl-rail-mark:hover { color: var(--a2ui-text-primary); background: var(--a2ui-bg-hover); }
 
+  /* Logo mark. */
+  .pxl-rail-mark {
+    color: var(--a2ui-text-primary); border-radius: var(--a2ui-radius-lg);
+    transition: color var(--a2ui-transition-fast), background var(--a2ui-transition-fast);
+  }
+  .pxl-rail-mark:hover { color: var(--a2ui-text-primary); background: var(--a2ui-bg-hover); }
 `;
 
 interface NavRailProps {

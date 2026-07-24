@@ -1,7 +1,7 @@
 /* Canonical Pixcel/A2UI design tokens (Claude Design) — tokens.css declares --a2ui-* / --pxs-* + IBM Plex.
    A1 (global token foundation): the legacy palette names below are now ALIASES onto those tokens, so the
-   whole app renders on the design system (warm charcoal + soft Google-blue + IBM Plex) while every existing
-   `bg-background-*` / `text-*` / `border` class keeps working untouched. */
+   whole app renders on the design system (carbon greys + the coral/violet brand pair + IBM Plex) while
+   every existing `bg-background-*` / `text-*` / `border` class keeps working untouched. */
 @import './tokens.css';
 
 /* ── Brand color exception — carried from the old Pixcel design. Deliberate deviation
@@ -22,16 +22,12 @@
   --pxs-nav-edge-from: var(--pxs-brand-primary);
   --pxs-nav-edge-to:   var(--pxs-brand-secondary);
 
-  /* ── THE GLASS — Brian's EXACT tested CSS, nothing added. ───────────────────────────────────
-     background: rgba(17,24,39, X) (dark slate), backdrop-filter: blur(15px) ONLY (no saturate/
-     brightness/glow), border: 1px #1f2937, box-shadow: none. The frost reads because CONTENT shows
-     through the blur — not from tricks. Do NOT layer glows or filters; that's what turned it to
-     grey mush. */
-  /* THE TECHNIQUE (Brian): the glass is the BASE BG COLOR (carbon), a hair lighter, made
-     transparent + blurred. It MATCHES the background so it blends (same hues) yet lifts. Slate
-     (17,24,39) was the mismatch that turned it grey. Two shades: 30 = slightly transparent,
-     20 = very transparent. Tune the tone by nudging --pxc-glass-base a hair lighter/darker. */
-  --pxc-glass-base:    28, 28, 31;                        /* = cool-800, a hair lighter than bg-app */
+  /* ── THE GLASS ──────────────────────────────────────────────────────────────────────────────
+     The glass IS the base bg color (carbon), a hair lighter, made transparent + blurred — so it
+     blends with the background (same hues) yet lifts. That's the whole trick; no glow/saturate.
+     Two shades: -30 slightly transparent, -20 very transparent. Tune the tone by nudging
+     --pxc-glass-base a hair lighter/darker; tune the see-through by the alpha on each shade. */
+  --pxc-glass-base:    28, 28, 35;                        /* = cool-800, a hair lighter than bg-app */
   --pxc-bg-glass-30:   rgba(var(--pxc-glass-base), 0.62); /* slightly transparent frost */
   --pxc-bg-glass-20:   rgba(var(--pxc-glass-base), 0.45); /* very transparent frost */
   --pxc-border-subtle: rgba(255, 255, 255, 0.05);         /* a whisper edge — not a hard line */
@@ -62,13 +58,13 @@
 
 @layer base {
   :root {
-    /* Backgrounds — charcoal elevations (was GitHub #0d1117 family) */
+    /* Backgrounds — carbon-grey elevations. */
     --background-primary:   var(--a2ui-bg-app);
     --background-secondary: var(--a2ui-bg-secondary);
     --background-tertiary:  var(--a2ui-bg-tertiary);
     --background-overlay:   var(--a2ui-bg-elevated);
 
-    /* Borders — alpha-on-surface (was solid #30363d) */
+    /* Borders. */
     --border:       var(--a2ui-border-default);
     --border-hover: var(--a2ui-accent);
 
@@ -77,7 +73,7 @@
     --text-secondary: var(--a2ui-text-secondary);
     --text-muted:     var(--a2ui-text-tertiary);
 
-    /* Accent — soft Google-blue; purple retired to the single accent */
+    /* Accent — the coral/violet brand pair (see tokens.css). */
     --primary:       var(--a2ui-accent);
     --primary-dark:  var(--a2ui-accent-active);
     --accent-green:  var(--a2ui-success);
@@ -101,9 +97,8 @@
 
 /* Custom scrollbar */
 @layer components {
-  /* THE glass surface — Brian's exact tested pattern. Used on EVERYTHING persistent (rail, avatar,
-     popovers, panels). Semi-opaque dark fill + backdrop-blur + a subtle sharp border, no shadow.
-     Set border-radius per element. This is the ONLY panel treatment — surfaces overlay, never box. */
+  /* The shared glass surface — carbon-matched translucent fill + blur + a whisper border. Set
+     border-radius per element. (Most surfaces set the tokens inline; this is the convenience class.) */
   .pxc-glass {
     background: var(--pxc-bg-glass-30);
     backdrop-filter: blur(var(--pxc-glass-blur));
@@ -114,9 +109,8 @@
   /* The brand GRADIENT as a fill — POP/ACTION ONLY (buttons, clickable CTAs). Never on a panel. */
   .pxs-brand-fill { background: linear-gradient(135deg, var(--pxs-brand-primary), var(--pxs-brand-secondary)); }
 
-  /* BENTO CARD — the content-tile primitive. A slightly-lifted dark surface with the
-     subtle #1f2937 cut-edge and GENEROUS padding. Solid (not glass): cards are content, glass is
-     for overlays. Use for stat tiles, chart containers, result tiles, guide panels. */
+  /* BENTO CARD — the content-tile primitive: a slightly-lifted SOLID surface (cards are content;
+     glass is for overlays) with the whisper border + generous padding. Stat tiles, charts, guides. */
   .pxc-card {
     background: var(--a2ui-bg-secondary);
     border: 1px solid var(--pxc-border-subtle);

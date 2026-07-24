@@ -24,13 +24,20 @@ const CSS = `
   font-weight: var(--a2ui-font-medium, 500);
   letter-spacing: -0.02em; line-height: var(--a2ui-leading-tight);
   color: var(--a2ui-text-primary); margin: 0;
+  /* Break lines by measure, not by whatever the container width happens to be. */
+  text-wrap: balance;
+  -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale;
 }
 .pxs-hero-sub {
   font-size: clamp(1.125rem, 0.95rem + 0.6vw, 1.375rem); /* ~18 → 22px */
   font-weight: var(--a2ui-font-normal, 400);
   color: var(--a2ui-text-secondary);
-  letter-spacing: 0.02em;
+  /* Slightly NEGATIVE. Positive tracking on 22px copy spreads it and reads limp/dead — the
+     larger the type, the tighter it wants to be. */
+  letter-spacing: -0.005em;
   line-height: 1.45; margin: var(--a2ui-space-1) 0 0; max-width: 44ch;
+  text-wrap: balance;
+  -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale;
 }
 /* compact — the workspace empty state (shares the frame with panels) */
 .pxs-hero-title--sm { font-size: clamp(1.5rem, 1.15rem + 1.4vw, 2rem); } /* ~24 → 32px */

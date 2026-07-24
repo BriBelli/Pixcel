@@ -156,7 +156,6 @@ export default function Home() {
   const activeMedium = useChatTurnsStore((s) => s.activeMedium);
   const setActiveMedium = useChatTurnsStore((s) => s.setActiveMedium);
   const loadThread = useChatTurnsStore((s) => s.loadThread);
-  const enterSection = useChatTurnsStore((s) => s.enterSection);
   const resetChat = useChatTurnsStore((s) => s.reset);
   const activeThreadId = useChatTurnsStore((s) => s.threadId);
   const threadTitle = useChatTurnsStore((s) => s.threadTitle);
@@ -255,7 +254,10 @@ export default function Home() {
     if (id === 'assets') { if (stage === 'splash') transitionTo('chat'); setProjectsOpen(false); setAssetsOpen(true); return; }
     setAssetsOpen(false);
     const medium = id === 'image' || id === 'video' ? id : 'chat';
-    enterSection(medium);
+    // Switch the CURRENT PROJECT'S VIEW to this section (Chat = conversation, Image/Video = that
+    // IDE). Keep the project state — do NOT drop the frame; that's what was forcing everything back
+    // to Chat. If there's no project, the section shows its fresh/empty state.
+    setActiveMedium(medium);
     if (stage !== 'chat') transitionTo('chat');
   };
 

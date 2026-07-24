@@ -106,12 +106,15 @@ const SECTIONS_BOTTOM: NavItem[] = [
 const RAIL_CSS = `
   .pxl-rail-scope { font-family: var(--a2ui-font-family); -webkit-font-smoothing: antialiased; }
 
-  /* The rail — a frosted-glass column (carbon-matched fill + blur). */
+  /* The rail — a frosted-glass column (base-matched fill + blur). The right-edge hairline is what
+     makes it read as a SURFACE: glass with no stroke is just a blurred nothing, and over a living
+     backdrop it disappears entirely. */
   .pxl-rail {
     position: absolute; top: 0; bottom: 0; left: 0;
     width: var(--pxs-rail-w); z-index: 30;
     padding: var(--pxs-rail-gap);
-    background: var(--pxc-bg-glass-10);
+    background: var(--pxc-bg-glass-veil);
+    border-right: 1px solid var(--pxc-stroke-subtle);
     backdrop-filter: var(--pxc-glass-filter); -webkit-backdrop-filter: var(--pxc-glass-filter);
   }
 
@@ -122,12 +125,16 @@ const RAIL_CSS = `
     border: 1px solid transparent; border-radius: var(--a2ui-radius-md);
     transition: color var(--a2ui-transition-fast), background var(--a2ui-transition-fast);
   }
-  .pxl-navbtn:hover { color: var(--a2ui-text-secondary); background: var(--a2ui-bg-hover); }
+  .pxl-navbtn:hover { color: var(--a2ui-text-primary); background: var(--a2ui-bg-hover); }
+
+  /* 10px was below the legibility floor for this weight/color pairing. 11px + the brighter dim
+     token + a touch of positive tracking (small type wants the opposite of large type). */
+  .pxl-navbtn-label { font-size: 11px; letter-spacing: 0.01em; }
 
   /* Active item — glass chip + a 2px brand-gradient ring (masked ::before, so the fill stays glass). */
   .pxl-navbtn[data-active="true"] {
     color: var(--a2ui-text-primary);
-    background: var(--pxc-bg-glass-30);
+    background: var(--pxc-bg-glass-frost);
     backdrop-filter: var(--pxc-glass-filter); -webkit-backdrop-filter: var(--pxc-glass-filter);
   }
   .pxl-navbtn[data-active="true"]::before {
@@ -192,9 +199,9 @@ export default function NavRail({
       className="pxl-navbtn flex flex-col items-center justify-center gap-0.5 w-12"
     >
       <Ic name={s.icon} size={20} />
-      {/* leading-none: an arbitrary text size sets NO line-height, else the label's line box pushes
-          the icon+label group off optical centre. */}
-      <span className="pxl-navbtn-label text-[10px] font-medium leading-none">{s.label}</span>
+      {/* leading-none: the label's line box would otherwise push the icon+label group off optical
+          centre. Size/tracking live in .pxl-navbtn-label. */}
+      <span className="pxl-navbtn-label font-medium leading-none">{s.label}</span>
     </button>
   );
   // The rail IS one glass column: MARK (top) · nav items (stacked) · AVATAR (bottom, mt-auto).

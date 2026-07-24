@@ -22,7 +22,17 @@ const CSS = `
 /* Optical centering: a programmatic center reads as "sinking" to the eye. translateY(-50%)
    nudges the block up by HALF ITS OWN HEIGHT (transform %s resolve against the element's own
    size, unlike margin %s which resolve against the parent's WIDTH) — dynamic, no magic number. */
-.pxs-greet { display: flex; flex-direction: column; align-items: center; text-align: center; gap: var(--a2ui-space-2); transform: translateY(-50%); }
+.pxs-greet { position: relative; display: flex; flex-direction: column; align-items: center; text-align: center; gap: var(--a2ui-space-2); transform: translateY(-50%); }
+/* SCRIM — the backdrop dips where the type sits. The DigitalWall is a living surface, so without
+   this the hero competes with the ambient for contrast and reads flat no matter how the type is
+   tuned. Pure base color at varying alpha (not a tint), so it darkens without shifting hue. */
+.pxs-greet::before {
+  content: ''; position: absolute; inset: -60% -25%; z-index: -1; pointer-events: none;
+  background: radial-gradient(58% 46% at 50% 50%,
+    rgba(var(--pxc-glass-rgb), 0.88) 0%,
+    rgba(var(--pxc-glass-rgb), 0.60) 46%,
+    rgba(var(--pxc-glass-rgb), 0)    78%);
+}
 /* The title + subtitle lockup is the shared <GreetingHero> (tune the type there — universal). */
 .pxs-greet-chips { display: flex; flex-wrap: wrap; justify-content: center; gap: var(--a2ui-space-2); margin-top: var(--a2ui-space-2); }
 .pxs-greet-chip {

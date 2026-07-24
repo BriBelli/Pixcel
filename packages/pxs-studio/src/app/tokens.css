@@ -12,17 +12,21 @@
  * is a later, deliberate step. See docs/UNIFICATION-LOG.md.
  * =========================================================== */
 
-@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap');
+/* Fonts are self-hosted through next/font in app/layout.tsx (--font-plex-sans / --font-plex-mono).
+   The former CDN @import here was render-blocking and flashed Helvetica on first paint. */
 
 /* Tier 1 — Primitives */
 :root {
-  --a2ui-cool-950: #111113;
-  --a2ui-cool-900: #131316;  /* dial ① — base canvas (glass recipe) */
-  --a2ui-cool-800: #1c1c1f;
-  --a2ui-cool-700: #232326;
-  --a2ui-cool-600: #2a2a2e;
-  --a2ui-cool-500: #35353b;
-  --a2ui-cool-400: #43434b;
+  /* The dark end of the ramp IS dial ① (declared in globals.css) — one source of truth for the
+     base surfaces, so tuning the dial moves the whole app. The lighter steps continue the same
+     neutral-cool hue. */
+  --a2ui-cool-950: #0b0b0e;
+  --a2ui-cool-900: var(--pxc-bg-base);      /* dial ① — base canvas */
+  --a2ui-cool-800: var(--pxc-bg-raise-1);   /* dial ① — cards / tiles */
+  --a2ui-cool-700: var(--pxc-bg-raise-2);   /* dial ① — inputs / elevated chrome */
+  --a2ui-cool-600: #26262e;
+  --a2ui-cool-500: #31313a;
+  --a2ui-cool-400: #40404a;
   --a2ui-cool-300: #55555f;
   --a2ui-cool-200: #6e6e78;
   --a2ui-cool-100: #8a8a94;
@@ -46,9 +50,10 @@
   --pxs-brand-primary:   var(--pxc-coral-500);
   --pxs-brand-secondary: var(--pxc-violet-500);
 
-  --a2ui-glass-dark:   rgba(18, 18, 22, 0.82);
-  --a2ui-glass-medium: rgba(18, 18, 22, 0.70);
-  --a2ui-glass-menu:   rgba(22, 22, 26, 0.97);
+  /* Glass is dial ④ — the fill is the base rgb, never lighter. */
+  --a2ui-glass-dark:   var(--pxc-bg-glass-frost);
+  --a2ui-glass-medium: var(--pxc-bg-glass-ice);
+  --a2ui-glass-menu:   rgba(var(--pxc-glass-rgb), 0.97);
 }
 
 /* Tier 2 — Semantic (Dark, default) */
@@ -64,11 +69,12 @@
   --a2ui-bg-hover:       rgba(255, 255, 255, 0.06);
   --a2ui-bg-active:      rgba(255, 255, 255, 0.10);
 
-  --a2ui-text-primary:   #e8eded;  /* dial ③ — default text */
-  --a2ui-text-secondary: #9ca3af;  /* dial ③ — muted text */
-  --a2ui-text-tertiary:  #6e727b;               /* a touch brighter than before (was #636370) */
-  --a2ui-text-disabled:  #49494f;
-  --a2ui-text-inverse:   #1c1c1f;
+  /* Text is dial ③ (globals.css) — one source of truth. */
+  --a2ui-text-primary:   var(--pxc-text);
+  --a2ui-text-secondary: var(--pxc-text-muted);
+  --a2ui-text-tertiary:  var(--pxc-text-dim);
+  --a2ui-text-disabled:  var(--pxc-text-disabled);
+  --a2ui-text-inverse:   #17171d;
 
   --a2ui-accent:         var(--pxs-brand-primary);
   --a2ui-accent-hover:   var(--pxc-coral-400);
@@ -88,9 +94,14 @@
   --a2ui-info:       var(--pxs-brand-secondary);
   --a2ui-info-bg:    rgba(var(--pxc-violet-rgb), 0.15);
 
-  --a2ui-border-default: rgba(255, 255, 255, 0.12);
-  --a2ui-border-strong:  rgba(255, 255, 255, 0.18);
-  --a2ui-border-subtle:  rgba(255, 255, 255, 0.08);
+  /* Chrome strokes are dial ② — OPAQUE and hue-matched. Deliberate deviation from the DS
+     "alpha-on-current-surface" border rule (§3/§11): alpha-white is hueless, so over a lit
+     backdrop (the DigitalWall) it dissolves and every edge reads as absent. The reference this
+     surface is modelled on uses an opaque #1f2937 for exactly this reason. Dark theme only —
+     light theme below keeps alpha-black, which works there. */
+  --a2ui-border-default: var(--pxc-stroke);
+  --a2ui-border-strong:  var(--pxc-stroke-strong);
+  --a2ui-border-subtle:  var(--pxc-stroke-subtle);
 
   --a2ui-shadow-sm: 0 1px 2px  rgba(0, 0, 0, 0.4);
   --a2ui-shadow-md: 0 2px 6px  rgba(0, 0, 0, 0.5);
@@ -154,14 +165,14 @@
   --pxs-bg-host:       var(--a2ui-cool-800);
   --pxs-bg-chrome:     var(--a2ui-cool-700);
   --pxs-bg-canvas:     var(--a2ui-cool-900);
-  --pxs-border:        var(--a2ui-cool-500);
-  --pxs-border-subtle: rgba(255, 255, 255, 0.08);
+  --pxs-border:        var(--pxc-stroke-strong);
+  --pxs-border-subtle: var(--pxc-stroke-subtle);
   --pxs-glass:         var(--a2ui-glass-dark);
-  --pxs-glass-border:  rgba(255, 255, 255, 0.12);
+  --pxs-glass-border:  var(--pxc-stroke);
   --pxs-glass-menu:    var(--a2ui-glass-menu);
   --pxs-text:          var(--a2ui-text-primary);
-  --pxs-text-muted:    rgba(255, 255, 255, 0.55);
-  --pxs-text-dim:      rgba(255, 255, 255, 0.35);
+  --pxs-text-muted:    var(--pxc-text-muted);
+  --pxs-text-dim:      var(--pxc-text-dim);
   --pxs-accent:        var(--a2ui-accent);
   --pxs-accent-hover:  var(--a2ui-accent-active);
   --pxs-accent-subtle: var(--a2ui-accent-subtle);
@@ -171,8 +182,8 @@
 
 /* Typography + scale */
 :root {
-  --a2ui-font-family: 'IBM Plex Sans', -apple-system, BlinkMacSystemFont, 'Helvetica Neue', Helvetica, Arial, sans-serif;
-  --a2ui-font-mono:   'IBM Plex Mono', 'SF Mono', Menlo, Consolas, monospace;
+  --a2ui-font-family: var(--font-plex-sans), 'IBM Plex Sans', -apple-system, BlinkMacSystemFont, 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  --a2ui-font-mono:   var(--font-plex-mono), 'IBM Plex Mono', 'SF Mono', Menlo, Consolas, monospace;
 
   --a2ui-text-xs:  11px;  --a2ui-text-sm:  12px;  --a2ui-text-md:  14px;
   --a2ui-text-lg:  16px;  --a2ui-text-xl:  18px;  --a2ui-text-2xl: 22px;  --a2ui-text-3xl: 28px;

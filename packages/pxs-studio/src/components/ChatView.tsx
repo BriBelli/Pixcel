@@ -174,11 +174,11 @@ export default function ChatView({ initialPrompt }: Props) {
     [send]
   );
 
-  // CHAT-FIRST: every section STARTS as the conversation (the Operator), never as a bare IDE. The
-  // workspace/IDE surfaces only once a workflow is actually IN FLIGHT — i.e. a TRANSFER captured an
-  // `activeFrame`. Selecting Image/Video from the nav alone lands you at the Operator's root for that
-  // section (section-aware, project state intact); it must NOT drop you into an empty IDE stage.
-  const inWorkspace = activeMedium !== 'chat' && activeFrame != null;
+  // The section IS the view of the current project: Image/Video → that IDE, Chat → the conversation.
+  // Show the workspace/IDE whenever you're in an Image/Video section AND there's a PROJECT to show
+  // (a live frame OR existing turns). Fresh / no-project → the section's empty greeting instead of a
+  // bare IDE. (Clicking Image on a loaded project must show the Image view, not fall back to Chat.)
+  const inWorkspace = activeMedium !== 'chat' && (activeFrame != null || turns.length > 0);
   const workspaceMedium: 'image' | 'video' = activeMedium === 'video' ? 'video' : 'image';
 
   // Every generated image across the conversation, newest first — the workspace stage's content.

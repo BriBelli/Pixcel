@@ -22,29 +22,55 @@
   --pxs-nav-edge-from: var(--pxs-brand-primary);
   --pxs-nav-edge-to:   var(--pxs-brand-secondary);
 
-  /* ═══════════ THE GLASS RECIPE — the dials. Tune each LIVE in the viewer. ══════════════════════
-     Mirrors the reference (base #111827 · glass rgba(17,24,39,0.7) · stroke #1f2937 · text
-     #e8eded/#9ca3af · blur 15px) in OUR neutral greys.
-       ① BASE BG + ③ TEXT live in tokens.css (--a2ui-cool-900 / --a2ui-text-primary,-secondary) —
-          kept as direct hexes so nothing can go invalid. ② ④ ⑤ are here. */
+  /* ═══════════ THE RECIPE — FIVE DIALS. Tune each LIVE in the viewer; they are independent.
+     Same RELATIONSHIPS as the reference (base #111827 · stroke #1f2937 · glass = base rgb @ 0.7 ·
+     text #e8eded/#9ca3af · blur 15px), rebuilt in OUR neutral-cool hue. The reference's magic is
+     the relationships, not the hexes: an OPAQUE hue-matched stroke a hair lighter than the base,
+     and a glass fill that IS the base rgb. Alpha-white strokes are hueless and wash out over any
+     lit backdrop — that is what made this read dead.
+     ① and ③ are consumed by tokens.css (Tier 2 points --a2ui-* at them). ② ④ ⑤ are used directly. */
 
-  /* ② STROKE — a hair LIGHTER than the base, so it reads as a sharp cut line on the dark bg. */
-  --pxc-stroke:        #34363b;
+  /* ① BASE — the canvas. Deep neutral with a ~4-point blue lean. Never pure grey (pure grey is
+       what reads "dead"), never warm (warm + dark = mud). */
+  --pxc-bg-base:       #101014;
+  --pxc-bg-raise-1:    #17171d;   /* solid cards / tiles */
+  --pxc-bg-raise-2:    #1f1f26;   /* inputs, elevated chrome */
 
-  /* ④ GLASS / FROST — a HAIR LIGHTER than the base (32,32,38 vs base 19,19,22) so panels LIFT off
-       the bg, then translucent + blur = frost. (Exact-match with the bg made them invisible.) */
-  --pxc-glass-rgb:     32, 32, 38;
-  --pxc-bg-glass-30:   rgba(var(--pxc-glass-rgb), 0.72);  /* slightly transparent (panels/rail-active) */
-  --pxc-bg-glass-20:   rgba(var(--pxc-glass-rgb), 0.55);  /* very transparent (overlays) */
-  --pxc-bg-glass-10:   rgba(var(--pxc-glass-rgb), 0.30);  /* super transparent (whisper) */
+  /* ② STROKE — OPAQUE, same hue family, a hair lighter than the base. This is the sharp cut line.
+       `subtle` holds the reference's ratio (stroke luma ≈ 1.9× base luma); `default` is the sharper
+       pop; `strong` is hover/focus. */
+  --pxc-stroke-subtle: #1e1f25;
+  --pxc-stroke:        #2a2c33;
+  --pxc-stroke-strong: #3a3d45;
 
-  /* ⑤ BLUR. */
-  --pxc-blur:          15px;
+  /* ③ TEXT — keep the reference's wide luma gap between default and muted. `dim` is brightened
+       hard: at 10–11px (nav labels) the old #6e727b was effectively illegible. */
+  --pxc-text:          #e9ecee;
+  --pxc-text-muted:    #a8afb9;
+  --pxc-text-dim:      #828a96;
+  --pxc-text-disabled: #4a4e57;
+
+  /* ④ GLASS / FROST / ICE — the fill IS the base rgb, not lighter. Legibility comes from the
+       stroke (②), never from lightening the fill; a lighter-than-base fill + blur over a lit
+       backdrop is the grey haze we had. Every glass surface must carry a stroke. */
+  --pxc-glass-rgb:      16, 16, 20;                        /* == --pxc-bg-base */
+  --pxc-bg-glass-frost: rgba(var(--pxc-glass-rgb), 0.72);  /* panels, active rail chip */
+  --pxc-bg-glass-ice:   rgba(var(--pxc-glass-rgb), 0.55);  /* overlays, popovers */
+  --pxc-bg-glass-veil:  rgba(var(--pxc-glass-rgb), 0.30);  /* the rail strip */
+
+  /* ⑤ BLUR — frost for panels; heavy for modals/menus, which need more to read as glass. */
+  --pxc-blur:          16px;
+  --pxc-blur-heavy:    28px;
 
   /* ── wiring: the token names components use, pointed at the dials (do not hard-code) ── */
-  --pxc-border-subtle: var(--pxc-stroke);
+  --pxc-border-subtle: var(--pxc-stroke-subtle);
   --pxc-glass-blur:    var(--pxc-blur);
   --pxc-glass-filter:  blur(var(--pxc-blur));
+  --pxc-glass-filter-heavy: blur(var(--pxc-blur-heavy));
+  /* Back-compat: the -30/-20/-10 names are used across the app; keep them as aliases. */
+  --pxc-bg-glass-30:   var(--pxc-bg-glass-frost);
+  --pxc-bg-glass-20:   var(--pxc-bg-glass-ice);
+  --pxc-bg-glass-10:   var(--pxc-bg-glass-veil);
 
   /* Floating-rail geometry — one source of truth so the content behind can pad itself clear. */
   --pxs-rail-w:     60px;
@@ -101,6 +127,8 @@
   body {
     @apply bg-background-primary text-text-primary;
     font-family: var(--a2ui-font-family);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
     margin: 0;
     padding: 0;
     overflow: hidden;

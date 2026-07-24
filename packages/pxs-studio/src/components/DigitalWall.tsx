@@ -76,11 +76,12 @@ interface EffectCtx {
   time: number;
   base: [number, number, number];
   intensity: number;
-  hue: number; // brand-blue centered hue
+  hue: number; // brand-centered hue
+  sat: number; // ambient saturation — see AMBIENT_SAT
 }
 
 function writeRadialPulse(buf: Uint8ClampedArray, c: EffectCtx) {
-  const { cols, rows, time, base, intensity, hue } = c;
+  const { cols, rows, time, base, intensity, hue, sat } = c;
   const cx = cols / 2;
   const cy = rows / 2;
   const maxDist = Math.sqrt(cx * cx + cy * cy) || 1;
@@ -94,7 +95,7 @@ function writeRadialPulse(buf: Uint8ClampedArray, c: EffectCtx) {
       const ring1 = Math.sin(dist * 0.4 - time * 4) * 0.5 + 0.5;
       const ring2 = Math.sin(dist * 0.25 - time * 2.5 + Math.PI) * 0.3 + 0.3;
       const pulse = (ring1 + ring2) * 0.5; // 0..~0.65
-      const [r, g, b] = hslToRgb(hue + norm * 0.04, 0.55, 0.18 + pulse * 0.6);
+      const [r, g, b] = hslToRgb(hue + norm * 0.04, sat, 0.18 + pulse * 0.6);
       buf[i++] = base[0] + (r - base[0]) * intensity * pulse;
       buf[i++] = base[1] + (g - base[1]) * intensity * pulse;
       buf[i++] = base[2] + (b - base[2]) * intensity * pulse;
@@ -103,7 +104,7 @@ function writeRadialPulse(buf: Uint8ClampedArray, c: EffectCtx) {
 }
 
 function writePlasma(buf: Uint8ClampedArray, c: EffectCtx) {
-  const { cols, rows, time, base, intensity, hue } = c;
+  const { cols, rows, time, base, intensity, hue, sat } = c;
   let i = 0;
   for (let y = 0; y < rows; y++) {
     for (let x = 0; x < cols; x++) {
@@ -115,7 +116,7 @@ function writePlasma(buf: Uint8ClampedArray, c: EffectCtx) {
       const v4 = Math.sin(Math.sqrt((cxp * cxp + cyp * cyp) * 0.01) + time);
       const v = (v1 + v2 + v3 + v4) * 0.25; // -1..1
       const amt = (v + 1) * 0.5; // 0..1
-      const [r, g, b] = hslToRgb(hue + v * 0.06, 0.5, 0.2 + amt * 0.5);
+      const [r, g, b] = hslToRgb(hue + v * 0.06, sat, 0.2 + amt * 0.5);
       buf[i++] = base[0] + (r - base[0]) * intensity * amt;
       buf[i++] = base[1] + (g - base[1]) * intensity * amt;
       buf[i++] = base[2] + (b - base[2]) * intensity * amt;
@@ -124,7 +125,7 @@ function writePlasma(buf: Uint8ClampedArray, c: EffectCtx) {
 }
 
 function writeSpiral(buf: Uint8ClampedArray, c: EffectCtx) {
-  const { cols, rows, time, base, intensity, hue } = c;
+  const { cols, rows, time, base, intensity, hue, sat } = c;
   const cx = cols / 2;
   const cy = rows / 2;
   const maxDist = Math.sqrt(cx * cx + cy * cy) || 1;
@@ -139,7 +140,7 @@ function writeSpiral(buf: Uint8ClampedArray, c: EffectCtx) {
       const s2 = Math.sin(dist * 0.15 + angle * 2 - time * 1.5);
       const combined = (s1 + s2) * 0.5; // -1..1
       const amt = (combined + 1) * 0.5;
-      const [r, g, b] = hslToRgb(hue + combined * 0.05 + (dist / maxDist) * 0.05, 0.55, 0.18 + amt * 0.5);
+      const [r, g, b] = hslToRgb(hue + combined * 0.05 + (dist / maxDist) * 0.05, sat, 0.18 + amt * 0.5);
       buf[i++] = base[0] + (r - base[0]) * intensity * amt;
       buf[i++] = base[1] + (g - base[1]) * intensity * amt;
       buf[i++] = base[2] + (b - base[2]) * intensity * amt;
@@ -148,11 +149,11 @@ function writeSpiral(buf: Uint8ClampedArray, c: EffectCtx) {
 }
 
 function writeRadialGradient(buf: Uint8ClampedArray, c: EffectCtx) {
-  const { cols, rows, base, intensity, hue } = c;
+  const { cols, rows, base, intensity, hue, sat } = c;
   const cx = (cols - 1) / 2;
   const cy = (rows - 1) / 2;
   const maxDist = Math.sqrt(cx * cx + cy * cy) || 1;
-  const [cr, cg, cb] = hslToRgb(hue, 0.5, 0.45);
+  const [cr, cg, cb] = hslToRgb(hue, sat, 0.45);
   let i = 0;
   for (let y = 0; y < rows; y++) {
     for (let x = 0; x < cols; x++) {
@@ -249,9 +250,15 @@ export interface DigitalWallProps {
 /* The wall's accent. Canvas can't read CSS custom properties, so this mirrors --pxs-brand-primary
    by hand — keep the two in sync (it is the ONE sanctioned hex outside globals.css). */
 const BRAND_ACCENT = '#ff7e5f'; // mirrors --pxs-brand-primary
-const BG_FALLBACK = '#161618'; // --a2ui-cool-900
-const LOGO_INK = '#e4e4e8';
-const GRIDLINE_FALLBACK = '#30363d'; // --a2ui-border-default family
+const BG_FALLBACK = '#101014'; // --a2ui-cool-900 / dial ①
+const LOGO_INK = '#e9ecee'; // mirrors --pxc-text (dial ③)
+const GRIDLINE_FALLBACK = '#2a2c33'; // --pxc-stroke (dial ②)
+
+/* Ambient saturation. The accent is a FOREGROUND color — running it at high saturation across
+   60% of the viewport turns the whole splash into a desaturated mud cloud that steals contrast
+   from every piece of type and every hairline on top of it. The ambient carries the brand HUE,
+   not its chroma: keep this low and let the accent do its work on actual controls. */
+const AMBIENT_SAT = 0.16;
 
 export default function DigitalWall({
   effect = 'radialPulse',
@@ -506,7 +513,7 @@ export default function DigitalWall({
       }
 
       const time = (now - start) / 1000;
-      const ctxObj: EffectCtx = { cols, rows, time, base, intensity, hue: baseHue };
+      const ctxObj: EffectCtx = { cols, rows, time, base, intensity, hue: baseHue, sat: AMBIENT_SAT };
       generate(buf, ctxObj);
       if (showLogo) {
         const glow = 0.6 + 0.4 * Math.sin(time * 0.8); // gentle breathing
@@ -520,7 +527,7 @@ export default function DigitalWall({
       if (frame) {
         paintFrame(frame);
       } else {
-        const ctxObj: EffectCtx = { cols, rows, time: 0, base, intensity, hue: baseHue };
+        const ctxObj: EffectCtx = { cols, rows, time: 0, base, intensity, hue: baseHue, sat: AMBIENT_SAT };
         generate(buf, ctxObj);
         if (showLogo) overlayLogo(0.7);
         paintBuf();

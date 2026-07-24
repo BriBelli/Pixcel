@@ -1,8 +1,23 @@
 import type { Metadata } from 'next';
+import { IBM_Plex_Sans, IBM_Plex_Mono } from 'next/font/google';
 import './globals.css';
 
-// Typography is IBM Plex Sans / Mono (Claude Design — the only font families). It loads via the
-// CDN @import in tokens.css and is applied through `--a2ui-font-family`. No Inter (design rule §2).
+// Typography is IBM Plex Sans / Mono (Claude Design — the only font families). No Inter (rule §2).
+// Self-hosted via next/font rather than a CDN @import: the @import was render-blocking and fell
+// back to Helvetica on first paint, which is what made the type read "dead".
+const plexSans = IBM_Plex_Sans({
+  subsets: ['latin'],
+  weight: ['400', '500', '600', '700'],
+  display: 'swap',
+  variable: '--font-plex-sans',
+});
+
+const plexMono = IBM_Plex_Mono({
+  subsets: ['latin'],
+  weight: ['400', '500'],
+  display: 'swap',
+  variable: '--font-plex-mono',
+});
 
 export const metadata: Metadata = {
   title: 'Pixcel',
@@ -15,7 +30,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en">
+    <html lang="en" className={`${plexSans.variable} ${plexMono.variable}`}>
       <body>
         {children}
       </body>

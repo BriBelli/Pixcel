@@ -105,18 +105,28 @@ function writeRadialPulse(buf: Uint8ClampedArray, c: EffectCtx) {
 
 function writePlasma(buf: Uint8ClampedArray, c: EffectCtx) {
   const { cols, rows, time, base, intensity, hue, sat } = c;
+  // Apple-esque ambient drift — a few LARGE, SLOW, spaced-out waves, NOT a busy plasma.
+  // The old version used absolute cell frequencies (x * 0.12), so a high-res wall packed in
+  // ~6 tight bands and shimmered. Here everything is in NORMALIZED coords (0..1), so the wave
+  // COUNT is resolution-independent: the same calm rolling light at RES.retro or RES.sd. Two
+  // low-frequency diagonal waves + one slow-drifting soft blob = gentle atmosphere behind the UI.
+  const t = time * 0.22; // slow drift
+  const aspect = cols / Math.max(1, rows); // keep the blob round, not stretched
+  const dcx = 0.5 + 0.3 * Math.sin(t * 0.5); // soft center wanders, very slowly
+  const dcy = 0.5 + 0.26 * Math.cos(t * 0.37);
   let i = 0;
   for (let y = 0; y < rows; y++) {
+    const ny = y / rows;
     for (let x = 0; x < cols; x++) {
-      const v1 = Math.sin(x * 0.12 + time);
-      const v2 = Math.sin((y * 0.12 + time) * 0.5);
-      const v3 = Math.sin((x * 0.1 + y * 0.1 + time) * 0.5);
-      const cxp = x + 0.5 * cols * Math.sin(time * 0.5);
-      const cyp = y + 0.5 * rows * Math.cos(time * 0.3);
-      const v4 = Math.sin(Math.sqrt((cxp * cxp + cyp * cyp) * 0.01) + time);
-      const v = (v1 + v2 + v3 + v4) * 0.25; // -1..1
+      const nx = x / cols;
+      const w1 = Math.sin((nx * 2.2 + ny * 0.6) * Math.PI + t);
+      const w2 = Math.sin((ny * 1.8 - nx * 0.4) * Math.PI - t * 0.8);
+      const ddx = (nx - dcx) * aspect;
+      const ddy = ny - dcy;
+      const blob = Math.cos(Math.min(1, Math.sqrt(ddx * ddx + ddy * ddy)) * Math.PI); // 1 center → -1 edge
+      const v = (w1 + w2 + blob) / 3; // -1..1
       const amt = (v + 1) * 0.5; // 0..1
-      const [r, g, b] = hslToRgb(hue + v * 0.06, sat, 0.2 + amt * 0.5);
+      const [r, g, b] = hslToRgb(hue + v * 0.04, sat, 0.16 + amt * 0.42);
       buf[i++] = base[0] + (r - base[0]) * intensity * amt;
       buf[i++] = base[1] + (g - base[1]) * intensity * amt;
       buf[i++] = base[2] + (b - base[2]) * intensity * amt;

@@ -307,14 +307,24 @@ export default function Home() {
           >
             {/* BEHIND everything — the ONE persistent DigitalWall (opaque canvas), so it must sit at a
                 NEGATIVE z inside the shell's isolate context or it paints OVER the static nav (a
-                positioned z-0 element paints above static siblings). Scenario-tuned; never re-mounts. */}
+                positioned z-0 element paints above static siblings). Scenario-tuned; never re-mounts.
+
+                WALL SETTINGS (Apple-esque, subtle, blends — tune these live):
+                  pixels=RES.sd  → higher res so the drift is smooth, not chunky-retro
+                  effect=plasma  → soft flowing atmosphere (not the radial-pulse LED rings)
+                  gridLines=off  → no LED lattice mesh (was the biggest "gross" culprit)
+                  fps=30         → smoother motion
+                  intensity low  → whisper-faint so it reads as ambient depth, not a screensaver */}
             <div className="pxs-wall pointer-events-none absolute inset-0 -z-10" aria-hidden="true">
               <DigitalWall
                 className="absolute inset-0 h-full w-full"
-                pixels={RES.retro}
+                pixels={RES.sd}
+                effect="plasma"
+                gridLines={false}
+                fps={30}
                 showLogo={wallLogo}
                 logoScale={0.25}
-                intensity={wallLogo ? 0.2 : 0.14}
+                intensity={wallLogo ? 0.16 : 0.1}
                 onLogoLayout={wallLogo ? handleLogoLayout : undefined}
               />
             </div>

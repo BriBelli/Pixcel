@@ -88,6 +88,30 @@
   /* Decorative hero/wall glows follow the brand pair so the canvas warms instead of reading dead. */
   --pxl-glow-blue:      var(--pxs-brand-primary);
   --pxl-glow-purple:    var(--pxs-brand-secondary);
+
+  /* ═══════════ STYLE MODE — BOLD (default). The design ships two modes: Bold (accent is ALIVE)
+     and Professional (neutral, calm). Components read these --px-* names ONLY — never raw hex — so
+     switching modes is a VALUES swap (see :root[data-style="professional"] below), not a component
+     rewrite. Bold's rule: accent appears ONLY here + brand mark + primary buttons + active nav +
+     media-tile washes; every surface/stroke/text stays neutral grey. */
+  --px-bg-glow:         rgba(var(--pxc-coral-rgb), 0.08);   /* ONE soft radial, top-right, slow pulse */
+  --px-tint-coral:      rgba(var(--pxc-coral-rgb), 0.16);   /* media-tile accent wash A */
+  --px-tint-violet:     rgba(var(--pxc-violet-rgb), 0.16);  /* media-tile accent wash B (alternates) */
+  --px-nav-active-text: var(--pxc-coral-500);               /* active rail item text */
+  --px-nav-active-ring: inset 0 0 0 1.5px rgba(var(--pxc-coral-rgb), 0.45); /* active rail item ring */
+  --px-btn-glow:        0 6px 20px rgba(var(--pxc-violet-rgb), 0.35);       /* primary buttons lift */
+}
+
+/* Professional style mode — VALUES ONLY, staged for later (NOT surfaced as a toggle yet). Set
+   data-style="professional" on <html> to flip: glow off, neutral tiles, neutral active-nav, no
+   button lift. Nothing else changes because components only ever read the --px-* names above. */
+:root[data-style="professional"] {
+  --px-bg-glow:         transparent;
+  --px-tint-coral:      rgba(255, 255, 255, 0.028);
+  --px-tint-violet:     rgba(255, 255, 255, 0.022);
+  --px-nav-active-text: var(--pxc-text);
+  --px-nav-active-ring: inset 0 0 0 1px var(--pxc-stroke);
+  --px-btn-glow:        none;
 }
 
 @tailwind base;
@@ -148,6 +172,26 @@
   }
   /* The brand GRADIENT as a fill — POP/ACTION ONLY (buttons, clickable CTAs). Never on a panel. */
   .pxs-brand-fill { background: linear-gradient(135deg, var(--pxs-brand-primary), var(--pxs-brand-secondary)); }
+
+  /* BOLD-mode background accent glow — ONE soft coral radial, top-right, breathing slowly (~14s).
+     Sits ABOVE the DigitalWall (-z-10) and BELOW content (z-10) in the shell's isolate context, so it
+     warms the canvas without touching legibility. Professional sets --px-bg-glow transparent → gone. */
+  .pxs-shell::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none;
+    background: radial-gradient(58% 46% at 100% 0%, var(--px-bg-glow), transparent 72%);
+    animation: pxBgGlow 14s ease-in-out infinite;
+  }
+  @keyframes pxBgGlow {
+    0%, 100% { opacity: 0.65; }
+    50%      { opacity: 1; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .pxs-shell::before { animation: none; }
+  }
 
   /* BENTO CARD — the content-tile primitive: a slightly-lifted SOLID surface (cards are content;
      glass is for overlays) with the whisper border + generous padding. Stat tiles, charts, guides. */

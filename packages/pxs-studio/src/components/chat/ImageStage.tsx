@@ -40,17 +40,36 @@ interface ImageStageProps {
 const CSS = `
 .pxc-stage { background: var(--a2ui-bg-app); }
 
-.pxc-stage-scroll { flex: 1; overflow-y: auto; padding: var(--a2ui-space-8) var(--a2ui-space-6); }
+/* RESULTS column header — the mock's uppercase label above the bento (only shown with content;
+   the empty state keeps the warmer GreetingHero invitation instead). */
+.pxc-stage-head { display: flex; align-items: center; padding: var(--a2ui-space-5) var(--a2ui-space-6) 0; }
+.pxc-stage-label {
+  font-size: var(--a2ui-text-xs); font-weight: var(--a2ui-font-semibold);
+  text-transform: uppercase; letter-spacing: 0.05em; color: var(--a2ui-text-tertiary);
+}
+
+.pxc-stage-scroll { flex: 1; overflow-y: auto; padding: var(--a2ui-space-5) var(--a2ui-space-6) var(--a2ui-space-8); }
+/* BENTO — a repeating 4-tile rhythm (hero 16/9 span-2 · square · square · wide 16/10 span-2) over a
+   2-col grid, so results pack like the mock instead of a uniform square grid. "dense" backfills the
+   holes that spanning tiles would otherwise leave. */
 .pxc-stage-grid {
   display: grid; gap: var(--a2ui-space-4);
-  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  grid-template-columns: 1fr 1fr;
+  grid-auto-flow: row dense;
 }
 .pxc-stage-tile {
-  position: relative; aspect-ratio: 1 / 1; overflow: hidden;
+  position: relative; overflow: hidden;
   border-radius: var(--a2ui-radius-lg); background: var(--a2ui-bg-tertiary);
   box-shadow: 0 0 0 1px var(--pxs-border-subtle);
   transition: box-shadow var(--a2ui-transition-fast);
 }
+.pxc-bento-hero { grid-column: span 2; aspect-ratio: 16 / 9; }
+.pxc-bento-wide { grid-column: span 2; aspect-ratio: 16 / 10; }
+.pxc-bento-sq   { aspect-ratio: 1 / 1; }
+/* BOLD-mode accent washes — alternating coral/violet radial under each tile (behind the image, so a
+   real thumbnail covers it; it reads on empty/loading tiles). Professional flips --px-tint-* neutral. */
+.pxc-stage-tile[data-wash="a"] { background: radial-gradient(130% 110% at 28% 18%, var(--px-tint-coral), var(--a2ui-bg-tertiary) 68%); }
+.pxc-stage-tile[data-wash="b"] { background: radial-gradient(130% 110% at 72% 24%, var(--px-tint-violet), var(--a2ui-bg-tertiary) 68%); }
 .pxc-stage-tile:hover { box-shadow: 0 0 0 1px var(--a2ui-border-default); }
 .pxc-stage-tile img { width: 100%; height: 100%; object-fit: cover; display: block; }
 .pxc-stage-overlay {
@@ -137,6 +156,14 @@ function cleanSubject(s: string): string {
   return s.replace(/^\s*(a|an|the)\s+/i, '').trim() || s.trim();
 }
 
+/** Bento rhythm — a repeating 4-tile cycle: hero (span-2 16/9) · square · square · wide (span-2 16/10). */
+function bentoClass(i: number): string {
+  const m = i % 4;
+  if (m === 0) return 'pxc-bento-hero';
+  if (m === 3) return 'pxc-bento-wide';
+  return 'pxc-bento-sq';
+}
+
 export function ImageStage({ images, generating, medium, contextLabel, onSaveAsset }: ImageStageProps) {
   const isVideo = medium === 'video';
   const label = isVideo ? 'video' : 'image';
@@ -174,11 +201,13 @@ export function ImageStage({ images, generating, medium, contextLabel, onSaveAss
       <style>{CSS}</style>
 
       {hasContent ? (
-        <div className="pxc-stage-scroll">
+        <>
+          <div className="pxc-stage-head"><span className="pxc-stage-label">Results</span></div>
+          <div className="pxc-stage-scroll">
           <div className="pxc-stage-grid">
-            {generating && <div className="pxc-stage-pending">Generating…</div>}
+            {generating && <div className="pxc-stage-pending pxc-bento-sq">Generating…</div>}
             {images.map((img, i) => (
-              <div key={`${img.turnId}-${img.index}`} className="pxc-stage-tile" tabIndex={0}>
+              <div key={`${img.turnId}-${img.index}`} className={`pxc-stage-tile ${bentoClass(i)}`} data-wash={i % 2 === 0 ? 'a' : 'b'} tabIndex={0}>
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img src={img.url} alt={img.modelLabel || 'generated image'} />
                 <div className="pxc-stage-overlay">
@@ -208,7 +237,8 @@ export function ImageStage({ images, generating, medium, contextLabel, onSaveAss
               </div>
             ))}
           </div>
-        </div>
+          </div>
+        </>
       ) : (
         <div className="pxc-stage-empty">
           {ctx ? (

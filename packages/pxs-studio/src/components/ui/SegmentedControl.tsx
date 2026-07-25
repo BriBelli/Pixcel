@@ -32,8 +32,9 @@ const CSS = `
 }
 .a2-seg-btn {
   display: inline-flex; align-items: center; justify-content: center;
-  width: 30px; height: 26px; border: none; background: transparent; cursor: pointer;
+  min-width: 30px; height: 26px; padding: 0 9px; border: none; background: transparent; cursor: pointer;
   color: var(--a2ui-text-tertiary); border-radius: var(--a2ui-radius-sm);
+  font-family: var(--a2ui-font-family); font-size: var(--a2ui-text-sm);
   transition: background var(--a2ui-transition-fast), color var(--a2ui-transition-fast);
 }
 .a2-seg-btn:hover { color: var(--a2ui-text-primary); background: var(--a2ui-bg-hover); }

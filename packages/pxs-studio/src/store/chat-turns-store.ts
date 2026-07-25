@@ -192,6 +192,13 @@ interface ChatTurnsState {
   /** The active workflow's Epistemic Frame — captured on transfer. While set + in a workspace,
    *  follow-up turns go STRAIGHT to the Image agent (Option A), not back through the Operator. */
   activeFrame: { goal: string; subject?: string; medium: 'image' | 'video' } | null;
+  /** SHARED view lens for a creative section — the split [Chat | IDE] pill. 'chat' = the conversation
+   *  (default; an empty section reads as an invitation to talk); 'ide' = the working surface (Image's
+   *  three-panel, Video's storyboard). CRITICAL CONTRACT: this is a SHARED, EPHEMERAL signal written by
+   *  BOTH the user (the pill) and the agent (flips to 'ide' when it produces work — the transfer). It is
+   *  NEVER read as permission — the agent always acts and sets it, never "checks what the user clicked".
+   *  It is NOT durable project data: flipping the lens can't touch the persisted turns/frame/assets. */
+  viewMode: 'chat' | 'ide';
   /** SHARED builder part values — the single source for the Build panel AND the center prompt
    *  (two-way binding), AND what the Agent writes to via `part_edit` (the COUPLING). Keyed by part id. */
   partValues: Record<string, string>;
@@ -223,6 +230,8 @@ interface ChatTurnsState {
   reset: () => void;
   /** Switch the active workflow medium (drives the nav + the surface layout). */
   setActiveMedium: (medium: 'chat' | 'image' | 'video') => void;
+  /** Set the shared Chat/IDE lens (see `viewMode`). Called by the pill AND by the agent transfer. */
+  setViewMode: (mode: 'chat' | 'ide') => void;
   /** Name the active project (set when one is opened, so the shell can display it). */
   setThreadTitle: (title: string | null) => void;
   /** Enter a section from the primary NAV — the phone-menu hand-off. Selects the medium and DROPS
@@ -472,6 +481,7 @@ export const useChatTurnsStore = create<ChatTurnsState>((set, get) => {
     threadTitle: null,
     activeMedium: 'chat',
     activeFrame: null,
+    viewMode: 'chat',
     partValues: {},
     partSeedTurn: null,
     lastEdit: null,
@@ -619,9 +629,10 @@ export const useChatTurnsStore = create<ChatTurnsState>((set, get) => {
           /* non-fatal */
         }
       }
-      set({ turns: [], threadId: null, threadTitle: null, activeMedium: 'chat', activeFrame: null, partValues: {}, partSeedTurn: null, lastEdit: null });
+      set({ turns: [], threadId: null, threadTitle: null, activeMedium: 'chat', activeFrame: null, viewMode: 'chat', partValues: {}, partSeedTurn: null, lastEdit: null });
     },
     setActiveMedium: (medium) => set({ activeMedium: medium }),
+    setViewMode: (mode) => set({ viewMode: mode }),
     setThreadTitle: (title) => set({ threadTitle: title }),
     // Keep turns + threadId (the project); only the in-flight frame is dropped.
     enterSection: (medium) => set({ activeMedium: medium, activeFrame: null }),

@@ -23,9 +23,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useChatTurnsStore, a2uiSurface, type A2UIReferencesBlock, type A2UIBuilderBlock } from '../store/chat-turns-store';
 import { useSettings } from '../store/settings-store';
-import { Composer, Icon, type ComposerAttachment } from './ui';
+import { Composer, Icon, SegmentedControl, type ComposerAttachment } from './ui';
 import { MessageTurn } from './chat/MessageTurn';
 import { ImageStage, type StageImage } from './chat/ImageStage';
+import { VideoWorkspace } from './chat/VideoWorkspace';
 import { toastManager } from './Toast';
 import { PromptGuidePanel } from './chat/PromptGuidePanel';
 import { BuilderPanel } from './chat/BuilderPanel';
@@ -65,6 +66,8 @@ export default function ChatView({ initialPrompt }: Props) {
   const activeFrame = useChatTurnsStore((s) => s.activeFrame);
   const threadId = useChatTurnsStore((s) => s.threadId);
   const setActiveMedium = useChatTurnsStore((s) => s.setActiveMedium);
+  const viewMode = useChatTurnsStore((s) => s.viewMode);
+  const setViewMode = useChatTurnsStore((s) => s.setViewMode);
   const send = useChatTurnsStore((s) => s.send);
   const loadThread = useChatTurnsStore((s) => s.loadThread);
   const deleteTurn = useChatTurnsStore((s) => s.deleteTurn);
@@ -174,11 +177,11 @@ export default function ChatView({ initialPrompt }: Props) {
     [send]
   );
 
-  // The section IS the view of the current project: Image/Video → that IDE, Chat → the conversation.
-  // Show the workspace/IDE whenever you're in an Image/Video section AND there's a PROJECT to show
-  // (a live frame OR existing turns). Fresh / no-project → the section's empty greeting instead of a
-  // bare IDE. (Clicking Image on a loaded project must show the Image view, not fall back to Chat.)
-  const inWorkspace = activeMedium !== 'chat' && (activeFrame != null || turns.length > 0);
+  // The section's LENS is the shared [Chat | IDE] pill (viewMode) — written by BOTH the user (the pill)
+  // and the agent (the transfer effect below flips it to 'ide' when work lands). IDE only applies to a
+  // creative section; chat home is always the conversation. Default 'chat' → an empty section reads as
+  // an invitation to talk (the approved flow), and the agent surfaces the IDE the moment it has work.
+  const showIde = activeMedium !== 'chat' && viewMode === 'ide';
   const workspaceMedium: 'image' | 'video' = activeMedium === 'video' ? 'video' : 'image';
 
   // Every generated image across the conversation, newest first — the workspace stage's content.
@@ -238,6 +241,20 @@ export default function ChatView({ initialPrompt }: Props) {
         : null,
     [builder, partValues]
   );
+
+  // AGENT TRANSFER — when the agent produces work (a NEW builder turn, or an epistemic frame on
+  // reopen), flip the shared lens to IDE: "you gave me a car → here's the workspace". Fires ONCE per
+  // new work item (keyed by turnId/frame), so if the user flips back to Chat it is NOT yanked away —
+  // it only re-fires when genuinely-new work arrives. The agent WRITES viewMode here; it never reads
+  // it as permission (the anti-cage contract). A fresh section with no work stays 'chat' (the default).
+  const lastWorkKey = useRef<string | null>(null);
+  useEffect(() => {
+    const key = builder?.turnId ?? (activeFrame ? `frame:${activeFrame.subject ?? activeFrame.goal}` : null);
+    if (key && key !== lastWorkKey.current) {
+      lastWorkKey.current = key;
+      setViewMode('ide');
+    }
+  }, [builder, activeFrame, setViewMode]);
   // Save a generated tile → the Assets catalog (promote in-state → first-class), with metadata
   // prefilled from the live workflow (title = subject, the assembled prompt, model, thread).
   const onSaveAsset = useCallback(
@@ -373,6 +390,11 @@ export default function ChatView({ initialPrompt }: Props) {
         .pxs-prompt-show { height: 30px; padding: 0 14px; border-radius: var(--a2ui-radius-full); border: 1px solid var(--pxs-border-subtle); background: var(--a2ui-glass-dark, rgba(20,22,28,0.82)); backdrop-filter: blur(10px); color: var(--a2ui-text-secondary); font-family: var(--a2ui-font-family); font-size: var(--a2ui-text-sm); cursor: pointer; transition: color var(--a2ui-transition-fast), border-color var(--a2ui-transition-fast); }
         .pxs-prompt-show:hover { color: var(--a2ui-text-primary); border-color: var(--a2ui-border-default); }
 
+        /* The shared [Chat | IDE] lens pill — floats top-centre of a creative section, over both the
+           chat column and the IDE. z above the panel headers so it's always reachable. */
+        .pxs-viewpill { position: absolute; top: 12px; left: 50%; transform: translateX(-50%); z-index: 35; }
+        .pxs-viewpill-seg { display: inline-flex; align-items: center; gap: 6px; }
+
         /* ── THE TRANSITION ─────────────────────────────────────────────────────────────
            Exploration hold: the workspace arrives as one calm piece (fade + a short rise),
            reading as the agency taking the wheel — not a hard layout snap. */
@@ -390,8 +412,26 @@ export default function ChatView({ initialPrompt }: Props) {
           .pxs-ws-enter, .pxs-guide-snap, .pxs-prompt-enter { animation: none; }
         }
       `}</style>
-      {inWorkspace ? (
-        /* ── WORKSPACE surface — the transfer lands here: center stage (generated images LARGE) +
+      {/* The shared lens pill — only in a creative section (chat home is always the conversation). */}
+      {activeMedium !== 'chat' && (
+        <div className="pxs-viewpill">
+          <SegmentedControl
+            label="Section view"
+            value={viewMode}
+            onChange={setViewMode}
+            options={[
+              { value: 'chat', label: 'Chat', icon: <span className="pxs-viewpill-seg"><Icon name="message-square" size={14} /> Chat</span> },
+              { value: 'ide', label: 'IDE', icon: <span className="pxs-viewpill-seg"><Icon name="sparkles" size={14} /> IDE</span> },
+            ]}
+          />
+        </div>
+      )}
+      {showIde ? (
+        workspaceMedium === 'video' ? (
+          /* VIDEO IDE — the storyboard + scene-builder scaffold (Agent reuses the same conversation). */
+          <VideoWorkspace renderConversation={() => conversation(false)} />
+        ) : (
+        /* ── IMAGE WORKSPACE surface — the transfer lands here: center stage (generated images LARGE) +
               the conversation continuing in a right pane. This is what makes a transfer read as a
               WORKFLOW, not a dead-end in the chat scroll. ── */
         <div className="relative flex-1 flex min-w-0 pxs-ws-enter">
@@ -496,6 +536,7 @@ export default function ChatView({ initialPrompt }: Props) {
             </button>
           )}
         </div>
+        )
       ) : (
         /* Chat column — floats over the shell's dormant DigitalWall (no local backdrop). */
         <div className="relative flex-1 flex flex-col min-w-0">{conversation(true)}</div>

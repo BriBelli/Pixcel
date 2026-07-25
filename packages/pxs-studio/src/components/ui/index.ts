@@ -43,3 +43,9 @@ export type { SelectProps, SelectOption } from './Select';
 
 export { NumberField } from './NumberField';
 export type { NumberFieldProps } from './NumberField';
+
+export { SegmentedControl } from './SegmentedControl';
+export type { SegmentedControlProps, SegmentedOption } from './SegmentedControl';
+
+export { SortMenu } from './SortMenu';
+export type { SortMenuProps, SortMenuOption } from './SortMenu';

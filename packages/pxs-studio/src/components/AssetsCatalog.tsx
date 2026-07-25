@@ -11,9 +11,18 @@
  * ───────────────────────────────────────────────────────────────────────────── */
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Icon } from './ui';
+import { Icon, SegmentedControl, SortMenu } from './ui';
 import { DEV_USER_ID } from '../lib/db/models';
 import { toastManager } from './Toast';
+
+/** Sort keys we can honor faithfully from the asset metadata we store. (No byte-size field yet, so
+ *  the mock's "Size" is intentionally omitted rather than faked.) */
+type AssetSort = 'date' | 'name' | 'type';
+const SORT_OPTIONS: { value: AssetSort; label: string }[] = [
+  { value: 'date', label: 'Date added' },
+  { value: 'name', label: 'Name' },
+  { value: 'type', label: 'Type' },
+];
 
 interface AssetRow {
   id: string;
@@ -114,6 +123,30 @@ const CSS = `
   background: var(--a2ui-glass-dark); backdrop-filter: blur(8px); border: 1px solid var(--pxs-glass-border);
   color: var(--a2ui-text-secondary); }
 
+/* FULL grid = BENTO MASONRY — column-count packs tiles by their NATURAL media height (no square
+   normalization), exactly the mock's bento feel. Tiles float in columns; media keeps its own ratio. */
+.pxa-masonry { column-count: 4; column-gap: var(--a2ui-space-4); }
+@media (max-width: 1280px) { .pxa-masonry { column-count: 3; } }
+@media (max-width: 900px)  { .pxa-masonry { column-count: 2; } }
+.pxa-masonry .pxa-tile { break-inside: avoid; display: inline-block; width: 100%; margin-bottom: var(--a2ui-space-4); }
+.pxa-masonry .pxa-tile-media { aspect-ratio: auto; min-height: 80px; }
+.pxa-masonry .pxa-tile-media img { height: auto; }
+
+/* FULL list view — OS-directory rows: thumb + title/meta + type badge. */
+.pxa-list { display: flex; flex-direction: column; gap: 4px; }
+.pxa-row { display: flex; align-items: center; gap: var(--a2ui-space-3); padding: 8px 10px; border-radius: var(--a2ui-radius-md);
+  cursor: pointer; transition: background var(--a2ui-transition-fast); }
+.pxa-row:hover { background: var(--a2ui-bg-hover); }
+.pxa-row[data-on="true"] { background: var(--a2ui-accent-subtle); }
+.pxa-row-thumb { width: 56px; height: 44px; flex-shrink: 0; border-radius: var(--a2ui-radius-sm); overflow: hidden;
+  background: var(--a2ui-bg-secondary); box-shadow: 0 0 0 1px var(--pxs-border-subtle); }
+.pxa-row-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.pxa-row-main { min-width: 0; flex: 1; }
+.pxa-row-name { font-size: var(--a2ui-text-sm); font-weight: var(--a2ui-font-medium); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pxa-row-sub { margin-top: 2px; font-size: var(--a2ui-text-xs); color: var(--a2ui-text-tertiary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pxa-row-badge { flex-shrink: 0; padding: 2px 8px; border-radius: var(--a2ui-radius-full); font-size: 10px; font-weight: var(--a2ui-font-semibold);
+  letter-spacing: 0.04em; text-transform: uppercase; color: var(--a2ui-text-secondary); border: 1px solid var(--a2ui-border-subtle); }
+
 .pxa-empty { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center;
   gap: var(--a2ui-space-2); color: var(--a2ui-text-tertiary); text-align: center; padding: var(--a2ui-space-8); }
 .pxa-empty-t { font-size: var(--a2ui-text-lg); color: var(--a2ui-text-secondary); font-weight: var(--a2ui-font-medium); }
@@ -176,6 +209,8 @@ export function AssetsCatalog({
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [dragging, setDragging] = useState(false);
   const [full, setFull] = useState(false); // quick (compact) vs full (whole catalog), same glass panel
+  const [view, setView] = useState<'grid' | 'list'>('grid'); // full-view layout (mock's list ⇄ grid)
+  const [sort, setSort] = useState<AssetSort>('date');
   const fileRef = useRef<HTMLInputElement>(null);
 
   const load = useCallback(async () => {
@@ -203,6 +238,11 @@ export function AssetsCatalog({
     if (!q) return true;
     const hay = [a.title, a.caption, a.description, a.model_label, a.prompt, ...(a.tags ?? [])].join(' ').toLowerCase();
     return hay.includes(q);
+  });
+  const sorted = [...filtered].sort((a, b) => {
+    if (sort === 'name') return (a.title || 'Untitled').localeCompare(b.title || 'Untitled');
+    if (sort === 'type') return a.kind.localeCompare(b.kind) || b.created_at - a.created_at;
+    return b.created_at - a.created_at; // date added, newest first
   });
   const selected = assets.find((a) => a.id === selectedId) ?? null;
 
@@ -262,6 +302,20 @@ export function AssetsCatalog({
           <button type="button" className="pxa-fulltoggle" onClick={() => setFull((f) => !f)}>
             {full ? 'Compact' : 'Open full view'}
           </button>
+          {full && (
+            <>
+              <SegmentedControl
+                label="Asset view"
+                value={view}
+                onChange={setView}
+                options={[
+                  { value: 'list', label: 'List view', icon: <Icon name="list" size={16} /> },
+                  { value: 'grid', label: 'Grid view', icon: <Icon name="grid" size={16} /> },
+                ]}
+              />
+              <SortMenu label="Sort assets" value={sort} onChange={setSort} options={SORT_OPTIONS} />
+            </>
+          )}
           <button type="button" className="pxa-add" onClick={() => fileRef.current?.click()}>
             <Icon name="plus" size={15} /> Add assets
           </button>
@@ -291,9 +345,27 @@ export function AssetsCatalog({
               <div className="pxa-empty-t">{assets.length === 0 ? 'No saved assets yet' : 'Nothing matches'}</div>
               <div>{assets.length === 0 ? 'Hover a generated image and “Save to Assets”, or add your own.' : 'Try a different filter or search.'}</div>
             </div>
+          ) : full && view === 'list' ? (
+            <div className="pxa-list">
+              {sorted.map((a) => (
+                <div key={a.id} className="pxa-row" data-on={selectedId === a.id ? 'true' : 'false'} onClick={() => setSelectedId(a.id)}>
+                  <div className="pxa-row-thumb">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={a.url} alt={a.alt_text || a.title || 'asset'} />
+                  </div>
+                  <div className="pxa-row-main">
+                    <div className="pxa-row-name">{a.title || 'Untitled'}</div>
+                    <div className="pxa-row-sub">
+                      {[a.model_label || (a.source === 'upload' ? 'Upload' : 'Generated'), fmtDate(a.created_at)].filter(Boolean).join(' · ')}
+                    </div>
+                  </div>
+                  <span className="pxa-row-badge">{a.kind}</span>
+                </div>
+              ))}
+            </div>
           ) : (
-            <div className="pxa-grid">
-              {(full ? filtered : filtered.slice(0, 8)).map((a) => (
+            <div className={full ? 'pxa-masonry' : 'pxa-grid'}>
+              {(full ? sorted : sorted.slice(0, 8)).map((a) => (
                 <div key={a.id} className="pxa-tile" data-on={selectedId === a.id ? 'true' : 'false'} onClick={() => setSelectedId(a.id)}>
                   <span className="pxa-badge">{a.source === 'upload' ? 'Upload' : a.kind}</span>
                   <div className="pxa-tile-media">

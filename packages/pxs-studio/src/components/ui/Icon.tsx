@@ -32,7 +32,10 @@ export type IconName =
   | 'download'
   | 'globe'
   | 'arrow-right'
-  | 'loader';
+  | 'loader'
+  | 'list'
+  | 'grid'
+  | 'folder';
 
 /* Each entry is the raw child markup of the Lucide SVG (paths / circles / rects). */
 const PATHS: Record<IconName, JSX.Element> = {
@@ -199,6 +202,30 @@ const PATHS: Record<IconName, JSX.Element> = {
       <path d="M2 12h4" />
       <path d="m7.8 7.8-2.9-2.9" />
     </>
+  ),
+  /* list — the list-view segment (Assets/Projects view toggle). Lucide `list`. */
+  list: (
+    <>
+      <path d="M3 5h.01" />
+      <path d="M3 12h.01" />
+      <path d="M3 19h.01" />
+      <path d="M8 5h13" />
+      <path d="M8 12h13" />
+      <path d="M8 19h13" />
+    </>
+  ),
+  /* grid — the grid-view segment. Lucide `layout-grid` (four rounded cells). */
+  grid: (
+    <>
+      <rect width="7" height="7" x="3" y="3" rx="1" />
+      <rect width="7" height="7" x="14" y="3" rx="1" />
+      <rect width="7" height="7" x="14" y="14" rx="1" />
+      <rect width="7" height="7" x="3" y="14" rx="1" />
+    </>
+  ),
+  /* folder — the Projects list-row glyph. Lucide `folder`. */
+  folder: (
+    <path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z" />
   ),
 };
 

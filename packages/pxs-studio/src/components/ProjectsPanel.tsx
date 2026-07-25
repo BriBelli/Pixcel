@@ -10,7 +10,7 @@
  * ───────────────────────────────────────────────────────────────────────────── */
 
 import { useCallback, useEffect, useState } from 'react';
-import { Icon } from './ui';
+import { Icon, SegmentedControl, SortMenu } from './ui';
 import { DEV_USER_ID } from '../lib/db/models';
 
 interface ProjectRow {
@@ -19,12 +19,41 @@ interface ProjectRow {
   updated_at: number;
 }
 
+/** Sort keys honored from thread metadata (Type/Size from the mock don't apply to projects). */
+type ProjectSort = 'date' | 'name';
+const PROJECT_SORT_OPTIONS: { value: ProjectSort; label: string }[] = [
+  { value: 'date', label: 'Date added' },
+  { value: 'name', label: 'Name' },
+];
+
 const CSS = `
 /* A floating GLASS popover that OVERLAYS the canvas (does not push/box it) — a bubble connected to
    the rail's Projects control. Same .pxc-glass pattern: glass fill + subtle border + blur, no shadow,
    rounded, floating clear of the top/bottom edges. The left offset (inline) clears the rail. */
 .pxp[data-full="true"] { right: var(--pxs-rail-inset); width: auto; }
-.pxp[data-full="true"] .pxp-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 6px; align-content: start; }
+/* FULL header — mirror the Assets full view: big title + description + right controls. */
+.pxp[data-full="true"] .pxp-head { align-items: flex-start; padding: var(--a2ui-space-6) var(--a2ui-space-6) var(--a2ui-space-4); }
+.pxp-h1 { margin: 0; font-size: var(--a2ui-text-2xl); font-weight: var(--a2ui-font-semibold); letter-spacing: -0.01em;
+  color: var(--a2ui-text-primary); text-transform: none; }
+.pxp-sub { margin: 4px 0 0; font-size: var(--a2ui-text-sm); color: var(--a2ui-text-tertiary); }
+.pxp[data-full="true"] .pxp-new { margin-left: var(--a2ui-space-6); margin-right: var(--a2ui-space-6); }
+.pxp[data-full="true"] .pxp-list { padding: 0 var(--a2ui-space-5) var(--a2ui-space-4); }
+/* FULL grid view — cards with a 16/10 cover, name, meta. */
+.pxp-grid { flex: 1; overflow-y: auto; padding: 0 var(--a2ui-space-6) var(--a2ui-space-6);
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: var(--a2ui-space-4); align-content: start; }
+.pxp-card { display: flex; flex-direction: column; border-radius: var(--a2ui-radius-lg); overflow: hidden;
+  background: var(--a2ui-bg-tertiary); box-shadow: 0 0 0 1px var(--pxs-border-subtle); cursor: pointer;
+  transition: box-shadow var(--a2ui-transition-fast); text-align: left; border: none; padding: 0; font-family: inherit; }
+.pxp-card:hover { box-shadow: 0 0 0 1px var(--a2ui-border-default); }
+.pxp-card[data-on="true"] { box-shadow: 0 0 0 2px var(--a2ui-accent); }
+.pxp-cover { aspect-ratio: 16 / 10; display: flex; align-items: center; justify-content: center; color: var(--a2ui-text-secondary); }
+.pxp-cover[data-wash="a"] { background: radial-gradient(130% 120% at 30% 20%, var(--px-tint-coral), var(--a2ui-bg-secondary) 70%); }
+.pxp-cover[data-wash="b"] { background: radial-gradient(130% 120% at 70% 25%, var(--px-tint-violet), var(--a2ui-bg-secondary) 70%); }
+.pxp-card-meta { padding: 10px 12px 12px; }
+.pxp-card-name { font-size: var(--a2ui-text-sm); font-weight: var(--a2ui-font-medium); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--a2ui-text-primary); }
+.pxp-card-sub { margin-top: 2px; font-size: var(--a2ui-text-xs); color: var(--a2ui-text-tertiary); }
+/* Folder glyph on list rows (mock parity). */
+.pxp-item-icon { display: inline-flex; align-items: center; justify-content: center; width: 26px; flex-shrink: 0; color: var(--a2ui-text-tertiary); }
 .pxp-full { display: inline-flex; align-items: center; height: 26px; padding: 0 10px; border: 1px solid var(--pxc-border-subtle);
   border-radius: var(--a2ui-radius-md); background: none; color: var(--a2ui-text-tertiary); font-family: inherit;
   font-size: var(--a2ui-text-xs); cursor: pointer; transition: color var(--a2ui-transition-fast), border-color var(--a2ui-transition-fast); }
@@ -107,6 +136,8 @@ export interface ProjectsPanelProps {
 export function ProjectsPanel({ activeId, onClose, onOpenProject, onNewProject, left }: ProjectsPanelProps) {
   const [projects, setProjects] = useState<ProjectRow[]>([]);
   const [full, setFull] = useState(false); // quick (narrow) vs full (wide), same glass panel
+  const [view, setView] = useState<'list' | 'grid'>('list'); // full-view layout (mock's list ⇄ grid)
+  const [sort, setSort] = useState<ProjectSort>('date');
   const [loading, setLoading] = useState(true);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editValue, setEditValue] = useState('');
@@ -164,12 +195,37 @@ export function ProjectsPanel({ activeId, onClose, onOpenProject, onNewProject, 
     await fetch(`/api/threads/${id}?user_id=${encodeURIComponent(DEV_USER_ID)}`, { method: 'DELETE' }).catch(() => {});
   };
 
+  const sorted = [...projects].sort((a, b) =>
+    sort === 'name' ? a.title.localeCompare(b.title) : b.updated_at - a.updated_at
+  );
+
   return (
     <div className="pxp" data-full={full ? 'true' : 'false'} style={{ left }}>
       <style>{CSS}</style>
       <div className="pxp-head">
-        <span className="pxp-title">Projects</span>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+        {full ? (
+          <div>
+            <h1 className="pxp-h1">Projects</h1>
+            <p className="pxp-sub">Every workspace you&rsquo;ve started. Open one to pick up where you left off.</p>
+          </div>
+        ) : (
+          <span className="pxp-title">Projects</span>
+        )}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
+          {full && (
+            <>
+              <SegmentedControl
+                label="Project view"
+                value={view}
+                onChange={setView}
+                options={[
+                  { value: 'list', label: 'List view', icon: <Icon name="list" size={16} /> },
+                  { value: 'grid', label: 'Grid view', icon: <Icon name="grid" size={16} /> },
+                ]}
+              />
+              <SortMenu label="Sort projects" value={sort} onChange={setSort} options={PROJECT_SORT_OPTIONS} />
+            </>
+          )}
           <button type="button" className="pxp-full" onClick={() => setFull((f) => !f)}>{full ? 'Compact' : 'Open full view'}</button>
           <button type="button" className="pxp-x" onClick={onClose} aria-label="Close projects">
             <Icon name="x" size={15} />
@@ -179,13 +235,27 @@ export function ProjectsPanel({ activeId, onClose, onOpenProject, onNewProject, 
       <button type="button" className="pxp-new" onClick={onNewProject}>
         <Icon name="plus" size={15} /> New project
       </button>
-      <div className="pxp-list">
-        {loading ? (
-          <div className="pxp-empty">Loading…</div>
-        ) : projects.length === 0 ? (
-          <div className="pxp-empty">No projects yet. Start creating and they land here.</div>
-        ) : (
-          projects.map((p) => (
+      {loading ? (
+        <div className="pxp-list"><div className="pxp-empty">Loading…</div></div>
+      ) : sorted.length === 0 ? (
+        <div className="pxp-list"><div className="pxp-empty">No projects yet. Start creating and they land here.</div></div>
+      ) : full && view === 'grid' ? (
+        <div className="pxp-grid">
+          {sorted.map((p, i) => (
+            <button key={p.id} type="button" className="pxp-card" data-on={activeId === p.id ? 'true' : 'false'} onClick={() => open(p.id)}>
+              <div className="pxp-cover" data-wash={i % 2 === 0 ? 'a' : 'b'}>
+                <Icon name="folder" size={28} />
+              </div>
+              <div className="pxp-card-meta">
+                <div className="pxp-card-name">{p.title}</div>
+                <div className="pxp-card-sub">{relTime(p.updated_at)}</div>
+              </div>
+            </button>
+          ))}
+        </div>
+      ) : (
+        <div className="pxp-list">
+          {sorted.map((p) => (
             <div key={p.id} className="pxp-item" data-on={activeId === p.id ? 'true' : 'false'}>
               {editingId === p.id ? (
                 <input
@@ -207,9 +277,12 @@ export function ProjectsPanel({ activeId, onClose, onOpenProject, onNewProject, 
                 </div>
               ) : (
                 <>
-                  <button type="button" className="pxp-item-main" onClick={() => open(p.id)}>
-                    <span className="pxp-item-title">{p.title}</span>
-                    <span className="pxp-item-time">{relTime(p.updated_at)}</span>
+                  <button type="button" className="pxp-item-main" onClick={() => open(p.id)} style={{ flexDirection: 'row', alignItems: 'center', gap: 'var(--a2ui-space-2)' }}>
+                    <span className="pxp-item-icon"><Icon name="folder" size={16} /></span>
+                    <span style={{ minWidth: 0, display: 'flex', flexDirection: 'column', gap: 2 }}>
+                      <span className="pxp-item-title">{p.title}</span>
+                      <span className="pxp-item-time">{relTime(p.updated_at)}</span>
+                    </span>
                   </button>
                   <div className="pxp-acts">
                     <button type="button" className="pxp-mini" title="Rename" onClick={() => startEdit(p)}>
@@ -222,9 +295,9 @@ export function ProjectsPanel({ activeId, onClose, onOpenProject, onNewProject, 
                 </>
               )}
             </div>
-          ))
-        )}
-      </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

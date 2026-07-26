@@ -15,6 +15,7 @@ import LoginModalProvider from '../components/LoginModalProvider';
 import { PixcelMark } from '../components/ui';
 import { useSettings } from '../store/settings-store';
 import { useChatTurnsStore, THREAD_STORAGE_KEY } from '../store/chat-turns-store';
+import { useModelAgentStore } from '../store/model-agent-store';
 import { RES } from '../lib/resolutions';
 
 /** localStorage key holding the last shell screen (stage + medium) so a reload RESTORES where you
@@ -202,6 +203,13 @@ export default function Home() {
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', theme);
   }, [theme]);
+
+  // Wake the Model agent's warm-up view on load. The SERVER already warmed it on boot (instrumentation);
+  // this just reads that state (and polls if it's somehow still warming) so the graceful gate + a future
+  // status UX have it. Fire-and-forget; Chat never waits on this.
+  useEffect(() => {
+    void useModelAgentStore.getState().fetchStatus();
+  }, []);
 
   // The persistent wall's logo layout → the splash prompt-bar anchor (logo hero only).
   const handleLogoLayout = useCallback((box: { bottomFrac: number; visible: boolean }) => {

@@ -33,6 +33,7 @@ import { BuilderPanel } from './chat/BuilderPanel';
 import { PromptString } from './chat/PromptString';
 import { GreetingHero } from './GreetingHero';
 import { scoreBuilder } from '../lib/prompt-score';
+import { isModelAgentBlockingNow } from '../store/model-agent-store';
 
 /** The fresh-section greeting. Every section STARTS as the conversation, so an empty section must
  *  read as an invitation to talk — never a blank canvas. Same lockup as the splash (identical
@@ -159,6 +160,13 @@ export default function ChatView({ initialPrompt }: Props) {
       const refs = valid.map((a) => a.dataUrl);
       const refIds = valid.map((a) => a.assetId ?? null);
       if (!t && refs.length === 0) return;
+      // GRACEFUL GATE — a creative section holds EXECUTION only when we KNOW the agent is still warming
+      // (Chat never gates; unknown/ready → proceed, since the server warmed on boot). Draft is kept;
+      // the warm-up settles in ~a second, then the user just sends again. Never a hard error.
+      if (useChatTurnsStore.getState().activeMedium !== 'chat' && isModelAgentBlockingNow()) {
+        toastManager.info('The model agent is warming up — one moment…');
+        return;
+      }
       // Attach the CURRENT builder state (read live from the store) → an Agent-panel message becomes a
       // COLLABORATION: the agent can edit the parts / answer, not just render. No builder (chat home)
       // → plain send to the Operator. The Build panel's Render button bypasses this (it always renders).
@@ -500,7 +508,14 @@ export default function ChatView({ initialPrompt }: Props) {
                   highlight={lastEdit}
                   busy={generating}
                   initialRefs={latestRefs}
-                  onRender={(prompt, references) => send(prompt, references)}
+                  onRender={(prompt, references) => {
+                    // Same graceful gate as submit — Render is a creative-section execute path.
+                    if (isModelAgentBlockingNow()) {
+                      toastManager.info('The model agent is warming up — one moment…');
+                      return;
+                    }
+                    send(prompt, references);
+                  }}
                 />
               </aside>
             </>

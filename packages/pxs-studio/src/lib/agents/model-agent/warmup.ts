@@ -20,8 +20,8 @@
 
 import fs from 'node:fs';
 import path from 'node:path';
-import { checkAllProviders, type ProviderHealth, type HealthStatus } from './health';
-import { PROVIDERS, type Provider, type Modality } from '../../engine/provider-roster';
+import { checkAllProviders, checkProvider, type ProviderHealth, type HealthStatus } from './health';
+import { PROVIDERS, getProvider, type Provider, type Modality } from '../../engine/provider-roster';
 import { mediaModelsForProvider, type MediaModel } from '../../engine/media-registry';
 
 export interface WarmupSummary {
@@ -127,6 +127,24 @@ export async function warmUp(force = false): Promise<WarmupState> {
   } finally {
     inflight = null;
   }
+}
+
+/**
+ * Re-check ONE provider (the per-provider "retry" — a transient blip vs a true outage). Merges the
+ * fresh result into the shared state + recomputes the summary/status, so the next status read reflects
+ * it. Returns the new health, or null for an unknown provider.
+ */
+export async function retryProvider(providerId: string): Promise<ProviderHealth | null> {
+  const p = getProvider(providerId);
+  if (!p) return null;
+  const health = await checkProvider(p);
+  if (current) {
+    const providers = current.providers.map((x) => (x.id === providerId ? health : x));
+    const summary = summarize(providers);
+    current = { ...current, providers, summary, status: overallStatus(summary) };
+    writeState(current);
+  }
+  return health;
 }
 
 /**

@@ -1,0 +1,3 @@
+
+# Model agent runtime state (live health — regenerated every warm-up; knowledge/ IS committed)
+src/lib/agents/model-agent/state/

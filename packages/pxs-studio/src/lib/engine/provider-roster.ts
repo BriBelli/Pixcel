@@ -126,8 +126,8 @@ export const PROVIDERS: Provider[] = [
     envKey: 'BFL_API_KEY',
     docsUrl: 'https://docs.bfl.ml/quick_start/introduction',
     modalities: ['image'],
-    status: 'experimental',
-    note: 'Flux direct API (structural realism, speed, local fine-tuning). Currently reachable via Replicate; direct wiring is a forward hook. Brian flagged BFL docs as a maintain-fresh source.',
+    status: 'dropped',
+    note: 'DROPPED (Brian, 2026-07-26, reversible) — no direct BFL key; Flux is reached via Replicate (the fallback provider for gaps outside the direct-company APIs). Flip to experimental/active + add BFL_API_KEY to wire direct.',
   },
   {
     id: 'anthropic',

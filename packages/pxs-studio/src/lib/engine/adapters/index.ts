@@ -5,4 +5,7 @@
  */
 
 import './gemini';
-// Future: import './openai'; import './fal'; import './ideogram'; ...
+import './openai';
+import './replicate';
+import './recraft';
+// Next: import './ideogram'; (v3 endpoint pending doc-lookup confirmation)

@@ -8,6 +8,7 @@
  */
 
 import { warmUp, syncProviderKnowledge } from '../src/lib/agents/model-agent/warmup';
+import { modalitySurfaces } from '../src/lib/engine/media-registry';
 
 const ICON: Record<string, string> = {
   ready: '✓ ready    ',
@@ -35,6 +36,8 @@ async function main() {
     `  STATUS: ${state.status.toUpperCase()}  ·  ${s.ready} ready · ${s.unhealthy} unhealthy · ` +
       `${s.unverified} unverified · ${s.noKey} no-key · ${s.dropped} dropped  ·  ${state.durationMs}ms`,
   );
+  console.log(`\n  SURFACES (union registry — DM is the derived multimodal view):`);
+  console.log('   ' + modalitySurfaces().map((s) => `${s.label} ${s.count}`).join('  ·  '));
   console.log(`\n  state  → src/lib/agents/model-agent/state/health.json`);
   console.log(`  knowledge → ${shards.length} provider shards in src/lib/agents/model-agent/knowledge/providers/\n`);
 }

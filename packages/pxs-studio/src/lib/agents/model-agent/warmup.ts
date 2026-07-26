@@ -21,7 +21,8 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { checkAllProviders, type ProviderHealth, type HealthStatus } from './health';
-import { PROVIDERS, type Provider } from '../../engine/provider-roster';
+import { PROVIDERS, type Provider, type Modality } from '../../engine/provider-roster';
+import { mediaModelsForProvider, type MediaModel } from '../../engine/media-registry';
 
 export interface WarmupSummary {
   total: number;
@@ -172,12 +173,44 @@ ${p.note ?? ''}
 - **Docs (refresh source):** ${p.docsUrl}
 
 ## Models
-_Populated by the registry refresh (slice 2) — the agent's current, relevant models for this provider
-with per-modality criteria (capabilities, prompt formula, reference limits, native tricks)._
-
+${renderProviderModels(p.id)}
 _Live connection health is tracked separately in \`state/health.json\` (not here — this file is durable
 knowledge, not runtime state)._
 `;
+}
+
+/** Render this provider's models from the union registry, grouped by modality (Image/Video/Audio). */
+function renderProviderModels(providerId: string): string {
+  const models = mediaModelsForProvider(providerId);
+  if (models.length === 0) {
+    return '_No curated models yet — the registry refresh sources them from the provider docs._\n';
+  }
+  const order: Modality[] = ['image', 'video', 'audio'];
+  const sections: string[] = [];
+  for (const modality of order) {
+    const inMod = models.filter((m) => m.modalities.includes(modality));
+    if (inMod.length === 0) continue;
+    const rows = inMod.map((m) => modelLine(m, modality)).join('\n');
+    sections.push(`### ${modality[0].toUpperCase()}${modality.slice(1)}\n${rows}`);
+  }
+  return sections.join('\n\n') + '\n';
+}
+
+function modelLine(m: MediaModel, modality: Modality): string {
+  const flags: string[] = [`tier ${m.tier}`];
+  if (m.modalities.length > 1) flags.push(`omni: ${m.modalities.join('+')}`);
+  if (m.needsResearch) flags.push('needs-research');
+  if (m.preview) flags.push('preview');
+  if (modality === 'video' && m.video?.nativeAudio) flags.push('native-audio');
+  const crit =
+    modality === 'image' && m.image
+      ? `refs ${m.image.maxReferenceImages}, ${m.image.aspectRatios.length} aspect ratios`
+      : modality === 'video' && m.video
+        ? `≤${m.video.maxDurationSec}s, ${m.video.resolutions.join('/')}`
+        : modality === 'audio' && m.audio
+          ? `${m.audio.kind.join('/')}, ≤${m.audio.maxDurationSec}s`
+          : '';
+  return `- **${m.label}** (\`${m.id}\`) — ${m.brief} _[${flags.join(' · ')}${crit ? ` · ${crit}` : ''}]_`;
 }
 
 function knowledgeReadme(): string {

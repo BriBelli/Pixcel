@@ -66,14 +66,20 @@ export interface Thread extends BaseRecord {
    * the field + population land now. Absent = treat as 'ephemeral' (back-compat for pre-field threads).
    */
   retention?: 'ephemeral' | 'saved';
+  /** Set when a project is promoted ephemeral → saved (ms epoch). Absent = never promoted (still a draft). */
+  promoted_at?: number;
+  /** When an ephemeral project becomes GC-eligible (ms epoch, ephemeral only). The 14-day sweep reads
+   *  this; a saved project has none. Absent on an ephemeral row = swept by the later GC default. */
+  expires_at?: number;
   /**
-   * Provenance for the three verbs (docs/pr-plan/PROJECT-MODEL.md). `cloned_from_thread_id`: a
-   * Duplicate (Save-As) — a full independent copy. `seeded_from`: an Open-as-Project / Template
-   * instantiation — the Asset/Template this workspace was seeded from (a SEED, not a fork: no upstream
-   * merge edge). Both are informational lineage, never a live link. Absent = an original project.
+   * Provenance for the verbs (docs/pr-plan/PROJECT-MODEL.md + OBJECT-MODEL-HANDOFF §2). `cloned_from_thread_id`:
+   * a Duplicate (Save-As) — a full independent copy. `seeded_from`: a New-from-template or Open-as-project —
+   * the Recipe/Asset this workspace was seeded from (a SEED, not a fork: no upstream merge edge). The tagged
+   * shape is deliberate (settled §7): a bare id can't say whether it points at an Asset or a Recipe without a
+   * lookup. Both are informational lineage, never a live link. Absent = an original project.
    */
   cloned_from_thread_id?: string;
-  seeded_from?: { kind: 'asset' | 'template'; id: string };
+  seeded_from?: { kind: 'asset' | 'recipe'; id: string };
 }
 
 /** One user↔assistant exchange within a thread. */
@@ -101,13 +107,22 @@ export interface Interaction extends BaseRecord {
   parent_interaction_id?: string;
 }
 
-/** A first-class, reusable prompt (recipe-IP; Decision 2). */
+/**
+ * A first-class, reusable prompt — i.e. a RECIPE (recipe-IP; Decision 2). The reusable *method*, no
+ * pixels (OBJECT-MODEL-HANDOFF §1: the third noun). E.g. the Character Reference Sheet template.
+ */
 export interface Prompt extends BaseRecord {
   category: 'prompt';
+  /** Display label — BLOCKING: a Recipe cannot be surfaced as a saved Tool/Template without it. */
+  name: string;
   text: string;
   tags?: string[];
   /** The prompt's own token size — a recipe-IP metric ("quality > tokens, trim only fat"). */
   tokens?: number;
+  /** Which project (Thread) this recipe was extracted from — "Save as template" provenance. */
+  source_thread_id?: string;
+  /** The `[SLOT]` variables a template exposes (e.g. CHARACTER DESCRIPTION, CLOTHING). Drives the fill UI. */
+  variables?: string[];
 }
 
 /** Per-interaction metering row: tokens + cost (Decision 3). */

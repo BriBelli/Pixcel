@@ -332,7 +332,7 @@ export default function Home() {
                 fps={30}
                 showLogo={wallLogo}
                 logoScale={0.25}
-                intensity={wallLogo ? 0.16 : 0.1}
+                intensity={wallLogo ? 0.16 : 0.02}
                 onLogoLayout={wallLogo ? handleLogoLayout : undefined}
               />
             </div>

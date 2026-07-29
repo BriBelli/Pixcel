@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="_ds/pixcel-design-system-019e1dee-38e8-717c-a111-cb229baf5443/colors_and_type.css">
+<link rel="stylesheet" href="_ds/pixcel-design-system-019e1dee-38e8-717c-a111-cb229baf5443/styles.css">
+<style>
+  @keyframes pxGlow { 0%,100% { opacity:.55 } 50% { opacity:.9 } }
+  a, a:hover { color:#aecbfa; text-decoration:none; }
+</style>
+</helmet>
+<x-import component-from-global-scope="deck-stage" from="./deck-stage.js" width="1920" height="1080" hint-size="100%,100%">
+
+  <section data-label="Cover" data-speaker-notes="Open with the one-liner: Pixcel is one creative surface where conversational AI and a pixel-perfect studio live together. Set the tone — calm, confident." style="background:#111113; display:flex; flex-direction:column; justify-content:center; padding:112px 120px; box-sizing:border-box; position:relative; overflow:hidden;">
+    <div style="position:absolute; top:-260px; right:-200px; width:900px; height:900px; border-radius:50%; background:radial-gradient(circle, rgba(138,180,248,0.18) 0%, rgba(138,180,248,0) 68%); animation:pxGlow 6s ease-in-out infinite;"></div>
+    <img src="assets/logo-mark-white.svg" alt="Pixcel mark" style="width:76px; height:76px; margin-bottom:56px;">
+    <img src="assets/logo-wordmark-white.svg" alt="Pixcel" style="height:104px; width:auto; align-self:flex-start; margin-bottom:44px;">
+    <h1 style="margin:0; font-size:60px; font-weight:500; line-height:1.15; letter-spacing:-0.02em; color:#e4e4e8; max-width:1180px;">One creative surface. Every model.</h1>
+    <p style="margin:28px 0 0; font-size:32px; font-weight:400; line-height:1.4; color:#909098; max-width:900px;">Conversational AI and a pixel-perfect studio, joined into a single place to go from idea to finished asset.</p>
+    <div style="position:absolute; left:120px; bottom:80px; display:flex; gap:16px; align-items:center; font-family:'IBM Plex Mono',monospace; font-size:20px; color:#636370;">
+      <span>Seed round</span><span style="color:#43434b;">·</span><span>2026</span><span style="color:#43434b;">·</span><span>Confidential</span>
+    </div>
+  </section>
+
+  <section data-label="The problem" data-speaker-notes="Creators live in a browser with ten tabs open. The chat assistant that plans the work and the tool that makes the image never talk to each other. Prompts, references, and history are stranded." style="background:#161618; display:flex; flex-direction:column; justify-content:center; padding:96px 120px; box-sizing:border-box;">
+    <div style="font-family:'IBM Plex Mono',monospace; font-size:20px; letter-spacing:2px; text-transform:uppercase; color:#8ab4f8; margin-bottom:24px;">The problem</div>
+    <h2 style="margin:0 0 64px; font-size:64px; font-weight:500; line-height:1.1; letter-spacing:-0.02em; color:#e4e4e8; max-width:1400px;">Creative work is scattered across a dozen tools</h2>
+    <div style="display:grid; grid-template-columns:repeat(3,1fr); gap:28px;">
+      <div style="background:#1c1c1f; border:1px solid rgba(255,255,255,0.10); border-radius:16px; padding:40px;">
+        <div style="font-family:'IBM Plex Mono',monospace; font-size:22px; color:#636370; margin-bottom:20px;">01</div>
+        <h3 style="margin:0 0 14px; font-size:30px; font-weight:500; color:#e4e4e8;">Tool sprawl</h3>
+        <p style="margin:0; font-size:24px; line-height:1.5; color:#909098;">A chat assistant to plan, a separate app to generate, another to edit. Ten tabs for one idea.</p>
+      </div>
+      <div style="background:#1c1c1f; border:1px solid rgba(255,255,255,0.10); border-radius:16px; padding:40px;">
+        <div style="font-family:'IBM Plex Mono',monospace; font-size:22px; color:#636370; margin-bottom:20px;">02</div>
+        <h3 style="margin:0 0 14px; font-size:30px; font-weight:500; color:#e4e4e8;">Nothing transfers</h3>
+        <p style="margin:0; font-size:24px; line-height:1.5; color:#909098;">Prompts, references, and revisions stay locked inside each tool. Context is lost at every handoff.</p>
+      </div>
+      <div style="background:#1c1c1f; border:1px solid rgba(255,255,255,0.10); border-radius:16px; padding:40px;">
+        <div style="font-family:'IBM Plex Mono',monospace; font-size:22px; color:#636370; margin-bottom:20px;">03</div>
+        <h3 style="margin:0 0 14px; font-size:30px; font-weight:500; color:#e4e4e8;">Model roulette</h3>
+        <p style="margin:0; font-size:24px; line-height:1.5; color:#909098;">A new best model ships every month. Picking and switching is manual, and usually wrong.</p>
+      </div>
+    </div>
+  </section>
+
+  <section data-label="Market" data-speaker-notes="The market is large and compounding. These are directional figures — replace with your sourced numbers before the raise." style="background:#111113; display:flex; flex-direction:column; justify-content:center; padding:96px 120px; box-sizing:border-box;">
+    <div style="font-family:'IBM Plex Mono',monospace; font-size:20px; letter-spacing:2px; text-transform:uppercase; color:#8ab4f8; margin-bottom:24px;">Market</div>
+    <h2 style="margin:0 0 72px; font-size:64px; font-weight:500; line-height:1.1; letter-spacing:-0.02em; color:#e4e4e8; max-width:1300px;">A large market, still early in its shift to AI</h2>
+    <div style="display:grid; grid-template-columns:repeat(3,1fr); gap:56px;">
+      <div>
+        <div style="font-family:'IBM Plex Mono',monospace; font-size:88px; font-weight:500; line-height:1; color:#e4e4e8;">$68B</div>
+        <div style="width:56px; height:3px; background:#8ab4f8; margin:24px 0;"></div>
+        <p style="margin:0; font-size:26px; line-height:1.45; color:#909098;">Generative AI creative-tools market by 2030</p>
+      </div>
+      <div>
+        <div style="font-family:'IBM Plex Mono',monospace; font-size:88px; font-weight:500; line-height:1; color:#e4e4e8;">200M+</div>
+        <div style="width:56px; height:3px; background:#8ab4f8; margin:24px 0;"></div>
+        <p style="margin:0; font-size:26px; line-height:1.45; color:#909098;">Digital creators producing visual work worldwide</p>
+      </div>
+      <div>
+        <div style="font-family:'IBM Plex Mono',monospace; font-size:88px; font-weight:500; line-height:1; color:#e4e4e8;">41%</div>
+        <div style="width:56px; height:3px; background:#8ab4f8; margin:24px 0;"></div>
+        <p style="margin:0; font-size:26px; line-height:1.45; color:#909098;">Annual growth in AI-assisted image generation</p>
+      </div>
+    </div>
+  </section>
+
+  <section data-label="Introducing" data-speaker-notes="The turn. This is what we built. Say the name, let it breathe, one sentence." style="background:#161618; display:flex; flex-direction:column; justify-content:center; align-items:center; text-align:center; padding:112px 120px; box-sizing:border-box; position:relative; overflow:hidden;">
+    <div style="position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); width:1000px; height:1000px; border-radius:50%; background:radial-gradient(circle, rgba(138,180,248,0.10) 0%, rgba(138,180,248,0) 66%);"></div>
+    <img src="assets/logo-mark-white.svg" alt="Pixcel mark" style="width:96px; height:96px; margin-bottom:48px; position:relative;">
+    <h2 style="margin:0; font-size:80px; font-weight:500; letter-spacing:-0.02em; color:#e4e4e8; position:relative;">Introducing Pixcel</h2>
+    <p style="margin:32px 0 0; font-size:34px; font-weight:400; line-height:1.4; color:#909098; max-width:1080px; position:relative;">One AI-powered platform that fuses a conversational agent with a full creation studio — from first prompt to final pixel.</p>
+  </section>
+
+  <section data-label="Two surfaces" data-speaker-notes="Pixcel is one product with two surfaces sharing one system. Chat is where you think out loud; Studio is where you make the thing. You cross between them without losing context." style="background:#111113; display:flex; flex-direction:column; justify-content:center; padding:96px 120px; box-sizing:border-box;">
+    <div style="font-family:'IBM Plex Mono',monospace; font-size:20px; letter-spacing:2px; text-transform:uppercase; color:#8ab4f8; margin-bottom:24px;">Product</div>
+    <h2 style="margin:0 0 60px; font-size:64px; font-weight:500; line-height:1.1; letter-spacing:-0.02em; color:#e4e4e8;">Two surfaces, one system</h2>
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:32px;">
+      <div style="background:#1c1c1f; border:1px solid rgba(255,255,255,0.10); border-radius:16px; padding:48px;">
+        <h3 style="margin:0 0 20px; font-size:36px; font-weight:600; color:#e4e4e8;">Pixcel Chat</h3>
+        <p style="margin:0 0 28px; font-size:26px; line-height:1.5; color:#909098;">A conversational agent that returns rich, interactive UI — charts, tables, image drafts — inline in the thread.</p>
+        <div style="display:flex; flex-direction:column; gap:14px; font-size:24px; color:#aecbfa;">
+          <div>Plan and explore in natural language</div>
+          <div>Agents that act across the whole project</div>
+          <div>Every response is editable, not just text</div>
+        </div>
+      </div>
+      <div style="background:#1c1c1f; border:1px solid rgba(255,255,255,0.10); border-radius:16px; padding:48px;">
+        <h3 style="margin:0 0 20px; font-size:36px; font-weight:600; color:#e4e4e8;">Pixcel Studio</h3>
+        <p style="margin:0 0 28px; font-size:26px; line-height:1.5; color:#909098;">A full-screen creation workspace — canvas, frame deck, inspector, and an AI prompt bar — one click from any image in chat.</p>
+        <div style="display:flex; flex-direction:column; gap:14px; font-size:24px; color:#aecbfa;">
+          <div>Pixel-perfect editing at any resolution</div>
+          <div>Guided prompting scored before you spend a run</div>
+          <div>Assets flow straight back into chat</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section data-label="Art Studio" data-speaker-notes="This is the hero. Pixcel Art Studio is not a slider panel — it is an artisan you commission. It runs the Statue Method live on a char-map: Vision, Shape, Polish, QA. You watch the piece take shape and steer it in plain language." style="background:#161618; display:flex; flex-direction:column; justify-content:center; padding:96px 120px; box-sizing:border-box;">
+    <div style="font-family:'IBM Plex Mono',monospace; font-size:20px; letter-spacing:2px; text-transform:uppercase; color:#8ab4f8; margin-bottom:24px;">Core IP · Pixcel Art Studio</div>
+    <h2 style="margin:0 0 20px; font-size:60px; font-weight:500; line-height:1.1; letter-spacing:-0.02em; color:#e4e4e8; max-width:1300px;">An artisan you commission, not a panel of sliders</h2>
+    <p style="margin:0 0 52px; font-size:28px; line-height:1.45; color:#909098; max-width:1200px;">You describe the piece. The agent runs the Statue Method live on a drafting-table char-map — and you steer it anytime.</p>
+    <div style="display:flex; align-items:center; gap:20px;">
+      <div style="flex:1; background:#111113; border:1px solid rgba(255,255,255,0.10); border-radius:16px; padding:36px 32px; text-align:center;">
+        <div style="font-family:'IBM Plex Mono',monospace; font-size:22px; color:#636370; margin-bottom:14px;">01</div>
+        <div style="font-size:30px; font-weight:600; color:#e4e4e8; margin-bottom:10px;">Vision</div>
+        <div style="font-size:22px; line-height:1.45; color:#909098;">Commit a feasible, native-to-resolution design</div>
+      </div>
+      <div style="color:#43434b; font-size:36px;">→</div>
+      <div style="flex:1; background:#111113; border:1px solid rgba(255,255,255,0.10); border-radius:16px; padding:36px 32px; text-align:center;">
+        <div style="font-family:'IBM Plex Mono',monospace; font-size:22px; color:#636370; margin-bottom:14px;">02</div>
+        <div style="font-size:30px; font-weight:600; color:#e4e4e8; margin-bottom:10px;">Shape</div>
+        <div style="font-size:22px; line-height:1.45; color:#909098;">Block in the form pass by pass on the char-map</div>
+      </div>
+      <div style="color:#43434b; font-size:36px;">→</div>
+      <div style="flex:1; background:#111113; border:1px solid rgba(255,255,255,0.10); border-radius:16px; padding:36px 32px; text-align:center;">
+        <div style="font-family:'IBM Plex Mono',monospace; font-size:22px; color:#636370; margin-bottom:14px;">03</div>
+        <div style="font-size:30px; font-weight:600; color:#e4e4e8; margin-bottom:10px;">Polish</div>
+        <div style="font-size:22px; line-height:1.45; color:#909098;">Refine detail, palette, and edges to final</div>
+      </div>
+      <div style="color:#43434b; font-size:36px;">→</div>
+      <div style="flex:1; background:#111113; border:1px solid rgba(255,255,255,0.10); border-radius:16px; padding:36px 32px; text-align:center;">
+        <div style="font-family:'IBM Plex Mono',monospace; font-size:22px; color:#636370; margin-bottom:14px;">04</div>
+        <div style="font-size:30px; font-weight:600; color:#e4e4e8; margin-bottom:10px;">QA</div>
+        <div style="font-size:22px; line-height:1.45; color:#909098;">Fresh-eyes judge, fix each pass, ship the piece</div>
+      </div>
+    </div>
+  </section>
+
+  <section data-label="Model-agnostic" data-speaker-notes="We are model-agnostic by design. Every prompt is routed to the model that does it best, and we add new ones as they ship. We win as the models get better — we are not betting on one lab." style="background:#111113; display:flex; flex-direction:column; justify-content:center; padding:96px 120px; box-sizing:border-box;">
+    <div style="font-family:'IBM Plex Mono',monospace; font-size:20px; letter-spacing:2px; text-transform:uppercase; color:#8ab4f8; margin-bottom:24px;">Platform</div>
+    <h2 style="margin:0 0 20px; font-size:64px; font-weight:500; line-height:1.1; letter-spacing:-0.02em; color:#e4e4e8; max-width:1300px;">Model-agnostic by design</h2>
+    <p style="margin:0 0 60px; font-size:28px; line-height:1.45; color:#909098; max-width:1150px;">One prompt surface, routed to the best model for the job. We add new providers as they ship — and get stronger every time the frontier moves.</p>
+    <div style="display:flex; flex-wrap:wrap; gap:18px; max-width:1400px;">
+      <div style="display:flex; align-items:center; gap:14px; background:#1c1c1f; border:1px solid rgba(255,255,255,0.10); border-radius:9999px; padding:14px 26px;"><img src="assets/provider-icons/anthropic.ico" style="width:26px; height:26px; border-radius:6px;"><span style="font-size:25px; color:#e4e4e8;">Claude</span></div>
+      <div style="display:flex; align-items:center; gap:14px; background:#1c1c1f; border:1px solid rgba(255,255,255,0.10); border-radius:9999px; padding:14px 26px;"><img src="assets/provider-icons/gpt.ico" style="width:26px; height:26px; border-radius:6px;"><span style="font-size:25px; color:#e4e4e8;">GPT</span></div>
+      <div style="display:flex; align-items:center; gap:14px; background:#1c1c1f; border:1px solid rgba(255,255,255,0.10); border-radius:9999px; padding:14px 26px;"><img src="assets/provider-icons/gemini.ico" style="width:26px; height:26px; border-radius:6px;"><span style="font-size:25px; color:#e4e4e8;">Gemini</span></div>
+      <div style="display:flex; align-items:center; gap:14px; background:#1c1c1f; border:1px solid rgba(255,255,255,0.10); border-radius:9999px; padding:14px 26px;"><img src="assets/provider-icons/xai.ico" style="width:26px; height:26px; border-radius:6px;"><span style="font-size:25px; color:#e4e4e8;">Grok</span></div>
+      <div style="display:flex; align-items:center; gap:14px; background:#1c1c1f; border:1px solid rgba(255,255,255,0.10); border-radius:9999px; padding:14px 26px;"><img src="assets/provider-icons/bfl.ico" style="width:26px; height:26px; border-radius:6px;"><span style="font-size:25px; color:#e4e4e8;">Flux</span></div>
+      <div style="display:flex; align-items:center; gap:14px; background:#1c1c1f; border:1px solid rgba(255,255,255,0.10); border-radius:9999px; padding:14px 26px;"><img src="assets/provider-icons/ideogram.ico" style="width:26px; height:26px; border-radius:6px;"><span style="font-size:25px; color:#e4e4e8;">Ideogram</span></div>
+      <div style="display:flex; align-items:center; gap:14px; background:#1c1c1f; border:1px solid rgba(255,255,255,0.10); border-radius:9999px; padding:14px 26px;"><img src="assets/provider-icons/recraft.ico" style="width:26px; height:26px; border-radius:6px;"><span style="font-size:25px; color:#e4e4e8;">Recraft</span></div>
+      <div style="display:flex; align-items:center; gap:14px; background:#1c1c1f; border:1px solid rgba(255,255,255,0.10); border-radius:9999px; padding:14px 26px;"><img src="assets/provider-icons/stability.ico" style="width:26px; height:26px; border-radius:6px;"><span style="font-size:25px; color:#e4e4e8;">Stability</span></div>
+      <div style="display:flex; align-items:center; gap:14px; background:#1c1c1f; border:1px solid rgba(255,255,255,0.10); border-radius:9999px; padding:14px 26px;"><img src="assets/provider-icons/fal.ico" style="width:26px; height:26px; border-radius:6px;"><span style="font-size:25px; color:#e4e4e8;">fal</span></div>
+      <div style="display:flex; align-items:center; gap:14px; background:#1c1c1f; border:1px solid rgba(255,255,255,0.10); border-radius:9999px; padding:14px 26px;"><img src="assets/provider-icons/replicate.ico" style="width:26px; height:26px; border-radius:6px;"><span style="font-size:25px; color:#e4e4e8;">Replicate</span></div>
+    </div>
+  </section>
+
+  <section data-label="Why now" data-speaker-notes="Three things converged: the models crossed the quality bar, the creator base exploded, and the tooling stayed fragmented. The window is open now." style="background:#161618; display:flex; flex-direction:column; justify-content:center; padding:96px 120px; box-sizing:border-box;">
+    <div style="font-family:'IBM Plex Mono',monospace; font-size:20px; letter-spacing:2px; text-transform:uppercase; color:#8ab4f8; margin-bottom:24px;">Timing</div>
+    <h2 style="margin:0 0 64px; font-size:64px; font-weight:500; line-height:1.1; letter-spacing:-0.02em; color:#e4e4e8;">Why now</h2>
+    <div style="display:grid; grid-template-columns:repeat(3,1fr); gap:28px;">
+      <div style="background:#1c1c1f; border:1px solid rgba(255,255,255,0.10); border-radius:16px; padding:44px;">
+        <h3 style="margin:0 0 16px; font-size:30px; font-weight:600; color:#e4e4e8;">Models cleared the bar</h3>
+        <p style="margin:0; font-size:24px; line-height:1.5; color:#909098;">Image and reasoning models are finally good enough to trust with real production work.</p>
+      </div>
+      <div style="background:#1c1c1f; border:1px solid rgba(255,255,255,0.10); border-radius:16px; padding:44px;">
+        <h3 style="margin:0 0 16px; font-size:30px; font-weight:600; color:#e4e4e8;">Creators exploded</h3>
+        <p style="margin:0; font-size:24px; line-height:1.5; color:#909098;">A generation of independent makers needs professional output without a studio pipeline.</p>
+      </div>
+      <div style="background:#1c1c1f; border:1px solid rgba(255,255,255,0.10); border-radius:16px; padding:44px;">
+        <h3 style="margin:0 0 16px; font-size:30px; font-weight:600; color:#e4e4e8;">Tooling stayed split</h3>
+        <p style="margin:0; font-size:24px; line-height:1.5; color:#909098;">No one has unified the assistant and the studio. The category leader hasn't been named yet.</p>
+      </div>
+    </div>
+  </section>
+
+  <section data-label="Traction" data-speaker-notes="Early but real. These are placeholder figures — swap in your actual metrics. Lead with the growth rate and retention, they matter most at seed." style="background:#111113; display:flex; flex-direction:column; justify-content:center; padding:96px 120px; box-sizing:border-box;">
+    <div style="font-family:'IBM Plex Mono',monospace; font-size:20px; letter-spacing:2px; text-transform:uppercase; color:#8ab4f8; margin-bottom:24px;">Traction</div>
+    <h2 style="margin:0 0 72px; font-size:64px; font-weight:500; line-height:1.1; letter-spacing:-0.02em; color:#e4e4e8;">Early signal, compounding fast</h2>
+    <div style="display:grid; grid-template-columns:repeat(4,1fr); gap:32px;">
+      <div>
+        <div style="font-family:'IBM Plex Mono',monospace; font-size:72px; font-weight:500; line-height:1; color:#e4e4e8;">18K</div>
+        <p style="margin:20px 0 0; font-size:24px; line-height:1.4; color:#909098;">Active creators on the platform</p>
+      </div>
+      <div>
+        <div style="font-family:'IBM Plex Mono',monospace; font-size:72px; font-weight:500; line-height:1; color:#e4e4e8;">2.4M</div>
+        <p style="margin:20px 0 0; font-size:24px; line-height:1.4; color:#909098;">Assets generated to date</p>
+      </div>
+      <div>
+        <div style="font-family:'IBM Plex Mono',monospace; font-size:72px; font-weight:500; line-height:1; color:#6ee7a0;">32%</div>
+        <p style="margin:20px 0 0; font-size:24px; line-height:1.4; color:#909098;">Month-over-month usage growth</p>
+      </div>
+      <div>
+        <div style="font-family:'IBM Plex Mono',monospace; font-size:72px; font-weight:500; line-height:1; color:#e4e4e8;">61%</div>
+        <p style="margin:20px 0 0; font-size:24px; line-height:1.4; color:#909098;">Week-4 retention on paid tier</p>
+      </div>
+    </div>
+  </section>
+
+  <section data-label="Business model" data-speaker-notes="Two revenue lines: usage-based credits on top of the models, and subscription tiers for teams. Margin sits in the routing and the studio, not the raw generation." style="background:#161618; display:flex; flex-direction:column; justify-content:center; padding:96px 120px; box-sizing:border-box;">
+    <div style="font-family:'IBM Plex Mono',monospace; font-size:20px; letter-spacing:2px; text-transform:uppercase; color:#8ab4f8; margin-bottom:24px;">Business model</div>
+    <h2 style="margin:0 0 60px; font-size:64px; font-weight:500; line-height:1.1; letter-spacing:-0.02em; color:#e4e4e8;">How we make money</h2>
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:32px;">
+      <div style="background:#1c1c1f; border:1px solid rgba(255,255,255,0.10); border-radius:16px; padding:48px;">
+        <h3 style="margin:0 0 18px; font-size:34px; font-weight:600; color:#e4e4e8;">Usage credits</h3>
+        <p style="margin:0 0 24px; font-size:25px; line-height:1.5; color:#909098;">Pay-as-you-go credits layered over every model. Margin lives in smart routing, not raw generation.</p>
+        <div style="font-family:'IBM Plex Mono',monospace; font-size:28px; color:#aecbfa;">~55% gross margin</div>
+      </div>
+      <div style="background:#1c1c1f; border:1px solid rgba(255,255,255,0.10); border-radius:16px; padding:48px;">
+        <h3 style="margin:0 0 18px; font-size:34px; font-weight:600; color:#e4e4e8;">Team subscriptions</h3>
+        <p style="margin:0 0 24px; font-size:25px; line-height:1.5; color:#909098;">Seat-based plans for studios and agencies — shared assets, brand systems, and collaboration.</p>
+        <div style="font-family:'IBM Plex Mono',monospace; font-size:28px; color:#aecbfa;">$24–48 / seat / mo</div>
+      </div>
+    </div>
+  </section>
+
+  <section data-label="The ask" data-speaker-notes="Close with the ask and what it buys. Be specific about the round size, the milestones, and how to reach us. End calm — no hard sell." style="background:#111113; display:flex; flex-direction:column; justify-content:center; padding:112px 120px; box-sizing:border-box; position:relative; overflow:hidden;">
+    <div style="position:absolute; bottom:-260px; left:-200px; width:900px; height:900px; border-radius:50%; background:radial-gradient(circle, rgba(138,180,248,0.16) 0%, rgba(138,180,248,0) 68%);"></div>
+    <div style="font-family:'IBM Plex Mono',monospace; font-size:20px; letter-spacing:2px; text-transform:uppercase; color:#8ab4f8; margin-bottom:24px; position:relative;">The ask</div>
+    <h2 style="margin:0 0 32px; font-size:76px; font-weight:500; line-height:1.05; letter-spacing:-0.02em; color:#e4e4e8; position:relative;">Raising <span style="color:#8ab4f8;">$4M</span> seed</h2>
+    <p style="margin:0 0 56px; font-size:32px; line-height:1.45; color:#909098; max-width:1100px; position:relative;">To scale the Art Studio, expand model coverage, and reach 100K creators over the next 18 months.</p>
+    <div style="display:flex; gap:16px; align-items:center; font-size:28px; color:#e4e4e8; position:relative;">
+      <img src="assets/logo-mark-white.svg" style="width:40px; height:40px;">
+      <span>hello@pixcel.ai</span>
+      <span style="color:#43434b;">·</span>
+      <span style="color:#aecbfa;">pixcel.ai</span>
+    </div>
+  </section>
+
+</x-import>
+</x-dc>
+</body>
+</html>

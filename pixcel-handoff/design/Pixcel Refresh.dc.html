@@ -1,0 +1,808 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="_ds/pixcel-design-system-019e1dee-38e8-717c-a111-cb229baf5443/colors_and_type.css">
+<link rel="stylesheet" href="_ds/pixcel-design-system-019e1dee-38e8-717c-a111-cb229baf5443/styles.css">
+<script src="_ds/pixcel-design-system-019e1dee-38e8-717c-a111-cb229baf5443/_ds_bundle.js"></script>
+<script src="./image-slot.js"></script>
+<style>
+  @keyframes pxGlow { 0%,100% { opacity:.5; } 50% { opacity:.85; } }
+  @keyframes pxDrift { 0% { background-position:0 0; } 100% { background-position:140px 140px; } }
+  @keyframes pxCell { 0%,100% { opacity:.28; } 50% { opacity:1; } }
+  @keyframes pxRise { from { opacity:0; transform:translateY(10px); } to { opacity:1; transform:none; } }
+  @keyframes pxBar { from { transform:scaleX(1); } to { transform:scaleX(0); } }
+  a, a:hover { color:#ff9f85; text-decoration:none; }
+  input, textarea { font-family:'IBM Plex Sans', sans-serif; }
+  input::placeholder, textarea::placeholder { color:var(--px-dim, #9b95a1); }
+  ::-webkit-scrollbar { width:9px; height:9px; }
+  ::-webkit-scrollbar-thumb { background:rgba(255,255,255,0.10); border-radius:9999px; }
+  ::-webkit-scrollbar-track { background:transparent; }
+</style>
+</helmet>
+
+<div data-screen-label="Pixcel App" style="{{ theme }}">
+
+  <!-- subtle animated background -->
+  <div style="position:absolute; inset:0; background-image:linear-gradient(rgba(255,255,255,0.014) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.014) 1px, transparent 1px); background-size:140px 140px; animation:pxDrift 40s linear infinite; pointer-events:none;"></div>
+  <div style="position:absolute; top:-260px; right:8%; width:720px; height:720px; border-radius:50%; background:radial-gradient(circle, var(--px-glow, rgba(255,126,95,0.07)) 0%, transparent 70%); animation:pxGlow 14s ease-in-out infinite; pointer-events:none;"></div>
+
+  <!-- ░░ LEFT RAIL ░░ -->
+  <nav style="position:relative; z-index:5; flex:none; width:74px; display:flex; flex-direction:column; align-items:center; padding:18px 0 16px; gap:6px; border-right:1px solid var(--px-stroke, #2e2831); background:var(--px-glass, rgba(25,21,25,0.7)); backdrop-filter:blur(var(--px-blur, 15px)); -webkit-backdrop-filter:blur(var(--px-blur, 15px));">
+    <div style="width:34px; height:34px; border-radius:9px; background:var(--px-grad, linear-gradient(135deg,#ff7e5f,#8957e5)); display:flex; align-items:center; justify-content:center; margin-bottom:16px; box-shadow:0 3px 12px rgba(137,87,229,0.28);">
+      <img src="assets/logo-mark-white.svg" style="width:18px; height:18px;">
+    </div>
+
+    <button onClick="{{ navChat }}" style="{{ railChat }}">
+      <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M22 17a2 2 0 0 1-2 2H6.828a2 2 0 0 0-1.414.586l-2.202 2.202A.71.71 0 0 1 2 21.286V5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2z"/></svg>
+      <span style="font-size:11px;">Chat</span>
+    </button>
+    <button onClick="{{ navImage }}" style="{{ railImage }}">
+      <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg>
+      <span style="font-size:11px;">Image</span>
+    </button>
+    <button onClick="{{ navVideo }}" style="{{ railVideo }}">
+      <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="m16 13 5.223 3.482a.5.5 0 0 0 .777-.416V7.87a.5.5 0 0 0-.752-.432L16 10.5"/><rect x="2" y="6" width="14" height="12" rx="2"/></svg>
+      <span style="font-size:11px;">Video</span>
+    </button>
+    <button onClick="{{ navAudio }}" style="{{ railAudio }}">
+      <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19v3"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><rect x="9" y="2" width="6" height="13" rx="3"/></svg>
+      <span style="font-size:11px;">Audio</span>
+    </button>
+
+    <div style="flex:1;"></div>
+
+    <button onClick="{{ navProjects }}" style="{{ railProjects }}">
+      <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13c0 1.1.9 2 2 2Z"/></svg>
+      <span style="font-size:11px;">Projects</span>
+    </button>
+    <button onClick="{{ navAssets }}" style="{{ railAssets }}">
+      <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg>
+      <span style="font-size:11px;">Assets</span>
+    </button>
+    <div style="width:34px; height:34px; border-radius:50%; border:1px solid var(--px-stroke,#2e2831); background:var(--px-ice, rgba(25,21,25,0.4)); display:flex; align-items:center; justify-content:center; margin-top:10px; color:var(--px-dim,#9b95a1);">
+      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+    </div>
+  </nav>
+
+  <!-- ░░ CHAT ░░ -->
+  <section style="{{ wChat }}">
+    <div style="height:100%; display:flex; flex-direction:column; position:relative;">
+      <div style="flex:1; overflow:auto; padding:48px 24px 150px;">
+        <div style="max-width:720px; margin:0 auto; display:flex; flex-direction:column; gap:30px;">
+          <div style="align-self:flex-end; max-width:78%; padding:16px 20px; border-radius:16px 16px 4px 16px; border:1px solid var(--px-stroke, #2e2831); background:var(--px-frost, rgba(25,21,25,0.57)); font-size:15px; line-height:1.55; color:var(--px-text, #ece8ee);">
+            A crushed-orange, old-school Lamborghini Gallardo — convertible T-top roadster, slammed low, turbo setup, flames from the exhaust. Driver's likeness from the two attached references.
+          </div>
+          <div style="display:flex; gap:14px; align-items:flex-start;">
+            <div style="flex:none; width:34px; height:34px; border-radius:9px; background:var(--px-grad, linear-gradient(135deg,#ff7e5f,#8957e5)); display:flex; align-items:center; justify-content:center;"><img src="assets/logo-mark-white.svg" style="width:17px; height:17px;"></div>
+            <div style="flex:1; min-width:0;">
+              <div style="font-size:15px; line-height:1.55; color:var(--px-text, #ece8ee); margin-bottom:16px;">Rendering your crushed-orange Gallardo side-on in true pre-dawn darkness now — the driver's likeness pulled straight from your two references.</div>
+              <div style="display:grid; grid-template-columns:1fr 1fr; gap:14px; max-width:560px;">
+                <div style="position:relative; aspect-ratio:16/10; border-radius:12px; overflow:hidden; box-shadow:inset 0 0 0 1px rgba(255,255,255,0.07); display:flex; align-items:flex-end; padding:12px;"><span style="position:absolute; inset:0;"><image-slot style="color:rgba(255,255,255,0.62); display:block; width:100%; height:100%" id="chat-a" shape="rect" placeholder="Gallardo · side-on"></image-slot></span><span style="position:relative; z-index:2; pointer-events:none; font-size:11px; color:#fff; background:rgba(0,0,0,0.45); padding:3px 8px; border-radius:6px;">Nano Banana</span></div>
+                <div style="position:relative; aspect-ratio:16/10; border-radius:12px; overflow:hidden; box-shadow:inset 0 0 0 1px rgba(255,255,255,0.07); display:flex; align-items:flex-end; padding:12px;"><span style="position:absolute; inset:0;"><image-slot style="color:rgba(255,255,255,0.62); display:block; width:100%; height:100%" id="chat-b" shape="rect" placeholder="Gallardo · front POV"></image-slot></span><span style="position:relative; z-index:2; pointer-events:none; font-size:11px; color:#fff; background:rgba(0,0,0,0.45); padding:3px 8px; border-radius:6px;">Nano Banana</span></div>
+              </div>
+              <div style="display:flex; align-items:center; gap:8px; margin-top:12px; font-size:12px; color:var(--px-dim,#9b95a1);"><span style="padding:2px 8px; border-radius:6px; border:1px solid var(--px-stroke,#2e2831);">Opus 4.8</span><span>07:35 AM</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div style="position:absolute; left:0; right:0; bottom:0; padding:18px 24px 26px; background:linear-gradient(180deg, transparent, var(--px-bg,#141215) 55%);">
+        <div style="max-width:720px; margin:0 auto; display:flex; align-items:center; gap:12px; height:54px; padding:0 8px 0 18px; border-radius:14px; border:1px solid var(--px-stroke, #2e2831); background:var(--px-glass, rgba(25,21,25,0.7)); backdrop-filter:blur(var(--px-blur,15px)); -webkit-backdrop-filter:blur(var(--px-blur,15px));">
+          <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="var(--px-dim,#9b95a1)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m16 6-8.414 8.586a2 2 0 0 0 2.829 2.829l8.414-8.586a4 4 0 1 0-5.657-5.657l-8.379 8.551a6 6 0 1 0 8.485 8.485l8.379-8.551"/></svg>
+          <input placeholder="Consult with me…" style="flex:1; height:100%; border:none; outline:none; background:transparent; font-size:15px; color:var(--px-text,#ece8ee);">
+          <button style="flex:none; width:40px; height:40px; border:none; border-radius:10px; background:var(--px-grad, linear-gradient(135deg,#ff7e5f,#8957e5)); display:flex; align-items:center; justify-content:center; cursor:pointer;">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.536 21.686a.5.5 0 0 0 .937-.024l6.5-19a.496.496 0 0 0-.635-.635l-19 6.5a.5.5 0 0 0-.024.937l7.93 3.18a2 2 0 0 1 1.112 1.11z"/><path d="m21.854 2.147-10.94 10.939"/></svg>
+          </button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ░░ IMAGE ░░ -->
+  <section style="{{ wImage }}">
+    <div style="display:flex; height:100%;">
+      <div style="flex:1; min-width:0; position:relative; display:flex; flex-direction:column;">
+      <div style="{{ splashImage }}">
+        <h1 style="margin:0; font-size:32px; font-weight:500; letter-spacing:-0.02em; color:var(--px-text,#ecedef);">Create images</h1>
+        <p style="margin:14px 0 32px; max-width:600px; font-size:16px; line-height:1.5; color:var(--px-dim,#9a9ca2); text-align:center; text-wrap:pretty;">Start from a reusable workflow, and/or craft it with your Image Agent.</p>
+        <div style="{{ splashRow }}">
+          <button onClick="{{ openIde }}" style="{{ splashCard }}">
+            <span style="display:flex; align-items:center; gap:10px;">
+              <span style="flex:none; display:flex; align-items:center; justify-content:center; width:26px; height:26px; border-radius:8px; background:rgba(255,255,255,0.055); color:#ecedef;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 7v14"/><path d="M3 18a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h5a4 4 0 0 1 4 4 4 4 0 0 1 4-4h5a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1h-6a3 3 0 0 0-3 3 3 3 0 0 0-3-3z"/></svg></span>
+              <span style="font-size:17px; font-weight:600; color:var(--px-text,#ecedef); text-align:left;">Image guides</span>
+            </span>
+            <span style="display:flex; flex-direction:column; justify-content:center; gap:5px; margin-top:2px; height:148px; box-sizing:border-box; overflow:hidden; padding:13px; border-radius:10px; text-align:left; background:rgba(0,0,0,0.26); box-shadow:inset 0 0 0 1px rgba(255,255,255,0.06);"><span style="font-family:'IBM Plex Mono',monospace; font-size:11px; line-height:1.55; color:#9a9ca2; display:block;">Create a character reference</span><span style="font-family:'IBM Plex Mono',monospace; font-size:11px; line-height:1.55; color:#9a9ca2; display:block;">sheet of <span style="color:#ff9f85;">[SUBJECT]</span>.</span><span style="font-family:'IBM Plex Mono',monospace; font-size:11px; line-height:1.55; color:#9a9ca2; display:block;">Four vertical columns, one per</span><span style="font-family:'IBM Plex Mono',monospace; font-size:11px; line-height:1.55; color:#9a9ca2; display:block;">angle: front·left·right·back</span><span style="font-family:'IBM Plex Mono',monospace; font-size:11px; line-height:1.55; color:#9a9ca2; display:block;">Photoreal, DSLR, 35mm</span></span>
+            <span style="display:flex; align-items:center; gap:7px; margin-top:auto; padding-top:4px; font-size:13px; font-weight:500; color:#ff9f85;">Use an image guide<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg></span>
+          </button>
+          <button onClick="{{ openIde }}" style="{{ splashCard }}">
+            <span style="display:flex; align-items:center; gap:10px;">
+              <span style="flex:none; display:flex; align-items:center; justify-content:center; width:26px; height:26px; border-radius:8px; background:rgba(255,255,255,0.055); color:#ecedef;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" x2="15.42" y1="13.51" y2="17.49"/><line x1="15.41" x2="8.59" y1="6.51" y2="10.49"/></svg></span>
+              <span style="font-size:17px; font-weight:600; color:var(--px-text,#ecedef); text-align:left;">Image workflows</span>
+            </span>
+            <span style="display:flex; flex-direction:column; justify-content:center; gap:5px; margin-top:2px; height:148px; box-sizing:border-box; overflow:hidden; padding:13px; border-radius:10px; text-align:left; background:rgba(0,0,0,0.26); box-shadow:inset 0 0 0 1px rgba(255,255,255,0.06);"><span style="display:flex; align-items:center; justify-content:space-between; gap:8px; height:24px; padding:0 9px; border-radius:7px; background:rgba(255,255,255,0.05);"><span style="font-family:'IBM Plex Mono',monospace; font-size:11px; letter-spacing:0.06em; color:#9a9ca2;">SUBJECT</span><span style="font-size:11px; color:#ecedef; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Uploaded reference</span></span><span style="display:flex; align-items:center; justify-content:space-between; gap:8px; height:24px; padding:0 9px; border-radius:7px; background:rgba(255,255,255,0.05);"><span style="font-family:'IBM Plex Mono',monospace; font-size:11px; letter-spacing:0.06em; color:#9a9ca2;">ANGLES</span><span style="font-size:11px; color:#ecedef; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Front · L · R · Back</span></span><span style="display:flex; align-items:center; justify-content:space-between; gap:8px; height:24px; padding:0 9px; border-radius:7px; background:rgba(255,255,255,0.05);"><span style="font-family:'IBM Plex Mono',monospace; font-size:11px; letter-spacing:0.06em; color:#9a9ca2;">MODEL</span><span style="font-size:11px; color:#ecedef; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Nano Banana 2</span></span><span style="display:flex; align-items:center; justify-content:space-between; gap:8px; height:24px; padding:0 9px; border-radius:7px; background:rgba(255,255,255,0.05);"><span style="font-family:'IBM Plex Mono',monospace; font-size:11px; letter-spacing:0.06em; color:#9a9ca2;">OUTPUT</span><span style="font-size:11px; color:#ecedef; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">2048 px · 4-col sheet</span></span></span>
+            <span style="display:flex; align-items:center; gap:7px; margin-top:auto; padding-top:4px; font-size:13px; font-weight:500; color:#ff9f85;">Build an image workflow<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg></span>
+          </button>
+          <button onClick="{{ openIde }}" style="{{ splashCard }}">
+            <span style="display:flex; align-items:center; gap:10px;">
+              <span style="flex:none; display:flex; align-items:center; justify-content:center; width:26px; height:26px; border-radius:8px; background:rgba(255,255,255,0.055); color:#ecedef;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M11.017 2.814a1 1 0 0 1 1.966 0l1.051 5.558a2 2 0 0 0 1.594 1.594l5.558 1.051a1 1 0 0 1 0 1.966l-5.558 1.051a2 2 0 0 0-1.594 1.594l-1.051 5.558a1 1 0 0 1-1.966 0l-1.051-5.558a2 2 0 0 0-1.594-1.594l-5.558-1.051a1 1 0 0 1 0-1.966l5.558-1.051a2 2 0 0 0 1.594-1.594z"/><path d="M20 2v4"/><path d="M22 4h-4"/><circle cx="4" cy="20" r="2"/></svg></span>
+              <span style="font-size:17px; font-weight:600; color:var(--px-text,#ecedef); text-align:left;">Model features</span>
+            </span>
+            <span style="display:flex; flex-direction:column; justify-content:center; gap:5px; margin-top:2px; height:148px; box-sizing:border-box; overflow:hidden; padding:13px; border-radius:10px; text-align:left; background:rgba(0,0,0,0.26); box-shadow:inset 0 0 0 1px rgba(255,255,255,0.06);"><span style="display:grid; grid-template-columns:repeat(4,1fr); gap:6px;"><span style="display:flex; flex-direction:column; gap:5px;"><span style="height:58px; border-radius:4px; background:rgba(255,255,255,0.08);"></span><span style="height:30px; border-radius:4px; background:rgba(255,255,255,0.055);"></span></span><span style="display:flex; flex-direction:column; gap:5px;"><span style="height:58px; border-radius:4px; background:rgba(255,255,255,0.08);"></span><span style="height:30px; border-radius:4px; background:rgba(255,255,255,0.055);"></span></span><span style="display:flex; flex-direction:column; gap:5px;"><span style="height:58px; border-radius:4px; background:rgba(255,255,255,0.08);"></span><span style="height:30px; border-radius:4px; background:rgba(255,255,255,0.055);"></span></span><span style="display:flex; flex-direction:column; gap:5px;"><span style="height:58px; border-radius:4px; background:rgba(255,255,255,0.08);"></span><span style="height:30px; border-radius:4px; background:rgba(255,255,255,0.055);"></span></span></span><span style="display:flex; justify-content:space-between; margin-top:8px;"><span style="font-family:'IBM Plex Mono',monospace; font-size:11px; letter-spacing:0.06em; color:#9a9ca2;">FRONT</span><span style="font-family:'IBM Plex Mono',monospace; font-size:11px; letter-spacing:0.06em; color:#9a9ca2;">LEFT</span><span style="font-family:'IBM Plex Mono',monospace; font-size:11px; letter-spacing:0.06em; color:#9a9ca2;">RIGHT</span><span style="font-family:'IBM Plex Mono',monospace; font-size:11px; letter-spacing:0.06em; color:#9a9ca2;">BACK</span></span></span>
+            <span style="display:flex; align-items:center; gap:7px; margin-top:auto; padding-top:4px; font-size:13px; font-weight:500; color:#ff9f85;">Browse features<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg></span>
+          </button>
+        </div>
+      </div>
+
+      <div style="{{ workImage }}">
+        <div style="padding:22px; overflow:auto;">
+          <div style="display:grid; grid-template-columns:1fr 1fr; gap:14px;">
+            <div style="position:relative; grid-column:span 2; aspect-ratio:16/9; border-radius:12px; overflow:hidden; box-shadow:inset 0 0 0 1px rgba(255,255,255,0.07);"><span style="position:absolute; inset:0;"><image-slot style="color:rgba(255,255,255,0.62); display:block; width:100%; height:100%" id="res-1" shape="rect" placeholder="Result 1 — hero"></image-slot></span></div>
+            <div style="position:relative; aspect-ratio:1; border-radius:12px; overflow:hidden; box-shadow:inset 0 0 0 1px rgba(255,255,255,0.07);"><span style="position:absolute; inset:0;"><image-slot style="color:rgba(255,255,255,0.62); display:block; width:100%; height:100%" id="res-2" shape="rect" placeholder="Result 2"></image-slot></span></div>
+            <div style="position:relative; aspect-ratio:1; border-radius:12px; overflow:hidden; box-shadow:inset 0 0 0 1px rgba(255,255,255,0.07);"><span style="position:absolute; inset:0;"><image-slot style="color:rgba(255,255,255,0.62); display:block; width:100%; height:100%" id="res-3" shape="rect" placeholder="Result 3"></image-slot></span></div>
+            <div style="position:relative; grid-column:span 2; aspect-ratio:16/10; border-radius:12px; overflow:hidden; box-shadow:inset 0 0 0 1px rgba(255,255,255,0.07);"><span style="position:absolute; inset:0;"><image-slot style="color:rgba(255,255,255,0.62); display:block; width:100%; height:100%" id="res-4" shape="rect" placeholder="Result 4 — wide"></image-slot></span></div>
+          </div>
+        </div>
+        <div style="{{ guidePanel }}">
+          <div style="flex:none; display:flex; align-items:center; gap:9px; padding:16px 20px;"><span style="display:flex; align-items:center; gap:9px; flex:1; min-width:0;">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#ff9f85" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11.017 2.814a1 1 0 0 1 1.966 0l1.051 5.558a2 2 0 0 0 1.594 1.594l5.558 1.051a1 1 0 0 1 0 1.966l-5.558 1.051a2 2 0 0 0-1.594 1.594l-1.051 5.558a1 1 0 0 1-1.966 0l-1.051-5.558a2 2 0 0 0-1.594-1.594l-5.558-1.051a1 1 0 0 1 0-1.966l5.558-1.051a2 2 0 0 0 1.594-1.594z"/><path d="M20 2v4"/><path d="M22 4h-4"/><circle cx="4" cy="20" r="2"/></svg>
+            <span style="font-size:14px; font-weight:600; color:var(--px-text,#ecedef);">Prompt guide</span></span>
+            <button onClick="{{ closeGuide }}" title="Close" style="{{ iconBtn }}"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button>
+          </div>
+          <div style="flex:1; overflow:auto; padding:4px 20px 84px; display:flex; flex-direction:column; gap:14px;">
+            <div style="padding:16px; border-radius:12px; background:var(--px-frost,rgba(25,26,30,0.57)); box-shadow:inset 0 0 0 1px rgba(255,255,255,0.07);">
+              <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:10px;">
+                <span style="font-size:11px; font-weight:600; letter-spacing:0.4px; text-transform:uppercase; color:var(--px-dim,#9a9ca2);">Reference images</span>
+                <span style="font-size:11px; color:var(--px-dim,#9a9ca2);">Up to 3</span>
+              </div>
+              <div style="display:grid; grid-template-columns:repeat(3,1fr); gap:8px;">
+                <div style="position:relative; aspect-ratio:1; border-radius:9px; overflow:hidden; background:rgba(255,255,255,0.055);"><span style="position:absolute; inset:0;"><image-slot style="color:rgba(255,255,255,0.62); display:block; width:100%; height:100%" id="ref-1" shape="rect" placeholder="Reference 1"></image-slot></span></div>
+                <div style="position:relative; aspect-ratio:1; border-radius:9px; overflow:hidden; background:rgba(255,255,255,0.055);"><span style="position:absolute; inset:0;"><image-slot style="color:rgba(255,255,255,0.62); display:block; width:100%; height:100%" id="ref-2" shape="rect" placeholder="Reference 2"></image-slot></span></div>
+                <div style="position:relative; aspect-ratio:1; border-radius:9px; overflow:hidden; background:rgba(255,255,255,0.055);"><span style="position:absolute; inset:0;"><image-slot style="color:rgba(255,255,255,0.62); display:block; width:100%; height:100%" id="ref-3" shape="rect" placeholder="Reference 3"></image-slot></span></div>
+              </div>
+            </div>
+            <div style="display:flex; align-items:center; gap:14px; padding:16px; border-radius:12px; background:var(--px-frost,rgba(25,26,30,0.57)); box-shadow:inset 0 0 0 1px rgba(255,255,255,0.07);">
+              <div style="flex:none; width:42px; height:42px; border-radius:50%; box-shadow:inset 0 0 0 2px rgba(255,255,255,0.10); display:flex; align-items:center; justify-content:center; font-family:'IBM Plex Mono',monospace; font-size:17px; color:var(--px-text,#ecedef);">6</div>
+              <div><div style="font-size:13px; font-weight:600; color:var(--px-text,#ecedef);">Prompt quality</div><div style="font-size:12px; color:var(--px-dim,#9a9ca2);">Thin · 2/5 parts</div></div>
+            </div>
+            <div style="padding:16px; border-radius:12px; background:var(--px-frost,rgba(25,26,30,0.57)); box-shadow:inset 0 0 0 1px rgba(255,255,255,0.07);">
+              <div style="font-size:11px; font-weight:600; letter-spacing:0.4px; text-transform:uppercase; color:var(--px-dim,#9a9ca2); margin-bottom:10px;">Subject</div>
+              <div style="height:40px; display:flex; align-items:center; padding:0 13px; border-radius:9px; background:rgba(0,0,0,0.24); box-shadow:inset 0 0 0 1px rgba(255,255,255,0.07); font-size:14px; color:var(--px-text,#ecedef); margin-bottom:12px;">a car</div>
+              <div style="display:flex; flex-wrap:wrap; gap:7px;">
+                <span style="font-size:12px; color:var(--px-text,#ecedef); box-shadow:inset 0 0 0 1px rgba(255,255,255,0.10); border-radius:9999px; padding:6px 12px;">+ classic muscle car</span>
+                <span style="font-size:12px; color:var(--px-text,#ecedef); box-shadow:inset 0 0 0 1px rgba(255,255,255,0.10); border-radius:9999px; padding:6px 12px;">+ glossy metallic paint</span>
+              </div>
+            </div>
+            <div style="padding:16px; border-radius:12px; background:var(--px-frost,rgba(25,26,30,0.57)); box-shadow:inset 0 0 0 1px rgba(255,255,255,0.07);">
+              <div style="font-size:11px; font-weight:600; letter-spacing:0.4px; text-transform:uppercase; color:var(--px-dim,#9a9ca2); margin-bottom:10px;">Action</div>
+              <div style="min-height:52px; padding:11px 13px; border-radius:9px; background:rgba(0,0,0,0.24); box-shadow:inset 0 0 0 1px rgba(255,255,255,0.07); font-size:14px; color:var(--px-dim,#9a9ca2);">Parked at an angle, front three-quarter view…</div>
+            </div>
+          </div>
+          <div style="position:absolute; right:20px; bottom:18px;">
+            <button style="display:flex; align-items:center; gap:8px; height:42px; padding:0 20px; border:none; border-radius:11px; background:var(--px-grad, linear-gradient(135deg,#ff7e5f,#8957e5)); color:#fff; font-size:14px; font-weight:600; cursor:pointer; box-shadow:0 6px 20px rgba(137,87,229,0.35);">Render</button>
+          </div>
+        </div>
+        <div style="{{ guideStrip }}">
+          <button onClick="{{ openGuide }}" title="Open guide" style="{{ stripBtn }}"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11.017 2.814a1 1 0 0 1 1.966 0l1.051 5.558a2 2 0 0 0 1.594 1.594l5.558 1.051a1 1 0 0 1 0 1.966l-5.558 1.051a2 2 0 0 0-1.594 1.594l-1.051 5.558a1 1 0 0 1-1.966 0l-1.051-5.558a2 2 0 0 0-1.594-1.594l-5.558-1.051a1 1 0 0 1 0-1.966l5.558-1.051a2 2 0 0 0 1.594-1.594z"/><path d="M20 2v4"/><path d="M22 4h-4"/><circle cx="4" cy="20" r="2"/></svg></button>
+        </div>
+      </div>
+      </div>
+      <aside style="{{ agentPanel }}">
+        <div style="flex:none; display:flex; align-items:center; justify-content:space-between; padding:16px 18px;">
+          <span style="font-size:14px; font-weight:600; color:var(--px-text,#ecedef);">Agent</span>
+          <span style="display:flex; align-items:center; gap:6px; font-size:11px; color:var(--px-dim,#9a9ca2);"><img src="assets/provider-icons/anthropic.ico" style="width:14px; height:14px; border-radius:3px;">Opus 4.8</span>
+        </div>
+        <div style="flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; padding:24px 26px; text-align:center;">
+          <h2 style="margin:0; font-size:30px; font-weight:600; line-height:1.18; letter-spacing:-0.02em; color:var(--px-text,#ecedef);">Start your image workflow here.</h2>
+          <p style="margin:14px 0 0; font-size:15px; line-height:1.5; color:var(--px-dim,#9a9ca2);">Let's take your idea to the next level.</p>
+        </div>
+        <div style="flex:none; padding:0 18px 18px;">
+          <div style="display:flex; align-items:center; gap:10px; height:46px; padding:0 6px 0 14px; border-radius:12px; border:1px solid var(--px-stroke,#2b2c30); background:var(--px-ice,rgba(25,26,30,0.35));">
+            <input placeholder="e.g. a rain-soaked neon portrait at dusk, cinematic…" style="flex:1; height:100%; border:none; outline:none; background:transparent; font-size:13px; color:var(--px-text,#ecedef);">
+            <button style="flex:none; width:34px; height:34px; border:none; border-radius:9px; background:var(--px-grad, linear-gradient(135deg,#ff7e5f,#8957e5)); display:flex; align-items:center; justify-content:center; cursor:pointer;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.536 21.686a.5.5 0 0 0 .937-.024l6.5-19a.496.496 0 0 0-.635-.635l-19 6.5a.5.5 0 0 0-.024.937l7.93 3.18a2 2 0 0 1 1.112 1.11z"/><path d="m21.854 2.147-10.94 10.939"/></svg></button>
+          </div>
+        </div>
+      </aside>
+    </div>
+  </section>
+
+  <!-- ░░ VIDEO ░░ -->
+  <section style="{{ wVideo }}">
+    <div style="display:flex; height:100%;">
+      <div style="flex:1; min-width:0; position:relative; display:flex; flex-direction:column;">
+      <div style="{{ splashVideo }}">
+        <h1 style="margin:0; font-size:32px; font-weight:500; letter-spacing:-0.02em; color:var(--px-text,#ecedef);">Create videos</h1>
+        <p style="margin:14px 0 32px; max-width:600px; font-size:16px; line-height:1.5; color:var(--px-dim,#9a9ca2); text-align:center; text-wrap:pretty;">Start from a reusable workflow, and/or craft it with your Video Agent.</p>
+        <div style="{{ splashRow }}">
+          <button onClick="{{ openIde }}" style="{{ splashCard }}">
+            <span style="display:flex; align-items:center; gap:10px;">
+              <span style="flex:none; display:flex; align-items:center; justify-content:center; width:26px; height:26px; border-radius:8px; background:rgba(255,255,255,0.055); color:#ecedef;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 7v14"/><path d="M3 18a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h5a4 4 0 0 1 4 4 4 4 0 0 1 4-4h5a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1h-6a3 3 0 0 0-3 3 3 3 0 0 0-3-3z"/></svg></span>
+              <span style="font-size:17px; font-weight:600; color:var(--px-text,#ecedef); text-align:left;">Video guides</span>
+            </span>
+            <span style="display:flex; flex-direction:column; justify-content:center; gap:5px; margin-top:2px; height:148px; box-sizing:border-box; overflow:hidden; padding:13px; border-radius:10px; text-align:left; background:rgba(0,0,0,0.26); box-shadow:inset 0 0 0 1px rgba(255,255,255,0.06);"><span style="font-family:'IBM Plex Mono',monospace; font-size:11px; line-height:1.55; color:#9a9ca2; display:block;">A camera-locked shot of</span><span style="font-family:'IBM Plex Mono',monospace; font-size:11px; line-height:1.55; color:#9a9ca2; display:block;"><span style="color:#ff9f85;">[SUBJECT]</span> in <span style="color:#ff9f85;">[LOCATION]</span>.</span><span style="font-family:'IBM Plex Mono',monospace; font-size:11px; line-height:1.55; color:#9a9ca2; display:block;">Fixed camera, no drift. Natural</span><span style="font-family:'IBM Plex Mono',monospace; font-size:11px; line-height:1.55; color:#9a9ca2; display:block;">movement only. Silent plate.</span><span style="font-family:'IBM Plex Mono',monospace; font-size:11px; line-height:1.55; color:#9a9ca2; display:block;">2007 CCTV, timestamp burn-in.</span></span>
+            <span style="display:flex; align-items:center; gap:7px; margin-top:auto; padding-top:4px; font-size:13px; font-weight:500; color:#ff9f85;">Open Camera-Locked Shot guide<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg></span>
+          </button>
+          <button onClick="{{ openIde }}" style="{{ splashCard }}">
+            <span style="display:flex; align-items:center; gap:10px;">
+              <span style="flex:none; display:flex; align-items:center; justify-content:center; width:26px; height:26px; border-radius:8px; background:rgba(255,255,255,0.055); color:#ecedef;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" x2="15.42" y1="13.51" y2="17.49"/><line x1="15.41" x2="8.59" y1="6.51" y2="10.49"/></svg></span>
+              <span style="font-size:17px; font-weight:600; color:var(--px-text,#ecedef); text-align:left;">Video workflows</span>
+            </span>
+            <span style="display:flex; flex-direction:column; justify-content:center; gap:5px; margin-top:2px; height:148px; box-sizing:border-box; overflow:hidden; padding:13px; border-radius:10px; text-align:left; background:rgba(0,0,0,0.26); box-shadow:inset 0 0 0 1px rgba(255,255,255,0.06);"><span style="display:flex; align-items:center; justify-content:space-between; gap:8px; height:24px; padding:0 9px; border-radius:7px; background:rgba(255,255,255,0.05);"><span style="font-family:'IBM Plex Mono',monospace; font-size:11px; letter-spacing:0.06em; color:#9a9ca2;">PLATE</span><span style="font-size:11px; color:#ecedef; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">SC-INT-ROOM-CL-01</span></span><span style="display:flex; align-items:center; justify-content:space-between; gap:8px; height:24px; padding:0 9px; border-radius:7px; background:rgba(255,255,255,0.05);"><span style="font-family:'IBM Plex Mono',monospace; font-size:11px; letter-spacing:0.06em; color:#9a9ca2;">CAMERA</span><span style="font-size:11px; color:#ecedef; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Locked · no drift</span></span><span style="display:flex; align-items:center; justify-content:space-between; gap:8px; height:24px; padding:0 9px; border-radius:7px; background:rgba(255,255,255,0.05);"><span style="font-family:'IBM Plex Mono',monospace; font-size:11px; letter-spacing:0.06em; color:#9a9ca2;">MODEL</span><span style="font-size:11px; color:#ecedef; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Veo 3.5</span></span><span style="display:flex; align-items:center; justify-content:space-between; gap:8px; height:24px; padding:0 9px; border-radius:7px; background:rgba(255,255,255,0.05);"><span style="font-family:'IBM Plex Mono',monospace; font-size:11px; letter-spacing:0.06em; color:#9a9ca2;">OUTPUT</span><span style="font-size:11px; color:#ecedef; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">6s · 16:9 · silent</span></span></span>
+            <span style="display:flex; align-items:center; gap:7px; margin-top:auto; padding-top:4px; font-size:13px; font-weight:500; color:#ff9f85;">Build a video workflow<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg></span>
+          </button>
+          <button onClick="{{ openIde }}" style="{{ splashCard }}">
+            <span style="display:flex; align-items:center; gap:10px;">
+              <span style="flex:none; display:flex; align-items:center; justify-content:center; width:26px; height:26px; border-radius:8px; background:rgba(255,255,255,0.055); color:#ecedef;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M11.017 2.814a1 1 0 0 1 1.966 0l1.051 5.558a2 2 0 0 0 1.594 1.594l5.558 1.051a1 1 0 0 1 0 1.966l-5.558 1.051a2 2 0 0 0-1.594 1.594l-1.051 5.558a1 1 0 0 1-1.966 0l-1.051-5.558a2 2 0 0 0-1.594-1.594l-5.558-1.051a1 1 0 0 1 0-1.966l5.558-1.051a2 2 0 0 0 1.594-1.594z"/><path d="M20 2v4"/><path d="M22 4h-4"/><circle cx="4" cy="20" r="2"/></svg></span>
+              <span style="font-size:17px; font-weight:600; color:var(--px-text,#ecedef); text-align:left;">Model features</span>
+            </span>
+            <span style="display:flex; flex-direction:column; justify-content:center; gap:5px; margin-top:2px; height:148px; box-sizing:border-box; overflow:hidden; padding:13px; border-radius:10px; text-align:left; background:rgba(0,0,0,0.26); box-shadow:inset 0 0 0 1px rgba(255,255,255,0.06);"><span style="display:flex; flex-direction:column; gap:6px;"><span style="height:30px; border-radius:5px; background:rgba(255,255,255,0.08);"></span><span style="display:grid; grid-template-columns:repeat(6,1fr); gap:5px;"><span style="height:26px; border-radius:4px; background:rgba(255,255,255,0.055);"></span><span style="height:26px; border-radius:4px; background:rgba(255,255,255,0.055);"></span><span style="height:26px; border-radius:4px; background:rgba(255,255,255,0.055);"></span><span style="height:26px; border-radius:4px; background:rgba(255,255,255,0.055);"></span><span style="height:26px; border-radius:4px; background:rgba(255,255,255,0.055);"></span><span style="height:26px; border-radius:4px; background:rgba(255,255,255,0.055);"></span></span><span style="display:grid; grid-template-columns:repeat(6,1fr); gap:5px;"><span style="height:26px; border-radius:4px; background:rgba(255,255,255,0.055);"></span><span style="height:26px; border-radius:4px; background:rgba(255,255,255,0.055);"></span><span style="height:26px; border-radius:4px; background:rgba(255,255,255,0.055);"></span><span style="height:26px; border-radius:4px; background:rgba(255,255,255,0.055);"></span><span style="height:26px; border-radius:4px; background:rgba(255,255,255,0.055);"></span><span style="height:26px; border-radius:4px; background:rgba(255,255,255,0.055);"></span></span></span><span style="display:block; margin-top:8px; font-family:'IBM Plex Mono',monospace; font-size:11px; letter-spacing:0.06em; color:#9a9ca2;">1 CLIP → 12 ANGLES</span></span>
+            <span style="display:flex; align-items:center; gap:7px; margin-top:auto; padding-top:4px; font-size:13px; font-weight:500; color:#ff9f85;">Browse features<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg></span>
+          </button>
+        </div>
+      </div>
+
+      <div style="{{ workVideo }}">
+        <div style="padding:22px; overflow:auto; display:flex; flex-direction:column; gap:12px;">
+          <div style="position:relative; aspect-ratio:16/9; border-radius:12px; overflow:hidden; box-shadow:inset 0 0 0 1px rgba(255,255,255,0.07);"><span style="position:absolute; inset:0;"><image-slot style="color:rgba(255,255,255,0.62); display:block; width:100%; height:100%" id="res-x4" shape="rect" placeholder="Result"></image-slot></span></div>
+          <div style="position:relative; aspect-ratio:16/9; border-radius:12px; overflow:hidden; box-shadow:inset 0 0 0 1px rgba(255,255,255,0.07);"><span style="position:absolute; inset:0;"><image-slot style="color:rgba(255,255,255,0.62); display:block; width:100%; height:100%" id="res-x5" shape="rect" placeholder="Result"></image-slot></span></div>
+          <div style="aspect-ratio:16/9; border-radius:12px; box-shadow:inset 0 0 0 1px rgba(255,255,255,0.07); display:flex; align-items:center; justify-content:center; color:var(--px-dim,#9a9ca2); font-size:13px;">+ Add shot</div>
+        </div>
+        <div style="{{ guidePanel }}">
+          <div style="flex:none; display:flex; align-items:center; gap:9px; padding:16px 20px;"><span style="display:flex; align-items:center; gap:9px; flex:1; min-width:0;">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#ff9f85" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11.017 2.814a1 1 0 0 1 1.966 0l1.051 5.558a2 2 0 0 0 1.594 1.594l5.558 1.051a1 1 0 0 1 0 1.966l-5.558 1.051a2 2 0 0 0-1.594 1.594l-1.051 5.558a1 1 0 0 1-1.966 0l-1.051-5.558a2 2 0 0 0-1.594-1.594l-5.558-1.051a1 1 0 0 1 0-1.966l5.558-1.051a2 2 0 0 0 1.594-1.594z"/><path d="M20 2v4"/><path d="M22 4h-4"/><circle cx="4" cy="20" r="2"/></svg>
+            <span style="font-size:14px; font-weight:600; color:var(--px-text,#ecedef);">Scene builder</span></span>
+            <button onClick="{{ closeGuide }}" title="Close" style="{{ iconBtn }}"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button>
+          </div>
+          <div style="flex:1; overflow:auto; padding:4px 20px 84px; display:flex; flex-direction:column; gap:14px;">
+            <div style="padding:16px; border-radius:12px; background:var(--px-frost,rgba(25,26,30,0.57)); box-shadow:inset 0 0 0 1px rgba(255,255,255,0.07);">
+              <div style="font-size:11px; font-weight:600; letter-spacing:0.4px; text-transform:uppercase; color:var(--px-dim,#9a9ca2); margin-bottom:10px;">Scene</div>
+              <div style="min-height:52px; padding:11px 13px; border-radius:9px; background:rgba(0,0,0,0.24); box-shadow:inset 0 0 0 1px rgba(255,255,255,0.07); font-size:14px; color:var(--px-text,#ecedef);">Two explorers cross a foreign plain, chased from behind.</div>
+            </div>
+            <div style="padding:16px; border-radius:12px; background:var(--px-frost,rgba(25,26,30,0.57)); box-shadow:inset 0 0 0 1px rgba(255,255,255,0.07);">
+              <div style="font-size:11px; font-weight:600; letter-spacing:0.4px; text-transform:uppercase; color:var(--px-dim,#9a9ca2); margin-bottom:10px;">Camera &amp; motion</div>
+              <div style="display:flex; flex-wrap:wrap; gap:7px;">
+                <span style="font-size:12px; color:var(--px-text,#ecedef); box-shadow:inset 0 0 0 1px rgba(255,255,255,0.10); border-radius:9999px; padding:6px 12px;">+ rear tracking</span>
+                <span style="font-size:12px; color:var(--px-text,#ecedef); box-shadow:inset 0 0 0 1px rgba(255,255,255,0.10); border-radius:9999px; padding:6px 12px;">+ slow push-in</span>
+              </div>
+            </div>
+            <div style="padding:16px; border-radius:12px; background:var(--px-frost,rgba(25,26,30,0.57)); box-shadow:inset 0 0 0 1px rgba(255,255,255,0.07);">
+              <div style="font-size:11px; font-weight:600; letter-spacing:0.4px; text-transform:uppercase; color:var(--px-dim,#9a9ca2); margin-bottom:10px;">Duration</div>
+              <div style="display:flex; align-items:center; gap:12px;"><span style="font-family:'IBM Plex Mono',monospace; font-size:20px; color:var(--px-text,#ecedef);">6s</span><div style="flex:1; height:4px; border-radius:9999px; background:rgba(255,255,255,0.08); overflow:hidden;"><div style="width:40%; height:100%; background:var(--px-grad,linear-gradient(135deg,#ff7e5f,#8957e5));"></div></div></div>
+            </div>
+          </div>
+          <div style="position:absolute; right:20px; bottom:18px;">
+            <button style="display:flex; align-items:center; gap:8px; height:42px; padding:0 20px; border:none; border-radius:11px; background:var(--px-grad, linear-gradient(135deg,#ff7e5f,#8957e5)); color:#fff; font-size:14px; font-weight:600; cursor:pointer; box-shadow:0 6px 20px rgba(137,87,229,0.35);">Render clip</button>
+          </div>
+        </div>
+        <div style="{{ guideStrip }}">
+          <button onClick="{{ openGuide }}" title="Open guide" style="{{ stripBtn }}"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11.017 2.814a1 1 0 0 1 1.966 0l1.051 5.558a2 2 0 0 0 1.594 1.594l5.558 1.051a1 1 0 0 1 0 1.966l-5.558 1.051a2 2 0 0 0-1.594 1.594l-1.051 5.558a1 1 0 0 1-1.966 0l-1.051-5.558a2 2 0 0 0-1.594-1.594l-5.558-1.051a1 1 0 0 1 0-1.966l5.558-1.051a2 2 0 0 0 1.594-1.594z"/><path d="M20 2v4"/><path d="M22 4h-4"/><circle cx="4" cy="20" r="2"/></svg></button>
+        </div>
+      </div>
+      </div>
+      <aside style="{{ agentPanel }}">
+        <div style="flex:none; display:flex; align-items:center; justify-content:space-between; padding:16px 18px;">
+          <span style="font-size:14px; font-weight:600; color:var(--px-text,#ecedef);">Agent</span>
+          <span style="display:flex; align-items:center; gap:6px; font-size:11px; color:var(--px-dim,#9a9ca2);"><img src="assets/provider-icons/anthropic.ico" style="width:14px; height:14px; border-radius:3px;">Opus 4.8</span>
+        </div>
+        <div style="flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; padding:24px 26px; text-align:center;">
+          <h2 style="margin:0; font-size:30px; font-weight:600; line-height:1.18; letter-spacing:-0.02em; color:var(--px-text,#ecedef);">Start your video workflow here.</h2>
+          <p style="margin:14px 0 0; font-size:15px; line-height:1.5; color:var(--px-dim,#9a9ca2);">Let's take your idea to the next level.</p>
+        </div>
+        <div style="flex:none; padding:0 18px 18px;">
+          <div style="display:flex; align-items:center; gap:10px; height:46px; padding:0 6px 0 14px; border-radius:12px; border:1px solid var(--px-stroke,#2b2c30); background:var(--px-ice,rgba(25,26,30,0.35));">
+            <input placeholder="e.g. a slow dolly through a neon-lit street at night…" style="flex:1; height:100%; border:none; outline:none; background:transparent; font-size:13px; color:var(--px-text,#ecedef);">
+            <button style="flex:none; width:34px; height:34px; border:none; border-radius:9px; background:var(--px-grad, linear-gradient(135deg,#ff7e5f,#8957e5)); display:flex; align-items:center; justify-content:center; cursor:pointer;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.536 21.686a.5.5 0 0 0 .937-.024l6.5-19a.496.496 0 0 0-.635-.635l-19 6.5a.5.5 0 0 0-.024.937l7.93 3.18a2 2 0 0 1 1.112 1.11z"/><path d="m21.854 2.147-10.94 10.939"/></svg></button>
+          </div>
+        </div>
+      </aside>
+    </div>
+  </section>
+
+  <!-- ░░ AUDIO ░░ -->
+  <section style="{{ wAudio }}">
+    <div style="display:flex; height:100%;">
+      <div style="flex:1; min-width:0; position:relative; display:flex; flex-direction:column;">
+      <div style="{{ splashAudio }}">
+        <h1 style="margin:0; font-size:32px; font-weight:500; letter-spacing:-0.02em; color:var(--px-text,#ecedef);">Create audio</h1>
+        <p style="margin:14px 0 32px; max-width:600px; font-size:16px; line-height:1.5; color:var(--px-dim,#9a9ca2); text-align:center; text-wrap:pretty;">Start from a reusable workflow, and/or craft it with your Audio Agent.</p>
+        <div style="{{ splashRow }}">
+          <button onClick="{{ openIde }}" style="{{ splashCard }}">
+            <span style="display:flex; align-items:center; gap:10px;">
+              <span style="flex:none; display:flex; align-items:center; justify-content:center; width:26px; height:26px; border-radius:8px; background:rgba(255,255,255,0.055); color:#ecedef;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 7v14"/><path d="M3 18a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h5a4 4 0 0 1 4 4 4 4 0 0 1 4-4h5a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1h-6a3 3 0 0 0-3 3 3 3 0 0 0-3-3z"/></svg></span>
+              <span style="font-size:17px; font-weight:600; color:var(--px-text,#ecedef); text-align:left;">Audio guides</span>
+            </span>
+            <span style="display:flex; flex-direction:column; justify-content:center; gap:5px; margin-top:2px; height:148px; box-sizing:border-box; overflow:hidden; padding:13px; border-radius:10px; text-align:left; background:rgba(0,0,0,0.26); box-shadow:inset 0 0 0 1px rgba(255,255,255,0.06);"><span style="font-family:'IBM Plex Mono',monospace; font-size:11px; line-height:1.55; color:#9a9ca2; display:block;">A scene voiceover read as</span><span style="font-family:'IBM Plex Mono',monospace; font-size:11px; line-height:1.55; color:#9a9ca2; display:block;"><span style="color:#ff9f85;">[CHARACTER]</span>, <span style="color:#ff9f85;">[EMOTION]</span>.</span><span style="font-family:'IBM Plex Mono',monospace; font-size:11px; line-height:1.55; color:#9a9ca2; display:block;">Timed to picture. Room tone</span><span style="font-family:'IBM Plex Mono',monospace; font-size:11px; line-height:1.55; color:#9a9ca2; display:block;">matched to the interior.</span><span style="font-family:'IBM Plex Mono',monospace; font-size:11px; line-height:1.55; color:#9a9ca2; display:block;">48 kHz, mono, no music bed.</span></span>
+            <span style="display:flex; align-items:center; gap:7px; margin-top:auto; padding-top:4px; font-size:13px; font-weight:500; color:#ff9f85;">Open Scene Voiceover guide<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg></span>
+          </button>
+          <button onClick="{{ openIde }}" style="{{ splashCard }}">
+            <span style="display:flex; align-items:center; gap:10px;">
+              <span style="flex:none; display:flex; align-items:center; justify-content:center; width:26px; height:26px; border-radius:8px; background:rgba(255,255,255,0.055); color:#ecedef;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" x2="15.42" y1="13.51" y2="17.49"/><line x1="15.41" x2="8.59" y1="6.51" y2="10.49"/></svg></span>
+              <span style="font-size:17px; font-weight:600; color:var(--px-text,#ecedef); text-align:left;">Audio workflows</span>
+            </span>
+            <span style="display:flex; flex-direction:column; justify-content:center; gap:5px; margin-top:2px; height:148px; box-sizing:border-box; overflow:hidden; padding:13px; border-radius:10px; text-align:left; background:rgba(0,0,0,0.26); box-shadow:inset 0 0 0 1px rgba(255,255,255,0.06);"><span style="display:flex; align-items:center; justify-content:space-between; gap:8px; height:24px; padding:0 9px; border-radius:7px; background:rgba(255,255,255,0.05);"><span style="font-family:'IBM Plex Mono',monospace; font-size:11px; letter-spacing:0.06em; color:#9a9ca2;">SCRIPT</span><span style="font-size:11px; color:#ecedef; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Scene 4 — 82 words</span></span><span style="display:flex; align-items:center; justify-content:space-between; gap:8px; height:24px; padding:0 9px; border-radius:7px; background:rgba(255,255,255,0.05);"><span style="font-family:'IBM Plex Mono',monospace; font-size:11px; letter-spacing:0.06em; color:#9a9ca2;">VOICE</span><span style="font-size:11px; color:#ecedef; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Cloned · Echelon-1</span></span><span style="display:flex; align-items:center; justify-content:space-between; gap:8px; height:24px; padding:0 9px; border-radius:7px; background:rgba(255,255,255,0.05);"><span style="font-family:'IBM Plex Mono',monospace; font-size:11px; letter-spacing:0.06em; color:#9a9ca2;">MODEL</span><span style="font-size:11px; color:#ecedef; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">ElevenLabs V3</span></span><span style="display:flex; align-items:center; justify-content:space-between; gap:8px; height:24px; padding:0 9px; border-radius:7px; background:rgba(255,255,255,0.05);"><span style="font-family:'IBM Plex Mono',monospace; font-size:11px; letter-spacing:0.06em; color:#9a9ca2;">OUTPUT</span><span style="font-size:11px; color:#ecedef; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">48 kHz · timed</span></span></span>
+            <span style="display:flex; align-items:center; gap:7px; margin-top:auto; padding-top:4px; font-size:13px; font-weight:500; color:#ff9f85;">Build an audio workflow<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg></span>
+          </button>
+          <button onClick="{{ openIde }}" style="{{ splashCard }}">
+            <span style="display:flex; align-items:center; gap:10px;">
+              <span style="flex:none; display:flex; align-items:center; justify-content:center; width:26px; height:26px; border-radius:8px; background:rgba(255,255,255,0.055); color:#ecedef;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M11.017 2.814a1 1 0 0 1 1.966 0l1.051 5.558a2 2 0 0 0 1.594 1.594l5.558 1.051a1 1 0 0 1 0 1.966l-5.558 1.051a2 2 0 0 0-1.594 1.594l-1.051 5.558a1 1 0 0 1-1.966 0l-1.051-5.558a2 2 0 0 0-1.594-1.594l-5.558-1.051a1 1 0 0 1 0-1.966l5.558-1.051a2 2 0 0 0 1.594-1.594z"/><path d="M20 2v4"/><path d="M22 4h-4"/><circle cx="4" cy="20" r="2"/></svg></span>
+              <span style="font-size:17px; font-weight:600; color:var(--px-text,#ecedef); text-align:left;">Model features</span>
+            </span>
+            <span style="display:flex; flex-direction:column; justify-content:center; gap:5px; margin-top:2px; height:148px; box-sizing:border-box; overflow:hidden; padding:13px; border-radius:10px; text-align:left; background:rgba(0,0,0,0.26); box-shadow:inset 0 0 0 1px rgba(255,255,255,0.06);"><span style="display:flex; align-items:flex-end; gap:3px; height:70px;"><span style="flex:1; height:38%; border-radius:2px; background:rgba(255,255,255,0.07);"></span><span style="flex:1; height:64%; border-radius:2px; background:rgba(255,255,255,0.07);"></span><span style="flex:1; height:92%; border-radius:2px; background:rgba(255,255,255,0.07);"></span><span style="flex:1; height:52%; border-radius:2px; background:rgba(255,255,255,0.07);"></span><span style="flex:1; height:80%; border-radius:2px; background:rgba(255,255,255,0.07);"></span><span style="flex:1; height:34%; border-radius:2px; background:rgba(255,255,255,0.07);"></span><span style="flex:1; height:70%; border-radius:2px; background:rgba(255,255,255,0.07);"></span><span style="flex:1; height:96%; border-radius:2px; background:rgba(255,255,255,0.07);"></span><span style="flex:1; height:46%; border-radius:2px; background:rgba(255,255,255,0.07);"></span><span style="flex:1; height:74%; border-radius:2px; background:rgba(255,255,255,0.07);"></span><span style="flex:1; height:58%; border-radius:2px; background:rgba(255,255,255,0.07);"></span><span style="flex:1; height:88%; border-radius:2px; background:rgba(255,255,255,0.07);"></span><span style="flex:1; height:42%; border-radius:2px; background:rgba(255,255,255,0.07);"></span><span style="flex:1; height:66%; border-radius:2px; background:rgba(255,255,255,0.07);"></span><span style="flex:1; height:90%; border-radius:2px; background:rgba(255,255,255,0.07);"></span><span style="flex:1; height:50%; border-radius:2px; background:rgba(255,255,255,0.07);"></span></span><span style="display:block; margin-top:8px; font-family:'IBM Plex Mono',monospace; font-size:11px; letter-spacing:0.06em; color:#9a9ca2;">1 TAKE → 4 STEMS</span></span>
+            <span style="display:flex; align-items:center; gap:7px; margin-top:auto; padding-top:4px; font-size:13px; font-weight:500; color:#ff9f85;">Browse features<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg></span>
+          </button>
+        </div>
+      </div>
+
+      <div style="{{ workAudio }}">
+        <div style="padding:22px; overflow:auto; display:flex; flex-direction:column; gap:12px;">
+          <div style="display:flex; align-items:center; gap:14px; padding:16px; border-radius:12px; background:var(--px-frost,rgba(25,26,30,0.57)); box-shadow:inset 0 0 0 1px rgba(255,255,255,0.07);">
+            <span style="display:flex; align-items:center; justify-content:center; width:34px; height:34px; border-radius:50%; background:var(--px-grad, linear-gradient(135deg,#ff7e5f,#8957e5));"><svg width="13" height="13" viewBox="0 0 24 24" fill="#fff"><path d="m8 5 12 7-12 7z"/></svg></span>
+            <div style="flex:1; display:flex; align-items:flex-end; gap:3px; height:38px;">
+              <div style="flex:1; height:40%; border-radius:2px; background:rgba(255,255,255,0.16);"></div><div style="flex:1; height:72%; border-radius:2px; background:rgba(255,255,255,0.16);"></div><div style="flex:1; height:96%; border-radius:2px; background:rgba(255,255,255,0.22);"></div><div style="flex:1; height:58%; border-radius:2px; background:rgba(255,255,255,0.16);"></div><div style="flex:1; height:84%; border-radius:2px; background:rgba(255,255,255,0.22);"></div><div style="flex:1; height:34%; border-radius:2px; background:rgba(255,255,255,0.16);"></div><div style="flex:1; height:66%; border-radius:2px; background:rgba(255,255,255,0.16);"></div><div style="flex:1; height:90%; border-radius:2px; background:rgba(255,255,255,0.22);"></div><div style="flex:1; height:46%; border-radius:2px; background:rgba(255,255,255,0.16);"></div><div style="flex:1; height:74%; border-radius:2px; background:rgba(255,255,255,0.16);"></div>
+            </div>
+            <span style="font-family:'IBM Plex Mono',monospace; font-size:12px; color:var(--px-dim,#9a9ca2);">0:24</span>
+          </div>
+          <div style="border-radius:12px; box-shadow:inset 0 0 0 1px rgba(255,255,255,0.07); padding:16px; display:flex; align-items:center; justify-content:center; color:var(--px-dim,#9a9ca2); font-size:13px;">+ Add track</div>
+        </div>
+        <div style="{{ guidePanel }}">
+          <div style="flex:none; display:flex; align-items:center; gap:9px; padding:16px 20px;"><span style="display:flex; align-items:center; gap:9px; flex:1; min-width:0;">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#ff9f85" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11.017 2.814a1 1 0 0 1 1.966 0l1.051 5.558a2 2 0 0 0 1.594 1.594l5.558 1.051a1 1 0 0 1 0 1.966l-5.558 1.051a2 2 0 0 0-1.594 1.594l-1.051 5.558a1 1 0 0 1-1.966 0l-1.051-5.558a2 2 0 0 0-1.594-1.594l-5.558-1.051a1 1 0 0 1 0-1.966l5.558-1.051a2 2 0 0 0 1.594-1.594z"/><path d="M20 2v4"/><path d="M22 4h-4"/><circle cx="4" cy="20" r="2"/></svg>
+            <span style="font-size:14px; font-weight:600; color:var(--px-text,#ecedef);">Sound builder</span></span>
+            <button onClick="{{ closeGuide }}" title="Close" style="{{ iconBtn }}"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button>
+          </div>
+          <div style="flex:1; overflow:auto; padding:4px 20px 84px; display:flex; flex-direction:column; gap:14px;">
+            <div style="padding:16px; border-radius:12px; background:var(--px-frost,rgba(25,26,30,0.57)); box-shadow:inset 0 0 0 1px rgba(255,255,255,0.07);">
+              <div style="font-size:11px; font-weight:600; letter-spacing:0.4px; text-transform:uppercase; color:var(--px-dim,#9a9ca2); margin-bottom:10px;">Brief</div>
+              <div style="min-height:52px; padding:11px 13px; border-radius:9px; background:rgba(0,0,0,0.24); box-shadow:inset 0 0 0 1px rgba(255,255,255,0.07); font-size:14px; color:var(--px-text,#ecedef);">Warm lo-fi loop, vinyl crackle, relaxed.</div>
+            </div>
+            <div style="padding:16px; border-radius:12px; background:var(--px-frost,rgba(25,26,30,0.57)); box-shadow:inset 0 0 0 1px rgba(255,255,255,0.07);">
+              <div style="font-size:11px; font-weight:600; letter-spacing:0.4px; text-transform:uppercase; color:var(--px-dim,#9a9ca2); margin-bottom:10px;">Mood</div>
+              <div style="display:flex; flex-wrap:wrap; gap:7px;">
+                <span style="font-size:12px; color:var(--px-text,#ecedef); box-shadow:inset 0 0 0 1px rgba(255,255,255,0.10); border-radius:9999px; padding:6px 12px;">+ mellow</span>
+                <span style="font-size:12px; color:var(--px-text,#ecedef); box-shadow:inset 0 0 0 1px rgba(255,255,255,0.10); border-radius:9999px; padding:6px 12px;">+ nostalgic</span>
+              </div>
+            </div>
+            <div style="padding:16px; border-radius:12px; background:var(--px-frost,rgba(25,26,30,0.57)); box-shadow:inset 0 0 0 1px rgba(255,255,255,0.07);">
+              <div style="font-size:11px; font-weight:600; letter-spacing:0.4px; text-transform:uppercase; color:var(--px-dim,#9a9ca2); margin-bottom:10px;">Length</div>
+              <div style="display:flex; align-items:center; gap:12px;"><span style="font-family:'IBM Plex Mono',monospace; font-size:20px; color:var(--px-text,#ecedef);">0:30</span><div style="flex:1; height:4px; border-radius:9999px; background:rgba(255,255,255,0.08); overflow:hidden;"><div style="width:52%; height:100%; background:var(--px-grad,linear-gradient(135deg,#ff7e5f,#8957e5));"></div></div></div>
+            </div>
+          </div>
+          <div style="position:absolute; right:20px; bottom:18px;">
+            <button style="display:flex; align-items:center; gap:8px; height:42px; padding:0 20px; border:none; border-radius:11px; background:var(--px-grad, linear-gradient(135deg,#ff7e5f,#8957e5)); color:#fff; font-size:14px; font-weight:600; cursor:pointer; box-shadow:0 6px 20px rgba(137,87,229,0.35);">Render audio</button>
+          </div>
+        </div>
+        <div style="{{ guideStrip }}">
+          <button onClick="{{ openGuide }}" title="Open guide" style="{{ stripBtn }}"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11.017 2.814a1 1 0 0 1 1.966 0l1.051 5.558a2 2 0 0 0 1.594 1.594l5.558 1.051a1 1 0 0 1 0 1.966l-5.558 1.051a2 2 0 0 0-1.594 1.594l-1.051 5.558a1 1 0 0 1-1.966 0l-1.051-5.558a2 2 0 0 0-1.594-1.594l-5.558-1.051a1 1 0 0 1 0-1.966l5.558-1.051a2 2 0 0 0 1.594-1.594z"/><path d="M20 2v4"/><path d="M22 4h-4"/><circle cx="4" cy="20" r="2"/></svg></button>
+        </div>
+      </div>
+      </div>
+      <aside style="{{ agentPanel }}">
+        <div style="flex:none; display:flex; align-items:center; justify-content:space-between; padding:16px 18px;">
+          <span style="font-size:14px; font-weight:600; color:var(--px-text,#ecedef);">Agent</span>
+          <span style="display:flex; align-items:center; gap:6px; font-size:11px; color:var(--px-dim,#9a9ca2);"><img src="assets/provider-icons/anthropic.ico" style="width:14px; height:14px; border-radius:3px;">Opus 4.8</span>
+        </div>
+        <div style="flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; padding:24px 26px; text-align:center;">
+          <h2 style="margin:0; font-size:30px; font-weight:600; line-height:1.18; letter-spacing:-0.02em; color:var(--px-text,#ecedef);">Start your audio workflow here.</h2>
+          <p style="margin:14px 0 0; font-size:15px; line-height:1.5; color:var(--px-dim,#9a9ca2);">Let's take your idea to the next level.</p>
+        </div>
+        <div style="flex:none; padding:0 18px 18px;">
+          <div style="display:flex; align-items:center; gap:10px; height:46px; padding:0 6px 0 14px; border-radius:12px; border:1px solid var(--px-stroke,#2b2c30); background:var(--px-ice,rgba(25,26,30,0.35));">
+            <input placeholder="e.g. a warm lo-fi loop with vinyl crackle, 90 bpm…" style="flex:1; height:100%; border:none; outline:none; background:transparent; font-size:13px; color:var(--px-text,#ecedef);">
+            <button style="flex:none; width:34px; height:34px; border:none; border-radius:9px; background:var(--px-grad, linear-gradient(135deg,#ff7e5f,#8957e5)); display:flex; align-items:center; justify-content:center; cursor:pointer;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.536 21.686a.5.5 0 0 0 .937-.024l6.5-19a.496.496 0 0 0-.635-.635l-19 6.5a.5.5 0 0 0-.024.937l7.93 3.18a2 2 0 0 1 1.112 1.11z"/><path d="m21.854 2.147-10.94 10.939"/></svg></button>
+          </div>
+        </div>
+      </aside>
+    </div>
+  </section>
+
+  <!-- ░░ PROJECTS ░░ -->
+  <section style="{{ wProjects }}">
+    <div style="height:100%; overflow:auto; padding:40px 48px;">
+      <div style="max-width:1120px; margin:0 auto;">
+        <div style="display:flex; align-items:flex-end; justify-content:space-between; margin-bottom:8px;">
+          <h1 style="margin:0; font-size:30px; font-weight:600; letter-spacing:-0.01em; color:var(--px-text,#ece8ee);">Projects</h1>
+          <div style="display:flex; align-items:center; gap:12px;">
+            <div style="display:flex; border:1px solid var(--px-stroke,#2e2831); border-radius:9px; overflow:hidden;">
+              <button onClick="{{ setPList }}" style="{{ segPList }}"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5h16"/><path d="M4 12h16"/><path d="M4 19h16"/></svg></button>
+              <button onClick="{{ setPGrid }}" style="{{ segPGrid }}"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="7" height="7" x="3" y="3" rx="1"/><rect width="7" height="7" x="14" y="3" rx="1"/><rect width="7" height="7" x="14" y="14" rx="1"/><rect width="7" height="7" x="3" y="14" rx="1"/></svg></button>
+            </div>
+            <div style="display:flex; align-items:center; gap:7px; height:36px; padding:0 14px; border-radius:9px; border:1px solid var(--px-stroke,#2e2831); background:var(--px-ice,rgba(25,21,25,0.4)); font-size:13px; color:var(--px-text,#ece8ee); cursor:pointer;">Date added <span style="color:var(--px-dim,#9b95a1); font-size:11px;">▾</span></div>
+          </div>
+        </div>
+        <p style="margin:0 0 24px; font-size:14px; color:var(--px-dim,#9b95a1);">Every workspace you've started. Open one to pick up where you left off.</p>
+
+        <div style="display:flex; align-items:center; gap:8px; margin:0 0 20px;">
+          <button onClick="{{ setPFAll }}" style="{{ fAll }}">All <span style="opacity:0.6;">{{ cAll }}</span></button>
+          <button onClick="{{ setPFSaved }}" style="{{ fSaved }}">Saved <span style="opacity:0.6;">{{ cSaved }}</span></button>
+          <button onClick="{{ setPFDrafts }}" style="{{ fDrafts }}">Drafts <span style="opacity:0.6;">{{ cDrafts }}</span></button>
+          <div style="margin-left:auto; display:flex; align-items:center; gap:7px; font-size:12px; color:#8a848f;">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+            Drafts with no assets are swept after 14 days
+          </div>
+        </div>
+
+        <div style="display:flex; align-items:center; gap:11px; height:56px; padding:0 20px; border-radius:12px; border:1px dashed var(--px-stroke,#2e2831); color:var(--px-text,#ece8ee); font-size:14px; cursor:pointer; margin-bottom:16px;">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#ff9f85" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg>
+          New project
+        </div>
+
+        <div style="{{ pList }}">
+          <sc-for list="{{ projects }}" as="p" hint-placeholder-count="5">
+            <div style="display:flex; align-items:center; gap:14px; padding:15px 20px; border-radius:12px; border:1px solid var(--px-stroke,#2e2831); background:var(--px-glass,rgba(25,21,25,0.7)); margin-bottom:12px;" style-hover="border-color:rgba(255,255,255,0.2);">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--px-dim,#9b95a1)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="flex:none;"><path d="M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13c0 1.1.9 2 2 2Z"/></svg>
+              <div style="flex:1; min-width:0; display:flex; flex-direction:column; gap:5px;">
+                <div style="display:flex; align-items:center; gap:9px;">
+                  <span style="font-size:15px; color:var(--px-text,#ece8ee);">{{ p.name }}</span>
+                  <sc-if value="{{ p.isDraft }}" hint-placeholder-val="{{ true }}">
+                    <span style="font-size:11px; font-weight:500; padding:2px 9px; border-radius:9999px; background:rgba(255,159,133,0.14); color:#ff9f85;">Draft</span>
+                  </sc-if>
+                </div>
+                <div style="display:flex; align-items:center; gap:8px; font-size:12px;">
+                  <span style="color:var(--px-dim,#9b95a1);">{{ p.meta }}</span>
+                  <sc-if value="{{ p.isDraft }}" hint-placeholder-val="{{ true }}">
+                    <span style="color:#4d4850;">·</span>
+                    <span style="{{ p.expStyle }}">{{ p.expText }}</span>
+                  </sc-if>
+                </div>
+                <sc-if value="{{ p.hasLineage }}" hint-placeholder-val="{{ true }}">
+                  <div style="display:flex; align-items:center; gap:6px; font-family:'IBM Plex Mono',monospace; font-size:11px; color:#8a848f;">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3v12"/><circle cx="18" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M18 9a9 9 0 0 1-9 9"/></svg>
+                    {{ p.lineage }}
+                  </div>
+                </sc-if>
+              </div>
+              <div style="flex:none; display:flex; gap:6px;">
+                <button onClick="{{ noop }}" title="Duplicate" style="display:flex; align-items:center; justify-content:center; width:32px; height:32px; border:none; border-radius:8px; background:transparent; color:var(--px-dim,#9b95a1); cursor:pointer;" style-hover="background:rgba(255,255,255,0.06);"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect width="14" height="14" x="8" y="8" rx="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg></button>
+                <button onClick="{{ noop }}" title="Save as template" style="display:flex; align-items:center; justify-content:center; width:32px; height:32px; border:none; border-radius:8px; background:transparent; color:var(--px-dim,#9b95a1); cursor:pointer;" style-hover="background:rgba(255,255,255,0.06);"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16v6H4z"/><path d="M4 14h7v6H4z"/><path d="M15 14h5v6h-5z"/></svg></button>
+                <button onClick="{{ p.del }}" title="Delete" style="display:flex; align-items:center; justify-content:center; width:32px; height:32px; border:none; border-radius:8px; background:transparent; color:var(--px-dim,#9b95a1); cursor:pointer;" style-hover="background:rgba(255,255,255,0.06); color:#f08a7a;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M10 11v6"/><path d="M14 11v6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button>
+              </div>
+            </div>
+          </sc-for>
+        </div>
+
+        <div style="{{ pGrid }}">
+          <sc-for list="{{ projects }}" as="p" hint-placeholder-count="4">
+            <div style="padding:18px; border-radius:12px; border:1px solid var(--px-stroke,#2e2831); background:var(--px-glass,rgba(25,21,25,0.7)); display:flex; flex-direction:column; gap:12px;">
+              <div style="position:relative; aspect-ratio:16/10; border-radius:9px; overflow:hidden;">
+                <span style="position:absolute; inset:0;"><image-slot style="color:rgba(255,255,255,0.62); display:block; width:100%; height:100%" id="{{ p.slotId }}" shape="rect" placeholder="{{ p.name }}"></image-slot></span>
+              </div>
+              <div style="display:flex; flex-direction:column; gap:5px;">
+                <div style="display:flex; align-items:center; gap:9px;">
+                  <span style="font-size:15px; color:var(--px-text,#ece8ee);">{{ p.name }}</span>
+                  <sc-if value="{{ p.isDraft }}" hint-placeholder-val="{{ true }}">
+                    <span style="font-size:11px; font-weight:500; padding:2px 9px; border-radius:9999px; background:rgba(255,159,133,0.14); color:#ff9f85;">Draft</span>
+                  </sc-if>
+                </div>
+                <div style="display:flex; align-items:center; gap:8px; font-size:12px;">
+                  <span style="color:var(--px-dim,#9b95a1);">{{ p.meta }}</span>
+                  <sc-if value="{{ p.isDraft }}" hint-placeholder-val="{{ true }}">
+                    <span style="color:#4d4850;">·</span>
+                    <span style="{{ p.expStyle }}">{{ p.expText }}</span>
+                  </sc-if>
+                </div>
+              </div>
+            </div>
+          </sc-for>
+        </div>
+
+        <sc-if value="{{ noneShown }}" hint-placeholder-val="{{ false }}">
+          <div style="display:flex; flex-direction:column; align-items:center; gap:8px; padding:64px 0; text-align:center;">
+            <div style="font-size:16px; color:var(--px-text,#ece8ee);">Nothing here</div>
+            <div style="font-size:14px; color:var(--px-dim,#9b95a1);">{{ emptyHint }}</div>
+          </div>
+        </sc-if>
+      </div>
+    </div>
+
+    <!-- undo toast -->
+    <div style="{{ toastWrap }}">
+      <div style="position:relative; display:flex; align-items:center; gap:16px; padding:14px 16px 14px 18px; border-radius:12px; border:1px solid var(--px-stroke,#2e2831); background:rgba(20,17,21,0.94); backdrop-filter:blur(20px); box-shadow:0 12px 40px rgba(0,0,0,0.5); overflow:hidden;">
+        <span style="font-size:14px; color:var(--px-text,#ece8ee);">Deleted “{{ undoName }}”</span>
+        <button onClick="{{ doUndo }}" style="border:none; background:transparent; font-family:inherit; font-size:14px; font-weight:600; color:#ff9f85; cursor:pointer; padding:0;">Undo</button>
+        <span style="position:absolute; left:0; right:0; bottom:0; height:2px; background:#ff9f85; transform-origin:left; animation:pxBar 10s linear forwards;"></span>
+      </div>
+    </div>
+
+    <!-- confirm (saved project with assets) -->
+    <div style="{{ confirmWrap }}">
+      <div style="width:420px; padding:26px; border-radius:16px; border:1px solid var(--px-stroke,#2e2831); background:rgba(22,19,23,0.96); backdrop-filter:blur(20px); box-shadow:0 24px 70px rgba(0,0,0,0.6); animation:pxRise 200ms cubic-bezier(0.22,1,0.36,1);">
+        <div style="font-size:18px; font-weight:600; color:var(--px-text,#ece8ee); margin-bottom:10px;">Delete “{{ confirmName }}”?</div>
+        <div style="font-size:14px; line-height:1.55; color:var(--px-dim,#9b95a1); margin-bottom:22px; text-wrap:pretty;">{{ confirmBody }} There's no trash — but you'll have ten seconds to undo.</div>
+        <div style="display:flex; justify-content:flex-end; gap:10px;">
+          <button onClick="{{ confirmCancel }}" style="height:38px; padding:0 18px; border-radius:9px; border:1px solid var(--px-stroke,#2e2831); background:transparent; font-family:inherit; font-size:14px; color:var(--px-text,#ece8ee); cursor:pointer;">Cancel</button>
+          <button onClick="{{ confirmDelete }}" style="height:38px; padding:0 18px; border-radius:9px; border:1px solid rgba(240,138,122,0.4); background:rgba(240,138,122,0.13); font-family:inherit; font-size:14px; font-weight:600; color:#f08a7a; cursor:pointer;">Delete</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ░░ ASSETS ░░ -->
+  <section style="{{ wAssets }}">
+    <div style="height:100%; overflow:auto; padding:40px 48px;">
+      <div style="max-width:1120px; margin:0 auto;">
+        <div style="display:flex; align-items:flex-start; justify-content:space-between; margin-bottom:8px;">
+          <h1 style="margin:0; font-size:30px; font-weight:600; letter-spacing:-0.01em; color:var(--px-text,#ece8ee);">Assets</h1>
+          <div style="display:flex; align-items:center; gap:12px;">
+            <div style="display:flex; border:1px solid var(--px-stroke,#2e2831); border-radius:9px; overflow:hidden;">
+              <button onClick="{{ setAList }}" style="{{ segAList }}"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5h16"/><path d="M4 12h16"/><path d="M4 19h16"/></svg></button>
+              <button onClick="{{ setAGrid }}" style="{{ segAGrid }}"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="7" height="7" x="3" y="3" rx="1"/><rect width="7" height="7" x="14" y="3" rx="1"/><rect width="7" height="7" x="14" y="14" rx="1"/><rect width="7" height="7" x="3" y="14" rx="1"/></svg></button>
+            </div>
+            <div style="display:flex; align-items:center; gap:7px; height:36px; padding:0 14px; border-radius:9px; border:1px solid var(--px-stroke,#2e2831); background:var(--px-ice,rgba(25,21,25,0.4)); font-size:13px; color:var(--px-text,#ece8ee); cursor:pointer;">Date added <span style="color:var(--px-dim,#9b95a1); font-size:11px;">▾</span></div>
+            <button style="display:flex; align-items:center; gap:7px; height:36px; padding:0 16px; border:none; border-radius:9px; background:var(--px-grad, linear-gradient(135deg,#ff7e5f,#8957e5)); color:#fff; font-size:13px; font-weight:600; cursor:pointer;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg>Add assets</button>
+          </div>
+        </div>
+        <p style="margin:0 0 22px; font-size:14px; color:var(--px-dim,#9b95a1); max-width:640px;">Everything you've saved, in one place. Tag with flat labels — the workflow picks which assets play which role.</p>
+
+        <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:22px;">
+          <div style="display:flex; gap:9px;">
+            <span style="font-size:13px; color:var(--px-text,#ece8ee); border:1px solid var(--px-stroke,#2e2831); border-radius:9999px; padding:6px 15px; background:var(--px-ice,rgba(25,21,25,0.4));">All <span style="color:var(--px-dim,#9b95a1);">6</span></span>
+            <span style="font-size:13px; color:var(--px-dim,#9b95a1); border:1px solid var(--px-stroke,#2e2831); border-radius:9999px; padding:6px 15px;">Images <span>4</span></span>
+            <span style="font-size:13px; color:var(--px-dim,#9b95a1); border:1px solid var(--px-stroke,#2e2831); border-radius:9999px; padding:6px 15px;">Video <span>2</span></span>
+          </div>
+          <div style="display:flex; align-items:center; gap:9px; width:260px; height:36px; padding:0 14px; border-radius:9px; border:1px solid var(--px-stroke,#2e2831); background:var(--px-ice,rgba(25,21,25,0.4));">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--px-dim,#9b95a1)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21 21-4.34-4.34"/><circle cx="11" cy="11" r="8"/></svg>
+            <input placeholder="Search title, tags, prompt…" style="flex:1; border:none; outline:none; background:transparent; font-size:13px; color:var(--px-text,#ece8ee);">
+          </div>
+        </div>
+
+        <div style="{{ aGrid }}">
+          <div style="break-inside:avoid; margin-bottom:16px; display:inline-block; width:100%; border-radius:12px; overflow:hidden; border:1px solid var(--px-stroke,#2e2831); background:var(--px-glass,rgba(25,21,25,0.7));"><div style="aspect-ratio:3/4; position:relative; overflow:hidden;"><span style="position:absolute; inset:0;"><image-slot style="color:rgba(255,255,255,0.62); display:block; width:100%; height:100%" id="asset-1" shape="rect" placeholder="Gallardo · side-on"></image-slot></span><span style="position:absolute; z-index:2; pointer-events:none; top:12px; left:12px; font-size:11px; font-weight:600; letter-spacing:0.5px; color:var(--px-text,#ece8ee); background:rgba(0,0,0,0.4); padding:3px 8px; border-radius:6px;">IMAGE</span></div><div style="padding:14px;"><div style="font-size:14px; color:var(--px-text,#ece8ee);">Gallardo · side-on</div><div style="font-size:12px; color:var(--px-dim,#9b95a1);">Nano Banana</div></div></div>
+          <div style="break-inside:avoid; margin-bottom:16px; display:inline-block; width:100%; border-radius:12px; overflow:hidden; border:1px solid var(--px-stroke,#2e2831); background:var(--px-glass,rgba(25,21,25,0.7));"><div style="aspect-ratio:16/10; position:relative; overflow:hidden;"><span style="position:absolute; inset:0;"><image-slot style="color:rgba(255,255,255,0.62); display:block; width:100%; height:100%" id="asset-2" shape="rect" placeholder="Gallardo · front POV"></image-slot></span><span style="position:absolute; z-index:2; pointer-events:none; top:12px; left:12px; font-size:11px; font-weight:600; letter-spacing:0.5px; color:var(--px-text,#ece8ee); background:rgba(0,0,0,0.4); padding:3px 8px; border-radius:6px;">IMAGE</span></div><div style="padding:14px;"><div style="font-size:14px; color:var(--px-text,#ece8ee);">Gallardo · front POV</div><div style="font-size:12px; color:var(--px-dim,#9b95a1);">Nano Banana</div></div></div>
+          <div style="break-inside:avoid; margin-bottom:16px; display:inline-block; width:100%; border-radius:12px; overflow:hidden; border:1px solid var(--px-stroke,#2e2831); background:var(--px-glass,rgba(25,21,25,0.7));"><div style="aspect-ratio:1/1; position:relative; overflow:hidden;"><span style="position:absolute; inset:0;"><image-slot style="color:rgba(255,255,255,0.62); display:block; width:100%; height:100%" id="asset-3" shape="rect" placeholder="Chase · shot 1"></image-slot></span><span style="position:absolute; z-index:2; pointer-events:none; top:12px; left:12px; font-size:11px; font-weight:600; letter-spacing:0.5px; color:var(--px-text,#ece8ee); background:rgba(0,0,0,0.4); padding:3px 8px; border-radius:6px;">VIDEO</span></div><div style="padding:14px;"><div style="font-size:14px; color:var(--px-text,#ece8ee);">Chase · shot 1</div><div style="font-size:12px; color:var(--px-dim,#9b95a1);">Runway</div></div></div>
+          <div style="break-inside:avoid; margin-bottom:16px; display:inline-block; width:100%; border-radius:12px; overflow:hidden; border:1px solid var(--px-stroke,#2e2831); background:var(--px-glass,rgba(25,21,25,0.7));"><div style="aspect-ratio:16/9; position:relative; overflow:hidden;"><span style="position:absolute; inset:0;"><image-slot style="color:rgba(255,255,255,0.62); display:block; width:100%; height:100%" id="asset-4" shape="rect" placeholder="Chase · shot 2"></image-slot></span><span style="position:absolute; z-index:2; pointer-events:none; top:12px; left:12px; font-size:11px; font-weight:600; letter-spacing:0.5px; color:var(--px-text,#ece8ee); background:rgba(0,0,0,0.4); padding:3px 8px; border-radius:6px;">VIDEO</span></div><div style="padding:14px;"><div style="font-size:14px; color:var(--px-text,#ece8ee);">Chase · shot 2</div><div style="font-size:12px; color:var(--px-dim,#9b95a1);">Runway</div></div></div>
+          <div style="break-inside:avoid; margin-bottom:16px; display:inline-block; width:100%; border-radius:12px; overflow:hidden; border:1px solid var(--px-stroke,#2e2831); background:var(--px-glass,rgba(25,21,25,0.7));"><div style="aspect-ratio:4/5; position:relative; overflow:hidden;"><span style="position:absolute; inset:0;"><image-slot style="color:rgba(255,255,255,0.62); display:block; width:100%; height:100%" id="asset-5" shape="rect" placeholder="Driver reference"></image-slot></span><span style="position:absolute; z-index:2; pointer-events:none; top:12px; left:12px; font-size:11px; font-weight:600; letter-spacing:0.5px; color:var(--px-text,#ece8ee); background:rgba(0,0,0,0.4); padding:3px 8px; border-radius:6px;">IMAGE</span></div><div style="padding:14px;"><div style="font-size:14px; color:var(--px-text,#ece8ee);">Driver reference</div><div style="font-size:12px; color:var(--px-dim,#9b95a1);">Upload</div></div></div>
+          <div style="break-inside:avoid; margin-bottom:16px; display:inline-block; width:100%; border-radius:12px; overflow:hidden; border:1px solid var(--px-stroke,#2e2831); background:var(--px-glass,rgba(25,21,25,0.7));"><div style="aspect-ratio:4/3; position:relative; overflow:hidden;"><span style="position:absolute; inset:0;"><image-slot style="color:rgba(255,255,255,0.62); display:block; width:100%; height:100%" id="asset-6" shape="rect" placeholder="City backdrop"></image-slot></span><span style="position:absolute; z-index:2; pointer-events:none; top:12px; left:12px; font-size:11px; font-weight:600; letter-spacing:0.5px; color:var(--px-text,#ece8ee); background:rgba(0,0,0,0.4); padding:3px 8px; border-radius:6px;">IMAGE</span></div><div style="padding:14px;"><div style="font-size:14px; color:var(--px-text,#ece8ee);">City backdrop</div><div style="font-size:12px; color:var(--px-dim,#9b95a1);">Flux</div></div></div>
+        </div>
+
+        <div style="{{ aList }}">
+          <div style="display:flex; align-items:center; gap:16px; padding:12px 16px; border-radius:10px; border:1px solid var(--px-stroke,#2e2831); background:var(--px-glass,rgba(25,21,25,0.7)); margin-bottom:10px;"><div style="position:relative; width:56px; height:44px; border-radius:7px; overflow:hidden;"><span style="position:absolute; inset:0;"><image-slot style="color:rgba(255,255,255,0.62); display:block; width:100%; height:100%" id="thumb-1" shape="rect" placeholder="Gallardo · side-on"></image-slot></span></div><div style="flex:1;"><div style="font-size:14px; color:var(--px-text,#ece8ee);">Gallardo · side-on</div><div style="font-size:12px; color:var(--px-dim,#9b95a1);">Nano Banana · 617×396</div></div><span style="font-size:11px; color:var(--px-dim,#9b95a1); border:1px solid var(--px-stroke,#2e2831); border-radius:5px; padding:2px 8px;">IMAGE</span></div>
+          <div style="display:flex; align-items:center; gap:16px; padding:12px 16px; border-radius:10px; border:1px solid var(--px-stroke,#2e2831); background:var(--px-glass,rgba(25,21,25,0.7)); margin-bottom:10px;"><div style="position:relative; width:56px; height:44px; border-radius:7px; overflow:hidden;"><span style="position:absolute; inset:0;"><image-slot style="color:rgba(255,255,255,0.62); display:block; width:100%; height:100%" id="thumb-2" shape="rect" placeholder="Chase · shot 1"></image-slot></span></div><div style="flex:1;"><div style="font-size:14px; color:var(--px-text,#ece8ee);">Chase · shot 1</div><div style="font-size:12px; color:var(--px-dim,#9b95a1);">Runway · 1376×768</div></div><span style="font-size:11px; color:var(--px-dim,#9b95a1); border:1px solid var(--px-stroke,#2e2831); border-radius:5px; padding:2px 8px;">VIDEO</span></div>
+          <div style="display:flex; align-items:center; gap:16px; padding:12px 16px; border-radius:10px; border:1px solid var(--px-stroke,#2e2831); background:var(--px-glass,rgba(25,21,25,0.7));"><div style="position:relative; width:56px; height:44px; border-radius:7px; overflow:hidden;"><span style="position:absolute; inset:0;"><image-slot style="color:rgba(255,255,255,0.62); display:block; width:100%; height:100%" id="thumb-3" shape="rect" placeholder="Driver reference"></image-slot></span></div><div style="flex:1;"><div style="font-size:14px; color:var(--px-text,#ece8ee);">Driver reference</div><div style="font-size:12px; color:var(--px-dim,#9b95a1);">Upload · 900×900</div></div><span style="font-size:11px; color:var(--px-dim,#9b95a1); border:1px solid var(--px-stroke,#2e2831); border-radius:5px; padding:2px 8px;">IMAGE</span></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{
+  &quot;$preview&quot;: { &quot;width&quot;: 1440, &quot;height&quot;: 940 },
+  &quot;mode&quot;:         { &quot;editor&quot;: &quot;enum&quot;, &quot;default&quot;: &quot;Bold&quot;, &quot;options&quot;: [&quot;Professional&quot;, &quot;Bold&quot;], &quot;tsType&quot;: &quot;string&quot;, &quot;section&quot;: &quot;Style mode&quot; },
+  &quot;lensOnSectionSwitch&quot;: { &quot;editor&quot;: &quot;enum&quot;, &quot;default&quot;: &quot;Remember per section&quot;, &quot;options&quot;: [&quot;Remember per section&quot;, &quot;Reset to Chat&quot;], &quot;tsType&quot;: &quot;string&quot;, &quot;section&quot;: &quot;Chat / IDE lens&quot; },
+  &quot;bgColor&quot;:      { &quot;editor&quot;: &quot;color&quot;, &quot;default&quot;: &quot;#131417&quot;, &quot;tsType&quot;: &quot;string&quot;, &quot;section&quot;: &quot;1 · Background&quot;, &quot;options&quot;: [&quot;#131417&quot;, &quot;#111113&quot;, &quot;#0f1012&quot;, &quot;#16131a&quot;] },
+  &quot;strokeColor&quot;:  { &quot;editor&quot;: &quot;color&quot;, &quot;default&quot;: &quot;#2b2c30&quot;, &quot;tsType&quot;: &quot;string&quot;, &quot;section&quot;: &quot;2 · Stroke&quot;, &quot;options&quot;: [&quot;#2b2c30&quot;, &quot;#333438&quot;, &quot;#3a2f33&quot;, &quot;#26272a&quot;] },
+  &quot;textDefault&quot;:  { &quot;editor&quot;: &quot;color&quot;, &quot;default&quot;: &quot;#ecedef&quot;, &quot;tsType&quot;: &quot;string&quot;, &quot;section&quot;: &quot;3 · Text&quot;, &quot;options&quot;: [&quot;#ecedef&quot;, &quot;#e8eded&quot;, &quot;#f2eef4&quot;, &quot;#e4e4e8&quot;] },
+  &quot;textAccent&quot;:   { &quot;editor&quot;: &quot;color&quot;, &quot;default&quot;: &quot;#9a9ca2&quot;, &quot;tsType&quot;: &quot;string&quot;, &quot;section&quot;: &quot;3 · Text&quot;, &quot;options&quot;: [&quot;#9a9ca2&quot;, &quot;#9ca3af&quot;, &quot;#a79ba8&quot;, &quot;#8a8a94&quot;] },
+  &quot;glassColor&quot;:   { &quot;editor&quot;: &quot;color&quot;, &quot;default&quot;: &quot;#191a1e&quot;, &quot;tsType&quot;: &quot;string&quot;, &quot;section&quot;: &quot;4 · Glass / Frost / Ice&quot;, &quot;options&quot;: [&quot;#191a1e&quot;, &quot;#141518&quot;, &quot;#111827&quot;, &quot;#1c1c1f&quot;] },
+  &quot;glassOpacity&quot;: { &quot;editor&quot;: &quot;range&quot;, &quot;default&quot;: 0.7, &quot;min&quot;: 0, &quot;max&quot;: 1, &quot;step&quot;: 0.05, &quot;tsType&quot;: &quot;number&quot;, &quot;section&quot;: &quot;4 · Glass / Frost / Ice&quot; },
+  &quot;blurPx&quot;:       { &quot;editor&quot;: &quot;range&quot;, &quot;default&quot;: 15, &quot;min&quot;: 0, &quot;max&quot;: 40, &quot;step&quot;: 1, &quot;unit&quot;: &quot;px&quot;, &quot;tsType&quot;: &quot;number&quot;, &quot;section&quot;: &quot;5 · Blur&quot; },
+  &quot;accentFrom&quot;:   { &quot;editor&quot;: &quot;color&quot;, &quot;default&quot;: &quot;#ff7e5f&quot;, &quot;tsType&quot;: &quot;string&quot;, &quot;section&quot;: &quot;Accent gradient&quot;, &quot;options&quot;: [&quot;#ff7e5f&quot;, &quot;#ff6b6b&quot;, &quot;#f59e0b&quot;] },
+  &quot;accentTo&quot;:     { &quot;editor&quot;: &quot;color&quot;, &quot;default&quot;: &quot;#8957e5&quot;, &quot;tsType&quot;: &quot;string&quot;, &quot;section&quot;: &quot;Accent gradient&quot;, &quot;options&quot;: [&quot;#8957e5&quot;, &quot;#7c3aed&quot;, &quot;#a855f7&quot;] }
+}">
+const PROJECTS = [
+  { id:'p1', name:'Gallardo — Pre-dawn', ret:'saved', n:4, meta:'Jul 15 · 4 assets', lineage:'seeded from Character Reference Sheet' },
+  { id:'p2', name:'Gallardo — Night variants', ret:'ephemeral', n:0, days:12, meta:'Jul 15 · no assets yet', lineage:'opened from gallardo-predawn · v2' },
+  { id:'p3', name:'Foreign-plain chase film', ret:'saved', n:9, meta:'Jul 12 · 9 assets' },
+  { id:'p4', name:'Untitled', ret:'ephemeral', n:0, days:3, meta:'Jul 11 · no assets yet' },
+  { id:'p5', name:'Studio portrait lookbook', ret:'saved', n:6, meta:'Jul 9 · 6 assets', lineage:'from template · Character Reference Sheet' },
+  { id:'p6', name:'Neon alley b-roll', ret:'ephemeral', n:0, days:9, meta:'Jul 8 · no assets yet' }
+];
+
+class Component extends DCLogic {
+  state = { pFilter: 'all', pHidden: [], pUndo: null, pConfirm: null, screen: 'image', assetsView: 'grid', projectsView: 'list', lensImage: 'chat', lensVideo: 'chat', lensAudio: 'chat', guideOpen: false, doc: null };
+
+  hexToRgb(hex) {
+    let h = (hex || '').replace('#','').trim();
+    if (h.length === 3) h = h.split('').map(c => c + c).join('');
+    const n = parseInt(h, 16);
+    if (isNaN(n) || h.length !== 6) return '25, 21, 25';
+    return `${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255}`;
+  }
+
+  removeProject(p) {
+    clearTimeout(this._undoT);
+    this.setState(s => ({ pHidden: [...(s.pHidden || []), p.id], pUndo: p, pConfirm: null }));
+    this._undoT = setTimeout(() => this.setState({ pUndo: null }), 10000);
+  }
+
+  projectVals() {
+    const st = this.state;
+    const hidden = st.pHidden || [];
+    const f = st.pFilter || 'all';
+    const live = PROJECTS.filter(p => !hidden.includes(p.id));
+    const shown = live.filter(p => f === 'all' ? true : f === 'saved' ? p.ret === 'saved' : p.ret === 'ephemeral');
+    const fBase = "height:32px; padding:0 14px; border-radius:9999px; white-space:nowrap; display:inline-flex; align-items:center; gap:6px; font-family:inherit; font-size:13px; font-weight:500; cursor:pointer; transition:background 160ms ease;";
+    const fOn = fBase + " border:1px solid rgba(255,159,133,0.4); background:rgba(255,126,95,0.13); color:#ff9f85;";
+    const fOff = fBase + " border:1px solid var(--px-stroke,#2e2831); background:transparent; color:var(--px-dim,#9b95a1);";
+    const confirm = live.find(p => p.id === st.pConfirm);
+    return {
+      projects: shown.map(p => ({
+        name: p.name,
+        meta: p.meta,
+        isDraft: p.ret === 'ephemeral',
+        hasLineage: !!p.lineage,
+        lineage: p.lineage || '',
+        expText: 'expires in ' + p.days + (p.days === 1 ? ' day' : ' days'),
+        expStyle: p.days <= 5 ? 'color:#f0b166;' : 'color:var(--px-dim,#9b95a1);',
+        slotId: 'proj-' + p.id,
+        del: () => (p.ret === 'saved' && p.n > 0) ? this.setState({ pConfirm: p.id }) : this.removeProject(p)
+      })),
+      noop: () => {},
+      noneShown: shown.length === 0,
+      emptyHint: f === 'drafts' ? 'No drafts — every project here has produced something.' : 'Start a project and it will show up here.',
+      cAll: live.length,
+      cSaved: live.filter(p => p.ret === 'saved').length,
+      cDrafts: live.filter(p => p.ret === 'ephemeral').length,
+      fAll: f === 'all' ? fOn : fOff,
+      fSaved: f === 'saved' ? fOn : fOff,
+      fDrafts: f === 'drafts' ? fOn : fOff,
+      setPFAll: () => this.setState({ pFilter: 'all' }),
+      setPFSaved: () => this.setState({ pFilter: 'saved' }),
+      setPFDrafts: () => this.setState({ pFilter: 'drafts' }),
+      toastWrap: 'position:fixed; left:50%; bottom:32px; transform:translateX(-50%); z-index:80; display:' + (st.pUndo ? 'block' : 'none') + '; animation:pxRise 200ms cubic-bezier(0.22,1,0.36,1);',
+      undoName: st.pUndo ? st.pUndo.name : '',
+      doUndo: () => {
+        clearTimeout(this._undoT);
+        this.setState(s => ({ pHidden: (s.pHidden || []).filter(id => id !== (s.pUndo || {}).id), pUndo: null }));
+      },
+      confirmWrap: 'position:fixed; inset:0; z-index:90; display:' + (confirm ? 'flex' : 'none') + '; align-items:center; justify-content:center; background:rgba(0,0,0,0.5); backdrop-filter:blur(6px);',
+      confirmName: confirm ? confirm.name : '',
+      confirmBody: confirm ? ('This project holds ' + confirm.n + ' saved assets. They go with it.') : '',
+      confirmCancel: () => this.setState({ pConfirm: null }),
+      confirmDelete: () => confirm && this.removeProject(confirm)
+    };
+  }
+
+  renderVals() {
+    const p = this.props || {};
+    const bg     = p.bgColor      ?? '#131417';
+    const stroke = p.strokeColor  ?? '#2b2c30';
+    const text   = p.textDefault  ?? '#ecedef';
+    const dim    = p.textAccent   ?? '#9a9ca2';
+    const glassC = p.glassColor   ?? '#191a1e';
+    const op     = p.glassOpacity ?? 0.7;
+    const blur   = p.blurPx       ?? 15;
+    const aFrom  = p.accentFrom   ?? '#ff7e5f';
+    const aTo    = p.accentTo     ?? '#8957e5';
+    const pro = (p.mode ?? 'Bold') === 'Professional';
+    const g = this.hexToRgb(glassC);
+
+    const theme = {
+      width: '1440px', height: '940px', display: 'flex', position: 'relative', overflow: 'hidden',
+      fontFamily: "'IBM Plex Sans', -apple-system, sans-serif",
+      background: bg, color: text,
+      '--px-bg': bg, '--px-stroke': stroke, '--px-text': text, '--px-dim': dim,
+      '--px-glass': `rgba(${g}, ${op})`,
+      '--px-frost': `rgba(${g}, ${Math.min(op * 0.82, 1)})`,
+      '--px-ice':   `rgba(${g}, ${op * 0.5})`,
+      '--px-blur': blur + 'px',
+      '--px-from': aFrom, '--px-to': aTo,
+      '--px-grad': `linear-gradient(135deg, ${aFrom}, ${aTo})`,
+      '--px-glow': pro ? 'transparent' : `rgba(${this.hexToRgb(aFrom)}, 0.08)`,
+      '--px-tintA': pro ? 'rgba(255,255,255,0.028)' : `rgba(${this.hexToRgb(aFrom)}, 0.16)`,
+      '--px-tintB': pro ? 'rgba(255,255,255,0.022)' : `rgba(${this.hexToRgb(aTo)}, 0.16)`,
+    };
+
+    const s = this.state.screen;
+    const wrap = (name) => ({
+      display: s === name ? 'block' : 'none',
+      position: 'relative', zIndex: 2, flex: 1, minWidth: 0, height: '100%',
+    });
+
+    // rail buttons
+    const railBase = {
+      display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '5px',
+      width: '58px', padding: '9px 0', border: 'none', borderRadius: '12px',
+      background: 'transparent', cursor: 'pointer', fontFamily: "'IBM Plex Sans', sans-serif",
+      transition: 'background 150ms ease',
+    };
+    const railOn = pro
+      ? { ...railBase, background: 'var(--px-ice)', color: text, boxShadow: 'inset 0 0 0 1px var(--px-stroke)' }
+      : { ...railBase, background: 'var(--px-ice)', color: aFrom, boxShadow: 'inset 0 0 0 1.5px rgba(255,126,95,0.45)' };
+    const rail = (name) => (s === name ? railOn : { ...railBase, color: dim });
+
+    // segmented toggle buttons
+    const segBase = { width: '38px', height: '34px', border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', background: 'transparent' };
+    const segOn  = { ...segBase, background: 'var(--px-ice)', color: text };
+    const segOff = { ...segBase, color: dim };
+
+    // ── Chat/IDE lens ──
+    const resetOnSwitch = (p.lensOnSectionSwitch ?? 'Remember per section') === 'Reset to Chat';
+    const li = this.state.lensImage, lv = this.state.lensVideo, la = this.state.lensAudio;
+
+    const workWrap = (on) => ({
+      display: on ? 'grid' : 'none',
+      gridTemplateColumns: this.state.guideOpen ? '1.25fr 1fr' : '1fr auto',
+      flex: 1, minHeight: 0, boxSizing: 'border-box',
+    });
+    const splashWrap = (on) => ({
+      display: on ? 'flex' : 'none', flexDirection: 'column',
+      alignItems: 'center', justifyContent: 'center',
+      flex: 1, minHeight: 0, padding: '40px 72px', boxSizing: 'border-box',
+    });
+    const agentPanel = {
+      flex: 'none', width: '340px', display: 'flex', flexDirection: 'column',
+      minHeight: 0, borderLeft: `1px solid ${stroke}`,
+      background: 'var(--px-glass)',
+      backdropFilter: 'blur(var(--px-blur))',
+      WebkitBackdropFilter: 'blur(var(--px-blur))',
+    };
+
+    return {
+      theme,
+      agentPanel,
+      splashRow: {
+        display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: '16px',
+        width: '100%', maxWidth: '880px', alignItems: 'stretch',
+      },
+      splashCard: {
+        flex: '1 1 272px', minWidth: '256px', maxWidth: '360px',
+        display: 'flex', flexDirection: 'column', gap: '10px',
+        padding: '20px', border: 'none', borderRadius: '14px', cursor: 'pointer',
+        background: 'var(--px-frost, rgba(25,26,30,0.57))',
+        boxShadow: 'inset 0 0 0 1px rgba(255,255,255,0.07)',
+        fontFamily: "'IBM Plex Sans', sans-serif",
+        transition: 'background 160ms ease',
+      },
+      navChat: () => this.setState({ screen: 'chat', doc: null }),
+      navImage: () => this.setState((resetOnSwitch || s === 'image') ? { screen: 'image', lensImage: 'chat', doc: null } : { screen: 'image', doc: null }),
+      navVideo: () => this.setState((resetOnSwitch || s === 'video') ? { screen: 'video', lensVideo: 'chat', doc: null } : { screen: 'video', doc: null }),
+      navProjects: () => this.setState({ screen: 'projects', doc: null }),
+      navAssets: () => this.setState({ screen: 'assets', doc: null }),
+      railChat: rail('chat'), railImage: rail('image'), railVideo: rail('video'),
+      railProjects: rail('projects'), railAssets: rail('assets'),
+      wChat: wrap('chat'), wImage: wrap('image'), wVideo: wrap('video'),
+      wProjects: wrap('projects'), wAssets: wrap('assets'),
+      guidePanel: {
+        display: this.state.guideOpen ? 'flex' : 'none', flexDirection: 'column',
+        minHeight: 0, position: 'relative', borderLeft: `1px solid ${stroke}`,
+      },
+      guideStrip: {
+        display: this.state.guideOpen ? 'none' : 'flex', flexDirection: 'column',
+        alignItems: 'center', padding: '16px 12px', borderLeft: `1px solid ${stroke}`,
+      },
+      closeGuide: () => this.setState({ guideOpen: false }),
+      openGuide: () => this.setState({ guideOpen: true }),
+      iconBtn: {
+        flex: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center',
+        width: '28px', height: '28px', border: 'none', borderRadius: '8px',
+        background: 'transparent', color: dim, cursor: 'pointer',
+      },
+      stripBtn: {
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        width: '34px', height: '34px', border: 'none', borderRadius: '9px',
+        background: 'var(--px-ice, rgba(25,26,30,0.35))', color: dim, cursor: 'pointer',
+        boxShadow: 'inset 0 0 0 1px rgba(255,255,255,0.07)',
+      },
+      splashImage: splashWrap(li === 'chat'), workImage: workWrap(li === 'ide'),
+      splashVideo: splashWrap(lv === 'chat'), workVideo: workWrap(lv === 'ide'),
+      splashAudio: splashWrap(la === 'chat'), workAudio: workWrap(la === 'ide'),
+      navAudio: () => this.setState((resetOnSwitch || s === 'audio') ? { screen: 'audio', lensAudio: 'chat', doc: null } : { screen: 'audio', doc: null }),
+      railAudio: rail('audio'), wAudio: wrap('audio'),
+      openIde: () => this.setState(s === 'video' ? { lensVideo: 'ide' } : s === 'audio' ? { lensAudio: 'ide' } : { lensImage: 'ide' }),
+      // assets view
+      setAGrid: () => this.setState({ assetsView: 'grid' }),
+      setAList: () => this.setState({ assetsView: 'list' }),
+      segAGrid: this.state.assetsView === 'grid' ? segOn : segOff,
+      segAList: this.state.assetsView === 'list' ? segOn : segOff,
+      aGrid: { display: this.state.assetsView === 'grid' ? 'block' : 'none', columnCount: 4, columnGap: '16px' },
+      aList: { display: this.state.assetsView === 'list' ? 'block' : 'none' },
+      // projects view
+      setPGrid: () => this.setState({ projectsView: 'grid' }),
+      setPList: () => this.setState({ projectsView: 'list' }),
+      segPGrid: this.state.projectsView === 'grid' ? segOn : segOff,
+      segPList: this.state.projectsView === 'list' ? segOn : segOff,
+      pGrid: { display: this.state.projectsView === 'grid' ? 'grid' : 'none', gridTemplateColumns: 'repeat(2, 1fr)', gap: '16px' },
+      pList: { display: this.state.projectsView === 'list' ? 'block' : 'none' },
+      ...this.projectVals(),
+    };
+  }
+}
+</script>
+</body>
+</html>

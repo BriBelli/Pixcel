@@ -1,0 +1,12 @@
+/* ===========================================================
+ * Pixcel Design System — stylesheet entry point
+ *
+ * Consumers link THIS one file. It pulls in the canonical
+ * token + typography layer (colors_and_type.css), which also
+ * loads the IBM Plex font faces.
+ *
+ * Sub-surface semantics (--a2ui-* base, --pxs-* Studio) all
+ * live in colors_and_type.css. preview/_base.css is card-grid
+ * scaffolding for the Design System tab only — not imported here.
+ * =========================================================== */
+@import url('./colors_and_type.css');

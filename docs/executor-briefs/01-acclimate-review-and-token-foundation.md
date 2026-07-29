@@ -13,7 +13,7 @@
 3. `docs/PIXCEL-AGENT-PRIMITIVE.md` — the chef primitive (context only; don't build it).
 4. `pixcel-handoff/START_HERE.md` — what Pixcel is + how the handoff works.
 5. `pixcel-handoff/CLAUDE.md` — **THE design rules. Non-negotiable. Reviewers revert violations.**
-6. `pixcel-handoff/colors_and_type.css` — the canonical tokens.
+6. `pixcel-handoff/design/_ds/pixcel-design-system-*/colors_and_type.css` — the canonical tokens.
 7. `pixcel-handoff/docs/art-studio-integration-guide.md` — how the design maps onto this repo.
 8. `CLAUDE.md` (repo root) — build/architecture + the "Stay Pure" hard rule.
 

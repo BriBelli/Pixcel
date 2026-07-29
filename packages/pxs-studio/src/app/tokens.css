@@ -1,7 +1,7 @@
 /* =============================================================
  * Pixcel / A2UI Design Tokens  — canonical, from the Claude Design handoff
  * -----------------------------------------------------------------
- * Source of truth: pixcel-handoff/colors_and_type.css
+ * Source of truth: pixcel-handoff/design/_ds/pixcel-design-system-*/colors_and_type.css
  * (mirrors apps/a2ui-chat/src/styles/tokens.css upstream).
  *
  * Landed ADDITIVELY: this file declares the --a2ui-* / --pxs-* custom

@@ -12,6 +12,8 @@ import {
   type Asset,
   type Interaction,
   type Thread,
+  draftBirthFields,
+  promoteThreadForAsset,
 } from '../../../lib/db';
 
 export const runtime = 'nodejs';
@@ -158,6 +160,8 @@ export async function POST(req: Request) {
         created_at: now,
         updated_at: now,
         title: goal.slice(0, 40),
+        // Born a DRAFT — persists so work is never lost, but ephemeral until it produces an asset.
+        ...draftBirthFields(now),
       };
       await db.put(thread);
     }
@@ -310,6 +314,8 @@ export async function POST(req: Request) {
             };
             await db.put(asset);
           }
+          // First generated asset promotes the draft project → saved (auto, no save button; §4).
+          if (generatedImages.length > 0) await promoteThreadForAsset(db, threadId, now);
         } catch (err) {
           console.warn('[image-agent] persist/usage failed (stream unaffected):', err);
         }

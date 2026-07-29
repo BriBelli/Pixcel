@@ -59,5 +59,6 @@ export * from './repository';
 export * from './status';
 export * from './queries';
 export * from './usage';
+export * from './project-promotion';
 export { LivingContext, createLivingContext } from './living-context';
 export { createMemoryRepository } from './adapters/memory';

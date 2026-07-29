@@ -50,11 +50,30 @@ export interface BaseRecord {
   updated_at: number;
 }
 
-/** A conversation thread. `context` is the living-context memory/summary (Decision 6-adjacent). */
+/**
+ * A conversation thread — i.e. a PROJECT (the editable workspace / the "PSD"). `context` is the
+ * living-context memory/summary (Decision 6-adjacent). See docs/pr-plan/PROJECT-MODEL.md.
+ */
 export interface Thread extends BaseRecord {
   category: 'thread';
   title: string;
   context?: string;
+  /**
+   * Retention tier — the draft/saved distinction for PROJECTS (mirrors `Asset.retention`). A project is
+   * born 'ephemeral' (a DRAFT: it persists so work is never lost, but it's GC-eligible and doesn't
+   * clutter the saved list), and is promoted to 'saved' (durable, named, first-class) by a DELIBERATE
+   * act OR the instant it produces its first asset. Enforcement (GC / list filtering) is a later slice;
+   * the field + population land now. Absent = treat as 'ephemeral' (back-compat for pre-field threads).
+   */
+  retention?: 'ephemeral' | 'saved';
+  /**
+   * Provenance for the three verbs (docs/pr-plan/PROJECT-MODEL.md). `cloned_from_thread_id`: a
+   * Duplicate (Save-As) — a full independent copy. `seeded_from`: an Open-as-Project / Template
+   * instantiation — the Asset/Template this workspace was seeded from (a SEED, not a fork: no upstream
+   * merge edge). Both are informational lineage, never a live link. Absent = an original project.
+   */
+  cloned_from_thread_id?: string;
+  seeded_from?: { kind: 'asset' | 'template'; id: string };
 }
 
 /** One user↔assistant exchange within a thread. */

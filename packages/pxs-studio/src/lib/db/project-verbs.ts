@@ -13,6 +13,7 @@
 import type { Repository } from './repository';
 import type { Thread, Interaction, Asset, Prompt } from './models';
 import { draftBirthFields } from './project-promotion';
+import { getStarterRecipe } from './starter-recipes';
 
 function newId(prefix: string): string {
   return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
@@ -147,6 +148,51 @@ export async function saveThreadAsRecipe(
     variables: extractVariables(text),
   });
   return promptId;
+}
+
+/**
+ * NEW FROM TEMPLATE — Recipe → Project. Instantiates a Recipe (a saved Prompt OR a built-in starter)
+ * into a fresh draft project: a seed interaction carries the recipe text as the opening prompt, so the
+ * workspace opens with the method pre-loaded and ready to fill its [SLOT]s. `seeded_from` points at the
+ * recipe (a breadcrumb — the instantiation is its own independent thing, not a fork). Returns the new
+ * thread id, or null if the recipe id resolves to nothing.
+ */
+export async function instantiateRecipe(
+  repo: Repository,
+  userId: string,
+  recipeId: string,
+  now: number,
+): Promise<string | null> {
+  const saved = (await repo.get('prompt', recipeId)) as Prompt | null;
+  const starter = saved ? null : getStarterRecipe(recipeId);
+  const recipe = saved ?? starter;
+  if (!recipe) return null;
+
+  const newThreadId = newId('thread');
+  await repo.put<Thread>({
+    id: newThreadId,
+    user_id: userId,
+    category: 'thread',
+    status: 'active',
+    created_at: now,
+    updated_at: now,
+    title: recipe.name,
+    seeded_from: { kind: 'recipe', id: recipeId },
+    ...draftBirthFields(now),
+  });
+  await repo.put<Interaction>({
+    id: newId('interaction'),
+    user_id: userId,
+    category: 'interaction',
+    status: 'active',
+    created_at: now,
+    updated_at: now,
+    thread_id: newThreadId,
+    model: '',
+    prompt: { text: recipe.text },
+    response: { text: '', tokens_used: 0, a2ui: null, a2ui_version: '' },
+  });
+  return newThreadId;
 }
 
 /**

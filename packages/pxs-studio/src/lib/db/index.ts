@@ -61,5 +61,6 @@ export * from './queries';
 export * from './usage';
 export * from './project-promotion';
 export * from './project-verbs';
+export * from './starter-recipes';
 export { LivingContext, createLivingContext } from './living-context';
 export { createMemoryRepository } from './adapters/memory';

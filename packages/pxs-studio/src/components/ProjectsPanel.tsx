@@ -11,12 +11,18 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { Icon, SegmentedControl, SortMenu } from './ui';
+import { toastManager } from './Toast';
 import { DEV_USER_ID } from '../lib/db/models';
 
 interface ProjectRow {
   id: string;
   title: string;
   updated_at: number;
+  /** Draft (ephemeral) vs Saved — the lifecycle from auto-promotion. Legacy rows read as 'saved'. */
+  retention?: 'ephemeral' | 'saved';
+  /** Ephemeral only — when the draft is GC-eligible (ms epoch). */
+  expires_at?: number;
+  asset_count?: number;
 }
 
 /** Sort keys honored from thread metadata (Type/Size from the mock don't apply to projects). */
@@ -25,6 +31,29 @@ const PROJECT_SORT_OPTIONS: { value: ProjectSort; label: string }[] = [
   { value: 'date', label: 'Date added' },
   { value: 'name', label: 'Name' },
 ];
+
+/** The one-list filter (§ Slice 3): All · Saved · Drafts, default All. */
+type ProjectFilter = 'all' | 'saved' | 'drafts';
+
+/** Draft expiry, humanized. Null when there's no expiry (a saved project). */
+function expiryLabel(expires_at?: number): string | null {
+  if (!expires_at) return null;
+  const days = Math.ceil((expires_at - Date.now()) / 86_400_000);
+  return days <= 0 ? 'expires soon' : `expires in ${days}d`;
+}
+
+const isDraftRow = (p: ProjectRow): boolean => (p.retention ?? 'saved') === 'ephemeral';
+
+/** The meta tail after the timestamp: a draft shows its expiry (amber); anything with assets shows the
+ *  count. Returns a fragment beginning with " · " so it appends onto relTime, or null. */
+function MetaTail({ p }: { p: ProjectRow }): JSX.Element | null {
+  const n = p.asset_count ?? 0;
+  if (isDraftRow(p)) {
+    const exp = expiryLabel(p.expires_at);
+    if (exp) return <> · <span className="pxp-expiry">{exp}</span></>;
+  }
+  return n > 0 ? <> · {n} asset{n === 1 ? '' : 's'}</> : null;
+}
 
 const CSS = `
 /* A floating GLASS popover that OVERLAYS the canvas (does not push/box it) — a bubble connected to
@@ -105,6 +134,16 @@ const CSS = `
 .pxp-cyes { background: var(--a2ui-error, #f87171); color: #fff; }
 .pxp-cno { background: var(--a2ui-bg-active); color: var(--a2ui-text-secondary); }
 .pxp-empty { padding: var(--a2ui-space-4); font-size: var(--a2ui-text-sm); color: var(--a2ui-text-tertiary); text-align: center; }
+/* Slice 3 — the All·Saved·Drafts filter row (full view). */
+.pxp-filter { padding: 0 var(--a2ui-space-6) var(--a2ui-space-3); }
+/* Draft chip — drafts show at FULL contrast (row text stays primary); the chip just marks status.
+   Neutral, not accent (accent is reserved for actions). */
+.pxp-chip-draft { display: inline-flex; align-items: center; height: 17px; padding: 0 7px; margin-left: 8px;
+  border-radius: var(--a2ui-radius-full); font-size: 10px; font-weight: var(--a2ui-font-semibold);
+  text-transform: uppercase; letter-spacing: 0.04em; color: var(--a2ui-text-secondary);
+  background: var(--a2ui-bg-active); border: 1px solid var(--pxc-border-subtle); flex-shrink: 0; }
+/* Expiry sits in the row meta, amber — a soft "this is temporary" cue, not an alarm. */
+.pxp-expiry { color: var(--a2ui-warning, #fbbf24); }
 `;
 
 function relTime(ms: number): string {
@@ -138,6 +177,7 @@ export function ProjectsPanel({ activeId, onClose, onOpenProject, onNewProject, 
   const [full, setFull] = useState(false); // quick (narrow) vs full (wide), same glass panel
   const [view, setView] = useState<'list' | 'grid'>('list'); // full-view layout (mock's list ⇄ grid)
   const [sort, setSort] = useState<ProjectSort>('date');
+  const [filter, setFilter] = useState<ProjectFilter>('all'); // All · Saved · Drafts (default All)
   const [loading, setLoading] = useState(true);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editValue, setEditValue] = useState('');
@@ -189,13 +229,39 @@ export function ProjectsPanel({ activeId, onClose, onOpenProject, onNewProject, 
       body: JSON.stringify({ title }),
     }).catch(() => {});
   };
-  const del = async (id: string) => {
+  // Delete → 10-second Undo toast (soft delete = status flip; Undo flips it back). Confirm FIRST only
+  // when a SAVED project holds assets (deleting real work); a draft / empty project deletes straight to
+  // the undo toast. Nothing is ever hard-deleted here.
+  const requestDelete = (p: ProjectRow) => {
+    const isSaved = (p.retention ?? 'saved') === 'saved';
+    if (isSaved && (p.asset_count ?? 0) > 0) {
+      setConfirmId(p.id); // needs the inline "delete project + its assets?" confirm
+      return;
+    }
+    void performDelete(p);
+  };
+  const performDelete = async (p: ProjectRow) => {
     setConfirmId(null);
-    setProjects((prev) => prev.filter((p) => p.id !== id));
-    await fetch(`/api/threads/${id}?user_id=${encodeURIComponent(DEV_USER_ID)}`, { method: 'DELETE' }).catch(() => {});
+    setProjects((prev) => prev.filter((x) => x.id !== p.id));
+    await fetch(`/api/threads/${p.id}?user_id=${encodeURIComponent(DEV_USER_ID)}`, { method: 'DELETE' }).catch(() => {});
+    toastManager.show(`Deleted “${p.title}”`, 'info', 8000, { label: 'Undo', onClick: () => void undoDelete(p) });
+  };
+  const undoDelete = async (p: ProjectRow) => {
+    await fetch(`/api/threads/${p.id}?user_id=${encodeURIComponent(DEV_USER_ID)}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status: 'active' }),
+    }).catch(() => {});
+    load(); // re-pull so it returns to its sorted spot with its assets restored
   };
 
-  const sorted = [...projects].sort((a, b) =>
+  const filtered = projects.filter((p) => {
+    const ret = p.retention ?? 'saved';
+    if (filter === 'saved') return ret === 'saved';
+    if (filter === 'drafts') return ret === 'ephemeral';
+    return true;
+  });
+  const sorted = [...filtered].sort((a, b) =>
     sort === 'name' ? a.title.localeCompare(b.title) : b.updated_at - a.updated_at
   );
 
@@ -232,6 +298,20 @@ export function ProjectsPanel({ activeId, onClose, onOpenProject, onNewProject, 
           </button>
         </div>
       </div>
+      {full && (
+        <div className="pxp-filter">
+          <SegmentedControl
+            label="Filter projects"
+            value={filter}
+            onChange={setFilter}
+            options={[
+              { value: 'all', label: 'All', icon: <span>All</span> },
+              { value: 'saved', label: 'Saved', icon: <span>Saved</span> },
+              { value: 'drafts', label: 'Drafts', icon: <span>Drafts</span> },
+            ]}
+          />
+        </div>
+      )}
       <button type="button" className="pxp-new" onClick={onNewProject}>
         <Icon name="plus" size={15} /> New project
       </button>
@@ -247,8 +327,8 @@ export function ProjectsPanel({ activeId, onClose, onOpenProject, onNewProject, 
                 <Icon name="folder" size={28} />
               </div>
               <div className="pxp-card-meta">
-                <div className="pxp-card-name">{p.title}</div>
-                <div className="pxp-card-sub">{relTime(p.updated_at)}</div>
+                <div className="pxp-card-name">{p.title}{isDraftRow(p) && <span className="pxp-chip-draft">Draft</span>}</div>
+                <div className="pxp-card-sub">{relTime(p.updated_at)}<MetaTail p={p} /></div>
               </div>
             </button>
           ))}
@@ -273,22 +353,25 @@ export function ProjectsPanel({ activeId, onClose, onOpenProject, onNewProject, 
                 <div className="pxp-confirm">
                   <span className="pxp-confirm-txt">Delete project + its assets?</span>
                   <button type="button" className="pxp-cbtn pxp-cno" onClick={() => setConfirmId(null)}>Keep</button>
-                  <button type="button" className="pxp-cbtn pxp-cyes" onClick={() => void del(p.id)}>Delete</button>
+                  <button type="button" className="pxp-cbtn pxp-cyes" onClick={() => void performDelete(p)}>Delete</button>
                 </div>
               ) : (
                 <>
                   <button type="button" className="pxp-item-main" onClick={() => open(p.id)} style={{ flexDirection: 'row', alignItems: 'center', gap: 'var(--a2ui-space-2)' }}>
                     <span className="pxp-item-icon"><Icon name="folder" size={16} /></span>
                     <span style={{ minWidth: 0, display: 'flex', flexDirection: 'column', gap: 2 }}>
-                      <span className="pxp-item-title">{p.title}</span>
-                      <span className="pxp-item-time">{relTime(p.updated_at)}</span>
+                      <span style={{ display: 'flex', alignItems: 'center', minWidth: 0 }}>
+                        <span className="pxp-item-title">{p.title}</span>
+                        {isDraftRow(p) && <span className="pxp-chip-draft">Draft</span>}
+                      </span>
+                      <span className="pxp-item-time">{relTime(p.updated_at)}<MetaTail p={p} /></span>
                     </span>
                   </button>
                   <div className="pxp-acts">
                     <button type="button" className="pxp-mini" title="Rename" onClick={() => startEdit(p)}>
                       <Icon name="pencil" size={13} />
                     </button>
-                    <button type="button" className="pxp-mini pxp-mini--danger" title="Delete" onClick={() => setConfirmId(p.id)}>
+                    <button type="button" className="pxp-mini pxp-mini--danger" title="Delete" onClick={() => requestDelete(p)}>
                       <Icon name="trash-2" size={13} />
                     </button>
                   </div>

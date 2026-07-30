@@ -44,3 +44,25 @@ export async function promoteThreadForAsset(
     expires_at: undefined,
   });
 }
+
+/**
+ * GC SWEEP (OBJECT-MODEL §5/§6.7) — soft-delete ephemeral (draft) projects that are past `expires_at`
+ * and hold ZERO assets. A draft that produced an asset would already be `saved` (auto-promotion), so
+ * this only reaps genuinely-abandoned empties — exactly what the row promises ("expires in N days").
+ * Soft delete (status flip), never hard delete; runs opportunistically when the projects list is read.
+ * Returns the count swept.
+ */
+export async function sweepExpiredDrafts(repo: Repository, userId: string, now: number): Promise<number> {
+  const { items } = await repo.query({ category: 'thread', user_id: userId, filter: { status: 'active' } });
+  let swept = 0;
+  for (const t of items as Thread[]) {
+    if (t.retention !== 'ephemeral') continue;
+    if (!t.expires_at || t.expires_at > now) continue;
+    // Guard: only sweep ZERO-asset drafts (belt-and-suspenders — one asset means it should be saved).
+    const assetsQ = await repo.query({ category: 'asset', user_id: userId, filter: { thread_id: t.id, status: 'active' } });
+    if (assetsQ.items.length > 0) continue;
+    await repo.update<Thread>('thread', t.id, { status: 'deleted' });
+    swept++;
+  }
+  return swept;
+}

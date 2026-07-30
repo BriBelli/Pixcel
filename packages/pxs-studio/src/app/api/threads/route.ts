@@ -1,4 +1,4 @@
-import { getDb, DEV_USER_ID, type Thread, type Asset } from '../../../lib/db';
+import { getDb, DEV_USER_ID, sweepExpiredDrafts, type Thread, type Asset } from '../../../lib/db';
 
 export const runtime = 'nodejs';
 
@@ -14,6 +14,9 @@ export async function GET(req: Request) {
 
   try {
     const db = await getDb();
+    // GC: reap expired zero-asset drafts before listing, so the list never shows a project that the
+    // row already declared expired. Opportunistic (runs when Projects is read) — no cron needed yet.
+    await sweepExpiredDrafts(db, userId, Date.now()).catch(() => 0);
     // Fetch the active threads, then sort by LAST-UPDATED desc (the project record's updated_at — a
     // thread rises when you work on it or open it, like Cursor/Claude-Code history). The repo query
     // sorts by created_at, so we re-sort in memory (fine at project scale; a GSI handles it later).

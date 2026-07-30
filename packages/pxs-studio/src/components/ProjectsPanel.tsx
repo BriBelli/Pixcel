@@ -12,6 +12,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Icon, SegmentedControl, SortMenu } from './ui';
 import { toastManager } from './Toast';
+import { SaveTemplateDialog } from './SaveTemplateDialog';
 import { DEV_USER_ID } from '../lib/db/models';
 
 interface ProjectRow {
@@ -182,6 +183,7 @@ export function ProjectsPanel({ activeId, onClose, onOpenProject, onNewProject, 
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editValue, setEditValue] = useState('');
   const [confirmId, setConfirmId] = useState<string | null>(null);
+  const [templateFor, setTemplateFor] = useState<ProjectRow | null>(null); // the Save-as-template dialog
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -261,14 +263,6 @@ export function ProjectsPanel({ activeId, onClose, onOpenProject, onNewProject, 
     if (res?.ok) { toastManager.success(`Duplicated “${p.title}”`); load(); }
     else toastManager.error('Could not duplicate the project');
   };
-  // Save as template — extract the project's recipe into a reusable Recipe (Prompt).
-  const saveTemplate = async (p: ProjectRow) => {
-    const res = await fetch(`/api/threads/${p.id}/template?user_id=${encodeURIComponent(DEV_USER_ID)}`, { method: 'POST' }).catch(() => null);
-    if (res?.ok) toastManager.success('Saved as template');
-    else if (res?.status === 422) toastManager.info('Nothing to save yet — render something first');
-    else toastManager.error('Could not save the template');
-  };
-
   const filtered = projects.filter((p) => {
     const ret = p.retention ?? 'saved';
     if (filter === 'saved') return ret === 'saved';
@@ -280,6 +274,7 @@ export function ProjectsPanel({ activeId, onClose, onOpenProject, onNewProject, 
   );
 
   return (
+    <>
     <div className="pxp" data-full={full ? 'true' : 'false'} style={{ left }}>
       <style>{CSS}</style>
       <div className="pxp-head">
@@ -385,7 +380,7 @@ export function ProjectsPanel({ activeId, onClose, onOpenProject, onNewProject, 
                     <button type="button" className="pxp-mini" title="Duplicate" onClick={() => void duplicate(p)}>
                       <Icon name="copy" size={13} />
                     </button>
-                    <button type="button" className="pxp-mini" title="Save as template" onClick={() => void saveTemplate(p)}>
+                    <button type="button" className="pxp-mini" title="Save as template" onClick={() => setTemplateFor(p)}>
                       <Icon name="save" size={13} />
                     </button>
                     <button type="button" className="pxp-mini" title="Rename" onClick={() => startEdit(p)}>
@@ -402,6 +397,14 @@ export function ProjectsPanel({ activeId, onClose, onOpenProject, onNewProject, 
         </div>
       )}
     </div>
+    {templateFor && (
+      <SaveTemplateDialog
+        threadId={templateFor.id}
+        onClose={() => setTemplateFor(null)}
+        onSaved={() => load()}
+      />
+    )}
+    </>
   );
 }
 

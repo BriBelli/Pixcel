@@ -100,17 +100,15 @@ export async function duplicateThread(
 }
 
 /**
- * SAVE AS TEMPLATE — Project → Recipe (Prompt). Extracts the project's freshest recipe text (the latest
- * generated asset's prompt, else the latest interaction's prompt) into a NAMED, reusable Prompt with its
- * [SLOT] variables detected. `source_thread_id` records the origin. Returns the new prompt id, or null
- * if the project has no recipe text to extract.
+ * PROPOSE the recipe text for a project — the project's freshest recipe (the latest generated asset's
+ * prompt, else the latest interaction's prompt) + a default name. Read-only: the Save-as-template
+ * micro-workflow shows this in an editable dialog; the user slots it and confirms. Null if no project.
  */
-export async function saveThreadAsRecipe(
+export async function proposeRecipeText(
   repo: Repository,
   userId: string,
   threadId: string,
-  now: number,
-): Promise<string | null> {
+): Promise<{ text: string; name: string } | null> {
   const src = (await repo.get('thread', threadId)) as Thread | null;
   if (!src) return null;
 
@@ -132,7 +130,27 @@ export async function saveThreadAsRecipe(
     });
     text = (inters as Interaction[]).sort((a, b) => b.created_at - a.created_at)[0]?.prompt?.text ?? '';
   }
-  if (!text.trim()) return null;
+  return { text, name: `${(src.title ?? 'Untitled').slice(0, 60)} recipe` };
+}
+
+/**
+ * SAVE AS TEMPLATE — Project → Recipe (Prompt). Persists the (user-reviewed) recipe text + name into a
+ * reusable Prompt with its [SLOT] variables detected. `override` carries what the user edited in the
+ * dialog; absent → falls back to the auto-proposal. `source_thread_id` records the origin. Returns the
+ * new prompt id, or null if there's no text to save.
+ */
+export async function saveThreadAsRecipe(
+  repo: Repository,
+  userId: string,
+  threadId: string,
+  now: number,
+  override?: { text?: string; name?: string },
+): Promise<string | null> {
+  const proposal = await proposeRecipeText(repo, userId, threadId);
+  if (!proposal) return null;
+  const text = (override?.text ?? proposal.text).trim();
+  if (!text) return null;
+  const name = (override?.name ?? proposal.name).trim() || 'Untitled recipe';
 
   const promptId = newId('prompt');
   await repo.put<Prompt>({
@@ -142,7 +160,7 @@ export async function saveThreadAsRecipe(
     status: 'active',
     created_at: now,
     updated_at: now,
-    name: `${(src.title ?? 'Untitled').slice(0, 60)} recipe`,
+    name,
     text,
     source_thread_id: threadId,
     variables: extractVariables(text),

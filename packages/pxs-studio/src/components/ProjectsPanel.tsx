@@ -255,6 +255,20 @@ export function ProjectsPanel({ activeId, onClose, onOpenProject, onNewProject, 
     load(); // re-pull so it returns to its sorted spot with its assets restored
   };
 
+  // Duplicate (Save As) — a full independent copy; the clone appears in the list on reload.
+  const duplicate = async (p: ProjectRow) => {
+    const res = await fetch(`/api/threads/${p.id}/duplicate?user_id=${encodeURIComponent(DEV_USER_ID)}`, { method: 'POST' }).catch(() => null);
+    if (res?.ok) { toastManager.success(`Duplicated “${p.title}”`); load(); }
+    else toastManager.error('Could not duplicate the project');
+  };
+  // Save as template — extract the project's recipe into a reusable Recipe (Prompt).
+  const saveTemplate = async (p: ProjectRow) => {
+    const res = await fetch(`/api/threads/${p.id}/template?user_id=${encodeURIComponent(DEV_USER_ID)}`, { method: 'POST' }).catch(() => null);
+    if (res?.ok) toastManager.success('Saved as template');
+    else if (res?.status === 422) toastManager.info('Nothing to save yet — render something first');
+    else toastManager.error('Could not save the template');
+  };
+
   const filtered = projects.filter((p) => {
     const ret = p.retention ?? 'saved';
     if (filter === 'saved') return ret === 'saved';
@@ -368,6 +382,12 @@ export function ProjectsPanel({ activeId, onClose, onOpenProject, onNewProject, 
                     </span>
                   </button>
                   <div className="pxp-acts">
+                    <button type="button" className="pxp-mini" title="Duplicate" onClick={() => void duplicate(p)}>
+                      <Icon name="copy" size={13} />
+                    </button>
+                    <button type="button" className="pxp-mini" title="Save as template" onClick={() => void saveTemplate(p)}>
+                      <Icon name="save" size={13} />
+                    </button>
                     <button type="button" className="pxp-mini" title="Rename" onClick={() => startEdit(p)}>
                       <Icon name="pencil" size={13} />
                     </button>

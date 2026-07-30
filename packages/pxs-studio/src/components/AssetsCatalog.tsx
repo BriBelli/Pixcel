@@ -475,6 +475,27 @@ function AssetDrawer({
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src={asset.url} alt={asset.alt_text || 'asset preview'} />
         </div>
+        {/* OPEN AS PROJECT (§2) — start a NEW workspace seeded from this asset, rehydrating its recipe +
+            references (not just the pixels). The verb that beats Photoshop's flatten-on-open. */}
+        {onOpenProject && (
+          <button
+            type="button"
+            className="pxa-btn pxa-btn--save"
+            onClick={async () => {
+              const r = await fetch('/api/threads/from-asset', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ asset_id: asset.id }),
+              }).catch(() => null);
+              const data = r?.ok ? ((await r.json()) as { thread_id?: string }) : null;
+              if (data?.thread_id) onOpenProject(data.thread_id);
+              else toastManager.error('Could not open as project');
+            }}
+            style={{ height: 34, justifyContent: 'center' }}
+          >
+            Open as project
+          </button>
+        )}
         {/* Explicit route back to the work this asset came from — an intentional act, never a
             side-effect of selecting a thumbnail. */}
         {asset.thread_id && onOpenProject && (
@@ -484,7 +505,7 @@ function AssetDrawer({
             onClick={() => onOpenProject(asset.thread_id as string)}
             style={{ height: 32, justifyContent: 'center' }}
           >
-            Open project
+            Open origin project
           </button>
         )}
         <div className="pxa-field">

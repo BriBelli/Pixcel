@@ -1,4 +1,4 @@
-import { DEV_USER_ID, getDb, listSavedAssets, type Asset } from '../../../lib/db';
+import { DEV_USER_ID, getDb, listSavedAssets, promoteThreadForAsset, type Asset } from '../../../lib/db';
 
 export const runtime = 'nodejs';
 
@@ -73,6 +73,9 @@ export async function POST(req: Request) {
       title: typeof body.title === 'string' && body.title.trim() ? body.title.trim().slice(0, 80) : undefined,
     };
     await db.put(asset);
+    // Saving an asset out of a project promotes that project → saved too (idempotent; no-op if the
+    // asset has no thread or the project is already saved).
+    await promoteThreadForAsset(db, asset.thread_id, now);
     return Response.json({ asset });
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Unknown error';

@@ -146,6 +146,7 @@ export async function saveThreadAsRecipe(
     text,
     source_thread_id: threadId,
     variables: extractVariables(text),
+    scope: 'user',
   });
   return promptId;
 }

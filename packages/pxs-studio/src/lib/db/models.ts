@@ -33,6 +33,7 @@ export type RecordCategory =
   | 'thread'
   | 'interaction'
   | 'prompt'
+  | 'recipe_save'
   | 'usage'
   | 'user'
   | 'asset'
@@ -123,6 +124,20 @@ export interface Prompt extends BaseRecord {
   source_thread_id?: string;
   /** The `[SLOT]` variables a template exposes (e.g. CHARACTER DESCRIPTION, CLOTHING). Drives the fill UI. */
   variables?: string[];
+  /** ORIGIN classification — drives auth AND search/filter. 'user' = the owner's own (Save as template);
+   *  'community' = submitted by others (future state); 'pixcel' built-ins are code-side starters, not DB
+   *  rows, but the value exists here so a promoted/curated recipe can carry it. Absent → 'user'. */
+  scope?: 'pixcel' | 'user' | 'community';
+}
+
+/**
+ * A user's "love"/save of a Recipe — a FAVORITE POINTER, not a copy. One row per (user, recipe); the
+ * user's readily-available Recipes = their own (`scope:user`) PLUS everything they've saved (any scope).
+ * `recipe_id` may point at a Prompt id or a built-in starter id. Un-loving is a status flip to 'deleted'.
+ */
+export interface RecipeSave extends BaseRecord {
+  category: 'recipe_save';
+  recipe_id: string;
 }
 
 /** Per-interaction metering row: tokens + cost (Decision 3). */

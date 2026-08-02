@@ -87,7 +87,15 @@ export async function POST(req: Request) {
     );
   }
 
-  let body: { prompt?: string; history?: HistoryMsg[]; thread_id?: string; user_id?: string; section?: string };
+  let body: {
+    prompt?: string;
+    history?: HistoryMsg[];
+    thread_id?: string;
+    user_id?: string;
+    section?: string;
+    references?: string[];
+    reference_asset_ids?: (string | null)[];
+  };
   try {
     body = await req.json();
   } catch {
@@ -185,6 +193,36 @@ export async function POST(req: Request) {
   };
   // Memory-first append — don't block the stream on the DB write.
   living.append(interaction);
+
+  // The user's attached references at the FRONT DOOR — the Operator carries everything the user brought.
+  // Persist each NEW upload as an ephemeral upload asset on this turn (source 'upload'), so it rides
+  // along when the Operator transfers to the specialist AND rehydrates as the turn's userImages on
+  // reload. @-mentioned refs (already saved assets → have an id) are skipped: link, don't duplicate.
+  // Uploads do NOT promote the draft (only a GENERATED asset does — matches the image-agent path).
+  const references = Array.isArray(body.references)
+    ? body.references.filter((r): r is string => typeof r === 'string' && r.length > 0)
+    : [];
+  const referenceAssetIds = Array.isArray(body.reference_asset_ids) ? body.reference_asset_ids : [];
+  for (let i = 0; i < references.length; i++) {
+    if (referenceAssetIds[i]) continue; // existing saved asset — no duplicate row
+    await db
+      .put<Asset>({
+        id: newId('asset'),
+        user_id: userId,
+        category: 'asset',
+        status: 'active',
+        created_at: now,
+        updated_at: now,
+        kind: 'image',
+        source: 'upload',
+        retention: 'ephemeral',
+        thread_id: threadId,
+        interaction_id: interactionId,
+        url: references[i],
+        index: i,
+      })
+      .catch(() => {});
+  }
 
   const client = new Anthropic({ apiKey });
   const encoder = new TextEncoder();

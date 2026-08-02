@@ -292,6 +292,11 @@ export const useChatTurnsStore = create<ChatTurnsState>((set, get) => {
                 thread_id: st.threadId ?? undefined,
                 // The entry section sets the Operator's prior (chat / image / video).
                 section: st.activeMedium,
+                // The Operator carries EVERYTHING the user brought — attaching a reference at the front
+                // door is context to transfer, never something to restrict. Persisted with the turn so
+                // it rides along to the specialist on transfer + rehydrates on reload.
+                references,
+                reference_asset_ids: referenceAssetIds,
               }
         ),
       });

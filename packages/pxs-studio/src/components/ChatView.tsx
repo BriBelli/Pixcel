@@ -368,9 +368,10 @@ export default function ChatView({ initialPrompt }: Props) {
       {/* Composer — the PR-2 primitive, column-capped in chat, pane-width in the workspace. */}
       <div className={capped ? 'shrink-0 px-6 pb-6 pt-2' : 'shrink-0 px-5 pb-5 pt-2'}>
         <div className={capped ? 'mx-auto w-full' : 'w-full'} style={capped ? COLUMN_STYLE : undefined}>
-          {/* Attach references only in the workspace (the Image agent consumes them); the chat
-              front door doesn't route references yet. */}
-          <Composer value={draft} onChange={setDraft} onSubmit={submit} attachEnabled={!capped} />
+          {/* Attach is enabled EVERYWHERE, including the front door: the Operator carries whatever the
+              user brings (prompt + references) and transfers it to the specialist — it never gatekeeps.
+              References persist on the turn (chat-turn route) so they ride along + rehydrate on reload. */}
+          <Composer value={draft} onChange={setDraft} onSubmit={submit} attachEnabled />
         </div>
       </div>
     </div>

@@ -13,7 +13,7 @@
  * ChatView's injected panel chrome (.pxs-agent-head / .pxs-resize), so it must render inside ChatView.
  * ───────────────────────────────────────────────────────────────────────────── */
 
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Icon } from '../ui';
 import { toastManager } from '../Toast';
 import { FrameTimeline } from './FrameTimeline';
@@ -52,7 +52,7 @@ const CSS = `
 .pxv-add:hover { color: var(--a2ui-text-primary); border-color: var(--a2ui-accent); }
 
 /* ── SCENE BUILDER (center) ── */
-.pxv-builder { position: relative; width: 460px; flex-shrink: 0; display: flex; flex-direction: column; min-height: 0;
+.pxv-builder { position: relative; flex-shrink: 0; display: flex; flex-direction: column; min-height: 0;
   border-left: 1px solid var(--a2ui-border-subtle); background: var(--a2ui-bg-app); }
 .pxv-builder-scroll { flex: 1; overflow-y: auto; padding: var(--a2ui-space-5); display: flex; flex-direction: column; gap: var(--a2ui-space-4); }
 .pxv-card { border: 1px solid var(--pxc-border-subtle); border-radius: var(--a2ui-radius-lg);
@@ -139,6 +139,38 @@ export function VideoWorkspace({ renderConversation, plan, planValues }: VideoWo
    * wipe your words.
    */
   const [touched, setTouched] = useState(false);
+
+  /** Panel chrome. Persisted so a layout you set survives a reload, like the image workspace's. */
+  const [builderOpen, setBuilderOpen] = useState(true);
+  const [agentOpen, setAgentOpen] = useState(true);
+  const [builderW, setBuilderW] = useState(460);
+  const [agentW, setAgentW] = useState(360);
+  const drag = useRef<{ x: number; w: number; set: (w: number) => void; min: number; max: number } | null>(null);
+
+  const onMove = useCallback((e: MouseEvent) => {
+    const d = drag.current;
+    if (!d) return;
+    // Both panels sit to the RIGHT of the storyboard, so dragging left widens them.
+    d.set(Math.max(d.min, Math.min(d.max, d.w + (d.x - e.clientX))));
+  }, []);
+  const onUp = useCallback(() => {
+    drag.current = null;
+    window.removeEventListener('mousemove', onMove);
+    window.removeEventListener('mouseup', onUp);
+    document.body.style.cursor = '';
+    document.body.style.userSelect = '';
+  }, [onMove]);
+  const startResize = useCallback(
+    (e: React.MouseEvent, w: number, set: (w: number) => void, min: number, max: number) => {
+      drag.current = { x: e.clientX, w, set, min, max };
+      window.addEventListener('mousemove', onMove);
+      window.addEventListener('mouseup', onUp);
+      document.body.style.cursor = 'col-resize';
+      document.body.style.userSelect = 'none';
+      e.preventDefault();
+    },
+    [onMove, onUp],
+  );
   useEffect(() => {
     if (!plan || touched) return;
     const assembled = (plan.parts ?? [])
@@ -296,9 +328,26 @@ export function VideoWorkspace({ renderConversation, plan, planValues }: VideoWo
       </div>
 
       {/* SCENE BUILDER */}
-      <div className="pxv-builder">
+      {builderOpen && (
+        <div
+          role="separator"
+          aria-orientation="vertical"
+          title="Drag to resize"
+          onMouseDown={(e) => startResize(e, builderW, setBuilderW, 360, 760)}
+          className="pxs-resize shrink-0"
+        />
+      )}
+      {!builderOpen && (
+        <button type="button" className="pxs-agent-tab shrink-0" onClick={() => setBuilderOpen(true)} title="Open the Scene builder">
+          <Icon name="sparkles" size={16} />
+        </button>
+      )}
+      <div className="pxv-builder" style={{ width: builderW, display: builderOpen ? 'flex' : 'none' }}>
         <div className="pxs-agent-head">
           <span className="pxs-agent-title"><Icon name="sparkles" size={15} /> Scene builder</span>
+          <button type="button" onClick={() => setBuilderOpen(false)} title="Collapse the Scene builder">
+            <Icon name="x" size={15} />
+          </button>
         </div>
         <div className="pxv-builder-scroll">
           <div className="pxv-card">
@@ -417,15 +466,33 @@ export function VideoWorkspace({ renderConversation, plan, planValues }: VideoWo
 
       {/* AGENT — the same conversation + composer as Image. */}
       <div role="separator" aria-orientation="vertical" className="pxs-resize shrink-0" />
-      <aside
-        className="shrink-0 flex flex-col min-h-0"
-        style={{ width: 360, borderLeft: '1px solid var(--a2ui-border-subtle)', background: 'var(--a2ui-bg-app)' }}
-      >
-        <div className="pxs-agent-head">
-          <span className="pxs-agent-title"><Icon name="message-square" size={15} /> Agent</span>
-        </div>
-        {renderConversation()}
-      </aside>
+      {agentOpen ? (
+        <>
+          <div
+            role="separator"
+            aria-orientation="vertical"
+            title="Drag to resize"
+            onMouseDown={(e) => startResize(e, agentW, setAgentW, 300, 640)}
+            className="pxs-resize shrink-0"
+          />
+          <aside
+            className="shrink-0 flex flex-col min-h-0"
+            style={{ width: agentW, borderLeft: '1px solid var(--a2ui-border-subtle)', background: 'var(--a2ui-bg-app)' }}
+          >
+            <div className="pxs-agent-head">
+              <span className="pxs-agent-title"><Icon name="message-square" size={15} /> Agent</span>
+              <button type="button" onClick={() => setAgentOpen(false)} title="Collapse the Agent">
+                <Icon name="x" size={15} />
+              </button>
+            </div>
+            {renderConversation()}
+          </aside>
+        </>
+      ) : (
+        <button type="button" className="pxs-agent-tab shrink-0" onClick={() => setAgentOpen(true)} title="Open the Agent">
+          <Icon name="message-square" size={16} />
+        </button>
+      )}
     </div>
   );
 }

@@ -13,6 +13,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Icon, SegmentedControl } from '../ui';
 import { checkRenderBudget } from '../../lib/engine/render-estimate';
+import { MEDIA_MODELS } from '../../lib/engine/media-registry';
 import { useChatTurnsStore } from '../../store/chat-turns-store';
 
 /** Money, rendered the way people read it. */
@@ -103,16 +104,40 @@ export function RenderConfig() {
   const [open, setOpen] = useState(false);
   const [models, setModels] = useState<ModelOpt[]>([]);
   const ref = useRef<HTMLDivElement>(null);
+  const activeMedium = useChatTurnsStore((st) => st.activeMedium);
+  const isVideo = activeMedium === 'video';
 
-  // Load the catalog on MOUNT (not just on open) so the trigger summary + Auto preview are correct
-  // before the popover is ever opened.
+
+  /**
+   * MEDIUM-AWARE. This listed IMAGE models in the Video tab — offering GPT Image 1.5 and FLUX as
+   * choices for a clip, which is not merely wrong but actively misleading about what the workspace
+   * does. The video catalog is registry data, so it needs no fetch.
+   */
+  const videoModels = useMemo(
+    () =>
+      MEDIA_MODELS.filter((m) => m.modalities.includes('video') && m.video && !m.preview && !m.needsResearch).map((m) => ({
+        id: m.id,
+        label: m.label,
+        provider: m.provider,
+        tier: m.tier,
+        capabilities: [] as string[],
+        brief: m.brief,
+        maxReferenceImages: m.video?.maxReferenceImages ?? 0,
+        costPerImageUsd: [0, 0] as [number, number],
+        ready: true,
+      })),
+    [],
+  );
+
+  // Load the IMAGE catalog on MOUNT (not just on open) so the trigger summary + Auto preview are
+  // correct before the popover is ever opened. Skipped entirely in video.
   useEffect(() => {
-    if (models.length > 0) return;
+    if (isVideo || models.length > 0) return;
     fetch('/api/models/list')
       .then((r) => r.json())
       .then((d) => setModels(Array.isArray(d.models) ? d.models : []))
       .catch(() => {});
-  }, [models.length]);
+  }, [models.length, isVideo]);
 
   useEffect(() => {
     if (!open) return;
@@ -130,14 +155,15 @@ export function RenderConfig() {
 
   // RANK — ready models first, then by tier (desc), stable on registry order. This is the fit order the
   // AUTO fan pre-selects from and the order everything sorts by (so selections stay rank-ordered).
-  const ranked = [...models].sort((a, b) => Number(b.ready) - Number(a.ready) || b.tier - a.tier);
+  const catalog = isVideo ? videoModels : models;
+  const ranked = [...catalog].sort((a, b) => Number(b.ready) - Number(a.ready) || b.tier - a.tier);
   const readyRanked = ranked.filter((m) => m.ready);
   const rankIndex = (id: string) => {
     const i = ranked.findIndex((m) => m.id === id);
     return i < 0 ? 999 : i;
   };
   const byRank = (ids: string[]) => [...ids].sort((a, b) => rankIndex(a) - rankIndex(b));
-  const labelOf = (id: string) => models.find((m) => m.id === id)?.label ?? id;
+  const labelOf = (id: string) => catalog.find((m) => m.id === id)?.label ?? id;
 
   // LIVE COST — the number that turns "hit render and find out" into a decision. Recomputed as the
   // knobs move, because the knobs ARE the price: models × count (× seconds × resolution for video).
@@ -167,7 +193,7 @@ export function RenderConfig() {
   const active = isAuto ? selected.slice(0, count) : selected;
 
   // Before the catalog loads, fall back to the raw count so the trigger never flashes "0 models".
-  const shownCount = active.length || (models.length === 0 ? count : 0);
+  const shownCount = active.length || (catalog.length === 0 ? count : 0);
   const summary = `${fanConfig.mode === 'auto' ? 'Auto' : 'Manual'} · ${shownCount} model${shownCount === 1 ? '' : 's'} · ${fanConfig.perModel}/ea · ${fanConfig.aspect ?? 'auto'}`;
 
   // Priced against what will ACTUALLY run: in Auto the agent picks, so the preview list is the best
@@ -175,15 +201,23 @@ export function RenderConfig() {
   const cost = useMemo(
     () =>
       checkRenderBudget(
-        { medium: 'image', modelIds: active, perModel: fanConfig.perModel },
+        { medium: isVideo ? 'video' : 'image', modelIds: active, perModel: fanConfig.perModel, durationSec: 5 },
         budget?.remaining_usd ?? Number.POSITIVE_INFINITY,
       ),
-    [active, fanConfig.perModel, budget?.remaining_usd],
+    [active, fanConfig.perModel, budget?.remaining_usd, isVideo],
   );
 
   // Toggling a model always lands in MANUAL with a concrete list; count follows the selection size so
   // selecting adds (+1) and deselecting removes (−1) — never below 1.
+  const setVideoModelId = useChatTurnsStore((st) => st.setVideoModelId);
+
   const toggleModel = (id: string) => {
+    if (isVideo) {
+      // One target, set in one place — the Scene builder's chips read the same value.
+      setVideoModelId(id);
+      setFanConfig({ mode: 'manual', models: [id], fanModels: 1 });
+      return;
+    }
     const base = selected; // the current concrete list (auto preview or manual)
     const has = base.includes(id);
     if (has && base.length <= 1) return; // keep at least one
@@ -241,7 +275,7 @@ export function RenderConfig() {
               curated list; selections beyond "How many" show CAPPED (checked, disabled) and return
               when you raise the count. No-key models are always disabled. */}
           <div className="rc-models" data-auto={isAuto}>
-            {models.length === 0 ? (
+            {catalog.length === 0 ? (
               <span className="rc-note">Loading models…</span>
             ) : (
               ranked.map((m) => {

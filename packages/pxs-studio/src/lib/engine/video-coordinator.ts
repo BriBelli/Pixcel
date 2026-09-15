@@ -146,6 +146,11 @@ export async function* coordinateVideo(
           aspectRatio: req.aspectRatio,
           audio: req.needsAudio,
           task: req.task,
+          startFrame: req.startFrame,
+          endFrame: req.endFrame,
+          references: req.references,
+          videoRefs: req.videoRefs,
+          audioRefs: req.audioRefs,
         });
       } catch {
         yield { type: 'model_error', modelId: c.model.id, reason: 'transport' };

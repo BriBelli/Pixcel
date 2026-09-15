@@ -340,8 +340,12 @@ class FalVideoExecutor implements VideoExecutor {
     const failure = (result as { detail?: unknown } | null)?.detail;
     if (failure) {
       const detail = (typeof failure === 'string' ? failure : JSON.stringify(failure)).slice(0, 300);
-      console.warn(`[fal-video] ${path} rejected the input: ${detail}`);
-      yield { type: 'error', reason: 'bad_request', detail };
+      // A content-policy rejection is NOT a malformed request, and calling it one sends you hunting
+      // for an adapter bug. Seen live: Seedance refusing its own GENERATED AUDIO as a potential
+      // copyright violation — nothing wrong with the request at all.
+      const moderated = /content_policy|moderat|safety|nsfw|sensitive content|copyright/i.test(detail);
+      console.warn(`[fal-video] ${path} ${moderated ? 'refused on content policy' : 'rejected the input'}: ${detail}`);
+      yield { type: 'error', reason: moderated ? 'moderated' : 'bad_request', detail };
       return;
     }
 

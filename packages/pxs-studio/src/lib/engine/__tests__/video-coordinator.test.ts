@@ -136,3 +136,39 @@ test('routed reports what will run, why, and the estimated spend up front', asyn
   assert.ok(routed.models[0].why.length > 0);
   assert.equal(routed.estimatedUsd, 0.28); // 4s x $0.07 at 480p
 });
+
+test('PINNED FRAMES reach the adapter — the silent-drop that made the timeline useless', () => {
+  // startFrame/endFrame/references were absent from the routing request, the agent and the
+  // coordinator, so an attached opening frame was paid for and ignored. Asserted at the request
+  // boundary, since that is where the plumbing broke.
+  const req: import('../../agents/video-model-agent').VideoRoutingRequest = {
+    intent: 'a shot',
+    startFrame: 'first.png',
+    endFrame: 'last.png',
+    references: ['r1.png'],
+    videoRefs: ['v1.mp4'],
+    audioRefs: ['a1.wav'],
+  };
+  assert.equal(req.startFrame, 'first.png');
+  assert.equal(req.endFrame, 'last.png');
+  assert.deepEqual(req.references, ['r1.png']);
+  assert.deepEqual(req.videoRefs, ['v1.mp4']);
+  assert.deepEqual(req.audioRefs, ['a1.wav']);
+});
+
+test('the adapter RECEIVES the frames the coordinator was given', async () => {
+  let seen: { startFrame?: string; endFrame?: string; references?: string[] } | null = null;
+  script.set('a', (r) => {
+    seen = { startFrame: r.startFrame, endFrame: r.endFrame, references: r.references };
+    return ok('https://cdn/a.mp4');
+  });
+  await collect(
+    coordinateVideo(
+      { intent: 'x', startFrame: 'first.png', endFrame: 'last.png', references: ['r1.png'] },
+      { catalog: [runnable('a', 'A')], doctrines: new Map() },
+    ),
+  );
+  assert.equal(seen!.startFrame, 'first.png');
+  assert.equal(seen!.endFrame, 'last.png');
+  assert.deepEqual(seen!.references, ['r1.png']);
+});

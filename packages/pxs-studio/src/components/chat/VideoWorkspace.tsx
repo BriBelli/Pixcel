@@ -13,9 +13,14 @@
  * ChatView's injected panel chrome (.pxs-agent-head / .pxs-resize), so it must render inside ChatView.
  * ───────────────────────────────────────────────────────────────────────────── */
 
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Icon } from '../ui';
 import { toastManager } from '../Toast';
+import { FrameTimeline } from './FrameTimeline';
+import { planFrames, type ShotFrame } from '../../lib/engine/shot-frames';
+// Registry DATA only. video-model-agent reaches the DB (and so the sqlite adapter), which a client
+// component must never pull into the bundle — MEDIA_MODELS is pure and is all the timeline needs.
+import { MEDIA_MODELS } from '../../lib/engine/media-registry';
 
 interface Shot {
   id: string;
@@ -84,6 +89,82 @@ export function VideoWorkspace({ renderConversation }: { renderConversation: () 
     { id: 's2', label: 'Shot 2 · tracking' },
   ]);
   const [scene, setScene] = useState('');
+  /**
+   * Which model this shot is being built FOR. The frame timeline renders that model's real slots, so
+   * the target has to be a choice rather than an assumption — an opening frame is a control on
+   * Seedance and an impossibility on a text-only model, and the surface must say which.
+   */
+  // Routable = vetted enough to spend on. Whether an adapter + key are actually present is a SERVER
+  // fact; the render call reports honestly if not, rather than the client guessing.
+  const runnable = useMemo(
+    () => MEDIA_MODELS.filter((m) => m.modalities.includes('video') && m.video && !m.preview && !m.needsResearch),
+    [],
+  );
+  const [modelId, setModelId] = useState<string>(() => runnable[0]?.id ?? '');
+  const model = runnable.find((m) => m.id === modelId) ?? runnable[0];
+  const framePlan = useMemo(() => (model ? planFrames(model) : null), [model]);
+  const [frames, setFrames] = useState<ShotFrame[]>([]);
+  /** The chosen model's real ceiling — the slider cannot ask for a clip it will not make. */
+  const maxDuration = model?.video?.maxDurationSec ?? 15;
+
+  const [rendering, setRendering] = useState(false);
+  const [stage, setStage] = useState('');
+  const [clips, setClips] = useState<{ url: string; modelLabel: string }[]>([]);
+
+  /**
+   * Render this shot for real. The camera chips join the prompt because they ARE prompt language on
+   * every model here (none takes a camera parameter), and the pinned frames become the seam's
+   * startFrame / endFrame / references. Progress is surfaced on the button itself: a 75-120s render
+   * with a silent button is indistinguishable from a broken one.
+   */
+  async function renderClip() {
+    if (!scene.trim() || !model) return;
+    setRendering(true);
+    setStage('');
+    const camera = [...moves];
+    const prompt = camera.length > 0 ? `${scene.trim()} Camera: ${camera.join(', ')}.` : scene.trim();
+    const { framesToRequest } = await import('../../lib/engine/shot-frames');
+
+    try {
+      const res = await fetch('/api/video-agent', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          prompt,
+          render_prompt: prompt,
+          shot: { durationSec: duration, models: [model.id], fanModels: 1, perModel: 1, ...framesToRequest(frames) },
+        }),
+      });
+      if (!res.body) throw new Error('no stream');
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = '';
+      for (;;) {
+        const { value, done } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n');
+        buffer = lines.pop() ?? '';
+        for (const line of lines) {
+          if (!line.trim()) continue;
+          let evt: { type?: string; stage?: string; url?: string; modelLabel?: string; message?: string };
+          try {
+            evt = JSON.parse(line);
+          } catch {
+            continue;
+          }
+          if (evt.type === 'fan_model' && evt.stage) setStage(evt.stage);
+          else if (evt.type === 'clip' && evt.url) setClips((c) => [...c, { url: evt.url!, modelLabel: evt.modelLabel ?? '' }]);
+          else if (evt.type === 'gen_error' && evt.message) toastManager.info(evt.message);
+        }
+      }
+    } catch (err) {
+      toastManager.info(err instanceof Error ? err.message : 'The render could not start.');
+    } finally {
+      setRendering(false);
+      setStage('');
+    }
+  }
   const [moves, setMoves] = useState<Set<string>>(new Set());
   const [duration, setDuration] = useState(6);
 
@@ -106,7 +187,24 @@ export function VideoWorkspace({ renderConversation }: { renderConversation: () 
         <div className="pxv-board-head"><span className="pxv-label">Storyboard</span></div>
         <div className="pxv-board-scroll">
           <div style={{ display: 'flex', flexDirection: 'column' }}>
-            {shots.map((s, i) => (
+            {clips.map((c, i) => (
+              <div key={c.url}>
+                <div className="pxv-shot" data-wash={i % 2 === 0 ? 'a' : 'b'} style={{ padding: 0, overflow: 'hidden' }}>
+                  <video
+                    src={c.url}
+                    muted
+                    loop
+                    playsInline
+                    preload="metadata"
+                    style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                    onMouseEnter={(e) => void e.currentTarget.play().catch(() => {})}
+                    onMouseLeave={(e) => e.currentTarget.pause()}
+                  />
+                </div>
+                <div className="pxv-connect"><Icon name="chevron-down" size={16} /></div>
+              </div>
+            ))}
+            {clips.length === 0 && shots.map((s, i) => (
               <div key={s.id}>
                 <div className="pxv-shot" data-wash={i % 2 === 0 ? 'a' : 'b'}>
                   <span className="pxv-shot-label">{s.label}</span>
@@ -137,6 +235,41 @@ export function VideoWorkspace({ renderConversation }: { renderConversation: () 
             />
           </div>
 
+          {framePlan && (
+            <div className="pxv-card">
+              <FrameTimeline
+                plan={framePlan}
+                frames={frames}
+                durationSec={duration}
+                onChange={setFrames}
+              />
+            </div>
+          )}
+
+          {runnable.length > 1 && (
+            <div className="pxv-card">
+              <div className="pxv-card-label">Model</div>
+              <div className="pxv-chips">
+                {runnable.map((m) => (
+                  <button
+                    key={m.id}
+                    type="button"
+                    className="pxv-chip"
+                    data-on={m.id === model?.id ? 'true' : 'false'}
+                    onClick={() => {
+                      setModelId(m.id);
+                      const cap = m.video?.maxDurationSec ?? 15;
+                      setDuration((d) => Math.min(d, cap));
+                    }}
+                    title={`${m.video?.maxDurationSec ?? '?'}s max · ${m.video?.nativeAudio ? 'synced audio' : 'no audio'}`}
+                  >
+                    {m.label.split('(')[0].trim()}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
           <div className="pxv-card">
             <div className="pxv-card-label">Camera &amp; motion</div>
             <div className="pxv-chips">
@@ -153,14 +286,14 @@ export function VideoWorkspace({ renderConversation }: { renderConversation: () 
             <div className="pxv-dur">
               <span className="pxv-dur-val">{duration}s</span>
               <div className="pxv-dur-bar">
-                <div className="pxv-dur-fill" style={{ width: `${((duration - 2) / (15 - 2)) * 100}%` }} />
+                <div className="pxv-dur-fill" style={{ width: `${((duration - 2) / Math.max(1, maxDuration - 2)) * 100}%` }} />
               </div>
             </div>
             <input
               className="pxv-dur-range"
               type="range"
               min={2}
-              max={15}
+              max={maxDuration}
               value={duration}
               aria-label="Clip duration in seconds"
               onChange={(e) => setDuration(Number(e.target.value))}
@@ -171,9 +304,10 @@ export function VideoWorkspace({ renderConversation }: { renderConversation: () 
         <button
           type="button"
           className="pxv-render"
-          onClick={() => toastManager.success('Clip rendering is on the Video roadmap — the scene is captured.')}
+          disabled={rendering || !scene.trim()}
+          onClick={() => void renderClip()}
         >
-          <Icon name="sparkles" size={16} /> Render clip
+          <Icon name="sparkles" size={16} /> {rendering ? stage || 'Rendering…' : 'Render clip'}
         </button>
       </div>
 

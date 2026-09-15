@@ -166,7 +166,21 @@ export interface VideoAgentTurn {
   /** Present → RENDER this shot now (the user committed from the builder). */
   renderPrompt?: string;
   /** The shot specs the user set in the controls. */
-  shot?: { durationSec?: number; resolution?: string; aspectRatio?: string; audio?: boolean; models?: string[]; fanModels?: number; perModel?: number };
+  shot?: {
+    durationSec?: number;
+    resolution?: string;
+    aspectRatio?: string;
+    audio?: boolean;
+    models?: string[];
+    fanModels?: number;
+    perModel?: number;
+    /** Frames pinned on the timeline — the shot's opening still, closing still, and references. */
+    startFrame?: string;
+    endFrame?: string;
+    references?: string[];
+    videoRefs?: string[];
+    audioRefs?: string[];
+  };
   client?: Anthropic;
 }
 
@@ -186,6 +200,14 @@ export async function* runVideoAgent(frame: VideoAgentFrame, turn: VideoAgentTur
     budgetUsd: frame.budgetUsd,
     models: turn.shot?.models,
     fanModels: turn.shot?.fanModels,
+    // The pinned frames. Without these the request renders from text alone and the image the user
+    // attached is paid for and ignored — the silent failure this whole surface exists to end.
+    startFrame: turn.shot?.startFrame,
+    endFrame: turn.shot?.endFrame,
+    references: turn.shot?.references,
+    videoRefs: turn.shot?.videoRefs,
+    audioRefs: turn.shot?.audioRefs,
+    referenceCount: turn.shot?.references?.length,
   };
 
   // ── RENDER LEG ────────────────────────────────────────────────────────────────────────────────

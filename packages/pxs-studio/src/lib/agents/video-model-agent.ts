@@ -147,6 +147,15 @@ export interface VideoRoutingRequest {
   needsAudio?: boolean;
   /** Reference images the user attached. */
   referenceCount?: number;
+  /** The still the shot OPENS on (image-to-video). */
+  startFrame?: string;
+  /** The still it LANDS on — with startFrame, this is keyframe interpolation. */
+  endFrame?: string;
+  /** Images guiding the whole clip (character/style/objects), not a moment in it. */
+  references?: string[];
+  /** Reference clips and audio, for models that take them. */
+  videoRefs?: string[];
+  audioRefs?: string[];
   /** Spend still available, USD — models whose cheapest run exceeds it are excluded. */
   budgetUsd?: number;
   /** How many models to fan across. */

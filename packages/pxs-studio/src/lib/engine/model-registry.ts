@@ -18,7 +18,7 @@
  */
 
 /** A provider we can dispatch an image generation to. */
-export type ImageProvider = 'openai' | 'fal' | 'gemini' | 'ideogram' | 'recraft' | 'stability' | 'replicate' | 'xai';
+export type ImageProvider = 'openai' | 'fal' | 'gemini' | 'ideogram' | 'recraft' | 'replicate' | 'xai';
 
 /** The capability axes a request can require and a model can satisfy. */
 export type Capability =

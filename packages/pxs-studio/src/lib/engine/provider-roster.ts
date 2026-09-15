@@ -156,7 +156,11 @@ export const PROVIDERS: Provider[] = [
     docsUrl: 'https://platform.stability.ai/docs',
     modalities: ['image'],
     status: 'dropped',
-    note: 'Dropped — current foundation models match or exceed it (incl. upscaling). Reversible.',
+    note:
+      'DROPPED for good 2026-09-15 (Brian): no route, no login, no remaining value — the foundation ' +
+      'models cover what it was kept for. The row stays because the roster records what we have ' +
+      'CONSIDERED, not only what we use: deleting it invites rediscovering and re-evaluating it in ' +
+      'six months. Reversible by flipping status, but it is not coming back on current evidence.',
   },
   {
     id: 'fal',

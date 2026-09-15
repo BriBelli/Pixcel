@@ -30,6 +30,9 @@ Thumbs.db
 # Environment
 .env
 .env.local
+# Timestamped env backups — these contain LIVE KEYS and must never be committed.
+.env.local.bak-*
+.env*.bak*
 .env.*.local
 
 # Logs

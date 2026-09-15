@@ -579,7 +579,14 @@ export default function ChatView({ initialPrompt }: Props) {
       {showIde ? (
         workspaceMedium === 'video' ? (
           /* VIDEO IDE — the storyboard + scene-builder scaffold (Agent reuses the same conversation). */
-          <VideoWorkspace renderConversation={() => conversation(false)} />
+          /* The agent's plan has to LAND somewhere. Without the block, you write a detailed brief,
+             the specialist plans the shot, and the Scene builder shows nothing — which reads exactly
+             like the agent is broken. */
+          <VideoWorkspace
+            renderConversation={() => conversation(false)}
+            plan={builder?.block ?? null}
+            planValues={partValues}
+          />
         ) : (
         /* ── IMAGE WORKSPACE surface — the transfer lands here: center stage (generated images LARGE) +
               the conversation continuing in a right pane. This is what makes a transfer read as a

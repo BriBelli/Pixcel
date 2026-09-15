@@ -84,6 +84,12 @@ Respond in TWO parts, in order:
 
 You OWN the shot specs (the Operator handed only the brief). A shot is not a picture: it has LENGTH, a camera that MOVES, physics, and often SOUND — and those choices drive both the result and the price.
 
+YOU ARE ALSO THE PERSON'S GUIDE TO THIS MODEL. You know what it can and cannot stage; they do not. So:
+- If the brief asks for something the model CANNOT do, say so in the opener, in one plain sentence, and give the technique that does work. Never quietly write a prompt that will not deliver what they asked for and let the result disappoint them — that is the single worst thing you can do here.
+- The most common case by far is TEMPORAL CHOREOGRAPHY. No model here has a timeline: a clip is generated holistically, so "cruise, then drop a gear, then flames at the shift point" cannot be staged inside one render. The technique is CHAINING — one clip per event, each opening on the still the previous one ended with. Say that plainly when you see a brief with a sequence of beats in it.
+- Other limits worth naming when they matter: the clip length ceiling, whether the model makes sound at all, and that reference images guide the whole shot rather than a moment in it.
+- When the brief is achievable, do not lecture. Coaching is for when something will not work, or when one change would clearly make it better.
+
 - prompt: a model-ready description of the shot.
 - task: what is actually being made, chosen from the VIDEO TASK VOCABULARY below. Pick the one that fits; omit if genuinely unclear.
 - durationSec: how long the shot runs. Default 5. Ask for length the beat NEEDS — video is priced per second, so seconds are money.
@@ -116,6 +122,15 @@ function videoFormulaBrief(f: VideoCapabilityFacts): string {
   );
   if (f.doctrine?.principles?.length) lines.push(`WHAT THIS MODEL REWARDS:\n${f.doctrine.principles.slice(0, 6).map((x) => `- ${x}`).join('\n')}`);
   if (f.doctrine?.antiPatterns?.length) lines.push(`WHAT IT PUNISHES:\n${f.doctrine.antiPatterns.slice(0, 4).map((x) => `- ${x}`).join('\n')}`);
+  // The STRUCTURAL limits, stated separately from craft advice: these are not things to prompt
+  // around, they are things the model cannot do, and the agent must be able to say so out loud.
+  lines.push(
+    `WHAT THIS MODEL CANNOT DO:\n` +
+      `- No timeline. A clip is generated as a whole; it cannot stage "first X, then Y" inside one render. Chain clips instead.\n` +
+      `- No frame at an arbitrary time.${f.maxReferenceImages > 0 ? ' References guide the WHOLE shot, not a moment in it.' : ''}\n` +
+      `- Nothing longer than ${f.maxDurationSec}s in one clip.` +
+      (f.nativeAudio ? '' : '\n- No sound at all — this model renders picture only.'),
+  );
   return lines.join('\n');
 }
 

@@ -123,6 +123,8 @@ export async function* coordinateVideo(
 
   const tiles: ClipTile[] = [];
   let costUsd = 0;
+  /** The provider's own explanation for the first failure — far more useful than "it failed". */
+  let firstFailure: string | undefined;
 
   /** One model's run, tagged so the interleaved stream knows who spoke. */
   async function* runModel(c: VideoCandidate): AsyncGenerator<VideoCoordEvent> {
@@ -167,6 +169,7 @@ export async function* coordinateVideo(
         } else if (ev.type === 'done') {
           modelCost += ev.costUsd ?? 0;
         } else if (ev.type === 'error') {
+          firstFailure = firstFailure ?? ev.detail ?? ev.reason;
           yield { type: 'model_error', modelId: c.model.id, reason: ev.reason, detail: ev.detail };
         }
       }
@@ -179,7 +182,12 @@ export async function* coordinateVideo(
   yield* interleave(candidates.map((c) => runModel(c)));
 
   if (tiles.length === 0) {
-    yield { type: 'error', message: 'Every model failed to deliver a clip. Nothing was charged for the failed jobs.' };
+    yield {
+      type: 'error',
+      message: firstFailure
+        ? `No clip was produced — ${firstFailure} Nothing was charged for the failed jobs.`
+        : 'Every model failed to deliver a clip. Nothing was charged for the failed jobs.',
+    };
     return;
   }
   const asked = candidates.length * perModel;

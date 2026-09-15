@@ -94,7 +94,15 @@ const CSS = `
 .pxv-live-note { font-size: var(--a2ui-text-xs); color: var(--a2ui-text-tertiary); }
 `;
 
-export function VideoWorkspace({ renderConversation }: { renderConversation: () => React.ReactNode }) {
+export interface VideoWorkspaceProps {
+  renderConversation: () => React.ReactNode;
+  /** The video agent's deconstruction of your brief — parts + the shot specs it chose. */
+  plan?: { parts?: { id: string; label: string; value?: string }[]; shot?: { durationSec?: number; resolution?: string; aspectRatio?: string; audio?: boolean }; modelId?: string; media?: string } | null;
+  /** Live part values (the agent edits these as you talk to it). */
+  planValues?: Record<string, string>;
+}
+
+export function VideoWorkspace({ renderConversation, plan, planValues }: VideoWorkspaceProps) {
   const [shots, setShots] = useState<Shot[]>([
     { id: 's1', label: 'Shot 1 · establishing' },
     { id: 's2', label: 'Shot 2 · tracking' },
@@ -121,6 +129,26 @@ export function VideoWorkspace({ renderConversation }: { renderConversation: () 
     // rather than choosing its own before the user has touched anything.
     if (!storedModelId && runnable[0]) setVideoModelId(runnable[0].id);
   }, [storedModelId, runnable, setVideoModelId]);
+
+  /**
+   * THE DECONSTRUCTION LANDS HERE. You describe the shot to the agent; it returns the target model's
+   * formula filled in, plus the specs it chose. Those become the Scene builder's contents — which is
+   * the whole point of having a specialist, and was previously computed and thrown away.
+   *
+   * It fills, it does not overwrite: once you have edited the scene yourself, a later plan does not
+   * wipe your words.
+   */
+  const [touched, setTouched] = useState(false);
+  useEffect(() => {
+    if (!plan || touched) return;
+    const assembled = (plan.parts ?? [])
+      .map((p) => (planValues?.[p.id] ?? p.value ?? '').trim())
+      .filter(Boolean)
+      .join('. ');
+    if (assembled) setScene(assembled);
+    if (plan.shot?.durationSec) setDuration((d) => plan.shot!.durationSec ?? d);
+    if (typeof plan.shot?.audio === 'boolean') setAudio(plan.shot.audio);
+  }, [plan, planValues, touched]);
   const model = runnable.find((m) => m.id === modelId) ?? runnable[0];
   const framePlan = useMemo(() => (model ? planFrames(model) : null), [model]);
   const [frames, setFrames] = useState<ShotFrame[]>([]);
@@ -278,7 +306,10 @@ export function VideoWorkspace({ renderConversation }: { renderConversation: () 
             <textarea
               className="pxv-textarea"
               value={scene}
-              onChange={(e) => setScene(e.target.value)}
+              onChange={(e) => {
+                setTouched(true);
+                setScene(e.target.value);
+              }}
               placeholder="Two explorers cross a foreign plain, chased from behind."
             />
           </div>

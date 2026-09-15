@@ -85,6 +85,7 @@ function clampDuration(sec: number | undefined, family: string): string {
 
 function statusFrom(code: number): VideoErrorReason {
   if (code === 401 || code === 403) return 'no_key';
+  if (code === 402) return 'rate_limited';
   if (code === 429) return 'rate_limited';
   if (code === 422 || code === 400) return 'bad_request';
   return 'unknown';
@@ -201,6 +202,20 @@ export function seedanceLegend(images: number, videos: number, audio: number): s
   return `\n\nAttached references, addressable in this prompt: ${parts.join(', ')}.`;
 }
 
+/** Pull the provider's human sentence out of its error body, whatever shape it used. */
+function providerMessage(body: string): string | undefined {
+  if (!body) return undefined;
+  try {
+    const j = JSON.parse(body) as { detail?: unknown; message?: unknown; error?: unknown };
+    const d = j.detail ?? j.message ?? j.error;
+    if (typeof d === 'string') return d;
+    if (d) return JSON.stringify(d).slice(0, 220);
+  } catch {
+    /* not JSON — fall through to the raw text */
+  }
+  return body.slice(0, 220);
+}
+
 type Submitted = { request_id?: string; status_url?: string; response_url?: string };
 type JobStatus = { status?: string; queue_position?: number };
 type JobResult = { video?: { url?: string }; videos?: Array<{ url?: string }> };
@@ -253,7 +268,10 @@ class FalVideoExecutor implements VideoExecutor {
       if (!res.ok) {
         const detail = await res.text().catch(() => '');
         console.warn(`[fal-video] ${path} ${res.status}: ${detail.slice(0, 300)}`);
-        yield { type: 'error', reason: statusFrom(res.status), detail: detail.slice(0, 200) || undefined };
+        // fal answers a billing lock with a 403 AND the fix in plain language. Passing the provider's
+        // own sentence through is the difference between "every model failed" and "top up at
+        // fal.ai/dashboard/billing" — one sends you debugging, the other sends you to the answer.
+        yield { type: 'error', reason: statusFrom(res.status), detail: providerMessage(detail) };
         return;
       }
       submitted = (await res.json().catch(() => null)) as Submitted | null;

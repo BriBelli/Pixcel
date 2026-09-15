@@ -13,7 +13,7 @@
  * ChatView's injected panel chrome (.pxs-agent-head / .pxs-resize), so it must render inside ChatView.
  * ───────────────────────────────────────────────────────────────────────────── */
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Icon } from '../ui';
 import { toastManager } from '../Toast';
 import { FrameTimeline } from './FrameTimeline';
@@ -21,6 +21,7 @@ import { planFrames, type ShotFrame } from '../../lib/engine/shot-frames';
 // Registry DATA only. video-model-agent reaches the DB (and so the sqlite adapter), which a client
 // component must never pull into the bundle — MEDIA_MODELS is pure and is all the timeline needs.
 import { MEDIA_MODELS } from '../../lib/engine/media-registry';
+import { useChatTurnsStore } from '../../store/chat-turns-store';
 
 interface Shot {
   id: string;
@@ -108,7 +109,16 @@ export function VideoWorkspace({ renderConversation }: { renderConversation: () 
     () => MEDIA_MODELS.filter((m) => m.modalities.includes('video') && m.video && !m.preview && !m.needsResearch),
     [],
   );
-  const [modelId, setModelId] = useState<string>(() => runnable[0]?.id ?? '');
+  // Shared, not local: the agent panel plans for whatever is selected here.
+  const storedModelId = useChatTurnsStore((st) => st.videoModelId);
+  const setVideoModelId = useChatTurnsStore((st) => st.setVideoModelId);
+  const modelId = storedModelId ?? runnable[0]?.id ?? '';
+  const setModelId = setVideoModelId;
+  useEffect(() => {
+    // Seed the shared target on first mount, so the agent plans for the model the chips are showing
+    // rather than choosing its own before the user has touched anything.
+    if (!storedModelId && runnable[0]) setVideoModelId(runnable[0].id);
+  }, [storedModelId, runnable, setVideoModelId]);
   const model = runnable.find((m) => m.id === modelId) ?? runnable[0];
   const framePlan = useMemo(() => (model ? planFrames(model) : null), [model]);
   const [frames, setFrames] = useState<ShotFrame[]>([]);

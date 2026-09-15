@@ -320,6 +320,15 @@ interface ChatTurnsState {
    *  picks the top-N; 'manual' = fan across exactly `models`. `perModel` = images each. Shared so the
    *  picker, the composer, and the Render button all read/write one source. */
   fanConfig: FanConfig;
+  /**
+   * The video model this workspace is targeting — chosen on the Scene builder's chips.
+   *
+   * It lives in the store because THREE surfaces were each deciding it separately: the chips, the
+   * fan picker, and the agent's own routing. That let the frame timeline show one model's slots
+   * while the agent planned a shot for another. An explicit pick is a directive, so the chip wins.
+   */
+  videoModelId: string | null;
+  setVideoModelId: (id: string | null) => void;
   /** The user's live spend budget (cap · spent · remaining). Null until first loaded. Every surface
    *  that can spend reads THIS, so the cost warning and the gate can never disagree. */
   budget: BudgetState | null;
@@ -434,8 +443,14 @@ export const useChatTurnsStore = create<ChatTurnsState>((set, get) => {
                 // A render leg carries the shaped prompt; a consultation leg carries only the brief.
                 ...(builder ? { render_prompt: prompt } : {}),
                 shot: {
-                  // The fan config's model/count choices apply to video exactly as they do to images.
-                  models: st.fanConfig.mode === 'manual' ? st.fanConfig.models : undefined,
+                  // The workspace chip WINS. An explicit pick is a directive, and the frame timeline
+                  // is already rendering that model's slots — planning for a different one would put
+                  // the two halves of the same screen out of step.
+                  models: st.videoModelId
+                    ? [st.videoModelId]
+                    : st.fanConfig.mode === 'manual'
+                      ? st.fanConfig.models
+                      : undefined,
                   fanModels: st.fanConfig.fanModels,
                   perModel: st.fanConfig.perModel,
                   aspectRatio: st.fanConfig.aspect,
@@ -767,6 +782,8 @@ export const useChatTurnsStore = create<ChatTurnsState>((set, get) => {
     activeFrame: null,
     viewMode: 'chat',
     fanConfig: loadFanConfig(),
+    videoModelId: null,
+    setVideoModelId: (id) => set({ videoModelId: id }),
     budget: null,
     loadBudget: async () => {
       try {

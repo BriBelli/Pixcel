@@ -87,14 +87,30 @@ test('one model failing never fails the run — the rest still deliver', async (
   assert.ok(events.some((e) => e.type === 'notice' && /1 of 2 clips/.test(e.message)));
 });
 
-test('when EVERY model fails, it says so instead of reporting an empty success', async () => {
+test('when every model fails it reports the PROVIDER\'S reason, not a generic failure', async () => {
+  // "Every model failed to deliver a clip" sends a person debugging their prompt when the real
+  // answer is often one sentence from the provider — an exhausted balance, a policy refusal.
   script.set('a', () => fails());
   const events = await collect(
     coordinateVideo({ intent: 'x' }, { catalog: [runnable('a', 'A')], doctrines: new Map() }),
   );
   const last = events.at(-1)!;
   assert.equal(last.type, 'error');
-  assert.match((last as { message: string }).message, /Every model failed/);
+  const msg = (last as { message: string }).message;
+  assert.match(msg, /blocked by policy/); // the detail the adapter surfaced
+  assert.match(msg, /Nothing was charged/);
+  assert.doesNotMatch(msg, /policy\s+Nothing/); // properly punctuated, not two sentences run together
+});
+
+test('with no provider detail it still says something honest', async () => {
+  script.set('a', async function* () {
+    yield { type: 'queued', jobId: 'j' };
+    yield { type: 'error', reason: 'unknown' };
+  });
+  const events = await collect(
+    coordinateVideo({ intent: 'x' }, { catalog: [runnable('a', 'A')], doctrines: new Map() }),
+  );
+  assert.match((events.at(-1) as { message: string }).message, /No clip was produced|Every model failed/);
 });
 
 test('no candidates → the reason each model was excluded, not just "unavailable"', async () => {

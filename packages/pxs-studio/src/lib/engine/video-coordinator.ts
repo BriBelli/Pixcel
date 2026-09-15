@@ -185,7 +185,7 @@ export async function* coordinateVideo(
     yield {
       type: 'error',
       message: firstFailure
-        ? `No clip was produced — ${firstFailure} Nothing was charged for the failed jobs.`
+        ? `No clip was produced — ${firstFailure.replace(/[.\s]+$/, '')}. Nothing was charged for the failed jobs.`
         : 'Every model failed to deliver a clip. Nothing was charged for the failed jobs.',
     };
     return;

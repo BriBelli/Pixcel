@@ -21,7 +21,7 @@ import { MEDIA_MODELS, type MediaModel } from '../engine/media-registry';
 import { estimateVideoCost, type VideoEstimate } from '../engine/video-cost';
 import { readyVideoProviders } from '../engine/video-executor';
 import { normalizeVideoTask, type VideoTask } from '../engine/video-vocabulary';
-import type { PromptFormula } from '../engine/model-registry';
+import type { PromptFormula, PromptFormulaPart } from '../engine/model-registry';
 import type { ModelDoctrine } from './model-agent/doctrine';
 import { getDoctrine, loadDoctrines } from './doctrine-refresh';
 import { getDb } from '../db';
@@ -37,6 +37,51 @@ export const DEFAULT_VIDEO_FORMULA: PromptFormula = {
   ],
   assembly: 'One cinematic sentence per shot, camera and motion explicit.',
 };
+
+/**
+ * The SOUND slot, welded on for models that generate synced audio.
+ *
+ * Model doctrine is distilled from prompt-writing docs, and those docs describe how to compose the
+ * PICTURE — so a doctrine formula routinely has no slot for sound even on a model whose headline
+ * feature is native synced audio. The agent is instructed to fill EXACTLY the formula's parts, and
+ * `buildVideoParts` can only emit parts the formula declares, so a brief that says "I want to HEAR
+ * the engine scream and the pops on the upshift" was parsed, matched against five visual slots, and
+ * DROPPED. The `audio: true` flag still reached the provider, so the model dutifully invented some
+ * generic ambience — which is exactly the "there is no audio" failure: sound was never off, it was
+ * unspecified.
+ *
+ * Audio is a real, separate input channel on these models, so it gets a real slot. This ADDS a
+ * channel the model genuinely has rather than reordering what the doctrine teaches, which is why it
+ * is appended last and left out entirely when the model renders picture only.
+ */
+const AUDIO_PART: PromptFormulaPart = {
+  id: 'audio-sound',
+  label: 'Audio/Sound',
+  guidance:
+    'What the shot SOUNDS like — name the specific sources and their moments (engine note rising ' +
+    'through an upshift, tyres on wet asphalt, a door latch, room tone). Diegetic sound the scene ' +
+    'itself makes reads far better than a mood word like "intense". Say if you want speech or none.',
+  weight: 2,
+};
+
+/** Does this formula already teach sound? (Doctrine that covers audio must not be duplicated.) */
+function hasAudioPart(f: PromptFormula): boolean {
+  return f.parts.some((p) => /audio|sound|sfx|foley|voice|speech|dialog/i.test(`${p.id} ${p.label}`));
+}
+
+/**
+ * The formula a native-audio model should actually be prompted with. Pure — the doctrine object is
+ * cached and shared, so this never mutates it.
+ */
+export function withAudioSlot(formula: PromptFormula, nativeAudio: boolean): PromptFormula {
+  if (!nativeAudio || hasAudioPart(formula)) return formula;
+  return {
+    parts: [...formula.parts, AUDIO_PART],
+    assembly: [formula.assembly, 'Describe the sound last, as its own clause — this model scores it in the same pass as the picture.']
+      .filter(Boolean)
+      .join(' '),
+  };
+}
 
 /** What a video model can actually do for this request — the facts the builder and agent stand on. */
 export interface VideoCapabilityFacts {
@@ -121,7 +166,7 @@ export function videoFactsForModel(model: MediaModel, doctrine?: ModelDoctrine |
     nativeAudio: v?.nativeAudio ?? false,
     maxReferenceImages: v?.maxReferenceImages ?? 0,
     cameraControls: v?.cameraControls ?? [],
-    formula: doctrineFormula ?? registryFormula ?? DEFAULT_VIDEO_FORMULA,
+    formula: withAudioSlot(doctrineFormula ?? registryFormula ?? DEFAULT_VIDEO_FORMULA, v?.nativeAudio ?? false),
     formulaSource,
     features: featuresFrom(doctrine),
     doctrine: doctrine

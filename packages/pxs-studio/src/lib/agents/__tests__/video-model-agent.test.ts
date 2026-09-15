@@ -10,6 +10,7 @@ import {
   routeVideo,
   allVideoModels,
   DEFAULT_VIDEO_FORMULA,
+  withAudioSlot,
 } from '../video-model-agent';
 import type { ModelDoctrine } from '../model-agent/doctrine';
 import type { MediaModel } from '../../engine/media-registry';
@@ -45,7 +46,8 @@ const klingDoctrine: ModelDoctrine = {
 test('THE POINT OF STAGE 2: a doctrine formula reaches the facts, replacing the generic five', () => {
   const without = videoFactsForModel(kling);
   assert.equal(without.formulaSource, 'registry'); // the registry's shared VIDEO_FORMULA
-  assert.deepEqual(without.formula.parts.map((p) => p.id), ['scene', 'subject', 'camera', 'motion', 'style']);
+  // Kling renders synced audio, so the sound slot is welded onto the generic visual five (below).
+  assert.deepEqual(without.formula.parts.map((p) => p.id), ['scene', 'subject', 'camera', 'motion', 'style', 'audio-sound']);
 
   const withDoctrine = videoFactsForModel(kling, klingDoctrine);
   assert.equal(withDoctrine.formulaSource, 'doctrine');
@@ -74,7 +76,13 @@ test('no doctrine and no registry formula → the generic default, labelled as s
   const bare = { ...seedance, video: { ...seedance.video!, promptFormula: undefined } } as MediaModel;
   const f = videoFactsForModel(bare);
   assert.equal(f.formulaSource, 'default');
-  assert.deepEqual(f.formula, DEFAULT_VIDEO_FORMULA);
+  // The LADDER still picks the default; the sound slot is then appended because Seedance has audio,
+  // so the comparison is against the default's visual parts, not the object.
+  assert.deepEqual(
+    f.formula.parts.filter((p) => p.id !== 'audio-sound'),
+    DEFAULT_VIDEO_FORMULA.parts,
+  );
+  assert.ok(f.formula.parts.some((p) => p.id === 'audio-sound'));
 });
 
 test('routing GATES on capability — a silent audio model cannot serve a dialogue shot', () => {
@@ -124,4 +132,57 @@ test('fit rewards documented capability, not tier', () => {
   const withoutTask = routeVideo({ intent: 'x' }, [runnable], doctrines, () => true);
   assert.ok(withTask.candidates[0].fit > withoutTask.candidates[0].fit);
   assert.match(withTask.candidates[0].why, /documented for lipsync-dialogue/);
+});
+
+
+// ── The sound slot ────────────────────────────────────────────────────────────────────────────────
+// A real failure: a brief saying "I want to HEAR the engine scream and the pops on the upshift" came
+// back as five visual parts and no sound anywhere. Doctrine formulas teach the PICTURE, the agent
+// fills exactly the formula's parts, so audio direction had nowhere to land and was dropped while
+// `audio: true` still told the model to invent something. These lock the slot in place.
+
+const VISUAL_ONLY = {
+  parts: [
+    { id: 'subject', label: 'Subject', guidance: 'who', weight: 3 },
+    { id: 'camera', label: 'Camera', guidance: 'how shot', weight: 2 },
+  ],
+  assembly: 'One cinematic sentence.',
+};
+
+test('a native-audio model gets a sound slot its visual doctrine never defined', () => {
+  const withAudio = withAudioSlot(VISUAL_ONLY, true);
+  const ids = withAudio.parts.map((p) => p.id);
+  assert.ok(ids.includes('audio-sound'), 'native-audio model must expose a sound slot');
+  assert.equal(ids.at(-1), 'audio-sound', 'sound is appended last, never reordering the doctrine');
+  assert.match(withAudio.assembly!, /sound last/i, 'assembly must tell the agent where sound goes');
+});
+
+test('a picture-only model is NOT offered a sound slot', () => {
+  const noAudio = withAudioSlot(VISUAL_ONLY, false);
+  assert.deepEqual(noAudio, VISUAL_ONLY, 'picture-only formulas pass through untouched');
+  assert.ok(!noAudio.parts.some((p) => p.id === 'audio-sound'));
+});
+
+test('a doctrine that already teaches sound is not duplicated', () => {
+  const withOwnAudio = {
+    parts: [...VISUAL_ONLY.parts, { id: 'sfx', label: 'Sound design', guidance: 'the audio', weight: 2 }],
+  };
+  const out = withAudioSlot(withOwnAudio, true);
+  assert.equal(out.parts.filter((p) => /audio|sound|sfx/i.test(p.id)).length, 1);
+  assert.equal(out, withOwnAudio, 'unchanged formulas are returned by identity, not rebuilt');
+});
+
+test('withAudioSlot never mutates the shared doctrine object', () => {
+  const before = VISUAL_ONLY.parts.length;
+  withAudioSlot(VISUAL_ONLY, true);
+  assert.equal(VISUAL_ONLY.parts.length, before, 'doctrine is cached and shared — it must not be touched');
+});
+
+test('Seedance, which generates synced audio, exposes the sound slot end to end', () => {
+  const facts = videoFactsForModel(seedance);
+  if (!facts.nativeAudio) return; // registry says picture-only; nothing to assert
+  assert.ok(
+    facts.formula.parts.some((p) => p.id === 'audio-sound' || /audio|sound/i.test(p.label)),
+    'a model that renders sound must offer somewhere to describe it',
+  );
 });

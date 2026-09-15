@@ -85,6 +85,8 @@ const CSS = `
 .pxv-render:disabled { filter: saturate(0.5); cursor: default; }
 /* The clip's slot exists WHILE it renders — a 1-3 minute wait with no visible home for the result
    reads as nothing happening. */
+.pxv-why { font-size: var(--a2ui-text-xs); color: var(--a2ui-text-tertiary); line-height: 1.45; margin-top: 6px; }
+.pxv-chip:disabled { opacity: 0.45; cursor: not-allowed; }
 .pxv-shot-live { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;
   border: 1px dashed var(--a2ui-accent); background: var(--a2ui-bg-secondary); }
 .pxv-live-stage { font-size: var(--a2ui-text-sm); color: var(--a2ui-text-primary); font-weight: var(--a2ui-font-semibold); }
@@ -125,6 +127,12 @@ export function VideoWorkspace({ renderConversation }: { renderConversation: () 
   /** The chosen model's real ceiling — the slider cannot ask for a clip it will not make. */
   const maxDuration = model?.video?.maxDurationSec ?? 15;
 
+  /**
+   * Generate synced audio with the picture. Defaults ON for models that make sound, because that is
+   * what "video" means to a person — a silent clip is a surprise, not a default. It was not sent AT
+   * ALL before this, so every render came back mute no matter what the brief asked for.
+   */
+  const [audio, setAudio] = useState(true);
   const [rendering, setRendering] = useState(false);
   const [stage, setStage] = useState('');
   const [elapsed, setElapsed] = useState(0);
@@ -154,7 +162,14 @@ export function VideoWorkspace({ renderConversation }: { renderConversation: () 
         body: JSON.stringify({
           prompt,
           render_prompt: prompt,
-          shot: { durationSec: duration, models: [model.id], fanModels: 1, perModel: 1, ...framesToRequest(frames) },
+          shot: {
+            durationSec: duration,
+            models: [model.id],
+            fanModels: 1,
+            perModel: 1,
+            audio: audio && !!model.video?.nativeAudio,
+            ...framesToRequest(frames),
+          },
         }),
       });
       if (!res.body) throw new Error('no stream');
@@ -286,6 +301,29 @@ export function VideoWorkspace({ renderConversation }: { renderConversation: () 
               aria-label="Clip duration in seconds"
               onChange={(e) => setDuration(Number(e.target.value))}
             />
+          </div>
+
+          <div className="pxv-card">
+            <div className="pxv-card-label">Sound</div>
+            <div className="pxv-chips">
+              <button
+                type="button"
+                className="pxv-chip"
+                data-on={audio && !!model?.video?.nativeAudio ? 'true' : 'false'}
+                disabled={!model?.video?.nativeAudio}
+                onClick={() => setAudio((a) => !a)}
+                title={
+                  model?.video?.nativeAudio
+                    ? 'Generate engine, ambience and effects in the same pass as the picture'
+                    : `${model?.label ?? 'This model'} renders picture only`
+                }
+              >
+                <Icon name={audio && model?.video?.nativeAudio ? 'check' : 'plus'} size={13} /> Synced audio
+              </button>
+            </div>
+            {!model?.video?.nativeAudio && (
+              <div className="pxv-why">{model?.label} renders picture only — pick a model with audio for sound.</div>
+            )}
           </div>
 
           {framePlan && (

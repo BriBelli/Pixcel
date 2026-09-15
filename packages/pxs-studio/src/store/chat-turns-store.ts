@@ -416,7 +416,9 @@ export const useChatTurnsStore = create<ChatTurnsState>((set, get) => {
     // VIDEO GETS ITS OWN SPECIALIST. Until now every workspace turn went to /api/image-agent, so a
     // shot was planned as though it were a picture and the video doctrine, formulas and task
     // vocabulary were read by nothing. The medium decides the specialist.
-    const toVideoAgent = inWorkspace && st.activeMedium === 'video';
+    // Being in the VIDEO workspace is enough — waiting for a frame meant anyone who opened the tab
+    // directly was handed to the Operator and then to the image specialist.
+    const toVideoAgent = st.activeMedium === 'video';
     const toImageAgent = inWorkspace && !toVideoAgent;
 
     try {

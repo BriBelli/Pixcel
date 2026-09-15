@@ -81,6 +81,14 @@ const CSS = `
   color: #fff; font-family: var(--a2ui-font-family); font-size: var(--a2ui-text-md); font-weight: var(--a2ui-font-semibold);
   cursor: pointer; box-shadow: var(--px-btn-glow); transition: filter var(--a2ui-transition-fast); }
 .pxv-render:hover { filter: brightness(1.06); }
+.pxv-render:disabled { filter: saturate(0.5); cursor: default; }
+/* The clip's slot exists WHILE it renders — a 1-3 minute wait with no visible home for the result
+   reads as nothing happening. */
+.pxv-shot-live { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;
+  border: 1px dashed var(--a2ui-accent); background: var(--a2ui-bg-secondary); }
+.pxv-live-stage { font-size: var(--a2ui-text-sm); color: var(--a2ui-text-primary); font-weight: var(--a2ui-font-semibold); }
+.pxv-live-time { font-size: var(--a2ui-text-xs); color: var(--a2ui-accent); font-variant-numeric: tabular-nums; }
+.pxv-live-note { font-size: var(--a2ui-text-xs); color: var(--a2ui-text-tertiary); }
 `;
 
 export function VideoWorkspace({ renderConversation }: { renderConversation: () => React.ReactNode }) {
@@ -109,6 +117,7 @@ export function VideoWorkspace({ renderConversation }: { renderConversation: () 
 
   const [rendering, setRendering] = useState(false);
   const [stage, setStage] = useState('');
+  const [elapsed, setElapsed] = useState(0);
   const [clips, setClips] = useState<{ url: string; modelLabel: string }[]>([]);
 
   /**
@@ -120,7 +129,10 @@ export function VideoWorkspace({ renderConversation }: { renderConversation: () 
   async function renderClip() {
     if (!scene.trim() || !model) return;
     setRendering(true);
-    setStage('');
+    setStage('Sending…');
+    setElapsed(0);
+    const t0 = Date.now();
+    const ticker = setInterval(() => setElapsed(Math.round((Date.now() - t0) / 1000)), 1000);
     const camera = [...moves];
     const prompt = camera.length > 0 ? `${scene.trim()} Camera: ${camera.join(', ')}.` : scene.trim();
     const { framesToRequest } = await import('../../lib/engine/shot-frames');
@@ -161,6 +173,7 @@ export function VideoWorkspace({ renderConversation }: { renderConversation: () 
     } catch (err) {
       toastManager.info(err instanceof Error ? err.message : 'The render could not start.');
     } finally {
+      clearInterval(ticker);
       setRendering(false);
       setStage('');
     }
@@ -187,6 +200,16 @@ export function VideoWorkspace({ renderConversation }: { renderConversation: () 
         <div className="pxv-board-head"><span className="pxv-label">Storyboard</span></div>
         <div className="pxv-board-scroll">
           <div style={{ display: 'flex', flexDirection: 'column' }}>
+            {rendering && (
+              <div>
+                <div className="pxv-shot pxv-shot-live">
+                  <span className="pxv-live-stage">{stage || 'Working…'}</span>
+                  <span className="pxv-live-time">{elapsed}s</span>
+                  <span className="pxv-live-note">Video takes 1–3 minutes</span>
+                </div>
+                <div className="pxv-connect"><Icon name="chevron-down" size={16} /></div>
+              </div>
+            )}
             {clips.map((c, i) => (
               <div key={c.url}>
                 <div className="pxv-shot" data-wash={i % 2 === 0 ? 'a' : 'b'} style={{ padding: 0, overflow: 'hidden' }}>
@@ -232,6 +255,26 @@ export function VideoWorkspace({ renderConversation }: { renderConversation: () 
               value={scene}
               onChange={(e) => setScene(e.target.value)}
               placeholder="Two explorers cross a foreign plain, chased from behind."
+            />
+          </div>
+
+
+          <div className="pxv-card">
+            <div className="pxv-card-label">Duration</div>
+            <div className="pxv-dur">
+              <span className="pxv-dur-val">{duration}s</span>
+              <div className="pxv-dur-bar">
+                <div className="pxv-dur-fill" style={{ width: `${((duration - 2) / Math.max(1, maxDuration - 2)) * 100}%` }} />
+              </div>
+            </div>
+            <input
+              className="pxv-dur-range"
+              type="range"
+              min={2}
+              max={maxDuration}
+              value={duration}
+              aria-label="Clip duration in seconds"
+              onChange={(e) => setDuration(Number(e.target.value))}
             />
           </div>
 
@@ -281,24 +324,6 @@ export function VideoWorkspace({ renderConversation }: { renderConversation: () 
             </div>
           </div>
 
-          <div className="pxv-card">
-            <div className="pxv-card-label">Duration</div>
-            <div className="pxv-dur">
-              <span className="pxv-dur-val">{duration}s</span>
-              <div className="pxv-dur-bar">
-                <div className="pxv-dur-fill" style={{ width: `${((duration - 2) / Math.max(1, maxDuration - 2)) * 100}%` }} />
-              </div>
-            </div>
-            <input
-              className="pxv-dur-range"
-              type="range"
-              min={2}
-              max={maxDuration}
-              value={duration}
-              aria-label="Clip duration in seconds"
-              onChange={(e) => setDuration(Number(e.target.value))}
-            />
-          </div>
         </div>
 
         <button
@@ -307,7 +332,7 @@ export function VideoWorkspace({ renderConversation }: { renderConversation: () 
           disabled={rendering || !scene.trim()}
           onClick={() => void renderClip()}
         >
-          <Icon name="sparkles" size={16} /> {rendering ? stage || 'Rendering…' : 'Render clip'}
+          <Icon name="sparkles" size={16} /> {rendering ? `${stage || 'Rendering'} · ${elapsed}s` : 'Render clip'}
         </button>
       </div>
 

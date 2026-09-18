@@ -71,7 +71,18 @@ export type VideoAgentEvent =
   | { type: 'gen_start' }
   | { type: 'gen_plan'; models: { modelId: string; label: string; why: string; estUsd: number }[]; dropped?: { modelId: string; label: string; reason: string }[]; estimatedUsd: number }
   | { type: 'fan_model'; modelId: string; state: 'queued' | 'running' | 'done' | 'failed'; stage?: string; delivered?: number; ms?: number; reason?: string }
-  | { type: 'clip'; url: string; modelId: string; modelLabel: string; index: number }
+  /** One delivered clip. Carries the provider's own facts about it — the poster frame and the
+   *  audio flag are what the gallery renders and what proves sound actually came back. */
+  | {
+      type: 'clip';
+      url: string;
+      modelId: string;
+      modelLabel: string;
+      index: number;
+      durationSec?: number;
+      hasAudio?: boolean;
+      thumbnailUrl?: string;
+    }
   | { type: 'gen_notice'; message: string }
   | { type: 'gen_error'; message: string }
   | { type: 'gen_done'; costUsd: number };
@@ -332,7 +343,16 @@ function* forwardCoordEvent(ev: VideoCoordEvent): Generator<VideoAgentEvent> {
       yield { type: 'fan_model', modelId: ev.modelId, state: 'running', stage: ev.stage };
       break;
     case 'clip':
-      yield { type: 'clip', url: ev.tile.clip.url, modelId: ev.tile.modelId, modelLabel: ev.tile.modelLabel, index: ev.totalSoFar - 1 };
+      yield {
+        type: 'clip',
+        url: ev.tile.clip.url,
+        modelId: ev.tile.modelId,
+        modelLabel: ev.tile.modelLabel,
+        index: ev.totalSoFar - 1,
+        durationSec: ev.tile.clip.durationSec,
+        hasAudio: ev.tile.clip.hasAudio,
+        thumbnailUrl: ev.tile.clip.thumbnailUrl,
+      };
       break;
     case 'model_done':
       yield { type: 'fan_model', modelId: ev.modelId, state: 'done', delivered: ev.delivered, ms: ev.ms };

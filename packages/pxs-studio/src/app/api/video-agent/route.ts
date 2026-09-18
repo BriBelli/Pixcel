@@ -1,7 +1,7 @@
 import { getDb } from '../../../lib/db';
 import { checkCap, recordUsage } from '../../../lib/db/usage';
 import { runVideoAgent, type VideoAgentEvent } from '../../../lib/agents/video-agent';
-import { DEV_USER_ID, type Interaction, type Thread } from '../../../lib/db/models';
+import { DEV_USER_ID, type Asset, type Interaction, type Thread } from '../../../lib/db/models';
 
 export const runtime = 'nodejs';
 /** Video renders are 75-120s per model and a fan runs them concurrently. */
@@ -38,6 +38,11 @@ export async function POST(req: Request) {
       models?: string[];
       fanModels?: number;
       perModel?: number;
+      /** Pinned frames + guiding references. The client has always sent these (framesToRequest
+       *  spreads them into `shot`); typing them is what lets the lineage edges below be built. */
+      startFrame?: string;
+      endFrame?: string;
+      references?: string[];
     };
   };
 
@@ -112,6 +117,16 @@ export async function POST(req: Request) {
       let outTok = 0;
       let genCost = 0;
       let block: unknown = null;
+      /** Delivered clips, kept so they can be PERSISTED — see the asset block below. */
+      const clips: {
+        url: string;
+        modelId: string;
+        modelLabel: string;
+        index: number;
+        durationSec?: number;
+        hasAudio?: boolean;
+        thumbnailUrl?: string;
+      }[] = [];
 
       try {
         for await (const ev of runVideoAgent(
@@ -123,6 +138,7 @@ export async function POST(req: Request) {
             inTok += ev.inputTokens;
             outTok += ev.outputTokens;
           } else if (ev.type === 'agent_a2ui') block = ev.block;
+          else if (ev.type === 'clip') clips.push(ev);
           else if (ev.type === 'gen_done') genCost += ev.costUsd;
           send(ev);
         }
@@ -153,6 +169,69 @@ export async function POST(req: Request) {
           gen_cost_usd: genCost,
         });
         await db.update('thread', threadId, {});
+
+        // ── THE CLIPS ─────────────────────────────────────────────────────────────────────────
+        // Until now this route metered video spend and stored the agent's prose, and let the clip
+        // itself go by: the `clip` event was forwarded to the browser and never written down. The
+        // urls are provider-hosted and EXPIRE, so every rendered video was lost the moment the tab
+        // closed — absent from the gallery, holding no lineage, unusable as the opening still of
+        // the next shot. That last one is why chaining could not be built: it needs shot 1 to still
+        // exist when shot 2 renders.
+        //
+        // Mirrors the image route exactly: pinned frames and references become upload assets, each
+        // clip becomes a generated asset pointing back at them, and the run's cost is split across
+        // what it actually delivered.
+        if (clips.length > 0) {
+          const referenceAssetIds: string[] = [];
+          const refUrls = [body.shot?.startFrame, body.shot?.endFrame, ...(body.shot?.references ?? [])]
+            .filter((u): u is string => typeof u === 'string' && u.trim().length > 0);
+          for (let i = 0; i < refUrls.length; i++) {
+            const refId = newId('asset');
+            await db.put({
+              id: refId,
+              user_id: userId,
+              category: 'asset',
+              status: 'active',
+              created_at: now,
+              updated_at: now,
+              kind: 'image',
+              source: 'upload',
+              retention: 'ephemeral',
+              thread_id: threadId,
+              interaction_id: interactionId,
+              url: refUrls[i],
+              index: i,
+            } as Asset);
+            referenceAssetIds.push(refId);
+          }
+
+          const share = genCost / clips.length;
+          for (const clip of clips) {
+            await db.put({
+              id: newId('asset'),
+              user_id: userId,
+              category: 'asset',
+              status: 'active',
+              created_at: now,
+              updated_at: now,
+              kind: 'video',
+              source: 'generated',
+              retention: 'ephemeral',
+              thread_id: threadId,
+              interaction_id: interactionId,
+              url: clip.url,
+              model: clip.modelId,
+              model_label: clip.modelLabel || undefined,
+              index: clip.index,
+              prompt: goal,
+              gen_cost_usd: share || undefined,
+              duration_sec: clip.durationSec,
+              has_audio: clip.hasAudio,
+              thumbnail_url: clip.thumbnailUrl,
+              reference_asset_ids: referenceAssetIds.length > 0 ? referenceAssetIds : undefined,
+            } as Asset);
+          }
+        }
       } catch (err) {
         console.warn('[video-agent] persist failed:', err);
       }

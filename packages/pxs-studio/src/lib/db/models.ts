@@ -215,6 +215,11 @@ export interface Asset extends BaseRecord {
   model?: string;
   /** Position within its generation batch (tile index). */
   index?: number;
+  /** VIDEO facts, as the provider reported them. Length and the poster frame are what the gallery
+   *  needs to render a clip at all; `has_audio` is the receipt that sound actually came back. */
+  duration_sec?: number;
+  has_audio?: boolean;
+  thumbnail_url?: string;
   /** The prompt/recipe that produced it (a string now; structured recipe in Slice 2). */
   prompt?: string;
   /** Realized generation spend attributable to this asset (USD). */

@@ -69,6 +69,11 @@ export async function POST(req: Request) {
       model_label: typeof body.model_label === 'string' ? body.model_label : undefined,
       prompt: typeof body.prompt === 'string' ? body.prompt : undefined,
       reference_asset_ids: Array.isArray(body.reference_asset_ids) ? body.reference_asset_ids : undefined,
+      // Video facts travel with the save — without the poster frame a promoted clip loses the only
+      // thing that makes it legible in the grid, and the length/sound facts with it.
+      duration_sec: typeof body.duration_sec === 'number' ? body.duration_sec : undefined,
+      has_audio: typeof body.has_audio === 'boolean' ? body.has_audio : undefined,
+      thumbnail_url: typeof body.thumbnail_url === 'string' ? body.thumbnail_url : undefined,
       // Prefill editorial metadata from the workflow (title from the subject/prompt) — the spiderweb.
       title: typeof body.title === 'string' && body.title.trim() ? body.title.trim().slice(0, 80) : undefined,
     };

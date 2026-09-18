@@ -38,6 +38,23 @@ interface AssetRow {
   prompt?: string;
   thread_id?: string;
   created_at: number;
+  /** Video facts. A clip has no still to show, so the poster frame is what makes a tile legible. */
+  duration_sec?: number;
+  has_audio?: boolean;
+  thumbnail_url?: string;
+}
+
+/**
+ * One asset's thumbnail. A clip put through <img> renders as a broken tile, so video shows its
+ * poster frame when the provider gave one and falls back to the muted video itself when it didn't —
+ * `preload="metadata"` fetches the first frame rather than the whole file.
+ */
+function AssetThumb({ a }: { a: AssetRow }) {
+  if (a.kind === 'video' && !a.thumbnail_url) {
+    return <video src={a.url} muted playsInline preload="metadata" aria-label={a.alt_text || a.title || 'video asset'} />;
+  }
+  // eslint-disable-next-line @next/next/no-img-element
+  return <img src={a.kind === 'video' ? a.thumbnail_url! : a.url} alt={a.alt_text || a.title || 'asset'} />;
 }
 
 const KINDS: { id: 'all' | AssetRow['kind']; label: string }[] = [
@@ -350,8 +367,7 @@ export function AssetsCatalog({
               {sorted.map((a) => (
                 <div key={a.id} className="pxa-row" data-on={selectedId === a.id ? 'true' : 'false'} onClick={() => setSelectedId(a.id)}>
                   <div className="pxa-row-thumb">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={a.url} alt={a.alt_text || a.title || 'asset'} />
+                    <AssetThumb a={a} />
                   </div>
                   <div className="pxa-row-main">
                     <div className="pxa-row-name">{a.title || 'Untitled'}</div>
@@ -369,8 +385,7 @@ export function AssetsCatalog({
                 <div key={a.id} className="pxa-tile" data-on={selectedId === a.id ? 'true' : 'false'} onClick={() => setSelectedId(a.id)}>
                   <span className="pxa-badge">{a.source === 'upload' ? 'Upload' : a.kind}</span>
                   <div className="pxa-tile-media">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={a.url} alt={a.alt_text || a.title || 'asset'} />
+                    <AssetThumb a={a} />
                   </div>
                   <div className="pxa-tile-meta">
                     <div className="pxa-tile-name">{a.title || 'Untitled'}</div>
@@ -472,8 +487,19 @@ function AssetDrawer({
       </div>
       <div className="pxa-drawer-body">
         <div className="pxa-prev">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={asset.url} alt={asset.alt_text || 'asset preview'} />
+          {asset.kind === 'video' ? (
+            <video
+              src={asset.url}
+              poster={asset.thumbnail_url}
+              controls
+              playsInline
+              preload="metadata"
+              aria-label={asset.alt_text || 'video preview'}
+            />
+          ) : (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={asset.url} alt={asset.alt_text || 'asset preview'} />
+          )}
         </div>
         {/* OPEN AS PROJECT (§2) — start a NEW workspace seeded from this asset, rehydrating its recipe +
             references (not just the pixels). The verb that beats Photoshop's flatten-on-open. */}
@@ -532,6 +558,12 @@ function AssetDrawer({
           {asset.model_label && <div className="pxa-fact"><span>Model</span> <b>{asset.model_label}</b></div>}
           <div className="pxa-fact"><span>Source</span> <b>{asset.source === 'upload' ? 'Upload' : 'Generated'}</b></div>
           <div className="pxa-fact"><span>Kind</span> <b>{asset.kind}</b></div>
+          {asset.kind === 'video' && asset.duration_sec ? (
+            <div className="pxa-fact"><span>Length</span> <b>{asset.duration_sec}s</b></div>
+          ) : null}
+          {asset.kind === 'video' && typeof asset.has_audio === 'boolean' ? (
+            <div className="pxa-fact"><span>Sound</span> <b>{asset.has_audio ? 'Yes' : 'Silent'}</b></div>
+          ) : null}
           <div className="pxa-fact"><span>Created</span> <b>{fmtDate(asset.created_at)}</b></div>
           {asset.prompt && <div className="pxa-fact" style={{ display: 'block' }}><span>Prompt</span><div style={{ color: 'var(--a2ui-text-secondary)', marginTop: 2, lineHeight: 1.4 }}>{asset.prompt}</div></div>}
         </div>

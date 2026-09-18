@@ -21,6 +21,7 @@ import { selfRefine } from './model-agent/self-refine';
 import { getDoctrine } from './doctrine-refresh';
 import type { FanModelSummary } from '../db';
 import { imageAgentSkills } from './skills';
+import { wasTruncated } from './model-agent/json-response';
 import { AGENT_MODELS, IMAGE_BRAIN_FALLBACK } from './model-config';
 import { assertFrameBudget, type EpistemicFrame } from './epistemic-frame';
 
@@ -51,7 +52,12 @@ You OWN the image specs (the Operator handed only the brief):
 - count: how many takes (default 2).
 - referenceRecommendation: 1–3 SHORT reference TYPES to attach for a precise result, tailored to the brief (e.g. "A character reference to keep the Camaro consistent", "A style reference for the era", "Start & end frames"). The exact reference COUNT the chosen model accepts is a fact supplied to you — never invent it.
 - parts: on a CONSULTATION (guided) leg, break the brief into the TARGET MODEL'S prompt FORMULA — the exact parts and order given in the PROMPT FORMULA block of your instructions (they differ per model; never substitute a generic five). This is ITERATION ZERO of the user's prompt, so be faithful to what they ACTUALLY said. For each part give: id (lowercase), label, a one-line guidance (what the part is for), and:
-  • value = ONLY what the USER actually specified, decomposed into this part (e.g. "I want a car" → Subject value "a car"; Action/Context/etc. value ""). EMPTY if they didn't mention it. NEVER invent, expand, or put words in their mouth — that's what \`recommend\` is for.
+  • value = ONLY what the USER actually specified, decomposed into this part. EMPTY if they didn't mention it. NEVER invent, expand, or put words in their mouth — that's what \`recommend\` is for.
+    DISTRIBUTE, don't concentrate. Read the WHOLE brief and route every attribute the user stated to the slot that owns it. A rich brief fills many slots; a bare one fills few. Piling a detailed brief into Subject while Location/Lighting/Style sit empty is the single most common failure of this step and it is always wrong.
+    Worked example — "a black Lamborghini on a wet neon street at night, photorealistic 35mm film, muted colors, flat lighting, no text" becomes Subject "a black Lamborghini" · Location "a wet neon-lit street at night" · Style "photorealistic, shot on 35mm film" · Colors "muted colors" · Lighting "flat lighting" · and the "no text" prohibition recorded wherever this model's formula carries exclusions. Five slots, because the user stated five things. A bare "I want a car" fills Subject alone.
+    CONTRADICTING the user is worse than leaving a slot empty. If they said photorealistic, never write "concept art". If they said a barren landscape, never write "off-white studio backdrop".
+    NEGATIVE CONSTRAINTS INVERT NOTHING. "No text", "no logos", "no people" are prohibitions. Carry them as prohibitions or drop them — NEVER emit a value that adds the forbidden thing (a brief saying "No Text" must never produce panels labeled "FRONT"/"SIDE"/"BACK").
+    STRUCTURE IS LITERAL. When the user specifies a layout — column counts, view order, what sits above what — reproduce it exactly. Four columns is not three views.
   • recommend = YOUR suggested improvement for this part, rich and specific (e.g. Subject recommend "A modern sports car with glossy metallic paint and brushed-metal trim"). It shows as the field placeholder — a recommendation, not their words.
   • chips = 3–5 SUGGESTED quick-adds tailored to THIS subject (e.g. Style: "golden hour", "kodachrome", "grainy 35mm") — the user taps to APPEND; never a fixed menu.
 The user shapes this in the Prompt Builder before rendering; it starts graded LOW (their bare prompt) and climbs as they fill it.`;
@@ -504,7 +510,9 @@ export async function* runImageAgent(frame: EpistemicFrame, turn: ImageAgentTurn
       const userContent = `Current prompt parts:\n${partsDump}\n\nUser: ${instruction || '(only attached references)'}`;
       const params = {
         model: MODEL,
-        max_tokens: 1000,
+        // A `rebuild` here regenerates EVERY part of the formula — the same work the consult leg
+        // does, which silently lost half its slots at 1200. See the note on that call.
+        max_tokens: 4000,
         thinking: { type: 'adaptive', display: 'summarized' },
         system: IMAGE_AGENT_SYSTEM + COLLABORATE_SYSTEM + imageAgentSkills(),
         tools: [WORKSPACE_ACTION_TOOL],
@@ -523,6 +531,9 @@ export async function* runImageAgent(frame: EpistemicFrame, turn: ImageAgentTurn
         inputTokens: (final as { usage?: { input_tokens?: number } })?.usage?.input_tokens ?? 0,
         outputTokens: (final as { usage?: { output_tokens?: number } })?.usage?.output_tokens ?? 0,
       };
+      if (wasTruncated(final)) {
+        console.warn('[image-agent] collaborate truncated at max_tokens — edits may be incomplete');
+      }
       const tool = ((final?.content ?? []) as Array<{ type: string; name?: string; input?: unknown }>)
         .find((b) => b.type === 'tool_use' && b.name === 'workspace_action');
       decision = (tool?.input as typeof decision) ?? {};
@@ -661,8 +672,21 @@ export async function* runImageAgent(frame: EpistemicFrame, turn: ImageAgentTurn
         `calm sentence (e.g. "Let's shape this — I've laid out the parts in the Prompt Builder on the ` +
         `right; tune them and hit Render when it feels right"). Refer to the Prompt Builder, never "below". Never ` +
         `claiming you're rendering and NOT a long list of specs (the parts ARE the specs). In plan_render, fill ` +
-        `\`parts\` — the TARGET MODEL'S formula below, each with a value pre-filled from the brief + 3–5 suggested ` +
+        `\`parts\` — the TARGET MODEL'S formula below, each with a value taken from the brief + 3–5 suggested ` +
         `chips — plus prompt + needs so the reference facts are grounded. ` +
+        // The value/recommend contract is restated HERE because this is where it gets broken. Stated
+        // once at the top of the system prompt it loses to the nearer, vaguer "pre-filled from the
+        // brief", and the agent writes enriched prose of its own into `value`. A real brief naming a
+        // barren landscape, 35mm film, flat lighting and "No Text" came back with Location, Camera
+        // and Lighting EMPTY, Style reading "concept art" (the user asked for photorealistic), and
+        // panels labeled FRONT/SIDE/BACK — the exact thing "No Text" forbade.
+        `DECOMPOSITION IS THE JOB. Walk the brief attribute by attribute and put each one in the slot that ` +
+        `owns it — the location in Location, the film stock in Style or Camera, the lighting in Lighting, ` +
+        `the palette in Colors. \`value\` carries the USER'S OWN WORDS ONLY; your enrichment belongs in ` +
+        `\`recommend\`, never in \`value\`. Leave a slot empty only when the brief truly says nothing about ` +
+        `it. Never contradict a stated attribute, never invent appearance the user did not give, reproduce ` +
+        `any layout they specified exactly, and carry prohibitions ("no text") as prohibitions — never as ` +
+        `the thing itself. ` +
         `The user shapes the parts in the Prompt Builder and commits later.` +
         (preFacts ? `\n\n${formulaBrief(preFacts)}` : '');
     } else {
@@ -679,7 +703,14 @@ export async function* runImageAgent(frame: EpistemicFrame, turn: ImageAgentTurn
     }
     const params = {
       model: MODEL,
-      max_tokens: 1200,
+      // NOT a round number to trim. At 1200 this silently truncated: a brief naming a barren
+      // landscape, 35mm film, muted colors, flat lighting and "No Text" produced Location, Camera,
+      // Lighting and Colors EMPTY, Style reading "concept art" (the opposite of the photorealism
+      // asked for), and panels labeled FRONT/SIDE/BACK — the very thing "No Text" forbade. It reads
+      // as the agent ignoring the brief; it was the agent running out of room to answer. A formula
+      // can carry 8 parts, each needing a value, a recommend and 3-5 chips, and adaptive thinking
+      // spends from the same budget.
+      max_tokens: 4000,
       thinking: { type: 'adaptive', display: 'summarized' },
       system: IMAGE_AGENT_SYSTEM + imageAgentSkills(),
       tools: [PLAN_TOOL],
@@ -698,6 +729,16 @@ export async function* runImageAgent(frame: EpistemicFrame, turn: ImageAgentTurn
       inputTokens: (final as { usage?: { input_tokens?: number } })?.usage?.input_tokens ?? 0,
       outputTokens: (final as { usage?: { output_tokens?: number } })?.usage?.output_tokens ?? 0,
     };
+    // Truncation here does not look like an error — it looks like an agent that ignored half the
+    // brief, because the parts it never got to emit simply arrive empty. Say so out loud instead of
+    // shipping a quietly half-filled builder.
+    if (wasTruncated(final)) {
+      console.warn('[image-agent] consult truncated at max_tokens — parts are incomplete');
+      yield {
+        type: 'gen_notice',
+        message: 'That brief was long enough to cut the plan short, so some parts may be unfilled — tell me what is missing and I will fill them in.',
+      };
+    }
     const tool = ((final?.content ?? []) as Array<{ type: string; name?: string; input?: unknown }>)
       .find((b) => b.type === 'tool_use' && b.name === 'plan_render');
     plan = (tool?.input as typeof plan) ?? {};

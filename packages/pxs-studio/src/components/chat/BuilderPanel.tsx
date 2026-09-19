@@ -14,7 +14,7 @@
  * phases (PR-10b/c/d); this is the structure working.
  * ───────────────────────────────────────────────────────────────────────────── */
 
-import { useEffect, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { Button, Icon, IconButton } from '../ui';
 import type { A2UIBuilderBlock } from '../../store/chat-turns-store';
 import { bandLabel, STRUCTURE_CAP, type ScoreBand, type BuilderScore } from '../../lib/prompt-score';
@@ -118,8 +118,16 @@ const CSS = `
 .pxc-howto strong { color: var(--a2ui-text-secondary); font-weight: var(--a2ui-font-semibold); }
 /* The prose lives in a ~380px panel now, not a 760px overlay — let it breathe and reflow. */
 .pxc-prose .pxc-ps { font-size: var(--a2ui-text-md); line-height: 1.7; }
+/* The strip scrolls sideways with its scrollbar hidden, so with a 5-model fan the last lens sat
+   half-cut at the panel edge and read as BROKEN rather than scrollable ("I don't see all models").
+   A mask fades the right edge only while there is more to reach, which is the affordance the
+   hidden scrollbar took away. */
 .pxc-lens-strip { display: flex; gap: var(--a2ui-space-2); overflow-x: auto; padding: 2px 2px var(--a2ui-space-2);
-  margin: var(--a2ui-space-3) 0 var(--a2ui-space-2); scrollbar-width: none; }
+  margin: var(--a2ui-space-3) 0 var(--a2ui-space-2); scrollbar-width: none;
+  mask-image: linear-gradient(to right, #000 calc(100% - 28px), transparent 100%);
+  -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 28px), transparent 100%); }
+/* Scrolled to the end → nothing left to hint at, so drop the fade. */
+.pxc-lens-strip[data-end='true'] { mask-image: none; -webkit-mask-image: none; }
 .pxc-lens-strip::-webkit-scrollbar { display: none; }
 /* Chips must LOOK tappable: a filled surface + a real border. As bare text on the panel background
    they read as a caption and get missed entirely. */
@@ -304,6 +312,16 @@ export function BuilderPanel({
   onSelectLens, lensScores, rollup, onRevertLens, onValueChange, highlight, onRender, busy,
   initialRefs, budgetBlock, onEditPart,
 }: BuilderPanelProps) {
+  // Lens strip overflow — the fade is dropped once there is nothing further to scroll to.
+  const lensStripRef = useRef<HTMLDivElement | null>(null);
+  const [lensAtEnd, setLensAtEnd] = useState(true);
+  // Measure on mount and whenever the fan changes — a 5-model strip overflows where a 2-model one
+  // does not, and the fade must be right BEFORE the user scrolls, not after.
+  useLayoutEffect(() => {
+    const el = lensStripRef.current;
+    if (!el) return;
+    setLensAtEnd(el.scrollLeft + el.clientWidth >= el.scrollWidth - 2);
+  }, [lensScores]);
   /**
    * PROSE ↔ BUILD — two views of ONE document, never two panels.
    *
@@ -521,7 +539,15 @@ export function BuilderPanel({
             image is the trap. Horizontally scrollable because 5 tabs cannot fit this panel without
             truncating names to "Ide…". Hidden entirely for a single-model fan. */}
         {lenses && lenses.length > 1 && (
-          <div className="pxc-lens-strip">
+          <div
+            className="pxc-lens-strip"
+            ref={lensStripRef}
+            data-end={lensAtEnd ? 'true' : 'false'}
+            onScroll={(e) => {
+              const el = e.currentTarget;
+              setLensAtEnd(el.scrollLeft + el.clientWidth >= el.scrollWidth - 2);
+            }}
+          >
             {lenses.map((lens, i) => {
               const active = (activeLensId ?? lenses[0].modelId) === lens.modelId;
               const s = lensScores?.[lens.modelId];

@@ -133,6 +133,7 @@ test('every explicitly picked model is routed — the selection is not capped', 
       intent: 'a character reference sheet of a cowboy',
       needs: [],
       models: picked,
+      count: 3,
       perModel: 3,
       // The value that used to win over the selection. It is an AUTO-mode question and must not
       // narrow an explicit pick.
@@ -153,7 +154,7 @@ test('every explicitly picked model is routed — the selection is not capped', 
 test('a pick that cannot serve the request is DROPPED WITH A REASON, never silently', async () => {
   const picked = ['flux-2-pro', 'gemini-3-pro-image'];
   const decision = await route(
-    { intent: 'a cowboy', needs: [], models: picked, perModel: 1, fanModels: 2 } as RoutingRequest,
+    { intent: 'a cowboy', needs: [], models: picked, count: 1, perModel: 1, fanModels: 2 } as RoutingRequest,
     // flux-2-pro has no key → Gate 1 must account for it rather than the fan just being smaller.
     { hasKey: ((envKey: string) => envKey !== 'REPLICATE_API_TOKEN') as never, catalog: ALL },
   );

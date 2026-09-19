@@ -11,6 +11,7 @@ import {
   estimateCost,
   deterministicRoute,
   parseFanout,
+  route,
   type RoutingRequest,
 } from '../routing';
 import { IMAGE_MODELS, getModel } from '../model-registry';
@@ -113,4 +114,54 @@ test('parseFanout: overflow is trimmed down to count', () => {
   const text = '{"fanout":[{"modelId":"flux-2-dev","n":5},{"modelId":"gpt-image-1.5","n":5}]}';
   const fanout = parseFanout(text, IMAGE_MODELS, 4);
   assert.equal(fanout.reduce((s, r) => s + r.n, 0), 4);
+});
+
+// ── MANUAL PICKS ARE A DIRECTIVE ─────────────────────────────────────────────────────────────────
+// A real failure: five models picked in the UI, three rendered, and nothing said why. The manual
+// list was being sliced to `fanModels` before routing ever saw it — so the two models never reached
+// Gate 1, never produced a `dropped` entry, and never showed in the benched note. `models.length`
+// and `fanModels` were two sources of truth for one fact, and they drifted.
+// An explicitly picked model either renders or is accounted for out loud. It is never dropped quietly.
+
+const ALL = IMAGE_MODELS.filter((m) => !m.preview);
+const yesKey = () => true;
+
+test('every explicitly picked model is routed — the selection is not capped', async () => {
+  const picked = ['flux-2-pro', 'gemini-3-pro-image', 'gemini-3.1-flash-image', 'gpt-image-1.5', 'ideogram-v3'];
+  const decision = await route(
+    {
+      intent: 'a character reference sheet of a cowboy',
+      needs: [],
+      models: picked,
+      perModel: 3,
+      // The value that used to win over the selection. It is an AUTO-mode question and must not
+      // narrow an explicit pick.
+      fanModels: 3,
+    } as RoutingRequest,
+    { hasKey: yesKey, catalog: ALL },
+  );
+  assert.ok(decision, 'a manual pick must route');
+  assert.equal(decision!.fanout.length, picked.length, 'all five picks render, not three');
+  assert.deepEqual(
+    decision!.fanout.map((f) => f.modelId).sort(),
+    [...picked].sort(),
+    'the fan IS the selection',
+  );
+  for (const f of decision!.fanout) assert.equal(f.n, 3, 'per-model count is honored for each pick');
+});
+
+test('a pick that cannot serve the request is DROPPED WITH A REASON, never silently', async () => {
+  const picked = ['flux-2-pro', 'gemini-3-pro-image'];
+  const decision = await route(
+    { intent: 'a cowboy', needs: [], models: picked, perModel: 1, fanModels: 2 } as RoutingRequest,
+    // flux-2-pro has no key → Gate 1 must account for it rather than the fan just being smaller.
+    { hasKey: ((envKey: string) => envKey !== 'REPLICATE_API_TOKEN') as never, catalog: ALL },
+  );
+  assert.ok(decision, 'the surviving pick still routes — never a dead end');
+  const routed = decision!.fanout.map((f) => f.modelId);
+  assert.ok(!routed.includes('flux-2-pro'), 'a model with no key cannot render');
+  const accounted = new Set([...routed, ...decision!.dropped.map((d) => d.modelId)]);
+  for (const id of picked) {
+    assert.ok(accounted.has(id), `${id} was picked — it must either render or appear in dropped`);
+  }
 });

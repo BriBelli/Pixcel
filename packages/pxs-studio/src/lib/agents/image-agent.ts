@@ -481,12 +481,22 @@ export async function* runImageAgent(frame: EpistemicFrame, turn: ImageAgentTurn
   // Fan-out controls from the picker (else the auto default). Manual mode → `models` drives the fan;
   // auto → top-N by fit. `aspect` sets the render AND the reference aspect-fit target for this render.
   const fanCfg = turn.fan;
-  // MANUAL = render EXACTLY the active window the picker showed (selected, capped to "how many") — WYSIWYG.
+  // MANUAL = render EXACTLY what the picker shows selected — WYSIWYG, no cap.
   // AUTO = the Model agent picks the top-N per request (autonomous); the picker only previewed it.
+  //
+  // This used to slice the selection down to `fanModels`, which made `models.length` and `fanModels`
+  // two sources of truth for one fact. In manual mode the picker DERIVES the count from the
+  // selection ("Set by the models you select below"), so the two are meant to agree — but they can
+  // drift (a restored config, a count set while in auto), and when they drifted the user silently
+  // got fewer models than the trigger said. Five picked, three rendered, and no "skipped" note to
+  // explain it, because slicing here happens BEFORE routing and so never produces a dropped entry.
+  // A model the user explicitly picked is a directive: honor it, or account for it out loud in
+  // `dropped` where Gate 1 can give a reason. Never quietly drop it.
+  //
+  // `fanModels` stays what it always meant — an AUTO-mode question ("how wide should the agent
+  // fan?"). It has no say over an explicit selection.
   const manualModels =
-    fanCfg?.mode === 'manual' && fanCfg.models && fanCfg.models.length > 0
-      ? fanCfg.models.slice(0, Math.max(1, fanCfg.fanModels ?? fanCfg.models.length))
-      : undefined;
+    fanCfg?.mode === 'manual' && fanCfg.models && fanCfg.models.length > 0 ? fanCfg.models : undefined;
   const fanModelsN = manualModels ? undefined : Math.max(1, fanCfg?.fanModels ?? FANOUT_DEFAULT_MODELS);
   const perModelN = Math.max(1, fanCfg?.perModel ?? FANOUT_DEFAULT_PER_MODEL);
   const fanAspect = fanCfg?.aspect;

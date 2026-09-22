@@ -24,6 +24,7 @@ import {
 } from './model-registry';
 import { referenceCapacity } from './reference-planning';
 import { classifyRequest, crossValidateFit, pickRoster } from './selection';
+import { policyReason, servesDemand, type ContentDemand } from './content-policy';
 import { AGENT_MODELS } from '../agents/model-config';
 
 const MODEL = AGENT_MODELS.ranker;
@@ -52,6 +53,10 @@ export interface RoutingRequest {
   referenceRoles?: string[];
   /** True when the request edits/composes input images. */
   editing?: boolean;
+  /** What this brief NEEDS on each content axis. Gate 1 benches any model whose researched ceiling
+   *  is lower, and any model whose policy has not been read — so a mature brief reaches a model that
+   *  permits it, rather than buying a refusal. Absent → no mature demand, everything qualifies. */
+  content?: ContentDemand;
   /** Optional hard budget for the whole request (USD). */
   budgetUsd?: number;
 }
@@ -69,7 +74,18 @@ export interface RoutedModel {
 /** A Gate-1 drop, kept for transparency. */
 export interface DroppedModel {
   modelId: string;
-  reason: 'missing_capability' | 'ref_capacity' | 'aspect_ratio' | 'no_edit' | 'no_key' | 'over_budget' | 'preview';
+  reason:
+    | 'missing_capability'
+    | 'ref_capacity'
+    | 'aspect_ratio'
+    | 'no_edit'
+    | 'no_key'
+    | 'over_budget'
+    | 'preview'
+    | 'content_policy';
+  /** A human sentence when the code alone cannot explain it ("Ideogram 3.0 does not permit this
+   *  content — nudity (allows blocked)"). Surfaced in the benched note; the code stays machine-readable. */
+  detail?: string;
 }
 
 /** The routing outcome the coordinator dispatches. */
@@ -129,6 +145,19 @@ export function gate1Filter(
     if (req.editing && !m.supportsEditing) {
       dropped.push({ modelId: m.id, reason: 'no_edit' });
       continue;
+    }
+    // CONTENT CEILING — a mature brief must reach a model whose provider permits it. This is a
+    // per-MODEL fact researched from that provider's own policy, not a guess about the host:
+    // Replicate and fal serve permissive and heavily-filtered models alike. A model whose policy has
+    // never been read is benched too, because routing a TV-MA brief at an unverified model buys a
+    // refusal the user pays for. The reason is carried through so it shows in the benched note
+    // rather than the fan just being quietly smaller.
+    if (req.content) {
+      const verdict = servesDemand(m.contentPolicy, req.content);
+      if (!verdict.ok) {
+        dropped.push({ modelId: m.id, reason: 'content_policy', detail: policyReason(m.label, verdict) });
+        continue;
+      }
     }
     // ASPECT is NOT a hard bench. A model's hand-typed aspectRatios list is a data hint, not a hard
     // wall — nearly every image model accepts an arbitrary ratio (or snaps to the nearest), and the

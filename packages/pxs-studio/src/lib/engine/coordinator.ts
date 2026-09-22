@@ -55,7 +55,7 @@ export interface CoordinateOptions {
 /** Turn a Gate-1 drop into a user-facing "skipped: <why>" — ONLY for reasons that explain why a model
  *  the user might expect isn't in the fan (references too many, no key, no edit path, over budget).
  *  Preview / aspect / bare capability drops are noise and are omitted. */
-function dropDetail(d: { modelId: string; reason: string }, refCount: number): { modelId: string; label: string; reason: string } | null {
+function dropDetail(d: { modelId: string; reason: string; detail?: string }, refCount: number): { modelId: string; label: string; reason: string } | null {
   const m = getModel(d.modelId);
   const label = m?.label ?? d.modelId;
   const cap = m?.maxReferenceImages ?? 1;
@@ -64,6 +64,10 @@ function dropDetail(d: { modelId: string; reason: string }, refCount: number): {
     case 'no_key': return { modelId: d.modelId, label, reason: 'no API key configured' };
     case 'no_edit': return { modelId: d.modelId, label, reason: 'no edit / reference path' };
     case 'over_budget': return { modelId: d.modelId, label, reason: 'over the render budget' };
+    // The content ceiling carries its own sentence — which axis and what the model allows — because
+    // "content_policy" alone tells the user nothing about what to change or which model to pick.
+    case 'content_policy':
+      return { modelId: d.modelId, label, reason: d.detail ?? 'does not permit this content' };
     default: return null;
   }
 }

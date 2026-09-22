@@ -55,6 +55,15 @@ async function refreshOne(
   if (r.strengths) patch.strengths = r.strengths;
   if (r.tier) patch.tier = r.tier;
   if (Array.isArray(r.bestFor) && r.bestFor.length > 0) patch.bestFor = r.bestFor;
+  // Content ceilings — the fact that decides whether a mature brief can route here at all. Carried
+  // only when research actually read a policy; an absent one leaves the model UNRESEARCHED, which
+  // routing treats as "not verified", never as permission.
+  if (r.contentPolicy) {
+    patch.contentPolicy = {
+      ...r.contentPolicy,
+      verifiedAt: r.contentPolicy.verifiedAt ?? new Date().toISOString().slice(0, 10),
+    };
+  }
 
   const applied = r.confidence !== 'low' && Object.keys(patch).length > 0;
   if (applied) {

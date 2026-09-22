@@ -17,6 +17,8 @@
  * (which actually call the APIs and read `env_key`) live behind the executor seam.
  */
 
+import type { ContentPolicy } from './content-policy';
+
 /** A provider we can dispatch an image generation to. */
 export type ImageProvider = 'openai' | 'fal' | 'gemini' | 'ideogram' | 'recraft' | 'replicate' | 'xai';
 
@@ -161,6 +163,10 @@ export interface ImageModel {
   brief: string;
   /** The model's PINNED official docs (see ModelDoc). The doctrine pass ingests these in FULL. */
   docs?: ModelDoc[];
+  /** What this model will actually MAKE — per-axis content ceilings, researched from the provider's
+   *  own policy with provenance. Absent = UNRESEARCHED, which is not permission: a mature brief is
+   *  not routed here until the Model agent has read the policy. See `content-policy.ts`. */
+  contentPolicy?: ContentPolicy;
   /** ISO date the record was last verified (self-restocking freshness signal). */
   sourceRefreshedAt: string;
   /** Registry KNOWLEDGE only — not yet callable/available. Gate 1 drops preview models from

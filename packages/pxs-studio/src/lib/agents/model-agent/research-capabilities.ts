@@ -16,6 +16,7 @@ import { tavilySearch, tavilyConfigured, type WebResult } from './tavily';
 import { AGENT_MODELS } from '../model-config';
 import { parseJsonResponse, responseText, wasTruncated } from './json-response';
 import type { ModelStrengths, InputSlot, SlotRole } from '../../engine/model-registry';
+import { normalizeContentPolicy, type ContentPolicy } from '../../engine/content-policy';
 
 const MODEL = AGENT_MODELS.research;
 
@@ -38,6 +39,8 @@ export interface CapabilityResearch {
   /** Short intents the sources say this model is a genuinely strong pick for. */
   bestFor?: string[];
   notes?: string;
+  /** Researched content ceilings — see `content-policy.ts`. Absent = unresearched, NOT permitted. */
+  contentPolicy?: ContentPolicy;
   confidence: 'high' | 'medium' | 'low';
   /** Provenance — the sources the facts came from. Empty = nothing found (unverified). */
   sources: { url: string; title: string }[];
@@ -55,11 +58,16 @@ Extract when stated:
 - strengths: the model's craft profile as ALL NINE axes, each an integer 0-5: {"photorealism","prompt_adherence","editing","style_versatility","text_rendering","speed","resolution","consistency","multimodal"}. Ground every score in what the QUALITY SIGNALS sources actually report (benchmark placements, arena rankings, reviews, provider claims corroborated elsewhere). OMIT the whole object if the quality sources are too thin to score honestly — a guessed profile is worse than none.
 - tier: 1 (budget/fast), 2 (mid), or 3 (flagship), from how the sources position the model in its provider's lineup and the market.
 - bestFor: 3-6 SHORT intents the sources genuinely support (e.g. "typography", "photoreal hero", "character consistency") — never generic filler.
+- contentPolicy: what this model will actually MAKE. Pixcel is a production tool for adult creative work, so a brief needing TV-MA material has to reach a model whose provider PERMITS it — routing a mature brief to a filtered model buys a refusal. This is a per-MODEL fact, never a per-provider one: Replicate and fal are universal hosts serving both permissive open-weights models and heavily-filtered commercial ones, so judge the MODEL and its provider's policy for THAT model.
+  Give a ceiling per axis, each one of "blocked"|"mild"|"moderate"|"explicit" (ordered least → most permissive; mild = suggestive/a swimsuit/a bloodless scuffle, moderate = artistic nudity/stylized violence, explicit = full nudity/graphic gore):
+  {"limits":{"nudity":...,"sexual":...,"violence":...,"gore":...,"substance":...,"language":...,"likeness":...},"basis":"documented|observed","sourceUrl":"<the acceptable-use / content policy page>","notes":"<one line of nuance the levels cannot carry>"}
+  OMIT ANY AXIS THE SOURCES DO NOT ADDRESS — a missing axis reads as "not yet verified", which is the honest and safe default. NEVER infer a ceiling from the model being open-weights, from its host, or from your own memory; an absent policy page means you omit the field entirely. Use basis "documented" only when a published policy states it, "observed" when reliable secondary reporting describes what it does in practice.
+  Record only what the policy PERMITS. Illegal and inherently abusive categories (sexual content involving minors, sexualized depictions of real people without consent, content made to harass a real person) sit below this scale entirely — never record a ceiling for them and never treat "explicit" as covering them.
 - notes: ONE line of the key constraints (e.g. "no count limit; <=20 MiB per image; edits accepts up to 3 source images").
 - confidence: "high" if official/provider docs agree, "medium" if only secondary sources, "low" if thin or conflicting.
 
 Respond with ONLY a JSON object, no prose:
-{"maxReferenceImages":<int|null>,"referenceLimits":{"object":<int>,"character":<int>,"style":<int>}|null,"inputSlots":[{"param":"...","role":"...","label":"...","max":<int|null>,"notes":"...","conflictsWith":[...],"constraints":"..."}]|null,"supportsEditing":<bool|null>,"capabilities":[...],"aspectRatios":[...],"strengths":{"photorealism":<0-5>,...all nine...}|null,"tier":<1|2|3|null>,"bestFor":[...],"notes":"<one line>","confidence":"high|medium|low"}`;
+{"maxReferenceImages":<int|null>,"referenceLimits":{"object":<int>,"character":<int>,"style":<int>}|null,"inputSlots":[{"param":"...","role":"...","label":"...","max":<int|null>,"notes":"...","conflictsWith":[...],"constraints":"..."}]|null,"supportsEditing":<bool|null>,"capabilities":[...],"aspectRatios":[...],"strengths":{"photorealism":<0-5>,...all nine...}|null,"tier":<1|2|3|null>,"bestFor":[...],"contentPolicy":{"limits":{...},"basis":"documented|observed","sourceUrl":"...","notes":"..."}|null,"notes":"<one line>","confidence":"high|medium|low"}`;
 
 function isRoleLimits(v: unknown): v is { object: number; character: number; style: number } {
   return (
@@ -164,6 +172,9 @@ export async function researchModelCapabilities(
       inputSlots: parseSlots(parsed.inputSlots),
       supportsEditing: typeof parsed.supportsEditing === 'boolean' ? parsed.supportsEditing : undefined,
       capabilities: Array.isArray(parsed.capabilities) ? (parsed.capabilities as string[]) : undefined,
+      // Enum-locked on the way in: unmapped axes and levels are DROPPED, never coined, and a policy
+      // with nothing recognizable becomes undefined rather than a misleading empty ceiling set.
+      contentPolicy: normalizeContentPolicy(parsed.contentPolicy),
       aspectRatios: Array.isArray(parsed.aspectRatios) ? (parsed.aspectRatios as string[]) : undefined,
       strengths: parseStrengths(parsed.strengths),
       tier: parsed.tier === 1 || parsed.tier === 2 || parsed.tier === 3 ? parsed.tier : undefined,

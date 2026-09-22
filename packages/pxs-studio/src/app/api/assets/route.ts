@@ -1,4 +1,4 @@
-import { DEV_USER_ID, getDb, listSavedAssets, promoteThreadForAsset, type Asset } from '../../../lib/db';
+import { DEV_USER_ID, getDb, listSavedAssets, promoteThreadForAsset, ingestMedia, type Asset } from '../../../lib/db';
 
 export const runtime = 'nodejs';
 
@@ -52,6 +52,10 @@ export async function POST(req: Request) {
     if (existing) return Response.json({ asset: existing, deduped: true });
 
     const now = Date.now();
+    // A DELIBERATE save is the strongest possible signal that this must not rot, yet this path used
+    // to copy the provider url verbatim — so "Save" bought a link that expired on the vendor's
+    // schedule and gave a false sense of permanence. Take the bytes here too.
+    const storedUrl = await ingestMedia(url);
     const asset: Asset = {
       id: newId('asset'),
       user_id: userId,
@@ -63,7 +67,7 @@ export async function POST(req: Request) {
       // Deliberate save → first-class, durable. Provenance carried from the workflow.
       source: body.source === 'upload' ? 'upload' : 'generated',
       retention: 'saved',
-      url,
+      url: storedUrl.url,
       thread_id: typeof body.thread_id === 'string' ? body.thread_id : '',
       interaction_id: typeof body.interaction_id === 'string' ? body.interaction_id : '',
       model_label: typeof body.model_label === 'string' ? body.model_label : undefined,

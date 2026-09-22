@@ -2,6 +2,7 @@ import { getDb } from '../../../lib/db';
 import { checkCap, recordUsage } from '../../../lib/db/usage';
 import { runVideoAgent, type VideoAgentEvent } from '../../../lib/agents/video-agent';
 import { DEV_USER_ID, type Asset, type Interaction, type Thread } from '../../../lib/db/models';
+import { ingestMedia } from '../../../lib/db/media-store';
 
 export const runtime = 'nodejs';
 /** Video renders are 75-120s per model and a fan runs them concurrently. */
@@ -187,6 +188,7 @@ export async function POST(req: Request) {
             .filter((u): u is string => typeof u === 'string' && u.trim().length > 0);
           for (let i = 0; i < refUrls.length; i++) {
             const refId = newId('asset');
+            const refStored = await ingestMedia(refUrls[i]!);
             await db.put({
               id: refId,
               user_id: userId,
@@ -199,7 +201,7 @@ export async function POST(req: Request) {
               retention: 'ephemeral',
               thread_id: threadId,
               interaction_id: interactionId,
-              url: refUrls[i],
+              url: refStored.url,
               index: i,
             } as Asset);
             referenceAssetIds.push(refId);
@@ -207,6 +209,13 @@ export async function POST(req: Request) {
 
           const share = genCost / clips.length;
           for (const clip of clips) {
+            // A clip is the most perishable thing here: provider video urls expire fastest and the
+            // file is the whole creation. Take the bytes, and the poster frame with it.
+            const stored = await ingestMedia(clip.url);
+            if (!stored.stored) {
+              console.warn(`[video-agent] could not store the clip: ${stored.reason} — keeping the provider url, which WILL expire`);
+            }
+            const poster = clip.thumbnailUrl ? await ingestMedia(clip.thumbnailUrl) : null;
             await db.put({
               id: newId('asset'),
               user_id: userId,
@@ -219,7 +228,7 @@ export async function POST(req: Request) {
               retention: 'ephemeral',
               thread_id: threadId,
               interaction_id: interactionId,
-              url: clip.url,
+              url: stored.url,
               model: clip.modelId,
               model_label: clip.modelLabel || undefined,
               index: clip.index,
@@ -227,7 +236,7 @@ export async function POST(req: Request) {
               gen_cost_usd: share || undefined,
               duration_sec: clip.durationSec,
               has_audio: clip.hasAudio,
-              thumbnail_url: clip.thumbnailUrl,
+              thumbnail_url: poster?.url ?? clip.thumbnailUrl,
               reference_asset_ids: referenceAssetIds.length > 0 ? referenceAssetIds : undefined,
             } as Asset);
           }

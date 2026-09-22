@@ -14,6 +14,7 @@ import {
   type Thread,
   draftBirthFields,
   promoteThreadForAsset,
+  ingestMedia,
 } from '../../../lib/db';
 
 export const runtime = 'nodejs';
@@ -285,6 +286,7 @@ export async function POST(req: Request) {
               continue;
             }
             const refId = newId('asset');
+            const refStored = await ingestMedia(pair.url);
             const refAsset: Asset = {
               id: refId,
               user_id: userId,
@@ -297,7 +299,7 @@ export async function POST(req: Request) {
               retention: 'ephemeral',
               thread_id: threadId,
               interaction_id: interactionId,
-              url: pair.url,
+              url: refStored.url,
               index: i,
             };
             await db.put(refAsset);
@@ -307,6 +309,13 @@ export async function POST(req: Request) {
           // the reference assets that produced it — the first real lineage edges of the tree.
           const share = generatedImages.length > 0 ? genCostTotal / generatedImages.length : 0;
           for (const img of generatedImages) {
+            // TAKE THE BYTES. `img.url` is whatever the provider returned — inline data from OpenAI
+            // and Gemini, an expiring CDN link from Replicate and fal. Ingesting makes durability a
+            // property of Pixcel rather than of which vendor happened to serve the render.
+            const stored = await ingestMedia(img.url);
+            if (!stored.stored) {
+              console.warn(`[image-agent] could not store ${img.modelLabel}: ${stored.reason} — keeping the provider url, which may expire`);
+            }
             const asset: Asset = {
               id: newId('asset'),
               user_id: userId,
@@ -319,7 +328,7 @@ export async function POST(req: Request) {
               retention: 'ephemeral',
               thread_id: threadId,
               interaction_id: interactionId,
-              url: img.url,
+              url: stored.url,
               model_label: img.modelLabel || undefined,
               index: img.index,
               prompt,

@@ -25,6 +25,14 @@ const fetchBoth = async (p: { id: string }): Promise<LiveModel[] | null> => {
   if (p.id === 'openai') return [{ id: 'gpt-image-1.5' }];
   if (p.id === 'replicate') return [{ id: 'black-forest-labs/flux-2-pro' }, { id: 'black-forest-labs/flux-2-dev' }];
   if (p.id === 'xai') return [{ id: 'grok-imagine-image-2.0' }];
+  // fal serves IMAGE models now (Qwen Image, SD 3.5) as well as video, so it is a due provider like
+  // any other. Without it here fal never gets a freshness stamp and stays due forever.
+  if (p.id === 'fal')
+    return [
+      { id: 'fal-ai/qwen-image-max/text-to-image' },
+      { id: 'alibaba/qwen-image-3/text-to-image' },
+      { id: 'fal-ai/stable-diffusion-v35-large' },
+    ];
   return null;
 };
 
@@ -32,7 +40,7 @@ test('refreshRegistry: reconciles due providers and PERSISTS the diff', async ()
   const repo = createMemoryRepository();
   const summary = await refreshRegistry(repo, { now: NOW, fetchLive: fetchBoth });
 
-  assert.deepEqual([...summary.providersChecked].sort(), ['google', 'openai', 'replicate', 'xai']);
+  assert.deepEqual([...summary.providersChecked].sort(), ['fal', 'google', 'openai', 'replicate', 'xai']);
   assert.equal(summary.discoveredCount, 1); // gemini-9-new
 
   const state = await loadRefreshState(repo);

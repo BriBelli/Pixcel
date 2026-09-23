@@ -27,7 +27,7 @@ function req(partial: Partial<RoutingRequest> = {}): RoutingRequest {
 
 test('gate1: no needs + all keys → every non-preview model survives', () => {
   const { survivors, dropped } = gate1Filter(req(), allKeys);
-  const nonPreview = IMAGE_MODELS.filter((m) => !m.preview);
+  const nonPreview = IMAGE_MODELS.filter((m) => !m.preview && !m.needsResearch);
   assert.equal(survivors.length, nonPreview.length);
   // The only drops are preview (registry-knowledge) models — never routed to.
   assert.ok(dropped.every((d) => d.reason === 'preview'));
@@ -52,7 +52,7 @@ test('gate1: aspect ratio is a hint, NEVER a drop', () => {
   // Deliberate design (see routing.ts): hand-typed aspect lists are data hints — models snap/clamp
   // downstream. Benching on them is the collapse-the-fan bug. 21:9 must not bench anyone.
   const { survivors, dropped } = gate1Filter(req({ aspectRatio: '21:9' }), allKeys);
-  assert.equal(survivors.length, IMAGE_MODELS.filter((m) => !m.preview).length);
+  assert.equal(survivors.length, IMAGE_MODELS.filter((m) => !m.preview && !m.needsResearch).length);
   assert.ok(dropped.every((d) => d.reason === 'preview'));
 });
 

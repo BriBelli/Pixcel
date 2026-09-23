@@ -10,3 +10,4 @@ import './replicate';
 import './recraft';
 import './ideogram';
 import './xai';
+import './fal-image';

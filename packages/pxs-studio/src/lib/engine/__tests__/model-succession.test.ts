@@ -123,3 +123,48 @@ test('a provider that will not answer is not a finding — the next pass retries
   // "Checked and found nothing" must stay distinguishable from "never looked".
   assert.deepEqual(reports[0].checkedFamilies, ['seedance']);
 });
+
+// ── THE FLUX 3 MISS ──────────────────────────────────────────────────────────────────────────────
+// Our FLUX 2 is registered under Replicate, so the sweep asked Replicate and only Replicate. fal had
+// been listing blackforestlabs/flux-3 the whole time and Replicate had nothing, so a whole
+// generation went unnoticed while the sweep cheerfully reported "checked, found nothing".
+// A model FAMILY is not owned by the host we happen to reach it through.
+
+test('a successor that launched on a DIFFERENT host is still found', async () => {
+  const models = [{ id: 'flux-2-pro', provider: 'replicate', providerModelId: 'black-forest-labs/flux-2-pro' }];
+  const catalog: Record<string, string[]> = {
+    // Replicate has nothing newer — the real situation on 2026-09-23.
+    replicate: ['black-forest-labs/flux-2-pro', 'black-forest-labs/flux-2-dev'],
+    // fal is where the next generation showed up first.
+    fal: ['blackforestlabs/flux-3/text-to-image', 'blackforestlabs/flux-2-pro'],
+  };
+  const reports = await sweepForSuccessors(
+    models,
+    { search: async (provider) => catalog[provider] ?? [] },
+    ['replicate', 'fal'],
+  );
+
+  const found = reports.flatMap((r) => r.successions);
+  assert.ok(found.length > 0, 'the successor must be found even though it is on another host');
+  assert.ok(
+    found.some((s) => /flux-3/.test(s.successorId)),
+    `expected flux-3 among ${JSON.stringify(found.map((s) => s.successorId))}`,
+  );
+  assert.equal(found[0]!.currentId, 'flux-2-pro', 'and it must name OUR record to update');
+
+  // Sweeping only the registered host is exactly the blind spot — prove it stays blind.
+  const narrow = await sweepForSuccessors(models, { search: async (p) => catalog[p] ?? [] }, ['replicate']);
+  assert.equal(narrow.flatMap((r) => r.successions).length, 0, 'replicate alone cannot see it');
+});
+
+test('every swept host reports which families it checked', async () => {
+  const reports = await sweepForSuccessors(
+    [{ id: 'flux-2-pro', provider: 'replicate', providerModelId: 'black-forest-labs/flux-2-pro' }],
+    { search: async () => [] },
+    ['replicate', 'fal'],
+  );
+  assert.deepEqual(reports.map((r) => r.provider).sort(), ['fal', 'replicate']);
+  for (const r of reports) {
+    assert.ok(r.checkedFamilies.includes('flux'), '"found nothing" must be distinguishable from "never looked"');
+  }
+});

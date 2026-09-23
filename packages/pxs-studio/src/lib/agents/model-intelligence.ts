@@ -162,7 +162,13 @@ async function checkSuccession(routableImages: { id: string; provider: string; p
         .map((r) => (r as Record<string, unknown>).id)
         .filter((id): id is string => typeof id === 'string');
     },
-  });
+  },
+  // Sweep every ACTIVE host that publishes a listing, not just the one each model is registered
+  // under. A model family is not owned by the host we happen to reach it through: our FLUX 2 sits on
+  // Replicate, FLUX 3 appeared on fal first, and asking only Replicate reported "checked, found
+  // nothing" for a whole generation.
+  PROVIDERS.filter((p) => p.status === 'active' && p.modelsEndpoint).map((p) => registryTag(p)),
+  );
 }
 
 /**

@@ -490,6 +490,76 @@ export const IMAGE_MODELS: ImageModel[] = [
     promptFormula: XAI_IMAGE_FORMULA,
     sourceRefreshedAt: VERIFIED,
   },
+  // ── fal, as an IMAGE host ────────────────────────────────────────────────────────────────────
+  // fal was wired for video only while the roster always declared it ['image','video'], so the
+  // Image picker had no fal option and FLUX was reachable only via Replicate. That was an accident
+  // of build order, not a decision: fal is a universal host exactly like Replicate.
+  //
+  // BOOTSTRAP FLOOR ONLY. These three were verified live against fal's queue API (all three accept
+  // our input shape and return IN_QUEUE) so the adapter is not guessing at endpoints — but the
+  // craft numbers below are a conservative seed the research pass OWNS and will correct. Content
+  // ceilings are deliberately absent: unresearched is not permission, so a mature brief will not
+  // route here until the Model agent has read each model's policy.
+  {
+    id: 'qwen-image-max',
+    label: 'Qwen Image Max (fal)',
+    provider: 'fal',
+    envKey: 'FAL_API_KEY',
+    providerModelId: 'fal-ai/qwen-image-max/text-to-image',
+    tier: 3,
+    strengths: { photorealism: 4, prompt_adherence: 4, editing: 4, style_versatility: 4, text_rendering: 4, speed: 4, resolution: 4, consistency: 3, multimodal: 3 },
+    capabilities: ['editing', 'multi_reference', 'photorealism', 'text_in_image'],
+    bestFor: ['photoreal scenes', 'in-image text', 'reference editing'],
+    supportsEditing: true,
+    maxReferenceImages: 4,
+    aspectRatios: ['1:1', '16:9', '9:16', '4:3', '3:4'],
+    costPerImageUsd: [0.03, 0.06],
+    maxBatchN: 4,
+    batchStrategy: 'native',
+    brief:
+      'Qwen Image Max on fal — Alibaba\'s flagship image model, strong prompt adherence and in-image text, with a separate /edit endpoint for reference-driven work. Seeded 2026-09-23 from fal\'s live catalog; craft profile awaits the research pass.',
+    sourceRefreshedAt: '2026-09-23',
+  },
+  {
+    id: 'qwen-image-3',
+    label: 'Qwen Image 3 (fal)',
+    provider: 'fal',
+    envKey: 'FAL_API_KEY',
+    providerModelId: 'alibaba/qwen-image-3/text-to-image',
+    tier: 2,
+    strengths: { photorealism: 4, prompt_adherence: 4, editing: 4, style_versatility: 4, text_rendering: 4, speed: 4, resolution: 4, consistency: 3, multimodal: 3 },
+    capabilities: ['editing', 'multi_reference', 'photorealism'],
+    bestFor: ['general generation', 'reference editing'],
+    supportsEditing: true,
+    maxReferenceImages: 4,
+    aspectRatios: ['1:1', '16:9', '9:16', '4:3', '3:4'],
+    costPerImageUsd: [0.02, 0.05],
+    maxBatchN: 4,
+    batchStrategy: 'native',
+    brief:
+      'Qwen Image 3 on fal — the generation before Max, kept as the cheaper fal route with the same edit endpoint shape. Seeded 2026-09-23 from fal\'s live catalog; craft profile awaits the research pass.',
+    sourceRefreshedAt: '2026-09-23',
+  },
+  {
+    id: 'sd-3.5-large',
+    label: 'Stable Diffusion 3.5 Large (fal)',
+    provider: 'fal',
+    envKey: 'FAL_API_KEY',
+    providerModelId: 'fal-ai/stable-diffusion-v35-large',
+    tier: 2,
+    strengths: { photorealism: 3, prompt_adherence: 3, editing: 2, style_versatility: 4, text_rendering: 2, speed: 4, resolution: 4, consistency: 3, multimodal: 1 },
+    capabilities: ['photorealism', 'fast'],
+    bestFor: ['open-weights generation', 'stylistic range'],
+    supportsEditing: false,
+    maxReferenceImages: 0,
+    aspectRatios: ['1:1', '16:9', '9:16', '4:3', '3:4'],
+    costPerImageUsd: [0.02, 0.04],
+    maxBatchN: 4,
+    batchStrategy: 'native',
+    brief:
+      'Stable Diffusion 3.5 Large on fal — the open-weights option, text-to-image only (no edit endpoint on this route, so it takes no references). Seeded 2026-09-23 from fal\'s live catalog; craft profile awaits the research pass.',
+    sourceRefreshedAt: '2026-09-23',
+  },
 ];
 
 /**

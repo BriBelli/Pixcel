@@ -97,8 +97,11 @@ export function findSuccessors(curatedIds: string[], liveIds: string[]): Success
   for (const c of curated) {
     // The newest live id in the same family, if it beats what we have.
     let best: ParsedModelId | null = null;
+    const cKey = familyKey(c.family);
     for (const l of live) {
-      if (l.family !== c.family) continue;
+      // Compared on the host-agnostic key, so a successor that appeared first on another host still
+      // matches the record we hold.
+      if (familyKey(l.family) !== cKey) continue;
       if (!isNewerVersion(l.version, c.version)) continue;
       if (!best || isNewerVersion(l.version, best.version)) best = l;
     }
@@ -115,7 +118,7 @@ export function findSuccessors(curatedIds: string[], liveIds: string[]): Success
   // De-duplicate: several endpoint variants of one model collapse to one finding.
   const seen = new Set<string>();
   return out.filter((s) => {
-    const key = `${s.family}:${s.successorVersion}`;
+    const key = `${familyKey(s.family)}:${s.successorVersion}`;
     if (seen.has(key)) return false;
     seen.add(key);
     return true;
@@ -126,6 +129,7 @@ export function findSuccessors(curatedIds: string[], liveIds: string[]): Success
 
 /** What a succession sweep found, per provider. */
 export interface SuccessionReport {
+  /** The provider SEARCHED — not necessarily the one the current model is registered under. */
   provider: string;
   successions: Succession[];
   /** Families checked — so "found nothing" is distinguishable from "never looked". */
@@ -141,16 +145,37 @@ export interface SuccessionDeps {
   search: (provider: string, familyKeyword: string) => Promise<string[]>;
 }
 
+/**
+ * Tokens that say nothing about WHICH family a model belongs to: the vendor that made it, the
+ * endpoint it is served on, and the size/speed variant. Stripping them is what lets the same family
+ * be recognised across hosts.
+ */
+const FAMILY_NOISE = new Set([
+  'text', 'to', 'video', 'image', 'reference', 'edit', 'fast', 'pro', 'dev', 'lite', 'turbo',
+  'bytedance', 'alibaba', 'google', 'openai', 'black', 'forest', 'labs', 'blackforestlabs', 'fal',
+  'ai', 'stability', 'stabilityai', 'base', 'large', 'medium', 'small', 'max', 'mini', 'preview',
+]);
+
+/**
+ * The host-agnostic identity of a model family.
+ *
+ * THE FLUX 3 MISS lived here. `black-forest-labs/flux-2-pro` parsed to family
+ * "black-forest-labs-flux-pro" while fal's `blackforestlabs/flux-3/text-to-image` parsed to
+ * "blackforestlabs-flux-text-to-image" — the same family, two strings that can never be equal, so
+ * the successor was invisible even once we thought to ask fal. The vendor writes its own name
+ * differently per host and every host bolts its endpoint path on; neither changes what the model IS.
+ */
+export function familyKey(family: string): string {
+  const words = family.split('-').filter((w) => w && !FAMILY_NOISE.has(w));
+  return words.join('-') || family;
+}
+
 /** The searchable keyword for a family — the distinctive word, not the whole path. */
 export function familyKeyword(id: string): string {
   const family = parseModelId(id).family;
   // 'bytedance-seedance-text-to-video' → 'seedance'. Drop vendor prefixes and endpoint suffixes so
   // the query is the model NAME, which is what a search index actually matches on.
-  const noise = new Set([
-    'text', 'to', 'video', 'image', 'reference', 'edit', 'fast', 'pro', 'dev', 'lite', 'turbo',
-    'bytedance', 'alibaba', 'google', 'openai', 'black', 'forest', 'labs', 'fal', 'ai',
-  ]);
-  const words = family.split('-').filter((w) => w && !noise.has(w));
+  const words = family.split('-').filter((w) => w && !FAMILY_NOISE.has(w));
   return words[0] ?? family;
 }
 
@@ -164,31 +189,42 @@ export function familyKeyword(id: string): string {
 export async function sweepForSuccessors(
   models: { id: string; provider: string; providerModelId?: string }[],
   deps: SuccessionDeps,
+  /**
+   * Every provider worth asking. A model FAMILY is not owned by the host we happen to reach it
+   * through — Replicate and fal are universal hosts serving the same lines — so a family must be
+   * swept across all of them, not only the one its current record points at.
+   *
+   * This is the FLUX 3 miss: our FLUX 2 is registered under Replicate, so the sweep asked Replicate
+   * and only Replicate. fal had been listing blackforestlabs/flux-3 the whole time and Replicate had
+   * nothing, so a whole generation went unnoticed while the sweep reported "checked, found nothing".
+   *
+   * Omitted → falls back to the providers present on `models`, which is the old behaviour.
+   */
+  providers?: string[],
 ): Promise<SuccessionReport[]> {
-  const byProvider = new Map<string, typeof models>();
+  // One entry per family, carrying the registry id so a finding names the record to update.
+  const families = new Map<string, { keyword: string; curatedId: string; registryId: string }>();
   for (const m of models) {
-    const list = byProvider.get(m.provider) ?? [];
-    list.push(m);
-    byProvider.set(m.provider, list);
+    const curatedId = m.providerModelId ?? m.id;
+    const keyword = familyKeyword(curatedId);
+    if (!keyword || families.has(keyword)) continue;
+    families.set(keyword, { keyword, curatedId, registryId: m.id });
   }
 
+  const hosts = providers?.length ? providers : Array.from(new Set(models.map((m) => m.provider)));
+
   const reports: SuccessionReport[] = [];
-  for (const [provider, list] of byProvider) {
+  for (const provider of hosts) {
     const successions: Succession[] = [];
     const checkedFamilies: string[] = [];
-    const seenKeyword = new Set<string>();
 
-    for (const m of list) {
-      const curatedId = m.providerModelId ?? m.id;
-      const keyword = familyKeyword(curatedId);
-      if (!keyword || seenKeyword.has(keyword)) continue;
-      seenKeyword.add(keyword);
-      checkedFamilies.push(keyword);
+    for (const f of families.values()) {
+      checkedFamilies.push(f.keyword);
       try {
-        const live = await deps.search(provider, keyword);
+        const live = await deps.search(provider, f.keyword);
         // Map any successor back to OUR registry id, so the report names the record to update.
-        for (const s of findSuccessors([curatedId], live)) {
-          successions.push({ ...s, currentId: m.id });
+        for (const s of findSuccessors([f.curatedId], live)) {
+          successions.push({ ...s, currentId: f.registryId });
         }
       } catch {
         /* a provider that will not answer is not a finding — the next pass tries again */

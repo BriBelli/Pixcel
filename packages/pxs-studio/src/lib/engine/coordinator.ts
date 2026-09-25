@@ -18,6 +18,7 @@ import { selectModels } from '../agents/model-agent';
 import { type RoutingRequest, type RoutingDecision } from './routing';
 import { fitReferencesToAspect } from './reference-fit';
 import type { GenImage } from './executor';
+import { authFailureHint } from '../env-drift';
 
 /** A tile in the coordinated gallery — one image + which model made it. */
 export interface GalleryTile {
@@ -33,7 +34,7 @@ export type CoordEvent =
   | { type: 'tile'; tile: GalleryTile; totalSoFar: number }
   /** One model's adapter stream settled cleanly — its per-model lifecycle record (delivered + wall ms). */
   | { type: 'model_done'; modelId: string; delivered: number; ms: number }
-  | { type: 'model_error'; modelId: string; reason: string }
+  | { type: 'model_error'; modelId: string; reason: string; detail?: string }
   /** A gentle, non-blocking heads-up (best-effort specialist): we delivered less than the ask
    *  (a model capped the batch, one failed, budget trimmed). Never an error — the run still succeeds. */
   | { type: 'notice'; message: string }
@@ -142,7 +143,7 @@ export async function* coordinateImage(
     if (!model) return;
     const executor = getExecutor(model.provider);
     if (!executor || !executor.isConfigured()) {
-      push({ type: 'model_error', modelId: routed.modelId, reason: 'no_key' });
+      push({ type: 'model_error', modelId: routed.modelId, reason: 'no_key', detail: authFailureHint(getModel(routed.modelId)?.envKey) });
       return;
     }
     push({ type: 'model_start', modelId: model.id, modelLabel: model.label, n: routed.n });
@@ -177,7 +178,11 @@ export async function* coordinateImage(
           costUsd = Number((costUsd + ev.costUsd).toFixed(3));
         } else if (ev.type === 'error') {
           failed = true;
-          push({ type: 'model_error', modelId: model.id, reason: ev.reason });
+          // An auth failure is indistinguishable, from inside this process, between a WRONG key and
+          // a STALE one — the provider rejects both. From outside it is trivial: read the file and
+          // compare. Three days were lost to that distinction once.
+          const hint = ev.reason === 'no_key' ? authFailureHint(model.envKey) : undefined;
+          push({ type: 'model_error', modelId: model.id, reason: ev.reason, detail: hint });
         }
       }
     } catch (err) {

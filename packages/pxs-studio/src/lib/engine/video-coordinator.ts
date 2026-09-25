@@ -19,6 +19,7 @@
 
 import './adapters/fal-video';
 import { getVideoExecutor, type VideoClip, type VideoEvent } from './video-executor';
+import { authFailureHint } from '../env-drift';
 import {
   routeVideo,
   allVideoModels,
@@ -170,7 +171,13 @@ export async function* coordinateVideo(
           modelCost += ev.costUsd ?? 0;
         } else if (ev.type === 'error') {
           firstFailure = firstFailure ?? ev.detail ?? ev.reason;
-          yield { type: 'model_error', modelId: c.model.id, reason: ev.reason, detail: ev.detail };
+          yield {
+            type: 'model_error',
+            modelId: c.model.id,
+            reason: ev.reason,
+            // Same stale-vs-wrong key distinction as the image side.
+            detail: ev.reason === 'no_key' ? (authFailureHint(c.model.envKey) ?? ev.detail) : ev.detail,
+          };
         }
       }
     }

@@ -373,6 +373,12 @@ export function VideoWorkspace({ renderConversation, plan, planValues }: VideoWo
                 aspectRatio={plan.shot?.aspectRatio}
                 audio={audio && !!model?.video?.nativeAudio}
                 threadId={threadId ?? undefined}
+                // A pinned OPENING frame locks the first beat's composition — the whole sequence
+                // then inherits it through the bridging frames. Distinct from a guiding reference:
+                // the opening frame is literally the first frame, so a still showing the subject
+                // mid-action would make the sequence begin there.
+                startFrame={frames.find((f) => f.slot === 'start')?.url}
+                references={frames.filter((f) => f.slot === 'reference').map((f) => f.url)}
               />
             </div>
           ) : null}

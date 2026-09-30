@@ -23,6 +23,16 @@ export interface ChainRunInput {
   audio?: boolean;
   /** The still the FIRST beat opens on, when the user pinned one. */
   startFrame?: string;
+  /**
+   * Images that guide the LOOK — the car, the wardrobe, the palette — without being the frame the
+   * shot opens on. The distinction matters: a reference showing the subject mid-action (flames
+   * already lit, a door already open) would, as a startFrame, make the sequence BEGIN there.
+   *
+   * These reach beat 1 only. From beat 2 on, the model's image slot is taken by the bridging frame,
+   * which is the stronger continuity signal anyway — it carries the subject forward as it actually
+   * looked a moment ago rather than as a separate picture of it.
+   */
+  references?: string[];
   /** Remaining budget. The whole chain is priced against it BEFORE the first beat renders. */
   budgetUsd?: number;
   defaultDurationSec?: number;
@@ -53,7 +63,7 @@ export async function* runLiveChain(input: ChainRunInput): AsyncGenerator<ChainE
   const deps: ChainDeps = {
     // ONE BEAT = ONE RENDER. `startFrame` is what makes it open where the last one landed; the
     // adapter routes that to the model's image-to-video endpoint.
-    renderBeat: async ({ prompt, durationSec, startFrame }) => {
+    renderBeat: async ({ prompt, durationSec, startFrame, index }) => {
       let url = '';
       let costUsd = 0;
       let reason: string | undefined;
@@ -68,6 +78,8 @@ export async function* runLiveChain(input: ChainRunInput): AsyncGenerator<ChainE
           aspectRatio: input.aspectRatio,
           audio: input.audio,
           startFrame,
+          // Beat 1 only — see `references` above. A bridged beat already has its opening still.
+          references: !startFrame && index === 0 ? input.references : undefined,
         })) {
           if (ev.type === 'clip') {
             url = ev.clip.url;

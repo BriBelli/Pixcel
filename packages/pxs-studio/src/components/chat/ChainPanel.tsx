@@ -115,6 +115,8 @@ export interface ChainPanelProps {
   aspectRatio?: string;
   audio?: boolean;
   startFrame?: string;
+  /** Images guiding the LOOK of beat 1 without being the frame it opens on. */
+  references?: string[];
   threadId?: string;
   /** An existing job to attach to (re-opening a chain already in flight). */
   jobId?: string;
@@ -137,6 +139,7 @@ export function ChainPanel({
   aspectRatio,
   audio,
   startFrame,
+  references,
   threadId,
   jobId: existingJobId,
   onJobStarted,
@@ -191,7 +194,7 @@ export function ChainPanel({
       const res = await fetch('/api/jobs', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ beats, modelId, resolution, aspectRatio, audio, startFrame, thread_id: threadId }),
+        body: JSON.stringify({ beats, modelId, resolution, aspectRatio, audio, startFrame, references, thread_id: threadId }),
       });
       const data = (await res.json()) as { jobId?: string; error?: string };
       if (!res.ok || !data.jobId) throw new Error(data.error || `HTTP ${res.status}`);
@@ -202,7 +205,7 @@ export function ChainPanel({
     } finally {
       setStarting(false);
     }
-  }, [beats, modelId, resolution, aspectRatio, audio, startFrame, threadId, onJobStarted]);
+  }, [beats, modelId, resolution, aspectRatio, audio, startFrame, references, threadId, onJobStarted]);
 
   const act = useCallback(
     async (action: 'cancel' | 'resume') => {

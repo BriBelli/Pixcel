@@ -73,6 +73,7 @@ export async function runVideoJob(repo: Repository, job: Job): Promise<void> {
       aspectRatio: job.spec.aspectRatio,
       audio: job.spec.audio,
       startFrame,
+      references: job.spec.references,
       budgetUsd: job.spec.budgetUsd,
       defaultDurationSec: job.spec.defaultDurationSec,
     })) {

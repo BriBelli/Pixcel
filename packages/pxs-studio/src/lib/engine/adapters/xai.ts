@@ -54,6 +54,11 @@ class XaiExecutor implements ImageExecutor {
             model,
             prompt: req.prompt + referenceLegend(req.slotted, req.references),
             images,
+            // `n` was sent on /generations but NOT here, so every REFERENCE render came back with
+            // exactly one image however many takes were asked for — 1 of 4, with nothing to say why,
+            // and it read as "Grok only made one" rather than "we only asked for one". Verified live
+            // 2026-09-30: /images/edits accepts n and honours it (n=3 → 3 images).
+            n,
           }),
         });
       } else {

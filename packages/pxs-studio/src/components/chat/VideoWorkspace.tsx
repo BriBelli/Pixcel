@@ -17,6 +17,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Icon } from '../ui';
 import { toastManager } from '../Toast';
 import { FrameTimeline } from './FrameTimeline';
+import { ChainPanel } from './ChainPanel';
 import { planFrames, type ShotFrame } from '../../lib/engine/shot-frames';
 // Registry DATA only. video-model-agent reaches the DB (and so the sqlite adapter), which a client
 // component must never pull into the bundle — MEDIA_MODELS is pure and is all the timeline needs.
@@ -97,7 +98,16 @@ const CSS = `
 export interface VideoWorkspaceProps {
   renderConversation: () => React.ReactNode;
   /** The video agent's deconstruction of your brief — parts + the shot specs it chose. */
-  plan?: { parts?: { id: string; label: string; value?: string }[]; shot?: { durationSec?: number; resolution?: string; aspectRatio?: string; audio?: boolean }; modelId?: string; media?: string } | null;
+  plan?: {
+    parts?: { id: string; label: string; value?: string }[];
+    shot?: { durationSec?: number; resolution?: string; aspectRatio?: string; audio?: boolean };
+    modelId?: string;
+    media?: string;
+    /** A PROPOSED CHAIN — present when the brief is a sequence of beats the model cannot stage in
+     *  one render. Takes over the panel, because approving it is a different decision from tuning
+     *  a single shot: it is N renders, and it is priced and approved as one thing. */
+    beats?: { prompt: string; durationSec?: number }[];
+  } | null;
   /** Live part values (the agent edits these as you talk to it). */
   planValues?: Record<string, string>;
 }
@@ -121,6 +131,8 @@ export function VideoWorkspace({ renderConversation, plan, planValues }: VideoWo
   );
   // Shared, not local: the agent panel plans for whatever is selected here.
   const storedModelId = useChatTurnsStore((st) => st.videoModelId);
+  // The project this chain belongs to, so its clips are never orphaned.
+  const threadId = useChatTurnsStore((st) => st.threadId);
   const setVideoModelId = useChatTurnsStore((st) => st.setVideoModelId);
   const modelId = storedModelId ?? runnable[0]?.id ?? '';
   const setModelId = setVideoModelId;
@@ -350,6 +362,21 @@ export function VideoWorkspace({ renderConversation, plan, planValues }: VideoWo
           </button>
         </div>
         <div className="pxv-builder-scroll">
+          {/* A PROPOSED SEQUENCE leads, because it answers "why didn't my brief work?" before the
+              user starts tuning a single shot that was never going to deliver it. */}
+          {plan?.beats && plan.beats.length >= 2 ? (
+            <div className="pxv-card">
+              <ChainPanel
+                beats={plan.beats}
+                modelId={model?.id ?? plan.modelId ?? 'seedance-2.5'}
+                resolution={plan.shot?.resolution}
+                aspectRatio={plan.shot?.aspectRatio}
+                audio={audio && !!model?.video?.nativeAudio}
+                threadId={threadId ?? undefined}
+              />
+            </div>
+          ) : null}
+
           <div className="pxv-card">
             <div className="pxv-card-label">Scene</div>
             <textarea

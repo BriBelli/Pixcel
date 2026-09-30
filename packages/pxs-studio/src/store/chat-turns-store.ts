@@ -188,6 +188,12 @@ export interface A2UIBuilderBlock {
   /** The chosen model's reference facts, folded in as the References section (PR-10a; the standalone
    *  Prompt Guide panel returns in PR-10d). */
   model?: { label: string; maxReferences: number; supports: string[] };
+  /** The shot specs the video agent owns, when this is a video builder. */
+  shot?: { durationSec?: number; resolution?: string; aspectRatio?: string; audio?: boolean };
+  /** A PROPOSED CHAIN — the brief is a sequence of beats no model can stage in one render, so each
+   *  becomes its own clip opening on the still the last one ended with. A proposal, never a
+   *  dispatch: N beats is N renders, and the user approves the price first. */
+  beats?: { prompt: string; durationSec?: number }[];
 }
 
 /** Any A2UI block a turn can carry. */

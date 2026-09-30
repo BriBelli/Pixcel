@@ -39,7 +39,8 @@ export type RecordCategory =
   | 'asset'
   | 'model_refresh'
   | 'model_card'
-  | 'model_doctrine';
+  | 'model_doctrine'
+  | 'job';
 
 /** Fields carried by EVERY record, regardless of category. Timestamps are ms epoch. */
 export interface BaseRecord {
@@ -337,3 +338,65 @@ export const OUTPUT_USD_PER_TOKEN = 25 / 1_000_000;
 
 /** Dev default user id when no Auth0 subject is present. */
 export const DEV_USER_ID = 'dev-user';
+
+
+/**
+ * A long-running piece of WORK that outlives the request that asked for it.
+ *
+ * Renders are minutes; HTTP requests are seconds. Holding one inside the other gave us a hard
+ * ceiling (the route dies at 600s, so a 2-beat chain barely fits and a 3-beat one cannot), lost all
+ * visibility the moment a tab closed, and threw away a running chain on a server restart — while
+ * the user was paying for every second of it.
+ *
+ * So the work becomes a RECORD. The request starts it and returns an id; the worker runs outside the
+ * request and writes its progress here; the client asks how it is going whenever it likes. Same
+ * shape the art engine has used for months (live-jobs.ts), moved into the database so a job can
+ * point at the assets it produced by id rather than by convention.
+ */
+export interface Job extends BaseRecord {
+  category: 'job';
+  /** What kind of work this is. `video_chain` is N renders bridged by frames; `video_render` is one. */
+  kind: 'video_chain' | 'video_render';
+  /**
+   * `interrupted` is its own state, distinct from `failed`: nothing went wrong, the process simply
+   * stopped existing (a restart, a deploy). It is the only state that offers RESUME, because it is
+   * the only one where finishing is a matter of continuing rather than retrying.
+   */
+  job_status: 'queued' | 'running' | 'done' | 'failed' | 'cancelled' | 'interrupted';
+  /** Everything needed to run — and to RESUME — the work, independent of the original request. */
+  spec: {
+    beats?: { prompt: string; durationSec?: number }[];
+    prompt?: string;
+    modelId: string;
+    resolution?: string;
+    aspectRatio?: string;
+    audio?: boolean;
+    startFrame?: string;
+    references?: string[];
+    budgetUsd?: number;
+    defaultDurationSec?: number;
+  };
+  /** How far along — what the UI renders while it waits. */
+  progress: {
+    /** 0-based index of the beat being worked on. */
+    beatIndex: number;
+    totalBeats: number;
+    /** Human stage ("Generating…", "Carrying the last frame forward…"). */
+    stage?: string;
+  };
+  /**
+   * Clips produced SO FAR, by asset id. This is the resume point: a job that stopped after beat 2
+   * resumes at beat 3 rather than re-rendering — and re-rendering would mean paying twice.
+   */
+  clip_asset_ids: string[];
+  /** Spend so far, accumulated per beat rather than at the end. */
+  cost_usd: number;
+  /** Why it stopped, when it stopped badly. The provider's own words where there are any. */
+  error?: string;
+  /** Set while running, so a stale one identifies a job whose process died. */
+  heartbeat_at?: number;
+  /** Cooperative control — the worker checks this BETWEEN beats, where stopping is still free. */
+  control?: 'cancel';
+  thread_id?: string;
+  interaction_id?: string;
+}

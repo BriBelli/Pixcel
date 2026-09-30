@@ -63,5 +63,6 @@ export * from './project-promotion';
 export * from './project-verbs';
 export * from './starter-recipes';
 export { ingestMedia, readMedia, putMedia, isStoredMedia, MEDIA_URL_PREFIX } from './media-store';
+export * from './jobs';
 export { LivingContext, createLivingContext } from './living-context';
 export { createMemoryRepository } from './adapters/memory';

@@ -61,7 +61,9 @@ function parseEnvFile(text: string): Map<string, string> {
  */
 export function detectEnvDrift(
   envPath = join(process.cwd(), '.env.local'),
-  env: NodeJS.ProcessEnv = process.env,
+  // Deliberately looser than NodeJS.ProcessEnv: that type requires NODE_ENV, which makes a focused
+  // test env ({ FAL_API_KEY }) unassignable. Only lookups happen here.
+  env: Record<string, string | undefined> = process.env,
 ): EnvDrift {
   let text: string;
   try {

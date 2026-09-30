@@ -19,6 +19,11 @@ ACTIVE and primary for VIDEO: Seedance, Kling and Happy Horse all render through
 - **Docs (refresh source):** https://fal.ai/models
 
 ## Models
+### Image
+- **Qwen Image Max (fal)** (`qwen-image-max`) — Qwen Image Max on fal — Alibaba's flagship image model, strong prompt adherence and in-image text, with a separate /edit endpoint for reference-driven work. Seeded 2026-09-23 from fal's live catalog; craft profile awaits the research pass. _[tier 3 · refs 4, 5 aspect ratios]_
+- **Qwen Image 3 (fal)** (`qwen-image-3`) — Qwen Image 3 on fal — the generation before Max, kept as the cheaper fal route with the same edit endpoint shape. Seeded 2026-09-23 from fal's live catalog; craft profile awaits the research pass. _[tier 2 · refs 4, 5 aspect ratios]_
+- **Stable Diffusion 3.5 Large (fal)** (`sd-3.5-large`) — Stable Diffusion 3.5 Large on fal — the open-weights option, text-to-image only (no edit endpoint on this route, so it takes no references). Seeded 2026-09-23 from fal's live catalog; craft profile awaits the research pass. _[tier 2 · refs 0, 5 aspect ratios]_
+
 ### Video
 - **Seedance 2.5 (ByteDance)** (`seedance-2.5`) — ByteDance Seedance 2.5 — the long-form tier: clips up to 30 SECONDS (double 2.0) with a wider reference budget across images, clips and audio. Not a straight replacement for 2.0, which it beats on length but LOSES to on resolution (2.5 tops out at 1080p; 2.0 reaches 4K), so both are kept and routed by what the shot needs. Found by the succession sweep 2026-09-03, which is the first version bump this system caught itself rather than a human noticing in a browser tab. _[tier 3 · native-audio · ≤30s, 480p/720p/1080p]_
 - **Seedance 2.0 (ByteDance)** (`seedance-2`) — ByteDance Seedance 2.0 (Feb 2026) — #1 on Artificial Analysis WITH audio, and the only model in the roster that reaches 4K. Rich input set: 9 images + 3 clips + 3 audio in one generation, 4-15s. KEPT ALONGSIDE 2.5 deliberately: 2.5 doubles the length but stops at 1080p, so 2.0 remains the choice whenever finish resolution matters more than runtime. Verified 2026-08-29. _[tier 3 · native-audio · ≤15s, 480p/720p/1080p/4K]_

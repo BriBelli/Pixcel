@@ -173,3 +173,32 @@ test('per-beat durations are honored over the chain default', async () => {
   );
   assert.deepEqual(seen, [3, 8], 'a beat that states its length keeps it; the rest take the default');
 });
+
+// ── THE AGENT'S PROPOSAL ─────────────────────────────────────────────────────────────────────────
+// A chain is N renders at N times the cost, so a malformed or accidental `beats` must collapse to
+// "no chain" rather than quietly proposing a multi-render spend.
+
+test('parseBeats: a well-formed proposal survives with its durations', async () => {
+  const { parseBeats } = await import('../../agents/video-agent');
+  const beats = parseBeats([{ prompt: 'idle', durationSec: 3 }, { prompt: 'launch' }], 5);
+  assert.deepEqual(beats, [{ prompt: 'idle', durationSec: 3 }, { prompt: 'launch', durationSec: 5 }]);
+});
+
+test('parseBeats: a ONE-beat proposal is not a chain', async () => {
+  const { parseBeats } = await import('../../agents/video-agent');
+  assert.equal(parseBeats([{ prompt: 'just one shot' }], 5), undefined, 'chaining one beat costs more for the same shot');
+});
+
+test('parseBeats: malformed input collapses to no chain, never a partial spend', async () => {
+  const { parseBeats } = await import('../../agents/video-agent');
+  assert.equal(parseBeats(undefined, 5), undefined);
+  assert.equal(parseBeats('idle, then launch', 5), undefined, 'a string is not a beat list');
+  assert.equal(parseBeats([{ prompt: '  ' }, { prompt: '' }], 5), undefined, 'empty prompts are not beats');
+  assert.equal(parseBeats([{ prompt: 'only real one' }, { nope: 1 }], 5), undefined, 'one valid beat is not a chain');
+});
+
+test('parseBeats: a bad duration falls back to the default rather than rendering 0 seconds', async () => {
+  const { parseBeats } = await import('../../agents/video-agent');
+  const beats = parseBeats([{ prompt: 'a', durationSec: -4 }, { prompt: 'b', durationSec: 0 }], 6);
+  assert.deepEqual(beats?.map((b) => b.durationSec), [6, 6]);
+});

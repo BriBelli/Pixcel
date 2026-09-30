@@ -60,6 +60,14 @@ export interface VideoBuilderBlock {
   model?: { label: string; maxReferences: number; supports: string[] };
   /** The shot specs the agent owns — what the render controls bind to. */
   shot?: { durationSec: number; resolution?: string; aspectRatio?: string; audio: boolean; task?: VideoTask };
+  /**
+   * A PROPOSED CHAIN — present only when the brief is temporal choreography the model cannot stage
+   * in one render. Each beat becomes its own clip, opening on the still the previous one ended with.
+   *
+   * It is a PROPOSAL, never a dispatch: N beats is N renders, so the user sees the beats and the
+   * price and approves before anything is spent.
+   */
+  beats?: { prompt: string; durationSec?: number }[];
 }
 
 export type VideoAgentEvent =
@@ -97,7 +105,7 @@ You OWN the shot specs (the Operator handed only the brief). A shot is not a pic
 
 YOU ARE ALSO THE PERSON'S GUIDE TO THIS MODEL. You know what it can and cannot stage; they do not. So:
 - If the brief asks for something the model CANNOT do, say so in the opener, in one plain sentence, and give the technique that does work. Never quietly write a prompt that will not deliver what they asked for and let the result disappoint them — that is the single worst thing you can do here.
-- The most common case by far is TEMPORAL CHOREOGRAPHY. No model here has a timeline: a clip is generated holistically, so "cruise, then drop a gear, then flames at the shift point" cannot be staged inside one render. The technique is CHAINING — one clip per event, each opening on the still the previous one ended with. Say that plainly when you see a brief with a sequence of beats in it.
+- The most common case by far is TEMPORAL CHOREOGRAPHY. No model here has a timeline: a clip is generated holistically, so "cruise, then drop a gear, then flames at the shift point" cannot be staged inside one render — the model averages the beats into one motion instead of sequencing them. The technique is CHAINING, and you can now ACTUALLY DO IT: fill \`beats\` and the system renders one clip per beat, each opening on the still the previous one ended with. Propose it whenever the brief has a sequence of events in it. Say plainly that it is several renders and costs accordingly — the user approves before anything is spent.
 - Other limits worth naming when they matter: the clip length ceiling, whether the model makes sound at all, and that reference images guide the whole shot rather than a moment in it.
 - When the brief is achievable, do not lecture. Coaching is for when something will not work, or when one change would clearly make it better.
 
@@ -108,6 +116,11 @@ YOU ARE ALSO THE PERSON'S GUIDE TO THIS MODEL. You know what it can and cannot s
 - aspectRatio: e.g. '16:9', '9:16' for vertical.
 - audio: true when the shot needs sound generated WITH the picture (dialogue, ambience, effects). Only where it is genuinely part of the shot.
 - shots: for a SEQUENCE, one prompt per shot in order. A sequence rendered as one generation keeps cast, world and audio continuous across cuts in a way separate clips cannot. Use it only when the brief is genuinely multi-shot; otherwise omit.
+- beats: for TEMPORAL CHOREOGRAPHY — a brief whose events must happen IN ORDER ("still, then launches, then flames on the upshift"). One entry per event: {"prompt":"<the whole shot, written as if this beat were the only thing happening>","durationSec":<int>}.
+  Each beat's prompt must STAND ALONE and carry the subject forward explicitly ("the same black Lamborghini…"), because each one is a separate render that knows nothing about the others — continuity comes from the opening still, not from the model remembering.
+  Give each beat ONE action. Two actions in a beat recreates the exact averaging problem chaining exists to solve.
+  Use 2-4 beats; more is usually a brief that wants editing, not chaining. OMIT ENTIRELY when the brief is a single moment — chaining a one-beat brief just costs more for the same shot.
+  \`beats\` and \`shots\` are alternatives, never both: shots is one generation with internal cuts, beats is N generations bridged by frames.
 - parts: break the brief into the TARGET MODEL'S formula — the exact parts and order given in the PROMPT FORMULA block of your instructions (they differ per model; never substitute a generic set). For each: id, label, one-line guidance, and:
   • value = ONLY what the USER actually specified for that part. EMPTY if they didn't mention it. NEVER invent or expand — that is what recommend is for.
   • recommend = your suggested improvement, specific and cinematic (the field placeholder).
@@ -117,7 +130,7 @@ VIDEO TASK VOCABULARY:
 __VIDEO_TASKS__
 
 Respond with ONLY a JSON object, no prose after it:
-{"opener":"<one sentence>","prompt":"...","task":"<slug|null>","durationSec":5,"resolution":"720p","aspectRatio":"16:9","audio":false,"shots":["..."],"parts":[{"id":"...","label":"...","guidance":"...","value":"...","recommend":"...","chips":["..."]}]}`;
+{"opener":"<one sentence>","prompt":"...","task":"<slug|null>","durationSec":5,"resolution":"720p","aspectRatio":"16:9","audio":false,"shots":["..."],"beats":[{"prompt":"...","durationSec":4}],"parts":[{"id":"...","label":"...","guidance":"...","value":"...","recommend":"...","chips":["..."]}]}`;
 
 /** The target model's formula + doctrine, rendered for the agent's instructions. */
 function videoFormulaBrief(f: VideoCapabilityFacts): string {
@@ -325,9 +338,32 @@ export async function* runVideoAgent(frame: VideoAgentFrame, turn: VideoAgentTur
         ],
       },
       shot: { durationSec, resolution, aspectRatio: typeof plan.aspectRatio === 'string' ? plan.aspectRatio : undefined, audio, task: task ?? undefined },
+      beats: parseBeats(plan.beats, durationSec),
     },
   };
   yield { type: 'gen_done', costUsd: 0 };
+}
+
+/**
+ * Read the agent's proposed chain off the plan.
+ *
+ * Deliberately strict. A chain is N renders at N times the cost, so a malformed or accidental
+ * `beats` must collapse to "no chain" rather than quietly proposing a multi-render spend. A single
+ * beat is not a chain either — it is the ordinary single render, and chaining it would cost more
+ * for the same shot.
+ */
+export function parseBeats(raw: unknown, defaultDurationSec: number): { prompt: string; durationSec?: number }[] | undefined {
+  if (!Array.isArray(raw)) return undefined;
+  const beats = raw
+    .map((b) => {
+      const o = (b ?? {}) as Record<string, unknown>;
+      const prompt = typeof o.prompt === 'string' ? o.prompt.trim() : '';
+      if (!prompt) return null;
+      const d = typeof o.durationSec === 'number' && o.durationSec > 0 ? Math.round(o.durationSec) : defaultDurationSec;
+      return { prompt, durationSec: d };
+    })
+    .filter((b): b is { prompt: string; durationSec: number } => b != null);
+  return beats.length >= 2 ? beats : undefined;
 }
 
 /** Translate coordinator events into the agent's stream shape. */

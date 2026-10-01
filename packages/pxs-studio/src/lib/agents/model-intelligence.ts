@@ -66,7 +66,7 @@ import {
 import { getLiveCatalog } from './live-catalog';
 import { videoModelsForDoctrine, MEDIA_MODELS } from '../engine/media-registry';
 import { sweepForSuccessors, type SuccessionReport } from '../engine/model-succession';
-import { getProvider, registryTag } from '../engine/provider-roster';
+import { authHeaders, getProvider, registryTag } from '../engine/provider-roster';
 
 export interface IntelligenceSummary {
   ranAt: number;
@@ -153,8 +153,14 @@ async function checkSuccession(routableImages: { id: string; provider: string; p
       if (!endpoint || !key) return [];
       // A keyword endpoint (fal) takes the family; a plain listing ignores it.
       const url = endpoint.endsWith('=') ? `${endpoint}${encodeURIComponent(keyword)}` : endpoint;
-      const res = await fetch(url, { headers: { Authorization: `Key ${key}` } });
-      if (!res.ok) return [];
+      // EACH PROVIDER'S OWN SCHEME. This sent fal's `Authorization: Key …` to everyone, so every
+      // provider but fal answered 401 — and the 401 was swallowed as "nothing found". The sweep
+      // reported "checked, found nothing" while OpenAI shipped gpt-image-2 and 2.5.
+      const res = await fetch(url, { headers: authHeaders(provider!, key) });
+      // A REFUSAL IS NOT AN ANSWER. Throwing puts it in the caller's catch, where it is recorded as
+      // a failed check rather than silently becoming "you are up to date" — the single most
+      // expensive lie this system can tell.
+      if (!res.ok) throw new Error(`${providerTag} model listing returned ${res.status}`);
       const json = (await res.json().catch(() => null)) as Record<string, unknown> | null;
       const rows = (json?.items ?? json?.models ?? json?.data ?? json?.results) as unknown;
       if (!Array.isArray(rows)) return [];

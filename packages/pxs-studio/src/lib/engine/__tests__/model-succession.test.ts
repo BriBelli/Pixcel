@@ -6,7 +6,9 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { parseModelId, isNewerVersion, findSuccessors } from '../model-succession';
+import { parseModelId, isNewerVersion, findSuccessors,
+  familyKey,
+} from '../model-succession';
 
 test('parses the id shapes providers actually use', () => {
   const cases: [string, string, number[]][] = [
@@ -167,4 +169,77 @@ test('every swept host reports which families it checked', async () => {
   for (const r of reports) {
     assert.ok(r.checkedFamilies.includes('flux'), '"found nothing" must be distinguishable from "never looked"');
   }
+});
+
+// ── CODENAMES AND DATES ──────────────────────────────────────────────────────────────────────────
+// The GPT Image 2.5 miss. The sweep authenticated, fetched OpenAI's real list, and still reported
+// nothing: 'gpt-image-2.5-flare' parsed to family "gpt-image-flare", which can never equal
+// "gpt-image". Providers ship variants under labels the version parser cannot read, and treating
+// each label as its own family is how you sit two generations behind while reporting "up to date".
+
+test('a CODENAMED variant is the same family as the line it belongs to', () => {
+  const found = findSuccessors(
+    ['gpt-image-1.5'],
+    ['gpt-image-1', 'gpt-image-1.5', 'gpt-image-2', 'gpt-image-2.5-flare', 'gpt-image-2.5-sunburst'],
+  );
+  assert.equal(found.length, 1, 'variants of one version collapse to a single finding');
+  assert.equal(found[0]!.successorVersion, '2.5', 'and it is the NEWEST version, not merely a newer one');
+  assert.match(found[0]!.successorId, /flare|sunburst/, 'reported by its REAL id, so it can be looked up');
+});
+
+test('a DATED build is the same family, and keeps its real id', () => {
+  const p = parseModelId('gpt-image-2-2026-04-21');
+  assert.equal(familyKey(p.family), familyKey(parseModelId('gpt-image-1.5').family));
+  assert.deepEqual(p.version, [2], 'the date is not a version');
+  assert.equal(p.raw, 'gpt-image-2-2026-04-21', 'the id we report must be the id that exists');
+});
+
+test('a variant label does NOT invent a version bump', () => {
+  // grok-imagine-image-quality is a sibling of 2.0, not a successor to it.
+  const found = findSuccessors(
+    ['grok-imagine-image-2.0'],
+    ['grok-imagine-image', 'grok-imagine-image-2.0', 'grok-imagine-image-quality'],
+  );
+  assert.deepEqual(found, [], 'an unversioned sibling must never read as an upgrade');
+});
+
+test('an older version is never reported as a successor', () => {
+  assert.deepEqual(findSuccessors(['gpt-image-2'], ['gpt-image-1', 'gpt-image-1.5']), []);
+});
+
+// ── NOT EVERY NUMBER IS A VERSION, NOT EVERY SIBLING IS A SUCCESSOR ──────────────────────────────
+// Prefix-tolerant matching is permissive by design, and the first live run showed the cost: four of
+// eight findings were junk. A detector that cries wolf half the time gets ignored, which is the same
+// outcome as the silence it replaced.
+
+test('a TEXT model is never the successor to an image model', () => {
+  assert.deepEqual(
+    findSuccessors(['gpt-image-1.5'], ['gpt-6.1-sol', 'gpt-5.2']),
+    [],
+    'gpt-6.1 is a text model — a line does not change what it produces',
+  );
+  assert.deepEqual(findSuccessors(['grok-imagine-image-2.0'], ['grok-4.7']), []);
+});
+
+test('an implausible jump is a number that is not a version', () => {
+  // fal writes Gemini 2.5 as 'gemini-25-flash-image'; 'recraft-20b' is a parameter count.
+  assert.deepEqual(findSuccessors(['gemini-3-pro-image'], ['gemini-25-flash-image']), []);
+  assert.deepEqual(findSuccessors(['recraft-v4.1'], ['recraft-20b']), []);
+});
+
+test('but a REAL upgrade still lands', () => {
+  const real = findSuccessors(['gpt-image-1.5'], ['gpt-image-2.5-sunburst']);
+  assert.equal(real.length, 1, 'the whole point is still to catch this one');
+  assert.equal(real[0]!.successorVersion, '2.5');
+
+  assert.equal(findSuccessors(['ideogram-v3'], ['ideogram/v4.5/edit']).length, 1, 'v3 → v4.5');
+  assert.equal(findSuccessors(['flux-2-pro'], ['flux-3-pro']).length, 1, 'flux 2 → 3');
+});
+
+test('video lines match video successors', () => {
+  assert.equal(
+    findSuccessors(['kling-3'], ['fal-ai/kling-video/o3/4k/video-to-video']).length,
+    1,
+    'a video model may still succeed a video model',
+  );
 });

@@ -35,7 +35,10 @@ export interface ParsedModelId {
  *   recraftv4_1                          → family 'recraft',                           v [4,1]
  *   flux-2-pro                           → family 'flux-pro',                          v [2]
  */
-export function parseModelId(id: string): ParsedModelId {
+export function parseModelId(rawId: string): ParsedModelId {
+  // Strip the variant label BEFORE parsing, so the version is read from the id the provider
+  // versioned rather than from a codename bolted onto the end of it.
+  const id = stripVariantSuffix(rawId);
   // Some providers glue the version straight onto the name with no separator ('recraftv4_1',
   // 'recraftv3'). Insert one so a single rule handles both conventions — without this, 'recraftv4_1'
   // parses as family 'recraftv4' version 1, and never matches 'recraftv3' as its predecessor.
@@ -55,7 +58,7 @@ export function parseModelId(id: string): ParsedModelId {
     // Rejoin path segments so 'bytedance-seedance-text-to-video' compares cleanly.
     .replace(/-+/g, '-');
 
-  return { family, version, raw: id };
+  return { family, version, raw: rawId };
 }
 
 /** Is `a` a strictly newer version than `b`? Compares component by component. */
@@ -101,8 +104,25 @@ export function findSuccessors(curatedIds: string[], liveIds: string[]): Success
     for (const l of live) {
       // Compared on the host-agnostic key, so a successor that appeared first on another host still
       // matches the record we hold.
-      if (familyKey(l.family) !== cKey) continue;
+      const lKey = familyKey(l.family);
+      if (!sameFamily(lKey, cKey)) continue;
+
+      // TOLERANCE IS EARNED, NOT ASSUMED.
+      //
+      // An EXACT family match is strong evidence by itself — take it even when the candidate's id
+      // says nothing about what it produces.
+      //
+      // A PREFIX match is only a guess that two ids are the same line, and the first live run showed
+      // what the guess costs: 'grok-imagine-image-2.0' matched 'grok-4.7' and 'gpt-image-1.5'
+      // matched 'gpt-6.1-sol' — both TEXT models, reported as successors to image models. So a
+      // guessed match must be CONFIRMED by the media kind agreeing, and an id that declares no kind
+      // confirms nothing.
+      const ourKind = mediaKind(c.raw);
+      const theirKind = mediaKind(l.raw);
+      if (ourKind !== theirKind && !(lKey === cKey && theirKind === 'unknown')) continue;
       if (!isNewerVersion(l.version, c.version)) continue;
+      // A number in an id is not always a version — see plausibleJump.
+      if (!plausibleJump(c.version, l.version)) continue;
       if (!best || isNewerVersion(l.version, best.version)) best = l;
     }
     if (best) {
@@ -154,7 +174,76 @@ const FAMILY_NOISE = new Set([
   'text', 'to', 'video', 'image', 'reference', 'edit', 'fast', 'pro', 'dev', 'lite', 'turbo',
   'bytedance', 'alibaba', 'google', 'openai', 'black', 'forest', 'labs', 'blackforestlabs', 'fal',
   'ai', 'stability', 'stabilityai', 'base', 'large', 'medium', 'small', 'max', 'mini', 'preview',
+  'quality', 'standard', 'ultra', 'plus', 'latest', 'beta', 'exp', 'experimental',
 ]);
+
+/**
+ * A DATED or CODENAMED suffix — `-2026-09-08`, `-flare`, `-sunburst`.
+ *
+ * Providers ship variants under names the version parser cannot read. `gpt-image-2.5-flare` parsed
+ * to family "gpt-image-flare", which can never equal "gpt-image", so GPT Image 2.5 was invisible to
+ * the sweep even once it could authenticate. A trailing date is unambiguous; a trailing single word
+ * after a version number is a variant label, not a new family — "gpt-image-2.5-flare" is still the
+ * gpt-image line, and treating it as its own family is how you sit two generations behind.
+ */
+function stripVariantSuffix(id: string): string {
+  // Only the DATE is stripped here, because only the date is unambiguous. A trailing word might be
+  // a TIER that genuinely distinguishes a model ('flux-2-pro' vs 'flux-2-dev') or a meaningless
+  // codename ('gpt-image-2.5-flare'), and no rule can tell them apart from the string alone.
+  // Codenames are handled by tolerant MATCHING instead — see `sameFamily`.
+  return id.replace(/-\d{4}-\d{2}-\d{2}$/, '');
+}
+
+/**
+ * Do two ids belong to the same model LINE?
+ *
+ * Exact key equality is too strict, because providers bolt unpredictable labels onto a line:
+ * 'gpt-image-2.5-flare' keys to "gpt-flare" while our 'gpt-image-1.5' keys to "gpt". A word list of
+ * codenames would work until the next codename, which is the hardcoding trap this whole system
+ * exists to avoid — so the rule is structural instead: one key being a PREFIX of the other means the
+ * longer one is the shorter line plus a label.
+ *
+ * Deliberately permissive. Within a single provider's own family search, over-matching costs a
+ * finding the operator reads and dismisses; under-matching costs two whole generations shipped
+ * without anyone noticing. We have now paid the second price twice.
+ */
+/**
+ * Which MEDIA a model id advertises. Prefix-tolerant family matching is permissive by design, and
+ * the cost showed up immediately: 'gpt-image-1.5' matched 'gpt-6.1-sol' and 'grok-imagine-image-2.0'
+ * matched 'grok-4.7' — both TEXT models, both reported as successors to an image model. A line does
+ * not change what it produces, so the kind has to agree.
+ */
+function mediaKind(id: string): 'image' | 'video' | 'audio' | 'unknown' {
+  const v = id.toLowerCase();
+  if (/\b(video|veo|seedance|kling|sora|runway)\b|video/.test(v)) return 'video';
+  if (/\b(tts|speech|audio|music|lyria|voice)\b/.test(v)) return 'audio';
+  if (/image|imagen|dall|flux|recraft|ideogram|diffusion|qwen-image/.test(v)) return 'image';
+  return 'unknown';
+}
+
+/**
+ * Is this version jump believable?
+ *
+ * Provider ids carry numbers that are not versions. fal writes Gemini 2.5 as 'gemini-25-flash', so
+ * it parses as version 25 and looks like a colossal upgrade over our 3; 'recraft-20b' is a parameter
+ * count and reads as version 20 over our 4.1. Both were reported as successors.
+ *
+ * A real line does not jump an order of magnitude. Anything beyond a few majors ahead is a number
+ * that is not a version, and saying nothing beats sending the operator to check a model that does
+ * not exist.
+ */
+function plausibleJump(from: number[], to: number[]): boolean {
+  const a = from[0] ?? 0;
+  const b = to[0] ?? 0;
+  if (a === 0) return b <= 5;
+  return b <= a + 3;
+}
+
+function sameFamily(a: string, b: string): boolean {
+  if (a === b) return true;
+  const [short, long] = a.length <= b.length ? [a, b] : [b, a];
+  return long.startsWith(`${short}-`);
+}
 
 /**
  * The host-agnostic identity of a model family.
@@ -166,7 +255,7 @@ const FAMILY_NOISE = new Set([
  * differently per host and every host bolts its endpoint path on; neither changes what the model IS.
  */
 export function familyKey(family: string): string {
-  const words = family.split('-').filter((w) => w && !FAMILY_NOISE.has(w));
+  const words = stripVariantSuffix(family).split('-').filter((w) => w && !FAMILY_NOISE.has(w));
   return words.join('-') || family;
 }
 

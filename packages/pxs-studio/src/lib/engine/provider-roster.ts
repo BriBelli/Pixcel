@@ -48,6 +48,16 @@ export interface Provider {
    *  from the roster `id` — Google's image models are tagged `'gemini'`, not `'google'`. Defaults to
    *  `id`. Bridges roster↔registry without renaming the adapter-facing tag. */
   registryTag?: string;
+  /**
+   * How this company's API expects the key.
+   *
+   * It lives here because it is an API FACT, exactly like the endpoint and the env var — and because
+   * assuming one scheme for everyone is not a hypothetical failure. The succession sweep sent fal's
+   * `Authorization: Key …` to every provider, got 401 from all of them, swallowed it as "nothing
+   * found", and reported "checked, found nothing" for eight days while OpenAI shipped two whole
+   * generations. Default: bearer.
+   */
+  auth?: 'bearer' | 'key-header' | 'goog-api-key' | 'api-key-header';
   /** Why it's here / notable constraint (policy tier, "Flux lives here", "dropped because…"). */
   note?: string;
 }
@@ -63,6 +73,7 @@ export interface Provider {
 export const PROVIDERS: Provider[] = [
   {
     id: 'google',
+    auth: 'goog-api-key',
     label: 'Google (Gemini / Veo / Imagen / Lyria)',
     envKey: 'GEMINI_API_KEY',
     docsUrl: 'https://ai.google.dev/gemini-api/docs/models',
@@ -113,6 +124,7 @@ export const PROVIDERS: Provider[] = [
   },
   {
     id: 'ideogram',
+    auth: 'api-key-header',
     label: 'Ideogram (typography)',
     envKey: 'IDEOGRAM_API_KEY',
     docsUrl: 'https://developer.ideogram.ai/api-reference',
@@ -164,6 +176,7 @@ export const PROVIDERS: Provider[] = [
   },
   {
     id: 'fal',
+    auth: 'key-header',
     label: 'fal',
     envKey: 'FAL_API_KEY',
     docsUrl: 'https://fal.ai/models',
@@ -179,6 +192,20 @@ export const PROVIDERS: Provider[] = [
       'per model family (see model-succession).',
   },
 ];
+
+/** The request headers this provider's API expects for a given key. */
+export function authHeaders(p: Provider, key: string): Record<string, string> {
+  switch (p.auth) {
+    case 'goog-api-key':
+      return { 'x-goog-api-key': key };
+    case 'api-key-header':
+      return { 'Api-Key': key };
+    case 'key-header':
+      return { Authorization: `Key ${key}` };
+    default:
+      return { Authorization: `Bearer ${key}` };
+  }
+}
 
 /** Look a provider up by id. */
 export function getProvider(id: string): Provider | undefined {

@@ -92,10 +92,30 @@ export interface Succession {
  * Seedance 2.5 doubles clip length but drops 4K, so "newer" is not always "better for this job", and
  * deciding that requires reading the docs, which is the research pass's work.
  */
-export function findSuccessors(curatedIds: string[], liveIds: string[]): Succession[] {
+export function findSuccessors(
+  curatedIds: string[],
+  liveIds: string[],
+  /**
+   * The WHOLE catalog, when the caller has it.
+   *
+   * The sweep works one family at a time, so `curatedIds` is usually a single model — and a `held`
+   * set built from that alone knows nothing about the rest of the registry. That is how
+   * "gemini-3-pro-image → gemini-3.1-flash-image" kept being reported while gemini-3.1-flash-image
+   * sat in the catalog: the call that found it had never heard of it. Defaults to `curatedIds`.
+   */
+  heldIds: string[] = curatedIds,
+): Succession[] {
   const curated = curatedIds.map(parseModelId).filter((p) => p.version.length > 0);
   const live = liveIds.map(parseModelId).filter((p) => p.version.length > 0);
   const out: Succession[] = [];
+
+  /**
+   * What we ALREADY carry, as family + version. A finding the operator has already acted on trains
+   * them to skim the report, which is how the next real one gets missed.
+   */
+  const held = new Set(
+    heldIds.map(parseModelId).filter((p) => p.version.length > 0).map((p) => `${familyKey(p.family)}:${p.version.join('.')}`),
+  );
 
   for (const c of curated) {
     // The newest live id in the same family, if it beats what we have.
@@ -107,22 +127,23 @@ export function findSuccessors(curatedIds: string[], liveIds: string[]): Success
       const lKey = familyKey(l.family);
       if (!sameFamily(lKey, cKey)) continue;
 
-      // TOLERANCE IS EARNED, NOT ASSUMED.
+      // A LINE DOES NOT CHANGE WHAT IT PRODUCES.
       //
-      // An EXACT family match is strong evidence by itself — take it even when the candidate's id
-      // says nothing about what it produces.
+      // The family key deliberately strips 'image' and 'video' as noise so the same line matches
+      // across hosts that spell it differently — which also destroys the only signal separating an
+      // image line from a text one. 'gpt-image-1.5' and 'gpt-4.1' both key to "gpt", so the text
+      // model read as an exact-family successor to the image model.
       //
-      // A PREFIX match is only a guess that two ids are the same line, and the first live run showed
-      // what the guess costs: 'grok-imagine-image-2.0' matched 'grok-4.7' and 'gpt-image-1.5'
-      // matched 'gpt-6.1-sol' — both TEXT models, reported as successors to image models. So a
-      // guessed match must be CONFIRMED by the media kind agreeing, and an id that declares no kind
-      // confirms nothing.
-      const ourKind = mediaKind(c.raw);
-      const theirKind = mediaKind(l.raw);
-      if (ourKind !== theirKind && !(lKey === cKey && theirKind === 'unknown')) continue;
+      // So the kind is checked on the RAW ids, where the word survives, and it must AGREE. An
+      // exemption for ids that declare no kind is what let 'gpt-4.1' and 'grok-4.7' through; every
+      // real successor here names its medium, so requiring it costs nothing and removes the whole
+      // class of false positive.
+      if (mediaKind(c.raw) !== mediaKind(l.raw)) continue;
       if (!isNewerVersion(l.version, c.version)) continue;
       // A number in an id is not always a version — see plausibleJump.
       if (!plausibleJump(c.version, l.version)) continue;
+      // Already in the catalog under another record — a real newer version, and old news.
+      if (held.has(`${lKey}:${l.version.join('.')}`)) continue;
       if (!best || isNewerVersion(l.version, best.version)) best = l;
     }
     if (best) {
@@ -135,12 +156,15 @@ export function findSuccessors(curatedIds: string[], liveIds: string[]): Success
       });
     }
   }
-  // De-duplicate: several endpoint variants of one model collapse to one finding.
+  // De-duplicate on the SUCCESSOR, not on our own record.
+  //
+  // One discovery is one finding. Keying on the current model's family reported the same new model
+  // once per record that could claim it — hold a `pro` and a `flash` line and the arrival of
+  // Gemini 4 lands twice, which reads as two things to chase.
   const seen = new Set<string>();
   return out.filter((s) => {
-    const key = `${familyKey(s.family)}:${s.successorVersion}`;
-    if (seen.has(key)) return false;
-    seen.add(key);
+    if (seen.has(s.successorId)) return false;
+    seen.add(s.successorId);
     return true;
   });
 }
@@ -302,6 +326,22 @@ export async function sweepForSuccessors(
 
   const hosts = providers?.length ? providers : Array.from(new Set(models.map((m) => m.provider)));
 
+  // The WHOLE catalog, so a per-family check still knows what the registry already holds.
+  const heldIds = models.map((m) => m.providerModelId ?? m.id);
+
+  /**
+   * One DISCOVERY is one finding, across every host.
+   *
+   * The same model is listed by several hosts under different ids — GPT Image 2.5 is
+   * 'gpt-image-2.5-flare' on OpenAI and 'openai/gpt-image-2.5/sunburst/edit' on fal — so
+   * de-duplicating inside a single provider's pass still reported it once per host.
+   *
+   * Keyed on OUR family plus the version, because the successors' own keys are exactly what differs:
+   * the codenames resolve to "gpt-flare" and "gpt-sunburst". What is stable across every host is the
+   * record this concerns and the version that beat it.
+   */
+  const announced = new Set<string>();
+
   const reports: SuccessionReport[] = [];
   for (const provider of hosts) {
     const successions: Succession[] = [];
@@ -312,7 +352,10 @@ export async function sweepForSuccessors(
       try {
         const live = await deps.search(provider, f.keyword);
         // Map any successor back to OUR registry id, so the report names the record to update.
-        for (const s of findSuccessors([f.curatedId], live)) {
+        for (const s of findSuccessors([f.curatedId], live, heldIds)) {
+          const discovery = `${f.keyword}:${s.successorVersion}`;
+          if (announced.has(discovery)) continue;
+          announced.add(discovery);
           successions.push({ ...s, currentId: f.registryId });
         }
       } catch {

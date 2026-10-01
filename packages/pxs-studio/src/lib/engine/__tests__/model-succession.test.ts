@@ -243,3 +243,54 @@ test('video lines match video successors', () => {
     'a video model may still succeed a video model',
   );
 });
+
+test('a text model is rejected even on an EXACT family key match', () => {
+  // The family key strips 'image' as noise, so 'gpt-image-1.5' and 'gpt-4.1' both key to "gpt".
+  // Only the raw ids still carry the medium, which is why the kind is checked there.
+  assert.deepEqual(findSuccessors(['gpt-image-1.5'], ['gpt-4.1', 'gpt-5']), []);
+});
+
+test('a version we ALREADY carry is not reported as news', () => {
+  const found = findSuccessors(
+    ['gemini-3-pro-image', 'gemini-3.1-flash-image'],
+    ['gemini-3.1-flash-image-preview'],
+  );
+  assert.deepEqual(found, [], 'we hold 3.1 already — reporting it trains the operator to skim');
+});
+
+test('…but an unheld newer version in the same family still reports', () => {
+  const found = findSuccessors(['gemini-3-pro-image', 'gemini-3.1-flash-image'], ['gemini-4-pro-image']);
+  assert.equal(found.length, 1);
+  assert.equal(found[0]!.successorVersion, '4');
+});
+
+test('the sweep reports ONE finding per discovery, not one per host', async () => {
+  // GPT Image 2.5 is 'gpt-image-2.5-flare' on OpenAI and 'openai/gpt-image-2.5/sunburst/edit' on
+  // fal — the same thing shipping, listed twice.
+  const catalog: Record<string, string[]> = {
+    openai: ['gpt-image-1.5', 'gpt-image-2.5-flare'],
+    fal: ['openai/gpt-image-2.5/sunburst/edit'],
+  };
+  const reports = await sweepForSuccessors(
+    [{ id: 'gpt-image-1.5', provider: 'openai', providerModelId: 'gpt-image-1.5' }],
+    { search: async (p) => catalog[p] ?? [] },
+    ['openai', 'fal'],
+  );
+  const all = reports.flatMap((r) => r.successions);
+  assert.equal(all.length, 1, 'one model shipped, so one finding');
+  assert.equal(all[0]!.successorVersion, '2.5');
+});
+
+test('the sweep knows the WHOLE catalog when judging what is already held', async () => {
+  // The sweep checks one family at a time, so without the full catalog a per-family call has never
+  // heard of our other records — which is how an already-registered model kept being "discovered".
+  const reports = await sweepForSuccessors(
+    [
+      { id: 'gemini-3-pro-image', provider: 'gemini', providerModelId: 'gemini-3-pro-image' },
+      { id: 'gemini-3.1-flash-image', provider: 'gemini', providerModelId: 'gemini-3.1-flash-image' },
+    ],
+    { search: async () => ['gemini-3.1-flash-image-preview'] },
+    ['gemini'],
+  );
+  assert.deepEqual(reports.flatMap((r) => r.successions), [], 'we already hold 3.1');
+});

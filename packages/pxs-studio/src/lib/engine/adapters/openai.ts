@@ -20,7 +20,16 @@ import {
 } from '../executor';
 import { fetchAsBlob, reasonForStatus, referenceLegend } from './_util';
 
-const API_MODEL: Record<string, string> = { 'gpt-image-1.5': 'gpt-image-1.5', 'gpt-image-1': 'gpt-image-1' };
+// GPT Image 2.5 ships as two SIBLING variants (flare, sunburst), both dated 2026-09-04 with pinned
+// builds on 09-08. Nothing in the API distinguishes them and the research sources are resellers, so
+// both are registered and the fan-out decides — which is what a fan-out is for.
+// The UNPINNED alias is used deliberately: the dated id freezes a build, and we want the line.
+const API_MODEL: Record<string, string> = {
+  'gpt-image-2.5-flare': 'gpt-image-2.5-flare',
+  'gpt-image-2.5-sunburst': 'gpt-image-2.5-sunburst',
+  'gpt-image-1.5': 'gpt-image-1.5',
+  'gpt-image-1': 'gpt-image-1',
+};
 
 /** Map our aspect ratios onto the gpt-image family's supported sizes; 'auto' when unspecified/unknown. */
 const SIZE_FOR: Record<string, string> = {

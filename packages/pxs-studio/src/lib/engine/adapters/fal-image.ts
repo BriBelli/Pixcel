@@ -53,6 +53,25 @@ const ENDPOINTS: Record<string, FalImageEndpoint> = {
     referenceParam: 'image_urls',
     referencesAreList: true,
   },
+  // FLUX.3 — found by the succession sweep 2026-10-01, researched HIGH confidence: 1-10 image_urls
+  // on the edit endpoint, native 512sq-4k, and multi-turn edits that preserve untouched pixels.
+  'flux-3-pro': {
+    generate: 'blackforestlabs/flux-3/text-to-image',
+    edit: 'blackforestlabs/flux-3/edit-image',
+    costUsd: [0.04, 0.09],
+    referenceParam: 'image_urls',
+    referencesAreList: true,
+  },
+  // Ideogram 4.5 — found by the sweep 2026-10-01 on fal, and fal ONLY: ideogram's own API answers
+  // 404 for v4.5 (and v4 there has a changed contract, text_prompt/json_prompt, which our direct
+  // adapter does not speak). Researched HIGH confidence.
+  'ideogram-v4.5': {
+    generate: 'ideogram/v4.5',
+    edit: 'ideogram/v4.5/edit',
+    costUsd: [0.04, 0.09],
+    referenceParam: 'image_urls',
+    referencesAreList: true,
+  },
   'sd-3.5-large': {
     generate: 'fal-ai/stable-diffusion-v35-large',
     costUsd: [0.02, 0.04],

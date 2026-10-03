@@ -15,6 +15,7 @@ import Anthropic from '@anthropic-ai/sdk';
 import { tavilySearch, tavilyConfigured, type WebResult } from './tavily';
 import { AGENT_MODELS } from '../model-config';
 import { parseJsonResponse, responseText, wasTruncated } from './json-response';
+import { withRetry } from './retry';
 import type { ModelStrengths, InputSlot, SlotRole } from '../../engine/model-registry';
 import { normalizeContentPolicy, type ContentPolicy } from '../../engine/content-policy';
 
@@ -144,7 +145,10 @@ export async function researchModelCapabilities(
 
   const sources = results.map((r) => ({ url: r.url, title: r.title }));
   try {
-    const msg = await client.messages.create({
+    // Retried on TRANSIENT failures only. Without this a single timeout returned an empty result,
+    // which is indistinguishable from "researched, nothing notable" — and the record then persists
+    // as researched with nothing in it.
+    const msg = await withRetry(() => client.messages.create({
       model: MODEL,
       // Sized for the FULL schema (9 strength axes + input slots + capabilities + aspect ratios)
       // with thinking on. It was 1024 — enough for the original small schema, and after the schema
@@ -153,7 +157,14 @@ export async function researchModelCapabilities(
       thinking: { type: 'adaptive' },
       system: SYSTEM,
       messages: [{ role: 'user', content: `MODEL: ${model.label} (${model.provider})\n\nSEARCH RESULTS:\n${corpus}` }],
-    } as unknown as Anthropic.MessageCreateParamsNonStreaming);
+    } as unknown as Anthropic.MessageCreateParamsNonStreaming,
+      // An EXPLICIT timeout. The SDK derives one from max_tokens, and with adaptive thinking over a
+      // ~16KB corpus that derived budget is too tight — GPT Image 2.5 and Ideogram 4.5 timed out on
+      // all three attempts while a smaller corpus (FLUX.3) went through first time. A research call
+      // that reads a dozen pages is allowed to take minutes; what it is not allowed to do is fail
+      // silently, which is what the retry above now prevents.
+      { timeout: 8 * 60 * 1000 },
+    ), { label: `research:${model.id}` });
 
     const parsed = parseJsonResponse(responseText(msg));
     if (!parsed) {
@@ -190,7 +201,10 @@ export async function researchModelCapabilities(
       sources,
     };
   } catch (err) {
-    console.warn('[research] extraction failed:', err);
+    // Every attempt failed. The sources are still returned so the caller can see we LOOKED — but
+    // confidence stays 'low', which keeps the record due for another pass rather than banking a
+    // transport failure as a researched fact.
+    console.warn(`[research] ${model.id}: extraction failed after retries —`, err);
     return { ...base, sources };
   }
 }

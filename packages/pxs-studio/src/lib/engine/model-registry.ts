@@ -490,6 +490,112 @@ export const IMAGE_MODELS: ImageModel[] = [
     promptFormula: XAI_IMAGE_FORMULA,
     sourceRefreshedAt: VERIFIED,
   },
+  // ── ADOPTED 2026-10-03, after the succession sweep finally worked ───────────────────────────
+  // The sweep had reported "checked, found nothing" for weeks while sending fal's auth header to
+  // every provider and swallowing the 401s. With that fixed it immediately found four lines we were
+  // behind on. These are three of them; Kling o3 is video and lands separately.
+  //
+  // GPT IMAGE 2.5 ships as two SIBLING variants — flare and sunburst, both 2026-09-04, nothing in
+  // the API saying what differs and no authoritative docs to research (the only sources are
+  // resellers, and the researcher correctly refused to invent facts from them). So the facts below
+  // are the ones TESTING established: both answer /v1/images/edits with multiple source images and
+  // honour n. The craft profile is the generation's, pending real research — and Brian's own
+  // comparisons have beaten the researched scores twice already, so the fan-out is the better judge.
+  {
+    id: 'gpt-image-2.5-flare',
+    label: 'GPT Image 2.5 Flare (OpenAI)',
+    provider: 'openai',
+    envKey: 'OPENAI_API_KEY',
+    providerModelId: 'gpt-image-2.5-flare',
+    tier: 3,
+    strengths: { photorealism: 4, prompt_adherence: 5, editing: 5, style_versatility: 4, text_rendering: 4, speed: 3, resolution: 4, consistency: 4, multimodal: 4 },
+    capabilities: ['editing', 'multi_reference', 'photorealism', 'text_in_image', 'high_resolution'],
+    bestFor: ['multi-subject composition', 'native editing', 'complex prompt adherence'],
+    supportsEditing: true,
+    maxReferenceImages: 16,
+    aspectRatios: ['1:1', '16:9', '9:16', '3:2', '2:3'],
+    costPerImageUsd: [0.04, 0.17],
+    maxBatchN: 4,
+    batchStrategy: 'native',
+    brief:
+      'GPT Image 2.5 (Flare) — the generation after 1.5, shipped 2026-09-04. Verified live 2026-10-03: ' +
+      'edits accept multiple source images and n is honoured. One of two sibling variants; what ' +
+      'separates Flare from Sunburst is not documented, so both are routable and the fan-out decides.',
+    sourceRefreshedAt: '2026-10-03',
+  },
+  {
+    id: 'gpt-image-2.5-sunburst',
+    label: 'GPT Image 2.5 Sunburst (OpenAI)',
+    provider: 'openai',
+    envKey: 'OPENAI_API_KEY',
+    providerModelId: 'gpt-image-2.5-sunburst',
+    tier: 3,
+    strengths: { photorealism: 4, prompt_adherence: 5, editing: 5, style_versatility: 4, text_rendering: 4, speed: 3, resolution: 4, consistency: 4, multimodal: 4 },
+    capabilities: ['editing', 'multi_reference', 'photorealism', 'text_in_image', 'high_resolution'],
+    bestFor: ['multi-subject composition', 'native editing', 'complex prompt adherence'],
+    supportsEditing: true,
+    maxReferenceImages: 16,
+    aspectRatios: ['1:1', '16:9', '9:16', '3:2', '2:3'],
+    costPerImageUsd: [0.04, 0.17],
+    maxBatchN: 4,
+    batchStrategy: 'native',
+    brief:
+      'GPT Image 2.5 (Sunburst) — the sibling to Flare, same ship date, same verified API shape. ' +
+      'Registered alongside it rather than guessing which is better: that is a question a render ' +
+      'answers and a spec sheet does not.',
+    sourceRefreshedAt: '2026-10-03',
+  },
+  // FLUX.3 — researched HIGH confidence from fal's own model pages (2026-10-03). The multi-turn
+  // edit behaviour is the notable one: untouched pixels are PRESERVED, which is exactly what FLUX.2
+  // failed to do on Brian's outpaint, where it reinterpreted the car instead of extending the frame.
+  {
+    id: 'flux-3-pro',
+    label: 'FLUX.3 (fal)',
+    provider: 'fal',
+    envKey: 'FAL_API_KEY',
+    providerModelId: 'blackforestlabs/flux-3/text-to-image',
+    tier: 3,
+    strengths: { photorealism: 5, prompt_adherence: 5, editing: 5, style_versatility: 4, text_rendering: 4, speed: 3, resolution: 5, consistency: 4, multimodal: 3 },
+    capabilities: ['text_in_image', 'editing', 'multi_reference', 'high_resolution', 'photorealism'],
+    bestFor: ['advertising layouts', 'product imagery', 'typography', 'multi-reference composition', 'iterative multi-turn edits'],
+    supportsEditing: true,
+    maxReferenceImages: 10,
+    aspectRatios: ['21:9', '2:1', '16:9', '3:2', '7:5', '4:3', '5:4', '1:1', '4:5', '3:4', '5:7', '2:3', '9:16', '1:2'],
+    costPerImageUsd: [0.04, 0.09],
+    maxBatchN: 4,
+    batchStrategy: 'native',
+    brief:
+      'FLUX.3 — the generation after FLUX.2, reached via fal. Edit endpoint takes 1-10 reference ' +
+      'images (>=256px/side, <=4MP each); native output 512sq to 4K; MULTI-TURN EDITS PRESERVE ' +
+      'UNTOUCHED PIXELS, which is the capability FLUX.2 lacked when it reinterpreted an outpaint ' +
+      'instead of extending it. Researched high confidence 2026-10-03 from fal model docs.',
+    sourceRefreshedAt: '2026-10-03',
+  },
+  // Ideogram 4.5 — fal ONLY. ideogram.ai answers 404 for v4.5, and its v4 endpoint has a changed
+  // contract (text_prompt/json_prompt) our direct adapter does not speak. Researched HIGH confidence.
+  {
+    id: 'ideogram-v4.5',
+    label: 'Ideogram 4.5 (fal)',
+    provider: 'fal',
+    envKey: 'FAL_API_KEY',
+    providerModelId: 'ideogram/v4.5',
+    tier: 3,
+    strengths: { photorealism: 3, prompt_adherence: 3, editing: 4, style_versatility: 3, text_rendering: 4, speed: 3, resolution: 4, consistency: 4, multimodal: 3 },
+    capabilities: ['text_in_image', 'editing', 'multi_reference', 'high_resolution'],
+    bestFor: ['typography and in-image text', 'iterative multi-pass editing', 'product and commercial imagery', 'text correction in existing images', 'character-consistent edits'],
+    supportsEditing: true,
+    maxReferenceImages: 5,
+    aspectRatios: ['1:1', '16:9', '9:16', '4:3', '3:4', '3:2', '2:3', '5:4', '4:5', '16:10', '10:16', '2:1'],
+    costPerImageUsd: [0.04, 0.09],
+    maxBatchN: 4,
+    batchStrategy: 'native',
+    brief:
+      'Ideogram 4.5 — the typography specialist, two generations on from our 3.0, reachable only ' +
+      'through fal. Edits take 1 source + up to 4 references (3 with a mask; black edits, white ' +
+      'preserves); 1K/2K presets with high-res region editing of images up to ~24MP; prompts to ' +
+      '10,000 characters. Researched high confidence 2026-10-03.',
+    sourceRefreshedAt: '2026-10-03',
+  },
   // ── fal, as an IMAGE host ────────────────────────────────────────────────────────────────────
   // fal was wired for video only while the roster always declared it ['image','video'], so the
   // Image picker had no fal option and FLUX was reachable only via Replicate. That was an accident

@@ -58,7 +58,12 @@ test('gate1: aspect ratio is a hint, NEVER a drop', () => {
 
 test('gate1: missing key drops the model with reason no_key', () => {
   const { survivors, dropped } = gate1Filter(req(), onlyOpenAI);
-  assert.deepEqual(survivors.map((m) => m.id), ['gpt-image-1.5']);
+  // DERIVED, not hardcoded: adopting a model should not break an unrelated test. This asserts the
+  // RULE — only the provider whose key is present survives — rather than a snapshot of the catalog
+  // on the day it was written.
+  const openaiModels = IMAGE_MODELS.filter((m) => !m.preview && !m.needsResearch && m.envKey === 'OPENAI_API_KEY');
+  assert.deepEqual(survivors.map((m) => m.id).sort(), openaiModels.map((m) => m.id).sort());
+  assert.ok(survivors.length > 0, 'the key we DO have must still route somewhere');
   assert.ok(dropped.some((d) => d.reason === 'no_key'));
 });
 

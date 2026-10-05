@@ -12,6 +12,7 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Icon, SegmentedControl } from '../ui';
+import { ModelWatchNotice } from '../ModelWatchNotice';
 import { checkRenderBudget } from '../../lib/engine/render-estimate';
 import { MEDIA_MODELS } from '../../lib/engine/media-registry';
 import { useChatTurnsStore } from '../../store/chat-turns-store';
@@ -342,6 +343,11 @@ export function RenderConfig() {
           </div>
 
           <span className="rc-note">Aspect sets the render and re-fits your references onto that frame — so a portrait reference conditions a 16:9 shot instead of being cloned.</span>
+
+          {/* NEWER MODELS. Shown HERE rather than as a global banner because this is the moment the
+              information is actionable: you are choosing between models, and some of them have a
+              newer generation you are not routing to. Silent when there is nothing to say. */}
+          {!isVideo ? <ModelWatchNotice /> : null}
         </div>
       )}
     </div>

@@ -110,12 +110,25 @@ export function findSuccessors(
   const out: Succession[] = [];
 
   /**
-   * What we ALREADY carry, as family + version. A finding the operator has already acted on trains
-   * them to skim the report, which is how the next real one gets missed.
+   * What we ALREADY carry, parsed — used to answer "does this actually beat our newest?".
+   *
+   * An exact family+version match was not enough. After adopting GPT Image 2.5 the watch still
+   * reported "gpt-image-1.5 → gpt-image-2", because 2 was not a version we held even though 2.5 is
+   * NEWER than it; the same happened for FLUX and Ideogram. Every one of those is stale news, and
+   * stale news is how a report trains you to skim it — which is exactly how the next real finding
+   * gets missed.
    */
-  const held = new Set(
-    heldIds.map(parseModelId).filter((p) => p.version.length > 0).map((p) => `${familyKey(p.family)}:${p.version.join('.')}`),
-  );
+  const heldParsed = heldIds.map(parseModelId).filter((p) => p.version.length > 0);
+
+  /** The newest version we hold anywhere in this line, or null if we hold nothing in it. */
+  const newestHeldIn = (key: string): number[] | null => {
+    let best: number[] | null = null;
+    for (const h of heldParsed) {
+      if (!sameFamily(familyKey(h.family), key)) continue;
+      if (!best || isNewerVersion(h.version, best)) best = h.version;
+    }
+    return best;
+  };
 
   for (const c of curated) {
     // The newest live id in the same family, if it beats what we have.
@@ -142,8 +155,9 @@ export function findSuccessors(
       if (!isNewerVersion(l.version, c.version)) continue;
       // A number in an id is not always a version — see plausibleJump.
       if (!plausibleJump(c.version, l.version)) continue;
-      // Already in the catalog under another record — a real newer version, and old news.
-      if (held.has(`${lKey}:${l.version.join('.')}`)) continue;
+      // Does it beat the NEWEST thing we hold in this line? Holding 2.5 makes "2 exists" not news.
+      const newestHeld = newestHeldIn(lKey);
+      if (newestHeld && !isNewerVersion(l.version, newestHeld)) continue;
       if (!best || isNewerVersion(l.version, best.version)) best = l;
     }
     if (best) {

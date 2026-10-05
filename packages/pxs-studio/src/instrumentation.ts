@@ -13,6 +13,17 @@ export async function register() {
     // Refresh the durable knowledge shards from the roster/registry, then warm the live connections.
     syncProviderKnowledge();
     void warmUp();
+
+    // THE MODEL WATCH — "are we behind?" on a timer rather than on app traffic.
+    //
+    // Its only trigger used to be the image-agent route, so the catalog's freshness depended on
+    // someone generating an image. It sat eight days stale while OpenAI shipped two generations.
+    // Asking a provider for its model list is an HTTP GET, so this costs essentially nothing and
+    // can afford to run daily whether or not anyone is working. Research and doctrine — the parts
+    // that actually spend — stay on their bounded, TTL-gated paths.
+    const { startModelWatch } = await import('./lib/agents/model-watch');
+    const { getDb } = await import('./lib/db');
+    startModelWatch(() => getDb());
   } catch {
     /* non-fatal — the status endpoint will lazily warm on first read if this ever no-ops. */
   }

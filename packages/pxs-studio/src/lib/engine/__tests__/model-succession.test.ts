@@ -294,3 +294,33 @@ test('the sweep knows the WHOLE catalog when judging what is already held', asyn
   );
   assert.deepEqual(reports.flatMap((r) => r.successions), [], 'we already hold 3.1');
 });
+
+test('a version older than what we ALREADY adopted is not news', async () => {
+  // Straight from the first live watch run, which reported all three of these the day AFTER they
+  // were superseded by adoptions: holding 2.5 makes "gpt-image-2 exists" stale news.
+  assert.deepEqual(
+    findSuccessors(['gpt-image-1.5'], ['gpt-image-2', 'gpt-image-2-2026-04-21'], ['gpt-image-1.5', 'gpt-image-2.5-flare']),
+    [],
+    'we already hold something newer than the candidate',
+  );
+  assert.deepEqual(
+    findSuccessors(['ideogram-v3'], ['ideogram/v4/instant'], ['ideogram-v3', 'ideogram/v4.5']),
+    [],
+    'v4 is behind the v4.5 we hold',
+  );
+});
+
+test('…and a version NEWER than what we adopted is still news', () => {
+  const found = findSuccessors(['gpt-image-1.5'], ['gpt-image-3'], ['gpt-image-1.5', 'gpt-image-2.5-flare']);
+  assert.equal(found.length, 1, 'genuinely ahead of everything we hold');
+  assert.equal(found[0]!.successorVersion, '3');
+});
+
+test('holding a sibling at the SAME version silences it across host spellings', () => {
+  // 'fal-ai/flux-3-action/so101' and 'blackforestlabs/flux-3/text-to-image' are both FLUX 3.
+  assert.deepEqual(
+    findSuccessors(['flux-2-pro'], ['fal-ai/flux-3-action/so101'], ['flux-2-pro', 'blackforestlabs/flux-3/text-to-image']),
+    [],
+    'we hold FLUX 3 already, however the host spells it',
+  );
+});

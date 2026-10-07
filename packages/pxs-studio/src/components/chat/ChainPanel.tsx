@@ -24,6 +24,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Icon } from '../ui';
 import { MEDIA_MODELS } from '../../lib/engine/media-registry';
+import { downloadAsset } from '../../lib/download-asset';
 
 const CSS = `
 .pxch { display: flex; flex-direction: column; gap: var(--a2ui-space-3); }
@@ -72,7 +73,15 @@ const CSS = `
 .pxch-clip { border-radius: var(--a2ui-radius-md); overflow: hidden; background: var(--a2ui-bg-tertiary);
   box-shadow: 0 0 0 1px var(--pxs-border-subtle); }
 .pxch-clip video { display: block; width: 100%; aspect-ratio: 16 / 9; object-fit: cover; background: #000; }
-.pxch-clip-cap { padding: 5px 8px; font-size: var(--a2ui-text-xs); color: var(--a2ui-text-tertiary); }
+.pxch-clip-cap { padding: 5px 8px; font-size: var(--a2ui-text-xs); color: var(--a2ui-text-tertiary);
+  display: flex; align-items: center; justify-content: space-between; gap: 6px; }
+.pxch-dl { background: none; border: none; cursor: pointer; padding: 0; color: var(--a2ui-text-tertiary);
+  display: inline-flex; align-items: center; }
+.pxch-dl:hover { color: var(--a2ui-text-primary); }
+/* The finished scene — the thing the whole sequence was for. */
+.pxch-scene { display: flex; flex-direction: column; gap: var(--a2ui-space-2); padding: var(--a2ui-space-3);
+  border: 1px solid var(--a2ui-accent); border-radius: var(--a2ui-radius-md); background: var(--pxc-bg-glass-frost); }
+.pxch-scene video { width: 100%; border-radius: var(--a2ui-radius-sm); background: #000; }
 
 .pxch-status { display: flex; align-items: center; gap: 8px; font-size: var(--a2ui-text-sm); color: var(--a2ui-text-secondary); }
 .pxch-spin { width: 13px; height: 13px; border-radius: 50%; border: 2px solid var(--a2ui-border-default);
@@ -149,6 +158,9 @@ export function ChainPanel({
   const [starting, setStarting] = useState(false);
   const [acting, setActing] = useState(false);
   const [error, setError] = useState<string | undefined>();
+  /** The assembled scene — the whole sequence as one file. */
+  const [scene, setScene] = useState<{ url: string; durationSec?: number } | null>(null);
+  const [assembling, setAssembling] = useState(false);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const price = estimateUsd(beats, modelId, resolution);
@@ -233,6 +245,28 @@ export function ChainPanel({
 
   const shown = job?.clips ?? [];
   const doneCount = shown.length;
+  // Assembly is only meaningful once the sequence is FINISHED and has more than one clip — joining
+  // a half-rendered chain would produce a scene that is missing its ending.
+  const canAssemble = !live && doneCount > 1 && !scene;
+
+  const assemble = useCallback(async () => {
+    setAssembling(true);
+    setError(undefined);
+    try {
+      const res = await fetch('/api/sequences/assemble', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ clipAssetIds: shown.map((c) => c.assetId), thread_id: threadId }),
+      });
+      const data = (await res.json()) as { asset?: { url: string; durationSec?: number }; error?: string };
+      if (!res.ok || !data.asset) throw new Error(data.error || `HTTP ${res.status}`);
+      setScene(data.asset);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not assemble the sequence.');
+    } finally {
+      setAssembling(false);
+    }
+  }, [shown, threadId]);
 
   return (
     <div className="pxch">
@@ -283,12 +317,51 @@ export function ChainPanel({
             <div key={c.assetId} className="pxch-clip">
               <video src={c.url} poster={c.thumbnailUrl} controls playsInline preload="metadata" />
               <div className="pxch-clip-cap">
-                Beat {(c.index ?? 0) + 1}
-                {c.durationSec ? ` · ${c.durationSec}s` : ''}
-                {c.hasAudio ? ' · sound' : ''}
+                <span>
+                  Beat {(c.index ?? 0) + 1}
+                  {c.durationSec ? ` · ${c.durationSec}s` : ''}
+                  {c.hasAudio ? ' · sound' : ''}
+                </span>
+                <button
+                  type="button"
+                  className="pxch-dl"
+                  title="Download this clip"
+                  onClick={() => void downloadAsset({ url: c.url, kind: 'video', title: `beat-${(c.index ?? 0) + 1}` })}
+                >
+                  <Icon name="download" size={13} />
+                </button>
               </div>
             </div>
           ))}
+        </div>
+      ) : null}
+
+      {/* THE SCENE — what the sequence was for. Shown above the errors because it is the result. */}
+      {scene ? (
+        <div className="pxch-scene">
+          <video src={scene.url} controls playsInline preload="metadata" />
+          <div className="pxch-foot">
+            <span className="pxch-note">
+              Scene assembled{scene.durationSec ? ` · ${scene.durationSec}s` : ''} · saved to Assets
+            </span>
+            <button
+              type="button"
+              className="pxch-btn"
+              data-kind="go"
+              onClick={() => void downloadAsset({ url: scene.url, kind: 'video', title: 'scene' })}
+            >
+              <Icon name="download" size={15} /> Download
+            </button>
+          </div>
+        </div>
+      ) : null}
+
+      {canAssemble ? (
+        <div className="pxch-foot">
+          <span className="pxch-note">{doneCount} clips — join them into one scene</span>
+          <button type="button" className="pxch-btn" data-kind="go" onClick={() => void assemble()} disabled={assembling}>
+            <Icon name="sparkles" size={15} /> {assembling ? 'Assembling…' : 'Assemble scene'}
+          </button>
         </div>
       ) : null}
 

@@ -14,6 +14,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { Icon, SegmentedControl, SortMenu } from './ui';
 import { DEV_USER_ID } from '../lib/db/models';
 import { toastManager } from './Toast';
+import { downloadAsset } from '../lib/download-asset';
 
 /** Sort keys we can honor faithfully from the asset metadata we store. (No byte-size field yet, so
  *  the mock's "Size" is intentionally omitted rather than faked.) */
@@ -501,6 +502,27 @@ function AssetDrawer({
             <img src={asset.url} alt={asset.alt_text || 'asset preview'} />
           )}
         </div>
+        {/* DOWNLOAD — getting your work OUT. The studio could generate images and video and offered
+            no way to save any of it; the only download buttons were in the legacy pixel-art tabs.
+            For a tool whose output is the product, that is the last step of the job, missing. */}
+        <button
+          type="button"
+          className="pxa-btn"
+          style={{ height: 34, justifyContent: 'center' }}
+          onClick={async () => {
+            const ok = await downloadAsset({
+              url: asset.url,
+              kind: asset.kind,
+              title: asset.title,
+              prompt: asset.prompt,
+              modelLabel: asset.model_label,
+            });
+            if (!ok) toastManager.error('Could not download that file');
+          }}
+        >
+          <Icon name="download" size={15} /> Download
+        </button>
+
         {/* OPEN AS PROJECT (§2) — start a NEW workspace seeded from this asset, rehydrating its recipe +
             references (not just the pixels). The verb that beats Photoshop's flatten-on-open. */}
         {onOpenProject && (

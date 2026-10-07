@@ -18,16 +18,12 @@ import { Icon } from '../ui';
 import { toastManager } from '../Toast';
 import { FrameTimeline } from './FrameTimeline';
 import { ChainPanel } from './ChainPanel';
+import { SequenceStrip } from './SequenceStrip';
 import { planFrames, type ShotFrame } from '../../lib/engine/shot-frames';
 // Registry DATA only. video-model-agent reaches the DB (and so the sqlite adapter), which a client
 // component must never pull into the bundle — MEDIA_MODELS is pure and is all the timeline needs.
 import { MEDIA_MODELS } from '../../lib/engine/media-registry';
 import { useChatTurnsStore } from '../../store/chat-turns-store';
-
-interface Shot {
-  id: string;
-  label: string;
-}
 
 const CAMERA_MOVES = ['rear tracking', 'handheld', 'slow push-in', 'drone pull-back', 'whip pan'];
 
@@ -113,10 +109,6 @@ export interface VideoWorkspaceProps {
 }
 
 export function VideoWorkspace({ renderConversation, plan, planValues }: VideoWorkspaceProps) {
-  const [shots, setShots] = useState<Shot[]>([
-    { id: 's1', label: 'Shot 1 · establishing' },
-    { id: 's2', label: 'Shot 2 · tracking' },
-  ]);
   const [scene, setScene] = useState('');
   /**
    * Which model this shot is being built FOR. The frame timeline renders that model's real slots, so
@@ -278,8 +270,6 @@ export function VideoWorkspace({ renderConversation, plan, planValues }: VideoWo
   const [moves, setMoves] = useState<Set<string>>(new Set());
   const [duration, setDuration] = useState(6);
 
-  const addShot = () =>
-    setShots((prev) => [...prev, { id: `s${prev.length + 1}-${prev.length}`, label: `Shot ${prev.length + 1}` }]);
   const toggleMove = (m: string) =>
     setMoves((prev) => {
       const next = new Set(prev);
@@ -307,34 +297,14 @@ export function VideoWorkspace({ renderConversation, plan, planValues }: VideoWo
                 <div className="pxv-connect"><Icon name="chevron-down" size={16} /></div>
               </div>
             )}
-            {clips.map((c, i) => (
-              <div key={c.url}>
-                <div className="pxv-shot" data-wash={i % 2 === 0 ? 'a' : 'b'} style={{ padding: 0, overflow: 'hidden' }}>
-                  <video
-                    src={c.url}
-                    muted
-                    loop
-                    playsInline
-                    preload="metadata"
-                    style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                    onMouseEnter={(e) => void e.currentTarget.play().catch(() => {})}
-                    onMouseLeave={(e) => e.currentTarget.pause()}
-                  />
-                </div>
-                <div className="pxv-connect"><Icon name="chevron-down" size={16} /></div>
-              </div>
-            ))}
-            {clips.length === 0 && shots.map((s, i) => (
-              <div key={s.id}>
-                <div className="pxv-shot" data-wash={i % 2 === 0 ? 'a' : 'b'}>
-                  <span className="pxv-shot-label">{s.label}</span>
-                </div>
-                <div className="pxv-connect"><Icon name="chevron-down" size={16} /></div>
-              </div>
-            ))}
-            <button type="button" className="pxv-add" onClick={addShot}>
-              <Icon name="plus" size={15} /> Add shot
-            </button>
+            {/* THE CUT. This was a hardcoded placeholder ("Shot 1 · establishing") while the engine
+                underneath could already chain beats, bridge them by frame and merge them into a
+                scene. The strip is that engine made visible: the clips, in the order they will play,
+                and the one button that turns them into a finished file.
+
+                Everything it offers is FREE — reorder, leave out, assemble, download. Nothing here
+                re-renders, which is why none of it needs a confirmation. */}
+            <SequenceStrip threadId={threadId} refreshKey={clips.length} />
           </div>
         </div>
       </div>

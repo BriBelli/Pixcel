@@ -23,6 +23,7 @@ import {
   type Thread,
   draftBirthFields,
   promoteThreadForAsset,
+  ingestMedia,
 } from '../../../lib/db';
 
 export const runtime = 'nodejs';
@@ -208,6 +209,8 @@ export async function POST(req: Request) {
   const referenceAssetIds = Array.isArray(body.reference_asset_ids) ? body.reference_asset_ids : [];
   for (let i = 0; i < references.length; i++) {
     if (referenceAssetIds[i]) continue; // existing saved asset — no duplicate row
+    // The user's OWN attachment is their material; it must outlive the turn like anything else.
+    const refStored = await ingestMedia(references[i]!);
     await db
       .put<Asset>({
         id: newId('asset'),
@@ -221,7 +224,7 @@ export async function POST(req: Request) {
         retention: 'ephemeral',
         thread_id: threadId,
         interaction_id: interactionId,
-        url: references[i],
+        url: refStored.url,
         index: i,
       })
       .catch(() => {});
@@ -473,6 +476,14 @@ export async function POST(req: Request) {
           // Persist any 'quick'-transfer generated tiles as in-state GENERATED assets (Slice 1/2) → reload.
           const share = generatedImages.length > 0 ? genCostTotal / generatedImages.length : 0;
           for (const img of generatedImages) {
+            // TAKE THE BYTES. This path persisted the raw provider url, so every render dispatched
+            // from the CHAT surface stayed perishable while the image-agent surface was durable —
+            // same app, same render, two different fates. xAI serves these as `xai-tmp-imgen-…`
+            // and means it: six of Brian's Grok renders were 404 within a week.
+            const stored = await ingestMedia(img.url);
+            if (!stored.stored) {
+              console.warn(`[chat-turn] could not store ${img.modelLabel}: ${stored.reason} — keeping the provider url, which WILL expire`);
+            }
             const asset: Asset = {
               id: newId('asset'),
               user_id: userId,
@@ -485,7 +496,7 @@ export async function POST(req: Request) {
               retention: 'ephemeral',
               thread_id: threadId,
               interaction_id: interactionId,
-              url: img.url,
+              url: stored.url,
               model_label: img.modelLabel || undefined,
               index: img.index,
               prompt,

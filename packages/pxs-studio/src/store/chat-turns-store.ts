@@ -896,6 +896,17 @@ export const useChatTurnsStore = create<ChatTurnsState>((set, get) => {
       return id;
     },
     loadThread: async (threadId) => {
+      // REMEMBER WHICH PROJECT IS OPEN.
+      //
+      // This key was only written when a SEND completed, so opening a project from the Projects
+      // panel and refreshing lost it: the reload found no thread id, restored nothing, and showed an
+      // empty workspace while the project sat there intact with every render still in it. Reading
+      // your own work back should not depend on having sent a message since you opened it.
+      try {
+        window.localStorage.setItem(THREAD_STORAGE_KEY, threadId);
+      } catch {
+        /* private window / blocked storage — the session still works, it just will not survive a reload */
+      }
       // Restore a persisted conversation from the SQLite store. Read-only; on any failure we
       // leave the store empty and warn (a fresh conversation) rather than throwing.
       try {

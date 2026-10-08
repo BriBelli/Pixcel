@@ -247,7 +247,7 @@ export function SequenceStrip({ threadId, refreshKey }: SequenceStripProps) {
                     type="button"
                     className="pxsq-ico"
                     title="Download this clip"
-                    onClick={() => void downloadAsset({ url: c.url, kind: 'video', prompt: c.prompt })}
+                    onClick={() => void downloadAsset({ url: c.url, kind: 'video', prompt: c.prompt, assetId: c.assetId })}
                   >
                     <Icon name="download" size={12} />
                   </button>
@@ -288,7 +288,7 @@ export function SequenceStrip({ threadId, refreshKey }: SequenceStripProps) {
               type="button"
               className="pxsq-btn"
               data-kind="quiet"
-              onClick={() => void downloadAsset({ url: s.url, kind: 'video', title: 'scene' })}
+              onClick={() => void downloadAsset({ url: s.url, kind: 'video', title: 'scene', assetId: s.assetId })}
             >
               <Icon name="download" size={15} /> Download
             </button>

@@ -225,6 +225,16 @@ export interface Asset extends BaseRecord {
   prompt?: string;
   /** Realized generation spend attributable to this asset (USD). */
   gen_cost_usd?: number;
+  /**
+   * The user TOOK this one — downloaded it. A verdict, recorded from an act they already perform.
+   *
+   * Saving is a filing decision and people do not file while they are working; downloading is what
+   * they actually do with a render they rate. Distinct from `retention:'saved'` on purpose: taking a
+   * copy is not the same as putting it in the library, and conflating them would fill the catalog
+   * with every take they ever glanced at.
+   */
+  kept_at?: number;
+  kept_count?: number;
   /** Flat "what it is" tags (Slice 2+). */
   tags?: string[];
   /** Lineage: an edit/variation points to the asset it derived from — a version DAG, never overwrite. */

@@ -511,6 +511,7 @@ function AssetDrawer({
           style={{ height: 34, justifyContent: 'center' }}
           onClick={async () => {
             const ok = await downloadAsset({
+              assetId: asset.id,
               url: asset.url,
               kind: asset.kind,
               title: asset.title,

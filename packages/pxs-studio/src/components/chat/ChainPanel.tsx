@@ -326,7 +326,7 @@ export function ChainPanel({
                   type="button"
                   className="pxch-dl"
                   title="Download this clip"
-                  onClick={() => void downloadAsset({ url: c.url, kind: 'video', title: `beat-${(c.index ?? 0) + 1}` })}
+                  onClick={() => void downloadAsset({ url: c.url, kind: 'video', title: `beat-${(c.index ?? 0) + 1}`, assetId: c.assetId })}
                 >
                   <Icon name="download" size={13} />
                 </button>

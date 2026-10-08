@@ -62,6 +62,12 @@ export async function downloadAsset(opts: {
   title?: string;
   prompt?: string;
   modelLabel?: string;
+  /**
+   * The asset this is. Passing it records a VERDICT: you do not download a render you think is bad,
+   * so the act of taking a copy is the judgement — collected from work you were doing anyway rather
+   * than from a rating widget nobody fills in.
+   */
+  assetId?: string;
 }): Promise<boolean> {
   try {
     const res = await fetch(opts.url);
@@ -76,6 +82,11 @@ export async function downloadAsset(opts: {
     a.remove();
     // Freed on the next tick — revoking immediately can cancel the download in some browsers.
     setTimeout(() => URL.revokeObjectURL(href), 1000);
+
+    // Fire-and-forget: a verdict that fails to record must never break the download it came from.
+    if (opts.assetId) {
+      void fetch(`/api/assets/${opts.assetId}/kept`, { method: 'POST' }).catch(() => {});
+    }
     return true;
   } catch {
     return false;

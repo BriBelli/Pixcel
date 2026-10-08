@@ -7,6 +7,7 @@ import {
 } from '../../../lib/chat-classify';
 import { createFanRecorder, runImageAgent, type FanConfigInput } from '../../../lib/agents/image-agent';
 import { operatorSkills } from '../../../lib/agents/skills';
+import { readStudioContext, studioContextBrief } from '../../../lib/agents/studio-context';
 import { AGENT_MODELS } from '../../../lib/agents/model-config';
 import type { EpistemicFrame } from '../../../lib/agents/epistemic-frame';
 import {
@@ -260,8 +261,15 @@ export async function POST(req: Request) {
         // `as any` at the call site (the SDK's request types lag adaptive thinking).
         // Thin role prompt + the ONLY relevant skill shards for this turn (Context Sharding —
         // the Operator's craft is loaded on Orient, not baked into one bloated prompt).
+        // THE STUDIO ITSELF. The Operator had a role prompt and craft shards and no idea what this
+        // user has made, kept, or keeps choosing — so it reasoned in the abstract while the
+        // specifics sat in the database, and the gap got filled by the user pasting prompts in from
+        // a chat log. Read back from signals they already produce: what they saved, and what they
+        // staked another render on.
+        const studio = await readStudioContext(db, userId).catch(() => null);
         const operatorSystem =
           `${OPERATOR_SYSTEM}\n\nEntry section: "${section}".` +
+          (studio ? studioContextBrief(studio) : '') +
           operatorSkills({ section, text: prompt });
         const params = {
           model: MODEL,

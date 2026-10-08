@@ -126,3 +126,43 @@ test('a silent clip records that it is silent, rather than leaving it unknown', 
   const { items } = await listAssets(repo, USER, THREAD);
   assert.equal(items[0].has_audio, false, 'false is a receipt; undefined is a shrug');
 });
+
+// ── EPHEMERAL IS NOT INVISIBLE ───────────────────────────────────────────────────────────────────
+// The library listed only retention:'saved', so a studio holding 112 renders showed FOUR and read
+// as empty: "I don't see the previous images created. That is bad." The two tiers are sound —
+// ephemeral work is GC-eligible and unquota'd, saved work is first-class — but that is a retention
+// POLICY, not a reason to hide someone's work from them.
+
+test('the library shows everything the user has made, not just what they filed', async () => {
+  const { listSavedAssets } = await import('../queries');
+  const repo = createMemoryRepository();
+  const now = Date.now();
+  const mk = (id: string, retention: 'ephemeral' | 'saved') =>
+    ({
+      id, user_id: USER, category: 'asset', status: 'active', created_at: now, updated_at: now,
+      kind: 'image', source: 'generated', retention, thread_id: THREAD, interaction_id: INTERACTION,
+      url: `/api/media/${id}.png`,
+    }) as Asset;
+
+  await repo.put(mk('kept', 'saved'));
+  await repo.put(mk('a', 'ephemeral'));
+  await repo.put(mk('b', 'ephemeral'));
+
+  const all = await listSavedAssets(repo, USER);
+  assert.equal(all.items.length, 3, 'work you have not filed is still work you made');
+
+  const saved = await listSavedAssets(repo, USER, { savedOnly: true });
+  assert.deepEqual(saved.items.map((a) => a.id), ['kept'], 'the first-class set is still addressable');
+});
+
+test('a deleted asset stays gone — visibility is not resurrection', async () => {
+  const { listSavedAssets } = await import('../queries');
+  const repo = createMemoryRepository();
+  const now = Date.now();
+  await repo.put({
+    id: 'trashed', user_id: USER, category: 'asset', status: 'deleted', created_at: now, updated_at: now,
+    kind: 'image', source: 'generated', retention: 'ephemeral', thread_id: THREAD,
+    interaction_id: INTERACTION, url: '/api/media/x.png',
+  } as Asset);
+  assert.deepEqual((await listSavedAssets(repo, USER)).items, []);
+});

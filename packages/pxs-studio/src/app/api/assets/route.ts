@@ -29,7 +29,10 @@ export async function GET(req: Request) {
     const kind = VALID_KINDS.includes(kindParam as Asset['kind']) ? (kindParam as Asset['kind']) : undefined;
 
     const db = await getDb();
-    const { items, total } = await listSavedAssets(db, userId, { kind });
+    // `?saved=1` narrows to the first-class set; the default is EVERYTHING the user has made,
+    // because a library that hides 108 of your 112 renders is not a library.
+    const savedOnly = url.searchParams.get('saved') === '1';
+    const { items, total } = await listSavedAssets(db, userId, { kind, savedOnly });
     return Response.json({ user_id: userId, total, assets: items });
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Unknown error';

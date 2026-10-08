@@ -28,6 +28,8 @@ const SORT_OPTIONS: { value: AssetSort; label: string }[] = [
 interface AssetRow {
   id: string;
   kind: 'image' | 'video' | 'pixel' | 'vector';
+  /** 'saved' is first-class and durable; 'ephemeral' is yours but GC-eligible later. */
+  retention?: 'ephemeral' | 'saved';
   source?: 'generated' | 'upload';
   url: string;
   title?: string;
@@ -162,6 +164,9 @@ const CSS = `
 .pxa-row-main { min-width: 0; flex: 1; }
 .pxa-row-name { font-size: var(--a2ui-text-sm); font-weight: var(--a2ui-font-medium); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .pxa-row-sub { margin-top: 2px; font-size: var(--a2ui-text-xs); color: var(--a2ui-text-tertiary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pxa-eph { font-size: 10px; letter-spacing: 0.04em; text-transform: uppercase;
+  color: var(--a2ui-text-tertiary); border: 1px solid var(--a2ui-border-default);
+  border-radius: var(--a2ui-radius-sm); padding: 1px 5px; }
 .pxa-row-badge { flex-shrink: 0; padding: 2px 8px; border-radius: var(--a2ui-radius-full); font-size: 10px; font-weight: var(--a2ui-font-semibold);
   letter-spacing: 0.04em; text-transform: uppercase; color: var(--a2ui-text-secondary); border: 1px solid var(--a2ui-border-subtle); }
 
@@ -385,6 +390,9 @@ export function AssetsCatalog({
               {(full ? sorted : sorted.slice(0, 8)).map((a) => (
                 <div key={a.id} className="pxa-tile" data-on={selectedId === a.id ? 'true' : 'false'} onClick={() => setSelectedId(a.id)}>
                   <span className="pxa-badge">{a.source === 'upload' ? 'Upload' : a.kind}</span>
+                  {/* The library now shows EVERYTHING you have made, so it has to say which pieces
+                      are durable. Visible must never quietly imply permanent. */}
+                  {a.retention !== 'saved' ? <span className="pxa-eph" title="Not saved — may be cleared later">Unsaved</span> : null}
                   <div className="pxa-tile-media">
                     <AssetThumb a={a} />
                   </div>

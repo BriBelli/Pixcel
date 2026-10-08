@@ -70,7 +70,7 @@ export async function listAssets(
 export async function listSavedAssets(
   repo: Repository,
   user_id: string,
-  { kind }: { kind?: Asset['kind'] } = {}
+  { kind, savedOnly = false }: { kind?: Asset['kind']; savedOnly?: boolean } = {}
 ): Promise<QueryResult<Asset>> {
   const { items } = await repo.query({
     category: 'asset',
@@ -78,6 +78,18 @@ export async function listSavedAssets(
     filter: { status: 'active' },
     sort: 'desc',
   });
-  const saved = (items as Asset[]).filter((a) => a.retention === 'saved' && (!kind || a.kind === kind));
-  return { items: saved, total: saved.length };
+  // EPHEMERAL IS NOT INVISIBLE.
+  //
+  // This returned only retention:'saved', so a studio holding 112 renders showed FOUR and the
+  // library read as empty. The two tiers are sound — ephemeral work is GC-eligible and does not
+  // count against quota, saved work is first-class — but that is a RETENTION policy, not a reason
+  // to hide someone's work from them. "I don't see the previous images created. That is bad."
+  //
+  // Everything active is returned, with `retention` on each row so the catalog can mark what is
+  // durable and what is not. `savedOnly` keeps the old behaviour for callers that genuinely want
+  // the first-class set.
+  const visible = (items as Asset[]).filter(
+    (a) => (!savedOnly || a.retention === 'saved') && (!kind || a.kind === kind)
+  );
+  return { items: visible, total: visible.length };
 }

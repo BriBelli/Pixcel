@@ -122,6 +122,8 @@ const CSS = `
   border-radius: var(--a2ui-radius-lg); background: var(--a2ui-bg-tertiary);
   box-shadow: 0 0 0 1px var(--a2ui-warning-bg); color: var(--a2ui-warning); font-size: var(--a2ui-text-sm);
 }
+.pxc-stage-failed-why { margin-top: 5px; font-size: 11px; line-height: 1.45; color: var(--a2ui-text-tertiary);
+  max-width: 34ch; text-align: center; word-break: break-word; }
 .pxc-stage-failed-sub { color: var(--a2ui-text-tertiary); font-size: var(--a2ui-text-xs); }
 
 .pxc-stage-scroll { flex: 1; overflow-y: auto; overflow-x: hidden; min-width: 0;
@@ -403,6 +405,8 @@ export function ImageStage({ images, generating, genPlan, fanTurnId, medium, con
     pending: number;
     state: FanModelStatus['state'];
     reason?: string;
+    /** The PROVIDER'S own words — the actionable half of a failure. */
+    detail?: string;
     why?: string;
     /** Tiles this model landed in THIS run (the failure tile keys off it, not the whole session). */
     runLanded: number;
@@ -412,9 +416,20 @@ export function ImageStage({ images, generating, genPlan, fanTurnId, medium, con
         const runLanded = landedThisRun(p.label);
         // A failed model shows NO pending loaders — its slot carries the failure tile instead.
         const pending = p.state === 'failed' || p.state === 'done' ? 0 : Math.max(0, p.n - runLanded);
-        return { label: p.label, items, pending, state: p.state, reason: p.reason, why: p.why, runLanded };
+        return { label: p.label, items, pending, state: p.state, reason: p.reason, detail: p.detail, why: p.why, runLanded };
       })
-    : [...arrived.entries()].map(([label, items]) => ({ label, items, pending: 0, state: 'done' as const, runLanded: items.length }));
+    : [...arrived.entries()].map(([label, items]) => ({
+        label,
+        items,
+        pending: 0,
+        state: 'done' as const,
+        // Spelled out so BOTH branches share one shape — otherwise the union drops the failure
+        // fields and the provider's message cannot be read off a group.
+        reason: undefined as string | undefined,
+        detail: undefined as string | undefined,
+        why: undefined as string | undefined,
+        runLanded: items.length,
+      }));
   // A model that streamed a tile but wasn't in the fan (safety) still gets its column.
   if (plan) {
     for (const [label, items] of arrived) {
@@ -572,6 +587,11 @@ export function ImageStage({ images, generating, genPlan, fanTurnId, medium, con
                           <StateGlyph state="failed" />
                           <span>{plainReason(g.reason)}</span>
                           <span className="pxc-stage-failed-sub">{g.label} delivered nothing</span>
+                          {/* The PROVIDER'S own words. The taxonomy code alone is unactionable —
+                              "rejected the request" reads as the model refusing your content, when
+                              it was OpenAI objecting to a parameter WE built wrong. One sends you to
+                              rewrite a prompt; the other is a bug report. */}
+                          {g.detail ? <span className="pxc-stage-failed-why">{g.detail}</span> : null}
                         </div>
                       )}
                     </div>

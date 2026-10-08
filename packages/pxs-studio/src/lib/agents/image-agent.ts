@@ -214,7 +214,16 @@ export type ImageAgentEvent =
   | { type: 'gen_plan'; models: { modelId: string; label: string; n: number; why?: string }[]; dropped?: { modelId: string; label: string; reason: string }[] }
   /** One model's live lifecycle inside the fan — running → done | failed. A failed model NEVER fails
    *  the turn (graceful specialist): the rest of the fan keeps streaming; the UI shows the state. */
-  | { type: 'fan_model'; modelId: string; state: 'running' | 'done' | 'failed'; delivered?: number; ms?: number; reason?: string }
+  | {
+      type: 'fan_model';
+      modelId: string;
+      state: 'running' | 'done' | 'failed';
+      delivered?: number;
+      ms?: number;
+      reason?: string;
+      /** The PROVIDER'S own words. "rejected the request" tells you nothing you can act on. */
+      detail?: string;
+    }
   | { type: 'image'; url: string; modelId?: string; modelLabel: string; index: number; score?: number }
   | { type: 'gen_error'; message: string }
   /** A gentle non-blocking heads-up (best-effort shortfall) — forwarded from the coordinator. */
@@ -332,7 +341,9 @@ async function* streamFan(req: RoutingRequest, budgetUsd?: number): AsyncIterabl
     } else if (ev.type === 'model_done') {
       yield { type: 'fan_model', modelId: ev.modelId, state: 'done', delivered: ev.delivered, ms: ev.ms };
     } else if (ev.type === 'model_error') {
-      yield { type: 'fan_model', modelId: ev.modelId, state: 'failed', reason: ev.reason };
+      // The provider's own sentence travels with the code. A bare "rejected the request" sent
+      // Brian hunting for a content policy when the truth was a malformed parameter on our side.
+      yield { type: 'fan_model', modelId: ev.modelId, state: 'failed', reason: ev.reason, detail: ev.detail };
     } else if (ev.type === 'notice') {
       yield { type: 'gen_notice', message: ev.message };
     } else if (ev.type === 'error') {

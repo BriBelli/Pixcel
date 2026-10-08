@@ -239,6 +239,14 @@ export interface FanModelStatus {
   state: 'pending' | 'running' | 'done' | 'failed' | 'skipped';
   /** Failure reason (adapter taxonomy or message) — only on 'failed'. */
   reason?: string;
+  /**
+   * The PROVIDER'S own words for the failure.
+   *
+   * The taxonomy code alone is unactionable: "rejected the request" reads as the model refusing
+   * your CONTENT, when it was OpenAI saying "Duplicate parameter: 'image'" about a request we built
+   * wrong. One of those sends you to rewrite a prompt; the other is a bug report.
+   */
+  detail?: string;
   /** The selection rationale this model was picked by. */
   why?: string;
   /** Wall-clock ms from dispatch to settle — set on 'done'. */
@@ -649,7 +657,12 @@ export const useChatTurnsStore = create<ChatTurnsState>((set, get) => {
                         ms: typeof evt.ms === 'number' ? evt.ms : undefined,
                       };
                     if (evt.state === 'failed')
-                      return { ...f, state: 'failed' as const, reason: typeof evt.reason === 'string' ? evt.reason : undefined };
+                      return {
+                        ...f,
+                        state: 'failed' as const,
+                        reason: typeof evt.reason === 'string' ? evt.reason : undefined,
+                        detail: typeof evt.detail === 'string' ? evt.detail : undefined,
+                      };
                     return f;
                   }),
                 };

@@ -71,14 +71,23 @@ class OpenAIExecutor implements ImageExecutor {
         form.append('prompt', req.prompt + referenceLegend(req.slotted, req.references));
         form.append('n', String(n));
         if (size !== 'auto') form.append('size', size);
-        // The field is `image`, REPEATED — not `image[]`. The bracket form is a PHP/Rails
-        // convention OpenAI does not parse, so every reference render came back
-        // "Missing required parameter: 'image'" while text-only worked fine.
-        // Verified 2026-08-29 against the live API.
+        // The field is `image[]`.
+        //
+        // It was a REPEATED `image`, which OpenAI accepts for exactly ONE reference and rejects for
+        // two or more: "Duplicate parameter: 'image'. You provided multiple values for this
+        // parameter, whereas only one is allowed." So single-reference edits worked and every
+        // multi-reference edit 400'd — and the UI rendered that as "rejected the request", which
+        // reads like the model refusing the CONTENT. Brian reasonably concluded GPT was being
+        // censorious; it was never asked properly.
+        //
+        // The previous note here claimed the bracket form was "a PHP/Rails convention OpenAI does
+        // not parse", verified 2026-08-29. Re-verified live 2026-10-08 across gpt-image-1.5 and
+        // gpt-image-2.5: `image[]` succeeds at BOTH one reference and several, while repeated
+        // `image` fails at two. One form for every count, so there is no branch to get wrong.
         let idx = 0;
         for (const ref of req.references) {
           const blob = await fetchAsBlob(ref);
-          if (blob) form.append('image', blob, `ref-${idx++}.png`);
+          if (blob) form.append('image[]', blob, `ref-${idx++}.png`);
         }
         res = await fetch('https://api.openai.com/v1/images/edits', {
           method: 'POST',

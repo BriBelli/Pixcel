@@ -151,6 +151,7 @@ export async function* coordinateVideo(
           task: req.task,
           startFrame: req.startFrame,
           endFrame: req.endFrame,
+          keyframes: req.keyframes,
           references: req.references,
           videoRefs: req.videoRefs,
           audioRefs: req.audioRefs,

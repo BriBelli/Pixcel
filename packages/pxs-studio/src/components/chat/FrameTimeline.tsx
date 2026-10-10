@@ -12,14 +12,18 @@
  * the reason, not hidden: a missing control teaches nothing, while "Kling has no end-frame control —
  * it decides where the shot lands" teaches the model. Same rule as the picker's dropped models.
  *
- * And it tells the truth about mid-shot keyframes. Demos imply you can drop an image at 4.2s; no
- * wired model accepts that. The bar says so, and names the chaining technique when the model can
- * interpolate — a workflow we would run, not a parameter we could pass.
+ * MOMENTS — stills pinned INSIDE the shot at a chosen second. With only an opening and a closing
+ * frame, anything pinned to the end is the state the clip stops in: a flame there is a flame the shot
+ * cuts away from mid-pop. A moment at 2s lets it flare and settle before the clip ends.
+ *
+ * It says which kind you are getting. FLUX.3 takes moments as a real parameter (EXACT); other models
+ * get the still as a reference with the timing asked for in words (REQUESTED). A guarantee and a
+ * polite request must never look the same, or the user cannot tell why a moment was ignored.
  * ───────────────────────────────────────────────────────────────────────────── */
 
-import { useRef } from 'react';
+import { useRef, useState } from 'react';
 import { Icon } from '../ui';
-import type { FramePlan, ShotFrame, FrameSlot } from '../../lib/engine/shot-frames';
+import { validateFrames, type FramePlan, type ShotFrame, type FrameSlot } from '../../lib/engine/shot-frames';
 
 const CSS = `
 .pxf { display: flex; flex-direction: column; gap: var(--a2ui-space-3); }
@@ -54,6 +58,33 @@ const CSS = `
   background: none; color: var(--a2ui-text-tertiary); cursor: pointer; display: flex; align-items: center; justify-content: center; }
 .pxf-addref:hover { border-color: var(--a2ui-accent); color: var(--a2ui-text-primary); }
 .pxf-addref:disabled { opacity: 0.4; cursor: not-allowed; }
+/* MOMENTS — the shot as a ruler. Click anywhere on it to pin a still at that second. */
+.pxf-moments { display: flex; flex-direction: column; gap: 8px; }
+.pxf-mhead { display: flex; align-items: center; gap: 8px; }
+.pxf-kind { font-size: 10px; letter-spacing: 0.05em; text-transform: uppercase; padding: 1px 6px; border-radius: 6px;
+  border: 1px solid var(--pxs-border-subtle, var(--a2ui-border)); color: var(--a2ui-text-tertiary); }
+.pxf-kind[data-native='true'] { color: var(--a2ui-accent); border-color: var(--a2ui-accent); }
+.pxf-ruler { position: relative; height: 54px; border-radius: 8px; cursor: crosshair;
+  background: var(--a2ui-bg-secondary); border: 1px solid var(--pxs-border-subtle, var(--a2ui-border)); }
+.pxf-ruler[data-off='true'] { cursor: not-allowed; opacity: 0.55; }
+.pxf-tick { position: absolute; bottom: 0; width: 1px; height: 7px; background: var(--a2ui-border-default); }
+.pxf-ticklbl { position: absolute; bottom: 8px; transform: translateX(-50%); font-size: 9px;
+  color: var(--a2ui-text-tertiary); font-variant-numeric: tabular-nums; pointer-events: none; }
+.pxf-hover { position: absolute; top: 0; bottom: 0; width: 1px; background: var(--a2ui-accent); opacity: 0.6; pointer-events: none; }
+.pxf-pin { position: absolute; top: 4px; width: 40px; height: 24px; transform: translateX(-50%); border-radius: 4px;
+  overflow: hidden; border: 1px solid var(--a2ui-accent); background: #000; pointer-events: none; }
+.pxf-pin[data-end='true'] { border-color: var(--a2ui-text-tertiary); opacity: 0.7; }
+.pxf-pin img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.pxf-mlist { display: flex; flex-direction: column; gap: 6px; }
+.pxf-mrow { display: flex; align-items: center; gap: 8px; font-size: var(--a2ui-text-xs); color: var(--a2ui-text-secondary); }
+.pxf-mthumb { width: 44px; height: 25px; border-radius: 4px; overflow: hidden; flex-shrink: 0;
+  border: 1px solid var(--pxs-border-subtle, var(--a2ui-border)); }
+.pxf-mthumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.pxf-time { width: 62px; padding: 3px 6px; border-radius: 6px; font: inherit; font-variant-numeric: tabular-nums;
+  background: var(--a2ui-bg-secondary); color: var(--a2ui-text-primary); border: 1px solid var(--pxs-border-subtle, var(--a2ui-border)); }
+.pxf-mx { margin-left: auto; background: none; border: none; cursor: pointer; color: var(--a2ui-text-tertiary); display: flex; }
+.pxf-mx:hover { color: var(--a2ui-text-primary); }
+.pxf-bad { font-size: var(--a2ui-text-xs); color: var(--a2ui-warning, #d29922); line-height: 1.45; }
 .pxf-note { font-size: var(--a2ui-text-xs); color: var(--a2ui-text-tertiary); line-height: 1.5;
   padding-top: var(--a2ui-space-2); border-top: 1px solid var(--pxs-border-subtle, var(--a2ui-border)); }
 `;
@@ -68,6 +99,13 @@ export interface FrameTimelineProps {
 export function FrameTimeline({ plan, frames, durationSec, onChange }: FrameTimelineProps) {
   const fileRef = useRef<HTMLInputElement | null>(null);
   const pendingSlot = useRef<FrameSlot>('reference');
+  /** The second a clicked-but-not-yet-chosen moment will land on. */
+  const pendingAt = useRef<number>(0);
+  const [hoverAt, setHoverAt] = useState<number | null>(null);
+  const native = plan.midShotKeyframes.native;
+  // Rejections are SHOWN, never silently dropped — a moment the model will ignore must say why.
+  const check = validateFrames(plan, frames, durationSec);
+  const rejectedWhy = new Map(check.rejected.map((r) => [r.frame.url + (r.frame.atSec ?? ''), r.reason]));
 
   const offer = (slot: FrameSlot) => plan.offers.find((o) => o.slot === slot)!;
   const at = (slot: FrameSlot) => frames.filter((f) => f.slot === slot);
@@ -88,16 +126,36 @@ export function FrameTimeline({ plan, frames, durationSec, onChange }: FrameTime
         reader.onload = () => {
           const url = typeof reader.result === 'string' ? reader.result : '';
           if (!url) return;
-          onChange([
-            ...frames,
-            { slot, url, ...(slot === 'start' ? { atSec: 0 } : slot === 'end' ? { atSec: durationSec } : {}) },
-          ]);
+          const atSec =
+            slot === 'start' ? 0 : slot === 'end' ? durationSec : slot === 'key' ? pendingAt.current : undefined;
+          onChange([...frames, { slot, url, ...(atSec != null ? { atSec } : {}) }]);
         };
         reader.readAsDataURL(file);
       });
   };
 
   const remove = (url: string) => onChange(frames.filter((f) => f.url !== url));
+
+  /** Seconds, snapped to the quarter — finer than a viewer can see in a cut, coarse enough to aim. */
+  const snap = (t: number) => Math.round(t * 4) / 4;
+  const secAt = (el: HTMLDivElement, clientX: number) => {
+    const r = el.getBoundingClientRect();
+    return snap(Math.min(1, Math.max(0, (clientX - r.left) / r.width)) * durationSec);
+  };
+  const keyOffer = offer('key');
+  const moments = at('key').slice().sort((a, b) => (a.atSec ?? 0) - (b.atSec ?? 0));
+  const keyFull = moments.length >= keyOffer.capacity;
+  const keyOff = keyOffer.capacity === 0;
+
+  const pinMomentAt = (t: number) => {
+    if (keyOff || keyFull) return;
+    // The two ends already have slots; a click at the very edge means "near", not "on".
+    pendingAt.current = Math.min(Math.max(t, 0.25), Math.max(0.25, durationSec - 0.25));
+    pick('key');
+  };
+  const retime = (url: string, t: number) =>
+    onChange(frames.map((f) => (f.slot === 'key' && f.url === url ? { ...f, atSec: snap(t) } : f)));
+  const ticks = Array.from({ length: Math.floor(durationSec) + 1 }, (_, i) => i);
 
   const positional: { slot: FrameSlot; at: string }[] = [
     { slot: 'start', at: '0s' },
@@ -153,6 +211,103 @@ export function FrameTimeline({ plan, frames, durationSec, onChange }: FrameTime
         })}
       </div>
 
+      {/* MOMENTS — click the ruler at a second to pin a still there. */}
+      <div className="pxf-moments">
+        <div className="pxf-mhead">
+          <span className="pxf-slot-label">
+            {keyOffer.label} <span className="pxf-slot-at">· {moments.length}/{keyOffer.capacity}</span>
+          </span>
+          {!keyOff ? (
+            <span
+              className="pxf-kind"
+              data-native={native}
+              title={native ? 'Sent as a real parameter — the shot passes through this still.' : 'Asked for in the prompt — the model may or may not land it.'}
+            >
+              {native ? 'Exact' : 'Requested'}
+            </span>
+          ) : null}
+        </div>
+        <div
+          className="pxf-ruler"
+          data-off={keyOff || keyFull}
+          title={keyOff ? keyOffer.unavailable : keyFull ? `${keyOffer.capacity} moments is the most ${plan.modelLabel} takes.` : 'Click a second to pin a still there'}
+          onMouseMove={(e) => setHoverAt(secAt(e.currentTarget, e.clientX))}
+          onMouseLeave={() => setHoverAt(null)}
+          onClick={(e) => pinMomentAt(secAt(e.currentTarget, e.clientX))}
+        >
+          {ticks.map((t) => (
+            <span key={t}>
+              <span className="pxf-tick" style={{ left: `${(t / durationSec) * 100}%` }} />
+              {t % (durationSec > 12 ? 2 : 1) === 0 ? (
+                <span className="pxf-ticklbl" style={{ left: `${(t / durationSec) * 100}%` }}>{t}s</span>
+              ) : null}
+            </span>
+          ))}
+          {/* The two ends, faintly — so the moments read as BETWEEN them. */}
+          {at('start')[0] ? (
+            <span className="pxf-pin" data-end="true" style={{ left: '0%', transform: 'none' }}>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={at('start')[0]!.url} alt="opening" />
+            </span>
+          ) : null}
+          {at('end')[0] ? (
+            <span className="pxf-pin" data-end="true" style={{ left: '100%', transform: 'translateX(-100%)' }}>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={at('end')[0]!.url} alt="closing" />
+            </span>
+          ) : null}
+          {moments.map((m) => (
+            <span key={m.url} className="pxf-pin" style={{ left: `${((m.atSec ?? 0) / durationSec) * 100}%` }}>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={m.url} alt={`moment at ${m.atSec}s`} />
+            </span>
+          ))}
+          {hoverAt != null && !keyOff && !keyFull ? (
+            <span className="pxf-hover" style={{ left: `${(hoverAt / durationSec) * 100}%` }} />
+          ) : null}
+        </div>
+
+        {moments.length > 0 ? (
+          <div className="pxf-mlist">
+            {moments.map((m) => {
+              const bad = rejectedWhy.get(m.url + (m.atSec ?? ''));
+              return (
+                <div key={m.url}>
+                  <div className="pxf-mrow">
+                    <span className="pxf-mthumb">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={m.url} alt="moment" />
+                    </span>
+                    <span>at</span>
+                    <input
+                      className="pxf-time"
+                      type="number"
+                      min={0.25}
+                      max={durationSec}
+                      step={0.25}
+                      value={m.atSec ?? 0}
+                      onChange={(e) => retime(m.url, Number(e.target.value))}
+                      aria-label="Moment time in seconds"
+                    />
+                    <span>s</span>
+                    <button type="button" className="pxf-mx" onClick={() => remove(m.url)} aria-label="Remove moment">
+                      <Icon name="x" size={12} />
+                    </button>
+                  </div>
+                  {bad ? <div className="pxf-bad">{bad}</div> : null}
+                </div>
+              );
+            })}
+          </div>
+        ) : !keyOff ? (
+          <div className="pxf-why">
+            Click the ruler to pin a still at that second — e.g. the flame at 2s, so it flares and settles before the cut.
+          </div>
+        ) : (
+          <div className="pxf-why">{keyOffer.unavailable}</div>
+        )}
+      </div>
+
       <div className="pxf-refs">
         <div className="pxf-slot-label">
           {offer('reference').label}{' '}
@@ -185,7 +340,7 @@ export function FrameTimeline({ plan, frames, durationSec, onChange }: FrameTime
       {/* The expectation demos set, answered honestly rather than left to be discovered. */}
       <div className="pxf-note">
         {plan.midShotKeyframes.why}
-        {plan.midShotKeyframes.technique ? ` ${plan.midShotKeyframes.technique}` : ''}
+        {!native && plan.midShotKeyframes.technique ? ` ${plan.midShotKeyframes.technique}` : ''}
       </div>
     </div>
   );

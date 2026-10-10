@@ -45,6 +45,8 @@ export async function POST(req: Request) {
        *  spreads them into `shot`); typing them is what lets the lineage edges below be built. */
       startFrame?: string;
       endFrame?: string;
+      /** Stills pinned to a moment inside the shot, in seconds. */
+      keyframes?: { url: string; atSec: number }[];
       references?: string[];
     };
     /**

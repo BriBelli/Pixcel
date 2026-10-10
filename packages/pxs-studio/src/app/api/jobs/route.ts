@@ -58,6 +58,7 @@ export async function POST(req: Request) {
     aspectRatio?: string;
     audio?: boolean;
     startFrame?: string;
+    keyframes?: { url: string; atSec: number }[];
     references?: string[];
     durationSec?: number;
   };

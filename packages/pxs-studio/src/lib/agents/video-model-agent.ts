@@ -196,6 +196,8 @@ export interface VideoRoutingRequest {
   startFrame?: string;
   /** The still it LANDS on — with startFrame, this is keyframe interpolation. */
   endFrame?: string;
+  /** Stills pinned to a moment inside the shot (seconds). See VideoRequest.keyframes. */
+  keyframes?: { url: string; atSec: number }[];
   /** Images guiding the whole clip (character/style/objects), not a moment in it. */
   references?: string[];
   /** Reference clips and audio, for models that take them. */

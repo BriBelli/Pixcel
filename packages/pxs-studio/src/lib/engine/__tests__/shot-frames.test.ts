@@ -153,3 +153,60 @@ test('the fallback asks for the timing in words, as a clock', async () => {
   assert.match(String(input.prompt), /@Image1 at 0:02/, 'addressed by the handle the model already uses');
   assert.match(String(input.prompt), /do not hold on them/i, 'reach it and move on, not freeze there');
 });
+
+// ── MOMENTS ON THE TIMELINE ──────────────────────────────────────────────────────────────────────
+
+test('moments travel to the request in time order, whatever order they were pinned', async () => {
+  const { framesToRequest } = await import('../shot-frames');
+  const req = framesToRequest([
+    { slot: 'key', url: 'b', atSec: 3 },
+    { slot: 'start', url: 'open', atSec: 0 },
+    { slot: 'key', url: 'a', atSec: 1.5 },
+  ]);
+  assert.equal(req.startFrame, 'open');
+  assert.deepEqual(req.keyframes, [{ url: 'a', atSec: 1.5 }, { url: 'b', atSec: 3 }]);
+});
+
+test('a moment after the shot ends is REJECTED with the reason, not quietly sent', async () => {
+  const { planFrames, validateFrames } = await import('../shot-frames');
+  const { MEDIA_MODELS } = await import('../media-registry');
+  const flux = MEDIA_MODELS.find((m) => m.id === 'flux-3-video');
+  if (!flux) return;
+  // Shortening the shot strands a moment that used to fit; the user must be told it no longer does.
+  const v = validateFrames(planFrames(flux), [{ slot: 'key', url: 'late', atSec: 7 }], 5);
+  assert.equal(v.accepted.length, 0);
+  assert.match(v.rejected[0]!.reason, /after the shot ends/);
+});
+
+test('on a model WITHOUT native moments, an opening frame and moments cannot share a shot', async () => {
+  const { planFrames, validateFrames } = await import('../shot-frames');
+  // Seedance's image-to-video takes no references, and the asked-for route sends moments AS
+  // references — dropping them silently would charge for a shot that ignored them.
+  const v = validateFrames(
+    planFrames(seedance),
+    [
+      { slot: 'start', url: 'open', atSec: 0 },
+      { slot: 'key', url: 'flame', atSec: 2 },
+    ],
+    6,
+  );
+  assert.equal(v.accepted.map((f) => f.slot).join(), 'start');
+  assert.match(v.rejected[0]!.reason, /FLUX\.3/, 'and points at the model that can do both');
+});
+
+test('FLUX.3 takes an opening frame AND moments — the combination the flame shot needs', async () => {
+  const { planFrames, validateFrames } = await import('../shot-frames');
+  const { MEDIA_MODELS } = await import('../media-registry');
+  const flux = MEDIA_MODELS.find((m) => m.id === 'flux-3-video');
+  if (!flux) return;
+  const v = validateFrames(
+    planFrames(flux),
+    [
+      { slot: 'start', url: 'clean', atSec: 0 },
+      { slot: 'key', url: 'flame', atSec: 2 },
+      { slot: 'key', url: 'settle', atSec: 3.5 },
+    ],
+    5,
+  );
+  assert.equal(v.ok, true, v.rejected.map((r) => r.reason).join('; '));
+});

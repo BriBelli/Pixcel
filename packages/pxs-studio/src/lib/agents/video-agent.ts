@@ -216,6 +216,8 @@ export interface VideoAgentTurn {
     /** Frames pinned on the timeline — the shot's opening still, closing still, and references. */
     startFrame?: string;
     endFrame?: string;
+    /** Stills pinned to a moment INSIDE the shot, in seconds. */
+    keyframes?: { url: string; atSec: number }[];
     references?: string[];
     videoRefs?: string[];
     audioRefs?: string[];
@@ -243,6 +245,7 @@ export async function* runVideoAgent(frame: VideoAgentFrame, turn: VideoAgentTur
     // attached is paid for and ignored — the silent failure this whole surface exists to end.
     startFrame: turn.shot?.startFrame,
     endFrame: turn.shot?.endFrame,
+    keyframes: turn.shot?.keyframes,
     references: turn.shot?.references,
     videoRefs: turn.shot?.videoRefs,
     audioRefs: turn.shot?.audioRefs,

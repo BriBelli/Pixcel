@@ -19,12 +19,17 @@
 import type { MediaModel } from './media-registry';
 
 /** Where a pinned image sits in a shot. */
-export type FrameSlot = 'start' | 'end' | 'reference';
+/**
+ * Where a still sits in a shot. `key` is a MOMENT inside it — "this, at 2.4s" — which is what lets an
+ * event happen partway through and resolve before the clip ends, instead of being the state the clip
+ * stops in.
+ */
+export type FrameSlot = 'start' | 'end' | 'key' | 'reference';
 
 export interface ShotFrame {
   slot: FrameSlot;
   url: string;
-  /** Seconds into the shot. Meaningful for `start` (0) and `end` (duration); absent for references. */
+  /** Seconds into the shot: 0 for `start`, the duration for `end`, the chosen moment for `key`. Absent for references. */
   atSec?: number;
 }
 
@@ -104,6 +109,19 @@ export function planFrames(model: MediaModel): FramePlan {
       hint: 'The still the shot lands on. With an opening frame, the model animates between them.',
     },
     {
+      slot: 'key',
+      label: 'Moments',
+      // NATIVE: the model's own keyframe list, less the two ends (which travel in the same list).
+      // ASKED-FOR: the still rides as a reference, so it shares the reference budget.
+      capacity: kf ? Math.max(0, kf.max - 2) : Math.min(refCap, 4),
+      unavailable: !kf && refCap === 0
+        ? `${model.label} takes no keyframes and no references, so a moment cannot be pinned — try FLUX.3 Video.`
+        : undefined,
+      hint: kf
+        ? 'A still the shot passes THROUGH at a chosen second — exact, not approximate.'
+        : 'A still the shot is ASKED to reach at a chosen second. A request the model may honour, not a guarantee.',
+    },
+    {
       slot: 'reference',
       label: 'References',
       capacity: refCap,
@@ -150,12 +168,36 @@ export interface FrameValidation {
 }
 
 /** Check pinned frames against what the model offers, keeping every rejection explained. */
-export function validateFrames(plan: FramePlan, frames: ShotFrame[]): FrameValidation {
+export function validateFrames(plan: FramePlan, frames: ShotFrame[], durationSec?: number): FrameValidation {
   const accepted: ShotFrame[] = [];
   const rejected: FrameValidation['rejected'] = [];
-  const used: Record<FrameSlot, number> = { start: 0, end: 0, reference: 0 };
+  const used: Record<FrameSlot, number> = { start: 0, end: 0, key: 0, reference: 0 };
+  const hasOpening = frames.some((f) => f.slot === 'start');
 
   for (const f of frames) {
+    if (f.slot === 'key') {
+      const t = f.atSec ?? -1;
+      // A moment at 0 is the opening frame and one at the end is the closing frame — they have slots.
+      if (!(t > 0) || (durationSec != null && t >= durationSec)) {
+        rejected.push({
+          frame: f,
+          reason:
+            durationSec != null && t >= durationSec
+              ? `This moment (${t}s) falls after the shot ends at ${durationSec}s — move it earlier or lengthen the shot.`
+              : 'A moment needs a time inside the shot — after 0s and before the end.',
+        });
+        continue;
+      }
+      // The asked-for route sends moments as REFERENCES, and the image-to-video endpoint an opening
+      // frame needs takes none. Dropping them silently would charge for a shot that ignored them.
+      if (!plan.midShotKeyframes.native && hasOpening) {
+        rejected.push({
+          frame: f,
+          reason: `${plan.modelLabel} can't combine an opening frame with timed moments. Remove one, or use FLUX.3 Video, which takes both.`,
+        });
+        continue;
+      }
+    }
     const offer = plan.offers.find((o) => o.slot === f.slot);
     if (!offer || offer.capacity === 0) {
       rejected.push({ frame: f, reason: offer?.unavailable ?? `${plan.modelLabel} has no ${f.slot} slot.` });
@@ -178,14 +220,20 @@ export function validateFrames(plan: FramePlan, frames: ShotFrame[]): FrameValid
 export function framesToRequest(frames: ShotFrame[]): {
   startFrame?: string;
   endFrame?: string;
+  keyframes?: { url: string; atSec: number }[];
   references?: string[];
 } {
   const start = frames.find((f) => f.slot === 'start')?.url;
   const end = frames.find((f) => f.slot === 'end')?.url;
   const references = frames.filter((f) => f.slot === 'reference').map((f) => f.url);
+  const keyframes = frames
+    .filter((f) => f.slot === 'key' && typeof f.atSec === 'number')
+    .map((f) => ({ url: f.url, atSec: f.atSec as number }))
+    .sort((a, b) => a.atSec - b.atSec);
   return {
     ...(start ? { startFrame: start } : {}),
     ...(end ? { endFrame: end } : {}),
+    ...(keyframes.length > 0 ? { keyframes } : {}),
     ...(references.length > 0 ? { references } : {}),
   };
 }

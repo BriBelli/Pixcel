@@ -188,3 +188,20 @@ test('the adapter RECEIVES the frames the coordinator was given', async () => {
   assert.equal(seen!.endFrame, 'last.png');
   assert.deepEqual(seen!.references, ['r1.png']);
 });
+
+test('timed moments reach the model — the hop that would otherwise drop them silently', async () => {
+  // A field the coordinator forgets to forward is the worst kind of bug: the render succeeds, the
+  // user is charged, and the still they pinned at 2s was never sent.
+  let seen: VideoRequest | undefined;
+  script.set('kf', (req) => {
+    seen = req;
+    return ok('https://cdn/kf.mp4');
+  });
+  await collect(
+    coordinateVideo(
+      { intent: 'the car at speed', keyframes: [{ url: 'https://x.test/flame.png', atSec: 2 }] },
+      { catalog: [runnable('kf', 'KF')], doctrines: new Map() },
+    ),
+  );
+  assert.deepEqual(seen?.keyframes, [{ url: 'https://x.test/flame.png', atSec: 2 }]);
+});

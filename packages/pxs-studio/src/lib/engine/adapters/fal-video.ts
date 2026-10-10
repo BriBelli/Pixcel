@@ -27,6 +27,7 @@ import {
 
 /** Registry model id → the fal endpoint FAMILY (the task suffix is appended per request). */
 const ENDPOINT_FAMILY: Record<string, string> = {
+  'flux-3-video': 'blackforestlabs/flux-3',
   'seedance-2': 'bytedance/seedance-2.0',
   'seedance-2.5': 'bytedance/seedance-2.5',
   'kling-3': 'fal-ai/kling-video/v3/pro',
@@ -37,12 +38,13 @@ const ENDPOINT_FAMILY: Record<string, string> = {
  *  Kling takes `multi_prompt`/`shot_type` for sequences and a negative prompt; Seedance takes
  *  resolution tiers and up to 9 index-addressable references. One planner per dialect. */
 const DIALECT: Record<string, Dialect> = {
+  'flux-3-video': 'flux3',
   'seedance-2': 'seedance',
   'seedance-2.5': 'seedance',
   'kling-3': 'kling',
   'happy-horse-1.1': 'happyhorse',
 };
-type Dialect = 'seedance' | 'kling' | 'happyhorse';
+type Dialect = 'seedance' | 'kling' | 'happyhorse' | 'flux3';
 
 /** Happy Horse takes duration as an INTEGER (Seedance and Kling both take a string) and offers the
  *  widest aspect range in the roster. A wrong TYPE is a 422, so the dialects cannot be merged. */
@@ -102,6 +104,7 @@ export function planFalRequest(
 ): { path: string; input: Record<string, unknown> } {
   if (dialect === 'kling') return planKling(req, family);
   if (dialect === 'happyhorse') return planHappyHorse(req, family);
+  if (dialect === 'flux3') return planFlux3(req, family);
   return planSeedance(req, family);
 }
 
@@ -158,12 +161,62 @@ function planKling(req: VideoRequest, family: string): { path: string; input: Re
   return { path: `${family}/text-to-video`, input };
 }
 
+/**
+ * FLUX.3 — the only family here that takes a frame at a CHOSEN MOMENT.
+ *
+ * `keyframes` is a list of { image_url, frame_index }. The seam speaks in SECONDS because a caller
+ * should not have to know a model's frame rate; the conversion to an index happens here, where the
+ * rate is a fact about this model rather than a number the UI had to guess.
+ *
+ * Verified live 2026-10-09: duration is an INTEGER 5-20, resolution '720p' or '1080p'.
+ */
+function planFlux3(req: VideoRequest, family: string): { path: string; input: Record<string, unknown> } {
+  const FPS = 24;
+  const input: Record<string, unknown> = { prompt: req.prompt };
+  if (req.resolution === '720p' || req.resolution === '1080p') input.resolution = req.resolution;
+  // 5-20, integers only — anything else is a hard rejection rather than a clamp.
+  input.duration = Math.max(5, Math.min(20, Math.round(req.durationSec ?? 5)));
+
+  // Opening and closing stills are just keyframes at the two ends, so one list expresses all of it.
+  const timed = [...(req.keyframes ?? [])];
+  if (req.startFrame) timed.unshift({ url: req.startFrame, atSec: 0 });
+  if (req.endFrame) timed.push({ url: req.endFrame, atSec: req.durationSec ?? 5 });
+
+  if (timed.length > 0) {
+    const seen = new Set<number>();
+    const keyframes = timed
+      .sort((a, b) => a.atSec - b.atSec)
+      .map((k) => ({ image_url: k.url, frame_index: Math.max(0, Math.round(k.atSec * FPS)) }))
+      // Two stills on the SAME index is a contradiction the API cannot resolve — keep the first.
+      .filter((k) => (seen.has(k.frame_index) ? false : (seen.add(k.frame_index), true)));
+    input.keyframes = keyframes;
+    return { path: `${family}/keyframes-to-video`, input };
+  }
+  return { path: `${family}/text-to-video`, input };
+}
+
 function planSeedance(req: VideoRequest, family: string): { path: string; input: Record<string, unknown> } {
   const input: Record<string, unknown> = { prompt: req.prompt };
   if (req.aspectRatio && ASPECTS.has(req.aspectRatio)) input.aspect_ratio = req.aspectRatio;
   if (req.resolution && RESOLUTIONS.has(req.resolution)) input.resolution = req.resolution;
   if (typeof req.audio === 'boolean') input.generate_audio = req.audio;
   input.duration = clampDuration(req.durationSec, family);
+
+  // THE FALLBACK for a model with no keyframe parameter: attach the still as a REFERENCE and ask
+  // for its timing in words. Seedance already addresses references positionally (@Image1), so the
+  // timing rides on that same handle. It is a request the model may honour, never a guarantee —
+  // which is exactly how `planFrames` describes it, so the UI can say so too.
+  const timed = req.keyframes ?? [];
+  if (timed.length > 0 && !req.startFrame) {
+    const urls = timed.map((k) => k.url).slice(0, MAX_REFERENCES);
+    input.image_urls = urls;
+    const cues = timed
+      .slice(0, MAX_REFERENCES)
+      .map((k, i) => `@Image${i + 1} at ${fmtClock(k.atSec)}`)
+      .join(', ');
+    input.prompt = `${req.prompt}\n\nTiming: ${cues}. Reach each of these at the moment given, then carry on — do not hold on them.`;
+    return { path: `${family}/reference-to-video`, input };
+  }
 
   // A start frame — plus an end frame makes it keyframe interpolation.
   if (req.startFrame) {
@@ -193,6 +246,12 @@ function planSeedance(req: VideoRequest, family: string): { path: string; input:
  * media without naming it is the silent-failure case: the request succeeds, the reference is ignored,
  * and nothing reports why. Returns '' when there is nothing attached.
  */
+/** Seconds as a timestamp a model reads as time ("0:02"), not as a bare number it may treat as count. */
+export function fmtClock(sec: number): string {
+  const s = Math.max(0, Math.round(sec));
+  return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
+}
+
 export function seedanceLegend(images: number, videos: number, audio: number): string {
   const parts: string[] = [];
   for (let i = 1; i <= images; i++) parts.push(`@Image${i}`);

@@ -34,6 +34,18 @@ export interface VideoRequest {
   startFrame?: string;
   /** The still to land ON — with `startFrame`, this is keyframe interpolation. */
   endFrame?: string;
+  /**
+   * Stills pinned to a MOMENT inside the shot.
+   *
+   * An opening and a closing frame can only express a ramp: whatever you pin to the end is the state
+   * the clip stops in. A flame pinned there is a flame the shot cuts away from mid-pop — it can
+   * never flare and settle. These say "this, at this second", so an event can happen partway through
+   * and resolve before the clip ends.
+   *
+   * Seconds, not frame indices: the caller should not have to know the model's frame rate. The
+   * adapter converts using the rate the registry records.
+   */
+  keyframes?: { url: string; atSec: number }[];
   /** Reference images guiding the whole clip (character/style/objects), NOT frames. */
   references?: string[];
   /**

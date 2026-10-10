@@ -50,7 +50,28 @@ export interface FramePlan {
    * both exist they can be approximated by chaining segments, which is a WORKFLOW we would run, not
    * a parameter we would pass. Stated so the UI never implies a control that does not exist.
    */
-  midShotKeyframes: { supported: false; technique?: string; why: string };
+  /**
+   * Frames at a CHOSEN MOMENT, not just an opening and a closing still.
+   *
+   * This was hardcoded `supported: false` for every model — true when written, and a hand-typed
+   * claim about what models cannot do, which is the kind of assertion that rots silently. FLUX.3
+   * takes a list of stills each pinned to a frame index, so it is now read from the registry.
+   *
+   * When a model has no native support the honest answer is not "impossible": the image can be
+   * attached as a reference and the timing ASKED FOR in the prompt. That is a request, not a
+   * guarantee, and `native` is what tells the two apart.
+   */
+  midShotKeyframes: {
+    supported: boolean;
+    /** True only when the model takes frames at an index. False = the prompt-addressed fallback. */
+    native: boolean;
+    /** How many stills it accepts, when native. */
+    max?: number;
+    /** Frames per second — what turns a timestamp into the index the API wants. */
+    fps?: number;
+    technique?: string;
+    why: string;
+  };
 }
 
 /** What the model's own registry record says it accepts. */
@@ -60,6 +81,7 @@ export function planFrames(model: MediaModel): FramePlan {
   const motion = new Set(v?.motion ?? []);
 
   // A start frame is the 'image-to-video' capability; an end frame is 'keyframe' interpolation.
+  const kf = v?.keyframes;
   const startCap = motion.has('image-to-video') || motion.has('keyframe') ? 1 : 0;
   const endCap = motion.has('keyframe') ? 1 : 0;
 
@@ -97,15 +119,25 @@ export function planFrames(model: MediaModel): FramePlan {
     modelLabel: model.label,
     offers,
     supportsInterpolation,
-    midShotKeyframes: {
-      supported: false,
-      technique: supportsInterpolation
-        ? 'Split the beat into segments and chain them — each segment ends on the still the next one opens with.'
-        : undefined,
-      why: supportsInterpolation
-        ? `${model.label} interpolates between an opening and closing frame, but takes no frame at an arbitrary time.`
-        : `${model.label} takes no mid-shot keyframes.`,
-    },
+    midShotKeyframes: kf
+      ? {
+          supported: true,
+          native: true,
+          max: kf.max,
+          fps: kf.fps,
+          why: `${model.label} takes up to ${kf.max} stills, each pinned to a moment in the shot — so an event can happen partway through and resolve before the clip ends.`,
+        }
+      : {
+          // NOT "impossible" — just not guaranteed. The image can ride along as a reference with the
+          // timing asked for in words, which some models honour and none promise.
+          supported: true,
+          native: false,
+          technique:
+            'Attach the still as a reference and ask for its timing in the prompt ("the exhaust flares at 0:02, settled by 0:03"). The model may honour it; it is a request, not a parameter.',
+          why: supportsInterpolation
+            ? `${model.label} interpolates between an opening and closing frame but takes no frame at a chosen time, so mid-shot timing has to be asked for in words.`
+            : `${model.label} takes no keyframes at all, so mid-shot timing has to be asked for in words.`,
+        },
   };
 }
 

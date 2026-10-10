@@ -35,6 +35,23 @@ export interface VideoCriteria {
   cameraControls: string[];
   /** Reference images accepted (start frame / character / style), if any. */
   maxReferenceImages?: number;
+  /**
+   * FRAMES AT A CHOSEN MOMENT — not just an opening and a closing still.
+   *
+   * `shot-frames.ts` hardcoded `midShotKeyframes: { supported: false }` for every model, which was
+   * true when it was written and is a hand-typed claim about what models cannot do — the exact
+   * shape of assertion this registry exists to stop making. FLUX.3's keyframes-to-video takes a
+   * LIST of `{ image_url, frame_index }`, so the claim is now simply wrong.
+   *
+   * It matters for real shots. With only a start and an end, a flame pinned to the closing frame is
+   * a flame the clip CUTS AWAY FROM mid-pop; it can never flare and settle. Brian: "Have the end
+   * frame being a flame make the ending cut mid flame and not allow a smooth flame to end."
+   *
+   * `max` is how many the model accepts (opening and closing included where they are expressed the
+   * same way). Absent → this model takes no frame at an arbitrary time, and the honest fallback is
+   * to ASK for the timing in the prompt, which a model may or may not honour.
+   */
+  keyframes?: { max: number; /** Frames per second, for turning a timestamp into an index. */ fps: number };
   /** (low, high) USD per second of output — the spend band across the model's whole range. */
   costPerSecondUsd?: [number, number];
   /**
@@ -161,6 +178,33 @@ const KLING_DOCS: ModelDoc[] = [
  * not a route we can spend on. A model becomes routable when it has rendered, never before.
  */
 const VIDEO_MODELS: MediaModel[] = [
+  {
+    // FLUX.3 VIDEO — the only model here that takes a frame at a CHOSEN MOMENT. Verified live
+    // 2026-10-09 against blackforestlabs/flux-3/keyframes-to-video: `keyframes` is a list of
+    // { image_url, frame_index }, duration 5-20s (integers), 720p or 1080p.
+    //
+    // This is what makes a flame POP and SETTLE instead of being frozen at the cut. With only an
+    // opening and a closing still, anything you pin to the end is something the shot cuts away from
+    // mid-event.
+    id: 'flux-3-video', label: 'FLUX.3 Video (fal)', provider: 'fal', envKey: 'FAL_API_KEY',
+    providerModelId: 'blackforestlabs/flux-3/text-to-video',
+    modalities: ['video'], tier: 3, sourceRefreshedAt: '2026-10-09',
+    brief:
+      'FLUX.3 Video — the keyframe model. Takes a LIST of stills each pinned to a frame index, so an ' +
+      'event can happen partway through a shot and resolve before it ends, which an opening/closing ' +
+      'pair cannot express. 5-20 second clips at 720p or 1080p. Verified live 2026-10-09; craft ' +
+      'profile awaits the research pass.',
+    video: {
+      maxDurationSec: 20, resolutions: ['720p', '1080p'], nativeAudio: false,
+      motion: ['text', 'image-to-video', 'keyframe'],
+      cameraControls: ['pan', 'tilt', 'dolly', 'tracking'],
+      maxReferenceImages: 10,
+      // Frame INDEX, so a timestamp needs the frame rate to become one.
+      keyframes: { max: 10, fps: 24 },
+      costPerSecondUsd: [0.08, 0.2],
+      promptFormula: VIDEO_FORMULA,
+    },
+  },
   {
     id: 'seedance-2.5', label: 'Seedance 2.5 (ByteDance)', provider: 'fal', envKey: 'FAL_API_KEY',
     providerModelId: 'bytedance/seedance-2.5/text-to-video',

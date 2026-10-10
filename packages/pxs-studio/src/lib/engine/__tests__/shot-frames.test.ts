@@ -37,14 +37,15 @@ test('an unavailable slot carries a REASON — never a silently missing control'
   assert.match(plan.offers.find((o) => o.slot === 'reference')!.unavailable!, /no reference images/i);
 });
 
-test('MID-SHOT KEYFRAMES ARE NOT SUPPORTED — stated, with the technique when one exists', () => {
-  // The headline capability people expect from demos. No wired model takes a frame at an arbitrary
-  // time, and implying otherwise would be a control the engine cannot honour.
+test('a model without the parameter is honest about HOW mid-shot timing works there', () => {
+  // This used to assert `supported: false` for every model, because no wired model took a frame at a
+  // chosen time. That was true when written and became a hand-typed claim about what models cannot
+  // do — FLUX.3 takes a list of stills pinned to frame indices. The capability is now READ, and the
+  // distinction that matters is native (a parameter) versus asked-for (a request).
   const plan = planFrames(seedance);
-  assert.equal(plan.midShotKeyframes.supported, false);
-  assert.match(plan.midShotKeyframes.why, /arbitrary time/i);
-  // Interpolating models can approximate it by chaining — a workflow, not a parameter.
-  assert.match(plan.midShotKeyframes.technique!, /chain/i);
+  assert.equal(plan.midShotKeyframes.native, false, 'Seedance has no keyframe parameter');
+  assert.equal(plan.midShotKeyframes.supported, true, 'but the timing can still be asked for');
+  assert.match(plan.midShotKeyframes.why, /words/i, 'and the user is told it is words, not a control');
 });
 
 test('over-filling a slot is rejected with the real limit, and the rest still fly', () => {
@@ -78,4 +79,77 @@ test('frames map onto the request fields the video seam already speaks', () => {
   assert.deepEqual(req.references, ['r1.png', 'r2.png']);
   // Nothing pinned → nothing sent, rather than empty fields the provider must reject.
   assert.deepEqual(framesToRequest([]), {});
+});
+
+// ── FRAMES AT A CHOSEN MOMENT ────────────────────────────────────────────────────────────────────
+// Brian: "we should be able to add in-between images too... even at what time within the timed
+// duration. Have the end frame being a flame make the ending cut mid flame and not allow a smooth
+// flame to end."
+//
+// He was right, and `midShotKeyframes: { supported: false }` was hardcoded for every model — true
+// when written, and a hand-typed claim about what models cannot do. FLUX.3 takes a list of stills
+// each pinned to a frame index, so the claim had rotted.
+
+test('a model that takes timed stills says so, natively', async () => {
+  const { planFrames } = await import('../shot-frames');
+  const { MEDIA_MODELS } = await import('../media-registry');
+  const flux = MEDIA_MODELS.find((m) => m.id === 'flux-3-video');
+  if (!flux) return; // not registered in this build
+  const plan = planFrames(flux);
+  assert.equal(plan.midShotKeyframes.supported, true);
+  assert.equal(plan.midShotKeyframes.native, true, 'a parameter, not a polite request');
+  assert.ok((plan.midShotKeyframes.max ?? 0) > 2, 'more than just an opening and a closing still');
+  assert.ok(plan.midShotKeyframes.fps, 'a timestamp needs a frame rate to become an index');
+});
+
+test('a model without the parameter offers the TECHNIQUE, not a refusal', async () => {
+  const { planFrames } = await import('../shot-frames');
+  const { MEDIA_MODELS } = await import('../media-registry');
+  const seedance = MEDIA_MODELS.find((m) => m.id === 'seedance-2.5');
+  if (!seedance) return;
+  const plan = planFrames(seedance);
+  assert.equal(plan.midShotKeyframes.native, false, 'it has no keyframe parameter');
+  assert.equal(plan.midShotKeyframes.supported, true, 'but mid-shot timing is still ASKABLE');
+  assert.match(plan.midShotKeyframes.technique ?? '', /prompt/i);
+  assert.match(plan.midShotKeyframes.why, /words/i, 'and the user must be told it is a request');
+});
+
+test('FLUX.3 turns seconds into frame indices, in order, without collisions', async () => {
+  const { planFalRequest } = await import('../adapters/fal-video');
+  const { input, path } = planFalRequest(
+    {
+      modelId: 'flux-3-video',
+      prompt: 'the car at speed',
+      durationSec: 6,
+      resolution: '1080p',
+      startFrame: 'https://x.test/open.png',
+      keyframes: [
+        { url: 'https://x.test/flame.png', atSec: 2 },
+        { url: 'https://x.test/settle.png', atSec: 4 },
+      ],
+    } as never,
+    'blackforestlabs/flux-3',
+    'flux3',
+  );
+  assert.match(path, /keyframes-to-video/);
+  const kf = input.keyframes as { image_url: string; frame_index: number }[];
+  assert.deepEqual(kf.map((k) => k.frame_index), [0, 48, 96], 'seconds × 24fps, opening frame included');
+  assert.equal(input.duration, 6, 'integer seconds — the API rejects anything else');
+});
+
+test('the fallback asks for the timing in words, as a clock', async () => {
+  const { planFalRequest } = await import('../adapters/fal-video');
+  const { input, path } = planFalRequest(
+    {
+      modelId: 'seedance-2.5',
+      prompt: 'the car at speed',
+      durationSec: 6,
+      keyframes: [{ url: 'https://x.test/flame.png', atSec: 2 }],
+    } as never,
+    'bytedance/seedance-2.5',
+    'seedance',
+  );
+  assert.match(path, /reference-to-video/, 'the still rides along as a reference');
+  assert.match(String(input.prompt), /@Image1 at 0:02/, 'addressed by the handle the model already uses');
+  assert.match(String(input.prompt), /do not hold on them/i, 'reach it and move on, not freeze there');
 });
